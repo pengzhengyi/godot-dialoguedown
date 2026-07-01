@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DialogueSystem</RootNamespace>
+    <AssemblyName>DialogueSystem</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <!-- Engine-agnostic: no Godot reference so the core stays reusable and unit-testable. -->
+    <Description>Engine-agnostic branching dialogue library (graph, runner, effects, conditions).</Description>
+  </PropertyGroup>
+
+</Project>

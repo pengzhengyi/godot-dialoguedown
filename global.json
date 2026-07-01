@@ -1,0 +1,8 @@
+{
+  "$comment": "Baseline .NET SDK for reproducible builds. rollForward=latestMajor accepts this or any newer installed SDK, so it won't block contributors. Bump 'version' when you intentionally raise the floor. Godot 4.6 C# targets net8.0.",
+  "sdk": {
+    "version": "8.0.0",
+    "rollForward": "latestMajor",
+    "allowPrerelease": false
+  }
+}

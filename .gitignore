@@ -1,0 +1,23 @@
+# --- .NET build artifacts ---
+bin/
+obj/
+*.user
+*.suo
+
+# --- Test / coverage ---
+[Tt]est[Rr]esult*/
+*.coverage
+*.coverage.*
+coverage*.json
+coverage*.xml
+coverage*.cobertura.xml
+TestResults/
+
+# --- Rider / VS / VS Code ---
+.idea/
+.vs/
+*.DotSettings.user
+
+# --- macOS ---
+.DS_Store
+._*

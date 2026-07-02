@@ -16,4 +16,8 @@
     <InternalsVisibleTo Include="DialogueSystem.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.3.2" />
+  </ItemGroup>
+
 </Project>

@@ -19,6 +19,13 @@ adapter over this library's interfaces.
 dotnet test DialogueSystem.sln
 ```
 
+## Documentation
+
+- [Overview](docs/Overview.md) — architecture, representations, and current
+  implementation status.
+- [Script language specification](docs/Script%20Language/Script%20Language%20DSL%20Specification.md)
+  — proposed writer-facing dialogue syntax.
+
 ## Design intent
 
 - **Data:** dialogue graph as nodes + choices (id-referenced edges).

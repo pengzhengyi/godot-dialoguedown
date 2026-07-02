@@ -1,0 +1,25 @@
+{
+  // Recommended extensions for the DialogueSystem library.
+  // This is an engine-agnostic C# (.NET) class library, so Godot-specific and
+  // pixel-art extensions are intentionally omitted. Keep lean & vetted; mirror
+  // shared docs/quality tooling with the Game hub game projects.
+  "recommendations": [
+    // --- C# (.NET) ---
+    "ms-dotnettools.csharp",           // C# language support (Roslyn)
+    "ms-dotnettools.csdevkit",         // Solution + Test Explorer (surfaces `dotnet test` in UI). Free for personal/learning use; note: license-restricted for orgs.
+
+    // --- Honor shared config & quality ---
+    "editorconfig.editorconfig",       // applies the shipped .editorconfig
+    "streetsidesoftware.code-spell-checker",
+    "aaron-bond.better-comments",      // colored TODO/!/?/* comment tags
+    "oderwat.indent-rainbow",
+
+    // --- Git & docs ---
+    "eamodio.gitlens",
+    "yzhang.markdown-all-in-one",      // for docs/ notes
+    "MermaidChart.vscode-mermaid-chart", // official Mermaid editing + preview (syntax, pan/zoom) for docs/ design diagrams
+    "esbenp.prettier-vscode",          // format json/md/yaml
+    "vscode-icons-team.vscode-icons"
+  ],
+  "unwantedRecommendations": []
+}

@@ -1,36 +1,39 @@
 using DialogueSystem.Markdown;
+using Ast = DialogueSystem.Tests.Support.MarkdownAstFactory;
 
 namespace DialogueSystem.Tests.Markdown;
 
 public sealed class TextInlineTests
 {
-    private readonly SourceSpan _anySpan = new(0, 1);
-
     [Fact]
     public void Constructor_ExposesTextAndSpan_AndIsInline()
     {
-        var inline = new TextInline("hello", _anySpan);
+        var span = Ast.Span();
+
+        var inline = new TextInline("hello", span);
 
         Assert.Equal("hello", inline.Text);
-        Assert.Equal(_anySpan, inline.Span);
+        Assert.Equal(span, inline.Span);
         Assert.IsAssignableFrom<MarkdownInline>(inline);
     }
 
     [Fact]
     public void Constructor_NullText_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new TextInline(null!, _anySpan));
+        Assert.Throws<ArgumentNullException>(() => new TextInline(null!, Ast.Span()));
     }
 
     [Fact]
     public void Constructor_EmptyText_Throws()
     {
-        Assert.Throws<ArgumentException>(() => new TextInline(string.Empty, _anySpan));
+        Assert.Throws<ArgumentException>(() => new TextInline(string.Empty, Ast.Span()));
     }
 
     [Fact]
     public void Equality_SameTextAndSpan_AreEqual()
     {
-        Assert.Equal(new TextInline("hi", _anySpan), new TextInline("hi", _anySpan));
+        var span = Ast.Span();
+
+        Assert.Equal(new TextInline("hi", span), new TextInline("hi", span));
     }
 }

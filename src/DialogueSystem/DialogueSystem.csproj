@@ -11,4 +11,9 @@
     <Description>Engine-agnostic branching dialogue library (graph, runner, effects, conditions).</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Expose internal types (AST nodes, mapper, parser) to the test project. -->
+    <InternalsVisibleTo Include="DialogueSystem.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -68,42 +68,42 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
 
 ## Functionality checklist
 
-- [ ] Parse an arbitrary string into a `MarkdownDocument` without throwing on
+- [x] Parse an arbitrary string into a `MarkdownDocument` without throwing on
       ordinary prose.
-- [ ] Model ATX headings (`#`..`######`) with level and inline content.
-- [ ] Model paragraphs with inline content.
-- [ ] Model unordered and ordered lists, including **nested** lists (choice
+- [x] Model ATX headings (`#`..`######`) with level and inline content.
+- [x] Model paragraphs with inline content.
+- [x] Model unordered and ordered lists, including **nested** lists (choice
       nesting depends on this).
-- [ ] Model list items as containers of blocks.
-- [ ] Expose Markdown **links** (`[label](target)`) as inline nodes (jumps need
+- [x] Model list items as containers of blocks.
+- [x] Expose Markdown **links** (`[label](target)`) as inline nodes (jumps need
       the target later).
-- [ ] Expose **inline code spans** (`` `...` ``) with their raw inner text
+- [x] Expose **inline code spans** (`` `...` ``) with their raw inner text
       (queries/commands are parsed later).
-- [ ] **Recognize and strip HTML comments** (`<!-- ... -->`) so they never leak
+- [x] **Recognize and strip HTML comments** (`<!-- ... -->`) so they never leak
       into speech; they are discarded, not modeled (D5).
-- [ ] Keep speech/text **raw**: emphasis and other styling markers are **not**
+- [x] Keep speech/text **raw**: emphasis and other styling markers are **not**
       interpreted; their literal characters survive.
-- [ ] Attach a **source span** (offset/line/column) to every node for later
-      diagnostics.
-- [ ] Recognize `#`..`######` **only at line start** as headings; a `#` elsewhere
+- [x] Attach a **source span** (start offset + length) to every node for later
+      diagnostics; a line/column can be derived from an offset downstream if needed.
+- [x] Recognize `#`..`######` **only at line start** as headings; a `#` elsewhere
       in a line stays literal text (tag semantics are decided downstream).
-- [ ] Accept every list marker (`-`, `+`, `*`, and ordered `1.` / `1)`) as a list;
+- [x] Accept every list marker (`-`, `+`, `*`, and ordered `1.` / `1)`) as a list;
       preserve the ordered flag but do not reinterpret ordered vs unordered here.
-- [ ] Preserve in-paragraph **line breaks** as `LineBreak` nodes, keeping the
+- [x] Preserve in-paragraph **line breaks** as `LineBreak` nodes, keeping the
       **hard vs soft** distinction (two trailing spaces or a backslash is hard).
       Speech-boundary meaning is assigned downstream, not here (D7).
-- [ ] Behave deterministically on empty input, whitespace-only input, and mixed
+- [x] Behave deterministically on empty input, whitespace-only input, and mixed
       line endings.
 
 ## Interfaces and abstractions
 
-| Type                            | Kind                              | Responsibility                                                                                                                         | Collaborators                      |
-| ------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `IMarkdownParser`               | `internal interface`              | Port: `MarkdownDocument Parse(string source)`. The stable seam the rest of the compiler depends on.                                    | consumed by the transpiler         |
-| `MarkdigMarkdownParser`         | `internal sealed class`           | Adapter: configures a narrowed Markdig pipeline and converts Markdig's tree to our AST.                                                | Markdig, `MarkdigToMarkdownAstConverter` |
-| `MarkdigToMarkdownAstConverter` | `internal sealed class`           | Pure translation of Markdig nodes into our AST (no I/O). Holds the source per parse so unmodeled constructs flatten to raw text (D6). Isolated so it is unit-testable and the Markdig dependency is contained. | Markdig types → our AST            |
-| `MarkdownDocument` + node types | `internal record`                 | Our minimal, immutable Markdown AST (see next section).                                                                                | produced here, consumed downstream |
-| `SourceSpan`                    | `internal readonly record struct` | Offset/line/column range for diagnostics.                                                                                              | every node                         |
+| Type | Kind | Responsibility | Collaborators |
+| --- | --- | --- | --- |
+| `IMarkdownParser` | `internal interface` | Port: `MarkdownDocument Parse(string source)`. The stable seam the rest of the compiler depends on. | consumed by the transpiler |
+| `MarkdigMarkdownParser` | `internal sealed class` | Adapter: configures a narrowed Markdig pipeline and converts Markdig's tree to our AST. | Markdig, `MarkdigToMarkdownAstConverter` |
+| `MarkdigToMarkdownAstConverter` | `internal sealed class` | Pure translation of Markdig nodes into our AST (no I/O). Holds the source per parse so unmodeled constructs flatten to raw text (D6). Isolated so it is unit-testable and the Markdig dependency is contained. | Markdig types → our AST |
+| `MarkdownDocument` + node types | `internal record` | Our minimal, immutable Markdown AST (see next section). | produced here, consumed downstream |
+| `SourceSpan` | `internal readonly record struct` | Start-offset + length range into the source for diagnostics. | every node |
 
 All types are `internal`; tests reach them via `InternalsVisibleTo` (see
 [Testability](#testability)). The public surface of the library is unchanged by

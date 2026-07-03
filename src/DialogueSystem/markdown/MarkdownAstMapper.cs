@@ -1,8 +1,11 @@
+using System.Text;
 using MarkdigBlock = Markdig.Syntax.Block;
+using MarkdigCodeInline = Markdig.Syntax.Inlines.CodeInline;
 using MarkdigContainerInline = Markdig.Syntax.Inlines.ContainerInline;
 using MarkdigDocument = Markdig.Syntax.MarkdownDocument;
 using MarkdigHeadingBlock = Markdig.Syntax.HeadingBlock;
 using MarkdigInline = Markdig.Syntax.Inlines.Inline;
+using MarkdigLinkInline = Markdig.Syntax.Inlines.LinkInline;
 using MarkdigLiteralInline = Markdig.Syntax.Inlines.LiteralInline;
 using MarkdigParagraphBlock = Markdig.Syntax.ParagraphBlock;
 using MarkdigSpan = Markdig.Syntax.SourceSpan;
@@ -57,9 +60,32 @@ internal sealed class MarkdownAstMapper
     private static MarkdownInline MapInline(MarkdigInline inline) => inline switch
     {
         MarkdigLiteralInline literal => new TextInline(literal.Content.ToString(), MapSpan(literal.Span)),
+        MarkdigLinkInline link when !link.IsImage => MapLink(link),
+        MarkdigCodeInline code => new CodeSpanInline(code.Content, MapSpan(code.Span)),
         _ => throw new NotSupportedException(
             $"Markdown inline '{inline.GetType().Name}' is not yet supported."),
     };
+
+    private static LinkInline MapLink(MarkdigLinkInline link) =>
+        // A parsed inline link always has a URL (empty string when omitted), never null.
+        new(link.Url!, FlattenLabel(link), MapSpan(link.Span));
+
+    private static string FlattenLabel(MarkdigContainerInline label)
+    {
+        var text = new StringBuilder();
+        foreach (var inline in label)
+        {
+            if (inline is not MarkdigLiteralInline literal)
+            {
+                throw new NotSupportedException(
+                    $"Link label contains unsupported inline '{inline.GetType().Name}'.");
+            }
+
+            text.Append(literal.Content.ToString());
+        }
+
+        return text.ToString();
+    }
 
     private static SourceSpan MapSpan(MarkdigSpan span) => new(span.Start, span.Length);
 }

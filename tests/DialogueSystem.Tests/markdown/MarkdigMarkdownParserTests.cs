@@ -97,9 +97,91 @@ public sealed class MarkdigMarkdownParserTests
     }
 
     [Fact]
-    public void Parse_InlineNotYetSupported_Throws()
+    public void Parse_Link_ProducesLinkInlineWithTargetAndLabel()
     {
-        // A code span is not mapped yet, so it fails loudly for now.
-        Assert.Throws<NotSupportedException>(() => _parser.Parse("`code`"));
+        var document = _parser.Parse("[Play tennis](#play-tennis)");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        var link = AssertSingleInline<LinkInline>(paragraph.Inlines);
+        Assert.Equal("#play-tennis", link.Target);
+        Assert.Equal("Play tennis", link.Label);
+    }
+
+    [Fact]
+    public void Parse_LinkLabelWithEmphasisMarkers_FlattensToRawText()
+    {
+        // Emphasis is disabled, so markers in a label stay literal in the flattened text.
+        var document = _parser.Parse("[Play *tennis*](#x)");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        var link = AssertSingleInline<LinkInline>(paragraph.Inlines);
+        Assert.Equal("#x", link.Target);
+        Assert.Equal("Play *tennis*", link.Label);
+    }
+
+    [Fact]
+    public void Parse_LinkWithEmptyTarget_IsAccepted()
+    {
+        // Syntactically valid; an empty jump target is rejected later, not here.
+        var document = _parser.Parse("[label]()");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        var link = AssertSingleInline<LinkInline>(paragraph.Inlines);
+        Assert.Equal(string.Empty, link.Target);
+        Assert.Equal("label", link.Label);
+    }
+
+    [Fact]
+    public void Parse_CodeSpan_ProducesCodeSpanInlineWithRawContent()
+    {
+        var document = _parser.Parse("`\"Alice.FavoriteColor\"`");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        var code = AssertSingleInline<CodeSpanInline>(paragraph.Inlines);
+        Assert.Equal("\"Alice.FavoriteColor\"", code.Content);
+    }
+
+    [Fact]
+    public void Parse_CodeSpanWithMarkers_KeepsRawContent()
+    {
+        // Anything inside a code span is verbatim, including would-be styling markers.
+        var document = _parser.Parse("`it *stays* raw`");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        var code = AssertSingleInline<CodeSpanInline>(paragraph.Inlines);
+        Assert.Equal("it *stays* raw", code.Content);
+    }
+
+    [Fact]
+    public void Parse_WhitespaceOnlyCodeSpan_IsAccepted()
+    {
+        // Syntactically valid; an empty/whitespace command is rejected later, not here.
+        var document = _parser.Parse("` `");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        var code = AssertSingleInline<CodeSpanInline>(paragraph.Inlines);
+        Assert.Equal(" ", code.Content);
+    }
+
+    [Fact]
+    public void Parse_LinkWithFormattedLabel_Throws()
+    {
+        // Jump labels are expected to be plain text; a formatted label (here a
+        // code span inside the label) is not supported.
+        Assert.Throws<NotSupportedException>(() => _parser.Parse("[a `b` c](#x)"));
+    }
+
+    [Fact]
+    public void Parse_Image_NotSupported_Throws()
+    {
+        // Images are not jumps; they will flatten to text later, so they throw now.
+        Assert.Throws<NotSupportedException>(() => _parser.Parse("![alt](image.png)"));
+    }
+
+    [Fact]
+    public void Parse_SoftLineBreak_NotSupported_Throws()
+    {
+        // Multiple lines in one paragraph (a soft break) are handled in a later slice.
+        Assert.Throws<NotSupportedException>(() => _parser.Parse("line one\nline two"));
     }
 }

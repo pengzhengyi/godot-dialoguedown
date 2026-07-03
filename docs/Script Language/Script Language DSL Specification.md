@@ -116,6 +116,7 @@ Mark a speaker as the default speaker with the reserved `##default` tag:
 
 ```markdown
 Narrator @narrator ##default: The story begins.
+
 This line is also spoken by Narrator.
 ```
 
@@ -151,8 +152,11 @@ Whitespace around the colon is flexible for author comfort:
 
 ```markdown
 Alice:Hello, Bob!
+
 Alice :Hello, Bob!
+
 Alice: Hello, Bob!
+
 Alice : Hello, Bob!
 ```
 
@@ -181,8 +185,11 @@ Examples:
 
 ```markdown
 Alice @A #main: Hello, Bob!
+
 Alice #mood=happy: What a beautiful day.
+
 Alice #"speaker tone"="warm": I'm glad to see you.
+
 Narrator @narrator ##default: The story begins.
 ```
 
@@ -207,6 +214,7 @@ Examples:
 
 ```markdown
 Alice: Hello, Bob!
+
 @A: Hello, Bob!
 ```
 
@@ -243,17 +251,46 @@ author notes.
 
 ```markdown
 Alice @A #main: Hello, Bob! <!-- Alice speaks in a warm tone. -->
+
 Bob @B #npc: Hello, Alice!
 ```
 
 ### Succession
 
 When one text line follows another, the second line is the only successor of the
-first line.
+first line. Separate successive speeches with a **blank line** so that each
+speech is its own Markdown paragraph.
 
 ```markdown
 Alice @A #main: Hello, Bob!
+
 Bob @B #npc: Hello, Alice!
+```
+
+The script language follows standard Markdown line-break rules, so a Markdown
+preview groups lines into speeches exactly as the compiler does:
+
+- A **blank line** starts a new speech. This is the primary, most readable way to
+  separate successive speeches.
+- A **soft break** (a plain newline with no blank line) keeps both lines in the
+  same speech. Use it to wrap one long speech across several source lines.
+- A **hard break** starts a new speech without a blank line, for a compact
+  layout. Make a break hard in either of the two standard Markdown ways: end the
+  line with two or more trailing spaces, or end it with a backslash (`\`).
+
+A soft break wraps a single speech across source lines; it is still one speech:
+
+```markdown
+Alice: This is a single long speech that the author wrapped across
+several source lines for readability. It is still spoken as one speech.
+```
+
+A hard break separates two speeches without a blank line. The trailing backslash
+below is one of the two hard-break forms; two trailing spaces is the other:
+
+```markdown
+Alice: Hello, Bob!\
+Bob: Hello, Alice!
 ```
 
 ### Choices
@@ -309,6 +346,7 @@ Alice: The weather is nice today!
 ## Play tennis
 
 Alice: Tennis is fun!
+
 Bob: Yes, I agree.
 ```
 
@@ -359,6 +397,7 @@ Script:
 
 ```markdown
 Bob: What's your favorite color?
+
 Alice: My favorite color is `"Alice.FavoriteColor"`.
 ```
 
@@ -366,6 +405,7 @@ Actual speech after query resolution:
 
 ```markdown
 Bob: What's your favorite color?
+
 Alice: My favorite color is red.
 ```
 
@@ -410,6 +450,7 @@ Default command:
 
 ```markdown
 Bob: Of course. You can join. `("Alice joins Kung Fu")`
+
 Alice: Thank you!
 ```
 
@@ -417,6 +458,7 @@ Custom command:
 
 ```markdown
 Bob: Of course. You can join. `JoinClub("Alice", "Kung Fu")`
+
 Alice: Thank you!
 ```
 
@@ -424,10 +466,15 @@ Silent command:
 
 ```markdown
 Alice: Bob, do you have a minute?
+
 Bob: Yes. What can I do for you?
+
 Alice: I like Chinese martial arts. Can I join the Kung Fu Club?
+
 Bob: Of course.
+
 `JoinClub("Alice", "Kung Fu")`
+
 Alice: Thank you!
 ```
 
@@ -454,17 +501,25 @@ and runtime execution contract are outside this document's scope.
 ## Discuss Bob's photo
 
 Bob: Thank you. I'm glad you like it. `IncreaseAffection("Bob", "Alice")`
+
 Alice: I want to join the Photography Club!
+
 Bob: Good idea. You'll meet new friends and have fun.
+
 `JoinClub("Alice", "Photography")`
 
 ## Discuss Christina's painting
 
 Bob: This is the night view of the Huangpu River. It's beautiful.
+
 Alice: I love this painting too. The colors are amazing.
+
 Christina: I learned color theory in the Art Club.
+
 `IncreaseAffection("Christina", "Alice")`
+
 Alice: I'd like to join the Art Club and give painting a try.
+
 `JoinClub("Alice", "Art")`
 ```
 

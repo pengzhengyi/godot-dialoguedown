@@ -13,14 +13,12 @@ internal sealed class MarkdigMarkdownParser : IMarkdownParser
 {
     private static readonly MarkdownPipeline _pipeline = BuildPipeline();
 
-    private readonly MarkdownAstMapper _mapper = new();
-
     public MarkdownDocument Parse(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
 
         var parsed = Markdig.Markdown.Parse(source, _pipeline);
-        return _mapper.Map(parsed);
+        return new MarkdigToMarkdownAstConverter(source).Convert(parsed);
     }
 
     private static MarkdownPipeline BuildPipeline()

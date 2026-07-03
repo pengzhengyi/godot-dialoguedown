@@ -100,8 +100,8 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
 | Type                            | Kind                              | Responsibility                                                                                                                         | Collaborators                      |
 | ------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | `IMarkdownParser`               | `internal interface`              | Port: `MarkdownDocument Parse(string source)`. The stable seam the rest of the compiler depends on.                                    | consumed by the transpiler         |
-| `MarkdigMarkdownParser`         | `internal sealed class`           | Adapter: configures a narrowed Markdig pipeline and maps Markdig's tree to our AST.                                                    | Markdig, `MarkdownAstMapper`       |
-| `MarkdownAstMapper`             | `internal`                        | Pure translation of Markdig nodes into our AST (no I/O). Isolated so mapping is unit-testable and the Markdig dependency is contained. | Markdig types → our AST            |
+| `MarkdigMarkdownParser`         | `internal sealed class`           | Adapter: configures a narrowed Markdig pipeline and converts Markdig's tree to our AST.                                                | Markdig, `MarkdigToMarkdownAstConverter` |
+| `MarkdigToMarkdownAstConverter` | `internal sealed class`           | Pure translation of Markdig nodes into our AST (no I/O). Holds the source per parse so unmodeled constructs flatten to raw text (D6). Isolated so it is unit-testable and the Markdig dependency is contained. | Markdig types → our AST            |
 | `MarkdownDocument` + node types | `internal record`                 | Our minimal, immutable Markdown AST (see next section).                                                                                | produced here, consumed downstream |
 | `SourceSpan`                    | `internal readonly record struct` | Offset/line/column range for diagnostics.                                                                                              | every node                         |
 
@@ -168,10 +168,10 @@ We define our own AST and map Markdig into it, rather than exposing Markdig type
 downstream.
 
 - **Why:** true swappability (replace only `MarkdigMarkdownParser` +
-  `MarkdownAstMapper`), and the narrowed grammar becomes **structural** — if a
-  construct is not in the model, it cannot leak downstream. Pattern:
-  *Adapter / Anti-Corruption Layer*.
-- **Cost:** ~8 small record types plus a mapper. Accepted as bounded.
+  `MarkdigToMarkdownAstConverter`), and the narrowed grammar becomes
+  **structural** — if a construct is not in the model, it cannot leak downstream.
+  Pattern: *Adapter / Anti-Corruption Layer*.
+- **Cost:** ~8 small record types plus a converter. Accepted as bounded.
 
 ### D2 — Keep speech text raw (recommended: extract text from source spans)
 
@@ -281,25 +281,29 @@ spec's *Succession* section for the author-facing rule.
 | `ListItemBlock` | `ListItem` | map child blocks (enables nesting) |
 | `LiteralInline` | `TextInline` | raw text |
 | `EmphasisInline` (if it appears) | `TextInline` | flattened to literal; normally disabled in D2 |
-| `LinkInline` | `LinkInline` | keep `Url` as target; label flattened to text |
+| `LinkInline` | `LinkInline` | keep `Url` as target; label sliced to its raw source text |
 | `CodeInline` | `CodeSpanInline` | keep raw inner content; inner grammar parsed later |
 | `LineBreakInline` | `LineBreak` | keep the `IsHard` flag; no speech meaning here (D7) |
 | `HtmlInline`/`HtmlBlock` comment | *(discarded)* | recognized and dropped so it never enters speech (D5) |
-| anything else (image, unmodeled) | `TextInline` (raw source) | flatten to literal via source span; never dropped |
+| unmodeled **inline** (image, autolink, other HTML) | `TextInline` (raw source) | flatten via source span; never dropped |
+| unmodeled **block** (blockquote, thematic break, fenced code, other HTML) | `Paragraph` of one raw `TextInline` | flatten via source span; never dropped |
 
-Mapping is a straightforward recursive walk:
+Conversion is a straightforward recursive walk; unmodeled nodes flatten to their
+raw source slice (D6):
 
 ```text
-map(document)      -> MarkdownDocument(children.map(mapBlock))
-mapBlock(heading)  -> Heading(level, inlines.map(mapInline))
-mapBlock(para)     -> Paragraph(inlines.map(mapInline))
-mapBlock(list)     -> ListBlock(ordered, items.map(mapItem))
-mapItem(item)      -> ListItem(item.children.map(mapBlock))
-mapInline(literal) -> TextInline(rawText, span)
-mapInline(link)    -> LinkInline(target, labelText, span)
-mapInline(code)    -> CodeSpanInline(content, span)
-mapInline(break)   -> LineBreak(isHard, span)
-mapInline(comment) -> (discarded; excluded from surrounding text)
+convert(document)      -> MarkdownDocument(children.map(convertBlock))
+convertBlock(heading)  -> Heading(level, inlines.map(convertInline))
+convertBlock(para)     -> Paragraph(inlines.map(convertInline))
+convertBlock(list)     -> ListBlock(ordered, items.map(convertItem))
+convertBlock(other)    -> Paragraph([TextInline(sourceSlice(span), span)])
+convertItem(item)      -> ListItem(item.children.map(convertBlock))
+convertInline(literal) -> TextInline(rawText, span)
+convertInline(link)    -> LinkInline(target, sourceSlice(labelSpan), span)
+convertInline(code)    -> CodeSpanInline(content, span)
+convertInline(break)   -> LineBreak(isHard, span)
+convertInline(other)   -> TextInline(sourceSlice(span), span)
+convertInline(comment) -> (discarded; excluded from surrounding text)
 ```
 
 ## Error and boundary cases
@@ -333,7 +337,8 @@ guard.
 
 ## Testability
 
-- **Isolation (unit):** feed strings to `IMarkdownParser` / `MarkdownAstMapper`
+- **Isolation (unit):** feed strings to `IMarkdownParser` /
+  `MarkdigToMarkdownAstConverter`
   and assert on the produced AST. No mocks are strictly required because the model
   is pure; the port exists mainly for *downstream* substitutability (the
   transpiler can be tested against a fake `IMarkdownParser` with NSubstitute).

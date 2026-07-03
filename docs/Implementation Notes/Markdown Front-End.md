@@ -15,7 +15,7 @@
   - [The Markdown AST model](#the-markdown-ast-model)
   - [Key design decisions](#key-design-decisions)
     - [D1 — Own AST as an anti-corruption layer (chosen)](#d1--own-ast-as-an-anti-corruption-layer-chosen)
-    - [D2 — Keep speech text raw](#d2--keep-speech-text-raw-recommended-extract-text-from-source-spans)
+    - [D2 — Keep speech text raw](#d2--keep-speech-text-raw)
     - [D3 — Faithful-to-Markdown boundary](#d3--faithful-to-markdown-boundary)
     - [D4 — Immutability and source spans](#d4--immutability-and-source-spans)
     - [D5 — Comment handling: recognize and discard](#d5--comment-handling-recognize-and-discard)
@@ -26,7 +26,7 @@
   - [Integration](#integration)
   - [Testability](#testability)
   - [Resolved decisions (from review)](#resolved-decisions-from-review)
-  - [Open questions](#open-questions)
+  - [Status](#status)
   - [Planned follow-up components (out of scope here)](#planned-follow-up-components-out-of-scope-here)
 
 ## Goal and scope
@@ -171,9 +171,10 @@ downstream.
   `MarkdigToMarkdownAstConverter`), and the narrowed grammar becomes
   **structural** — if a construct is not in the model, it cannot leak downstream.
   Pattern: *Adapter / Anti-Corruption Layer*.
-- **Cost:** ~8 small record types plus a converter. Accepted as bounded.
+- **Cost:** roughly a dozen small record types plus a converter. Accepted as
+  bounded.
 
-### D2 — Keep speech text raw (recommended: extract text from source spans)
+### D2 — Keep speech text raw
 
 We must preserve the writer's literal characters in speech. The challenge:
 Markdig's core parses emphasis, so `I *really* mean it` becomes an emphasis node
@@ -201,10 +202,15 @@ treat as text, slice the **original source string** using the node's `SourceSpan
 - Con: the mapper must coalesce adjacent text fragments and skip the spans of
   nodes it recognizes structurally (links, code spans).
 
-**Decision:** use **Approach 2** as the core mechanism — text is whatever the
-source says between recognized structural nodes — and *optionally* also disable
-the emphasis parser (Approach 1) to reduce fragment coalescing. Approach 2 is what
-makes "raw" actually raw and unifies the unknown-node policy (D6).
+**Decision (as built):** disable the emphasis parser (Approach 1), so `*`/`_` are
+never special and each text run arrives as a single `LiteralInline` whose content
+is already the raw source — no fragment coalescing needed. Use explicit
+source-span slicing (Approach 2) for the cases that genuinely need the original
+string: flattening any *unmodeled* node and reading a link's label (see D6). One
+span-based rule thus covers images, blockquotes, and surprises uniformly.
+Emphasis-disabling is essential, not optional — it is what keeps styling markers
+literal. (Backslash escapes and HTML entities are still normalized by Markdig's
+other inline parsers, so text is raw but not byte-exact.)
 
 Either way this realizes "raw string now, styling seam later": a future
 `ISpeechFormatter` (Markdown → BBCode) plugs in downstream without this component
@@ -363,8 +369,9 @@ guard.
 
 ## Resolved decisions (from review)
 
-- **Raw-text mechanism (D2):** extract text from **source spans** (Approach 2),
-  optionally also disabling the emphasis parser to reduce fragment coalescing.
+- **Raw-text mechanism (D2):** disable the emphasis parser so text runs stay raw
+  literals, and slice the original source by span for unmodeled nodes and link
+  labels.
 - **Comment handling (D5):** **recognize and discard** comments (not modeled), so
   they never leak into speech.
 - **Line-break preservation (D7):** map each in-paragraph break to a `LineBreak`
@@ -376,9 +383,11 @@ guard.
 - **Unknown-node policy:** flatten unmodeled constructs to raw text (D6); do not
   silently drop them.
 
-## Open questions
+## Status
 
-None outstanding — the note is ready for the review gate.
+Implemented and crosschecked against this note: every functionality-checklist
+item is built and covered, and the decisions above match the shipped code. The
+component is feature-complete and ready to merge. No open questions remain.
 
 ## Planned follow-up components (out of scope here)
 

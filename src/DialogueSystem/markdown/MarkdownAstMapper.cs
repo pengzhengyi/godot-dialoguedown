@@ -4,6 +4,9 @@ using MarkdigCodeInline = Markdig.Syntax.Inlines.CodeInline;
 using MarkdigContainerInline = Markdig.Syntax.Inlines.ContainerInline;
 using MarkdigDocument = Markdig.Syntax.MarkdownDocument;
 using MarkdigHeadingBlock = Markdig.Syntax.HeadingBlock;
+using MarkdigHtmlBlock = Markdig.Syntax.HtmlBlock;
+using MarkdigHtmlBlockType = Markdig.Syntax.HtmlBlockType;
+using MarkdigHtmlInline = Markdig.Syntax.Inlines.HtmlInline;
 using MarkdigInline = Markdig.Syntax.Inlines.Inline;
 using MarkdigLinkInline = Markdig.Syntax.Inlines.LinkInline;
 using MarkdigListBlock = Markdig.Syntax.ListBlock;
@@ -28,11 +31,22 @@ internal sealed class MarkdownAstMapper
         var mapped = new List<MarkdownBlock>();
         foreach (var block in blocks)
         {
+            if (IsComment(block))
+            {
+                continue;
+            }
+
             mapped.Add(MapBlock(block));
         }
 
         return mapped;
     }
+
+    private static bool IsComment(MarkdigBlock block) =>
+        block is MarkdigHtmlBlock html && html.Type == MarkdigHtmlBlockType.Comment;
+
+    private static bool IsComment(MarkdigInline inline) =>
+        inline is MarkdigHtmlInline html && html.Tag.StartsWith("<!--", StringComparison.Ordinal);
 
     private static MarkdownBlock MapBlock(MarkdigBlock block) => block switch
     {
@@ -70,6 +84,11 @@ internal sealed class MarkdownAstMapper
         var inlines = new List<MarkdownInline>();
         foreach (var inline in container)
         {
+            if (IsComment(inline))
+            {
+                continue;
+            }
+
             inlines.Add(MapInline(inline));
         }
 

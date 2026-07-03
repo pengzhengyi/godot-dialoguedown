@@ -77,6 +77,8 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
 - [x] Model list items as containers of blocks.
 - [x] Expose Markdown **links** (`[label](target)`) as inline nodes (jumps need
       the target later).
+- [x] Expose Markdown **images** (`![alt](src)`) as inline nodes, so a
+      presentation layer can render an image inline in a chat.
 - [x] Expose **inline code spans** (`` `...` ``) with their raw inner text
       (queries/commands are parsed later).
 - [x] **Recognize and strip HTML comments** (`<!-- ... -->`) so they never leak
@@ -127,6 +129,7 @@ classDiagram
     class MarkdownInline
     class TextInline { string Text }
     class LinkInline { string Target }
+    class ImageInline { string Source }
     class CodeSpanInline { string Content }
     class LineBreak { bool IsHard }
 
@@ -140,6 +143,7 @@ classDiagram
     Paragraph o-- MarkdownInline
     MarkdownInline <|-- TextInline
     MarkdownInline <|-- LinkInline
+    MarkdownInline <|-- ImageInline
     MarkdownInline <|-- CodeSpanInline
     MarkdownInline <|-- LineBreak
 ```
@@ -152,13 +156,14 @@ Notes:
 - **`ListItem` contains blocks** (a paragraph plus an optional nested
   `ListBlock`). That block-in-item nesting is exactly how choice nesting is
   represented.
-- **Inlines** are limited to four kinds — text, link, code span, and line break.
-  Anything Markdig would treat as emphasis, image, autolink, etc. collapses into
+- **Inlines** are limited to five kinds — text, link, image, code span, and line
+  break. Anything Markdig would treat as emphasis, autolink, etc. collapses into
   `TextInline` raw text (see decisions below); recognized HTML comments are
   discarded (D5). A `LineBreak` records an in-paragraph break and its `IsHard`
   flag, with no speech meaning attached here (D7).
 - `LinkInline` keeps the **target** and its label as raw text; the label is not
-  a place we expect dialogue structure.
+  a place we expect dialogue structure. `ImageInline` mirrors it — a **source**
+  plus raw alt text — so a presentation layer can render an image inline in a chat.
 
 ## Key design decisions
 
@@ -182,8 +187,8 @@ and the `*` delimiters are **consumed**.
 
 Two ways to keep text raw:
 
-**Approach 1 — disable unwanted inline parsers.** Remove the emphasis (and image)
-inline parsers so `*` is never special.
+**Approach 1 — disable unwanted inline parsers.** Remove the emphasis inline
+parser so `*` is never special.
 
 - Input `I *really* mean it` → one literal run `I *really* mean it` (asterisks
   kept).
@@ -197,8 +202,8 @@ treat as text, slice the **original source string** using the node's `SourceSpan
 
 - Input `I *really* mean it` → we emit the exact source slice, `*` and all.
 - Pro: **byte-exact** raw text — escapes and entities survive untouched. The same
-  mechanism flattens any *unmodeled* node (images, etc.) to its raw text (see D6),
-  so one rule handles emphasis, images, and surprises uniformly.
+  mechanism flattens any *unmodeled* node (autolinks, raw HTML, etc.) to its raw
+  text (see D6), so one rule handles them and surprises uniformly.
 - Con: the mapper must coalesce adjacent text fragments and skip the spans of
   nodes it recognizes structurally (links, code spans).
 
@@ -207,7 +212,7 @@ never special and each text run arrives as a single `LiteralInline` whose conten
 is already the raw source — no fragment coalescing needed. Use explicit
 source-span slicing (Approach 2) for the cases that genuinely need the original
 string: flattening any *unmodeled* node and reading a link's label (see D6). One
-span-based rule thus covers images, blockquotes, and surprises uniformly.
+span-based rule thus covers autolinks, blockquotes, and surprises uniformly.
 Emphasis-disabling is essential, not optional — it is what keeps styling markers
 literal. (Backslash escapes and HTML entities are still normalized by Markdig's
 other inline parsers, so text is raw but not byte-exact.)
@@ -252,13 +257,14 @@ tables, strikethrough, task lists, autolinks). Consequences:
 
 - A pipe table `| a | b |` in a script is **not** a table; it stays literal text
   the writer typed. Same for other GFM syntax.
-- Any construct we do not model (images, stray HTML, etc.) is **flattened to its
+- Any construct we do not model (blockquotes, stray HTML, etc.) is **flattened to
+  its
   raw source text** via the span mechanism (D2), never silently dropped.
 
 Rationale: in a dialogue script, ambiguous Markdown is far more likely to be text
 the writer typed than structural intent. Erring toward raw text preserves speech
 and keeps the recognized structural set tiny (document, heading, list/item,
-paragraph, link, code span, line break).
+paragraph, link, image, code span, line break).
 
 ### D7 — Line breaks preserved with a hard/soft flag
 
@@ -287,11 +293,12 @@ spec's *Succession* section for the author-facing rule.
 | `ListItemBlock` | `ListItem` | map child blocks (enables nesting) |
 | `LiteralInline` | `TextInline` | raw text |
 | `EmphasisInline` (if it appears) | `TextInline` | flattened to literal; normally disabled in D2 |
-| `LinkInline` | `LinkInline` | keep `Url` as target; label sliced to its raw source text |
+| `LinkInline` (link) | `LinkInline` | keep `Url` as target; label sliced to its raw source text |
+| `LinkInline` (image) | `ImageInline` | `IsImage` is set; keep `Url` as source and the alt text sliced to its raw source |
 | `CodeInline` | `CodeSpanInline` | keep raw inner content; inner grammar parsed later |
 | `LineBreakInline` | `LineBreak` | keep the `IsHard` flag; no speech meaning here (D7) |
 | `HtmlInline`/`HtmlBlock` comment | *(discarded)* | recognized and dropped so it never enters speech (D5) |
-| unmodeled **inline** (image, autolink, other HTML) | `TextInline` (raw source) | flatten via source span; never dropped |
+| unmodeled **inline** (autolink, other HTML) | `TextInline` (raw source) | flatten via source span; never dropped |
 | unmodeled **block** (blockquote, thematic break, fenced code, other HTML) | `Paragraph` of one raw `TextInline` | flatten via source span; never dropped |
 
 Conversion is a straightforward recursive walk; unmodeled nodes flatten to their
@@ -306,6 +313,7 @@ convertBlock(other)    -> Paragraph([TextInline(sourceSlice(span), span)])
 convertItem(item)      -> ListItem(item.children.map(convertBlock))
 convertInline(literal) -> TextInline(rawText, span)
 convertInline(link)    -> LinkInline(target, sourceSlice(labelSpan), span)
+convertInline(image)   -> ImageInline(source, sourceSlice(altSpan), span)
 convertInline(code)    -> CodeSpanInline(content, span)
 convertInline(break)   -> LineBreak(isHard, span)
 convertInline(other)   -> TextInline(sourceSlice(span), span)
@@ -323,7 +331,8 @@ convertInline(comment) -> (discarded; excluded from surrounding text)
 | Mixed line endings (`\n`, `\r\n`) | Normalized by Markdig; spans still valid. |
 | Unterminated code span `` `foo `` | Follows CommonMark: treated as literal text. Not an error here. |
 | Deeply nested lists | Represented faithfully; no artificial depth limit at this layer. |
-| Emphasis/bold/image markers in text | Preserved literally as `TextInline` (D2). |
+| Emphasis/bold markers in text | Preserved literally as `TextInline` (D2). |
+| Image `![alt](src)` | Modeled as `ImageInline` (source + raw alt text), like a link; the transpiler decides inline rendering. |
 | Bracketed text that is not a link | Follows CommonMark link rules; a valid link becomes `LinkInline`. Downstream decides relevance. |
 | Tables, strikethrough, task lists (GFM) | GFM extensions are **not** enabled (D6); they remain literal text. |
 | Multiple lines in one paragraph | Each in-paragraph break becomes a `LineBreak` node carrying its `IsHard` flag. No speech meaning is assigned here; the transpiler maps hard→new speech, soft→space (D7). |
@@ -379,6 +388,9 @@ guard.
   (hard = new speech, soft = space, blank line = new paragraph/speech).
 - **Link label fidelity:** flatten a link's label to a single string. The DSL
   never nests structure inside a jump label.
+- **Images modeled, not flattened:** expose `![alt](src)` as an `ImageInline`
+  (source + raw alt), mirroring links, so the transpiler can render images inline
+  in a chat.
 - **Markdig dependency:** adopt **Markdig** (BSD-2-Clause) as the backing parser.
 - **Unknown-node policy:** flatten unmodeled constructs to raw text (D6); do not
   silently drop them.

@@ -20,30 +20,15 @@ public sealed class MarkdigMarkdownParserUnmodeledContentTests : MarkdigMarkdown
     }
 
     [Theory]
-    [InlineData("![alt](image.png)")]
     [InlineData("<https://example.com>")]
+    [InlineData("<mailto:alice@example.com>")]
     public void Parse_UnmodeledInline_FlattensToRawText(string source)
     {
-        // Images and autolinks are not modeled; they survive as their exact source
-        // text so nothing spoken is lost.
+        // Autolinks are not modeled; they survive as their exact source text so
+        // nothing spoken is lost.
         var document = Parser.Parse(source);
 
         var paragraph = AssertSingleBlock<Paragraph>(document);
         AssertSingleText(paragraph.Inlines, source);
-    }
-
-    [Fact]
-    public void Parse_ImageAmongText_FlattensImageAndKeepsSurroundingText()
-    {
-        // Flattening is local: only the unmodeled image becomes raw text; the
-        // surrounding literals stay their own text runs.
-        var document = Parser.Parse("see ![alt](x.png) end");
-
-        var paragraph = AssertSingleBlock<Paragraph>(document);
-        Assert.Collection(
-            paragraph.Inlines,
-            inline => AssertText(inline, "see "),
-            inline => AssertText(inline, "![alt](x.png)"),
-            inline => AssertText(inline, " end"));
     }
 }

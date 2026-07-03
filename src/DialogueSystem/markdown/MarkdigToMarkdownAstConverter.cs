@@ -124,6 +124,7 @@ internal sealed class MarkdigToMarkdownAstConverter
     {
         MarkdigLiteralInline literal => new TextInline(literal.Content.ToString(), ConvertSpan(literal.Span)),
         MarkdigLinkInline link when !link.IsImage => ConvertLink(link),
+        MarkdigLinkInline image => ConvertImage(image),
         MarkdigCodeInline code => new CodeSpanInline(code.Content, ConvertSpan(code.Span)),
         MarkdigLineBreakInline lineBreak => new LineBreak(lineBreak.IsHard, ConvertSpan(lineBreak.Span)),
         _ => FlattenInline(inline),
@@ -140,6 +141,10 @@ internal sealed class MarkdigToMarkdownAstConverter
     private LinkInline ConvertLink(MarkdigLinkInline link) =>
         // A parsed inline link always has a URL (empty string when omitted), never null.
         new(link.Url!, FlattenLabel(link), ConvertSpan(link.Span));
+
+    private ImageInline ConvertImage(MarkdigLinkInline image) =>
+        // Same shape as a link: the URL is the source and the bracket text is the alt.
+        new(image.Url!, FlattenLabel(image), ConvertSpan(image.Span));
 
     private string FlattenLabel(MarkdigLinkInline link)
     {

@@ -1,0 +1,23 @@
+using DialogueSystem.Tests.Support;
+
+namespace DialogueSystem.Tests.Markdown;
+
+public sealed class MarkdigMarkdownParserTests : MarkdigMarkdownParserTestBase
+{
+    [Fact]
+    public void Parse_NullSource_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => Parser.Parse(null!));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\n\n")]
+    public void Parse_EmptyOrWhitespace_ReturnsEmptyDocument(string source)
+    {
+        var document = Parser.Parse(source);
+
+        Assert.Empty(document.Blocks);
+    }
+}

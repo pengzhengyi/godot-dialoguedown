@@ -6,6 +6,8 @@ using MarkdigDocument = Markdig.Syntax.MarkdownDocument;
 using MarkdigHeadingBlock = Markdig.Syntax.HeadingBlock;
 using MarkdigInline = Markdig.Syntax.Inlines.Inline;
 using MarkdigLinkInline = Markdig.Syntax.Inlines.LinkInline;
+using MarkdigListBlock = Markdig.Syntax.ListBlock;
+using MarkdigListItemBlock = Markdig.Syntax.ListItemBlock;
 using MarkdigLiteralInline = Markdig.Syntax.Inlines.LiteralInline;
 using MarkdigParagraphBlock = Markdig.Syntax.ParagraphBlock;
 using MarkdigSpan = Markdig.Syntax.SourceSpan;
@@ -19,24 +21,41 @@ namespace DialogueSystem.Markdown;
 /// </summary>
 internal sealed class MarkdownAstMapper
 {
-    public MarkdownDocument Map(MarkdigDocument document)
+    public MarkdownDocument Map(MarkdigDocument document) => new(MapBlocks(document));
+
+    private static IReadOnlyList<MarkdownBlock> MapBlocks(IEnumerable<MarkdigBlock> blocks)
     {
-        var blocks = new List<MarkdownBlock>();
-        foreach (var block in document)
+        var mapped = new List<MarkdownBlock>();
+        foreach (var block in blocks)
         {
-            blocks.Add(MapBlock(block));
+            mapped.Add(MapBlock(block));
         }
 
-        return new MarkdownDocument(blocks);
+        return mapped;
     }
 
     private static MarkdownBlock MapBlock(MarkdigBlock block) => block switch
     {
         MarkdigHeadingBlock heading => MapHeading(heading),
         MarkdigParagraphBlock paragraph => MapParagraph(paragraph),
+        MarkdigListBlock list => MapList(list),
         _ => throw new NotSupportedException(
             $"Markdown block '{block.GetType().Name}' is not yet supported."),
     };
+
+    private static ListBlock MapList(MarkdigListBlock block)
+    {
+        var items = new List<ListItem>();
+        foreach (var child in block)
+        {
+            items.Add(MapListItem((MarkdigListItemBlock)child));
+        }
+
+        return new ListBlock(block.IsOrdered, items, MapSpan(block.Span));
+    }
+
+    private static ListItem MapListItem(MarkdigListItemBlock block) =>
+        new(MapBlocks(block), MapSpan(block.Span));
 
     private static Heading MapHeading(MarkdigHeadingBlock block) =>
         // A parsed heading always has an inline container (empty for a bare '##').

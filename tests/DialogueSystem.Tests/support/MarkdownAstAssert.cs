@@ -21,4 +21,11 @@ internal static class MarkdownAstAssert
         var text = AssertSingleInline<TextInline>(inlines);
         Assert.Equal(expected, text.Text);
     }
+
+    public static TBlock AssertItemSingleBlock<TBlock>(ListBlock list, int index)
+        where TBlock : MarkdownBlock =>
+        Assert.IsType<TBlock>(Assert.Single(list.Items[index].Blocks));
+
+    public static void AssertItemText(ListBlock list, int index, string expected) =>
+        AssertSingleText(AssertItemSingleBlock<Paragraph>(list, index).Inlines, expected);
 }

@@ -7,8 +7,8 @@ public sealed class MarkdigMarkdownParserUnsupportedContentTests : MarkdigMarkdo
     [Fact]
     public void Parse_BlockNotYetSupported_Throws()
     {
-        // Lists are not mapped yet, so they fail loudly for now.
-        Assert.Throws<NotSupportedException>(() => Parser.Parse("- item"));
+        // Blockquotes are not mapped yet, so they fail loudly for now.
+        Assert.Throws<NotSupportedException>(() => Parser.Parse("> quote"));
     }
 
     [Fact]

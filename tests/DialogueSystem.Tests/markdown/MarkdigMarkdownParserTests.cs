@@ -1,4 +1,5 @@
 using DialogueSystem.Markdown;
+using static DialogueSystem.Tests.Support.MarkdownAstAssert;
 
 namespace DialogueSystem.Tests.Markdown;
 
@@ -28,17 +29,8 @@ public sealed class MarkdigMarkdownParserTests
     {
         var document = _parser.Parse("Hello, Bob!");
 
-        var paragraph = Assert.IsType<Paragraph>(Assert.Single(document.Blocks));
-        var text = Assert.IsType<TextInline>(Assert.Single(paragraph.Inlines));
-        Assert.Equal("Hello, Bob!", text.Text);
-    }
-
-    [Fact]
-    public void Parse_ContentNotYetSupported_Throws()
-    {
-        // Block mapping is added incrementally; until a block type is supported,
-        // parsing content that uses it fails loudly rather than silently.
-        Assert.Throws<NotSupportedException>(() => _parser.Parse("# Heading"));
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        AssertSingleText(paragraph.Inlines, "Hello, Bob!");
     }
 
     [Theory]
@@ -48,9 +40,60 @@ public sealed class MarkdigMarkdownParserTests
     {
         var document = _parser.Parse(source);
 
-        var paragraph = Assert.IsType<Paragraph>(Assert.Single(document.Blocks));
-        var text = Assert.IsType<TextInline>(Assert.Single(paragraph.Inlines));
-        Assert.Equal(source, text.Text);
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        AssertSingleText(paragraph.Inlines, source);
+    }
+
+    [Theory]
+    [InlineData("# One", 1, "One")]
+    [InlineData("###### Six", 6, "Six")]
+    public void Parse_Heading_ProducesHeadingWithLevelAndText(string source, int level, string expected)
+    {
+        var document = _parser.Parse(source);
+
+        var heading = AssertSingleBlock<Heading>(document);
+        Assert.Equal(level, heading.Level);
+        AssertSingleText(heading.Inlines, expected);
+    }
+
+    [Theory]
+    [InlineData("##     Title")]
+    [InlineData("##   Title   ")]
+    public void Parse_HeadingWithSurroundingSpaces_KeepsOnlyContent(string source)
+    {
+        // CommonMark trims the spaces around heading content, so the text is clean.
+        var document = _parser.Parse(source);
+
+        var heading = AssertSingleBlock<Heading>(document);
+        AssertSingleText(heading.Inlines, "Title");
+    }
+
+    [Fact]
+    public void Parse_EmptyHeading_HasNoInlinesAndSpansTheHashes()
+    {
+        var document = _parser.Parse("##");
+
+        var heading = AssertSingleBlock<Heading>(document);
+        Assert.Equal(2, heading.Level);
+        Assert.Empty(heading.Inlines);
+        Assert.Equal(new SourceSpan(0, 2), heading.Span);
+    }
+
+    [Fact]
+    public void Parse_HashNotAtLineStart_IsLiteralText()
+    {
+        // Only a leading '#' starts a heading; a '#' inside a line stays literal.
+        var document = _parser.Parse("Alice #tag");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        AssertSingleText(paragraph.Inlines, "Alice #tag");
+    }
+
+    [Fact]
+    public void Parse_BlockNotYetSupported_Throws()
+    {
+        // Lists are not mapped yet, so they fail loudly for now.
+        Assert.Throws<NotSupportedException>(() => _parser.Parse("- item"));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using MarkdigBlock = Markdig.Syntax.Block;
 using MarkdigContainerInline = Markdig.Syntax.Inlines.ContainerInline;
 using MarkdigDocument = Markdig.Syntax.MarkdownDocument;
+using MarkdigHeadingBlock = Markdig.Syntax.HeadingBlock;
 using MarkdigInline = Markdig.Syntax.Inlines.Inline;
 using MarkdigLiteralInline = Markdig.Syntax.Inlines.LiteralInline;
 using MarkdigParagraphBlock = Markdig.Syntax.ParagraphBlock;
@@ -28,10 +29,15 @@ internal sealed class MarkdownAstMapper
 
     private static MarkdownBlock MapBlock(MarkdigBlock block) => block switch
     {
+        MarkdigHeadingBlock heading => MapHeading(heading),
         MarkdigParagraphBlock paragraph => MapParagraph(paragraph),
         _ => throw new NotSupportedException(
             $"Markdown block '{block.GetType().Name}' is not yet supported."),
     };
+
+    private static Heading MapHeading(MarkdigHeadingBlock block) =>
+        // A parsed heading always has an inline container (empty for a bare '##').
+        new(block.Level, MapInlines(block.Inline!), MapSpan(block.Span));
 
     private static Paragraph MapParagraph(MarkdigParagraphBlock block) =>
         // A parsed paragraph always has inline content, so Inline is never null here.

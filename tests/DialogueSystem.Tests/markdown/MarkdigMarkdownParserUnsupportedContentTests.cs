@@ -17,11 +17,4 @@ public sealed class MarkdigMarkdownParserUnsupportedContentTests : MarkdigMarkdo
         // Images are not jumps; they will flatten to text later, so they throw now.
         Assert.Throws<NotSupportedException>(() => Parser.Parse("![alt](image.png)"));
     }
-
-    [Fact]
-    public void Parse_SoftLineBreak_NotSupported_Throws()
-    {
-        // Multiple lines in one paragraph (a soft break) are handled in a later slice.
-        Assert.Throws<NotSupportedException>(() => Parser.Parse("line one\nline two"));
-    }
 }

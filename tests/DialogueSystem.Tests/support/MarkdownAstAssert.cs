@@ -28,4 +28,10 @@ internal static class MarkdownAstAssert
 
     public static void AssertItemText(ListBlock list, int index, string expected) =>
         AssertSingleText(AssertItemSingleBlock<Paragraph>(list, index).Inlines, expected);
+
+    public static void AssertLineBreak(MarkdownInline inline, bool isHard) =>
+        Assert.Equal(isHard, Assert.IsType<LineBreak>(inline).IsHard);
+
+    public static void AssertText(MarkdownInline inline, string expected) =>
+        Assert.Equal(expected, Assert.IsType<TextInline>(inline).Text);
 }

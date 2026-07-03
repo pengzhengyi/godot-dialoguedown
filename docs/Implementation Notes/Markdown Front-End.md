@@ -20,6 +20,7 @@
     - [D4 — Immutability and source spans](#d4--immutability-and-source-spans)
     - [D5 — Comment handling: recognize and discard](#d5--comment-handling-recognize-and-discard)
     - [D6 — Minimal pipeline; unmodeled constructs become raw text](#d6--minimal-pipeline-unmodeled-constructs-become-raw-text)
+    - [D7 — Line breaks preserved with a hard/soft flag](#d7--line-breaks-preserved-with-a-hardsoft-flag)
   - [Markdig to AST mapping](#markdig-to-ast-mapping)
   - [Error and boundary cases](#error-and-boundary-cases)
   - [Integration](#integration)
@@ -88,6 +89,9 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
       in a line stays literal text (tag semantics are decided downstream).
 - [ ] Accept every list marker (`-`, `+`, `*`, and ordered `1.` / `1)`) as a list;
       preserve the ordered flag but do not reinterpret ordered vs unordered here.
+- [ ] Preserve in-paragraph **line breaks** as `LineBreak` nodes, keeping the
+      **hard vs soft** distinction (two trailing spaces or a backslash is hard).
+      Speech-boundary meaning is assigned downstream, not here (D7).
 - [ ] Behave deterministically on empty input, whitespace-only input, and mixed
       line endings.
 
@@ -124,6 +128,7 @@ classDiagram
     class TextInline { string Text }
     class LinkInline { string Target }
     class CodeSpanInline { string Content }
+    class LineBreak { bool IsHard }
 
     MarkdownDocument o-- MarkdownBlock
     MarkdownBlock <|-- Heading
@@ -136,6 +141,7 @@ classDiagram
     MarkdownInline <|-- TextInline
     MarkdownInline <|-- LinkInline
     MarkdownInline <|-- CodeSpanInline
+    MarkdownInline <|-- LineBreak
 ```
 
 Notes:
@@ -146,9 +152,11 @@ Notes:
 - **`ListItem` contains blocks** (a paragraph plus an optional nested
   `ListBlock`). That block-in-item nesting is exactly how choice nesting is
   represented.
-- **Inlines** are limited to three kinds. Anything Markdig would treat as
-  emphasis, image, autolink, etc. collapses into `TextInline` raw text (see
-  decisions below); recognized HTML comments are discarded (D5).
+- **Inlines** are limited to four kinds — text, link, code span, and line break.
+  Anything Markdig would treat as emphasis, image, autolink, etc. collapses into
+  `TextInline` raw text (see decisions below); recognized HTML comments are
+  discarded (D5). A `LineBreak` records an in-paragraph break and its `IsHard`
+  flag, with no speech meaning attached here (D7).
 - `LinkInline` keeps the **target** and its label as raw text; the label is not
   a place we expect dialogue structure.
 
@@ -244,7 +252,23 @@ tables, strikethrough, task lists, autolinks). Consequences:
 Rationale: in a dialogue script, ambiguous Markdown is far more likely to be text
 the writer typed than structural intent. Erring toward raw text preserves speech
 and keeps the recognized structural set tiny (document, heading, list/item,
-paragraph, link, code span).
+paragraph, link, code span, line break).
+
+### D7 — Line breaks preserved with a hard/soft flag
+
+A paragraph can span several source lines. Markdig reports each in-paragraph break
+as a `LineBreakInline` and — following CommonMark — marks it **hard** (two
+trailing spaces or a trailing backslash) or **soft** (a plain newline, with
+`\n` and `\r\n` already normalized). We map it to a `LineBreak` node that carries
+that `IsHard` flag and nothing else.
+
+This layer stays DSL-agnostic: it records *that* a break exists and *which kind*,
+but assigns no speech meaning. The transpiler applies the DSL rule — a **hard
+break** starts a new speech, a **soft break** is a space-joined continuation of
+the same speech, and a **blank line** (already a separate Markdown paragraph) is
+the primary speech separator. Keeping the distinction here means the transpiler
+never touches Markdig and the rule stays easy to change later. See the DSL
+spec's *Succession* section for the author-facing rule.
 
 ## Markdig to AST mapping
 
@@ -259,6 +283,7 @@ paragraph, link, code span).
 | `EmphasisInline` (if it appears) | `TextInline` | flattened to literal; normally disabled in D2 |
 | `LinkInline` | `LinkInline` | keep `Url` as target; label flattened to text |
 | `CodeInline` | `CodeSpanInline` | keep raw inner content; inner grammar parsed later |
+| `LineBreakInline` | `LineBreak` | keep the `IsHard` flag; no speech meaning here (D7) |
 | `HtmlInline`/`HtmlBlock` comment | *(discarded)* | recognized and dropped so it never enters speech (D5) |
 | anything else (image, unmodeled) | `TextInline` (raw source) | flatten to literal via source span; never dropped |
 
@@ -273,6 +298,7 @@ mapItem(item)      -> ListItem(item.children.map(mapBlock))
 mapInline(literal) -> TextInline(rawText, span)
 mapInline(link)    -> LinkInline(target, labelText, span)
 mapInline(code)    -> CodeSpanInline(content, span)
+mapInline(break)   -> LineBreak(isHard, span)
 mapInline(comment) -> (discarded; excluded from surrounding text)
 ```
 
@@ -290,7 +316,7 @@ mapInline(comment) -> (discarded; excluded from surrounding text)
 | Emphasis/bold/image markers in text | Preserved literally as `TextInline` (D2). |
 | Bracketed text that is not a link | Follows CommonMark link rules; a valid link becomes `LinkInline`. Downstream decides relevance. |
 | Tables, strikethrough, task lists (GFM) | GFM extensions are **not** enabled (D6); they remain literal text. |
-| Multiple lines in one paragraph | Internal soft line breaks are **preserved** (as newlines) so the transpiler can split successive dialogue lines. |
+| Multiple lines in one paragraph | Each in-paragraph break becomes a `LineBreak` node carrying its `IsHard` flag. No speech meaning is assigned here; the transpiler maps hard→new speech, soft→space (D7). |
 
 This component raises **no DSL diagnostics** (no "unknown speaker", no "dangling
 jump") — those belong downstream. Its only thrown error is the null-argument
@@ -321,7 +347,9 @@ guard.
   - Every list marker: `-`, `+`, `*`, and ordered `1.` / `1)`.
   - Deeply **nested lists** (choices within choices, plus succession lines under a
     choice) round-trip to the right block/item nesting.
-  - Multiple lines in one paragraph preserve their soft breaks.
+  - Multiple lines in one paragraph become `LineBreak` nodes; soft breaks (a plain
+    newline, either line-ending style) and hard breaks (two trailing spaces or a
+    backslash) are told apart by `IsHard`.
 - **Access:** add `InternalsVisibleTo("DialogueSystem.Tests")` so tests can see
   the `internal` AST types.
 - **Test data:** derive concrete cases from the DSL spec examples (headings,
@@ -334,9 +362,9 @@ guard.
   optionally also disabling the emphasis parser to reduce fragment coalescing.
 - **Comment handling (D5):** **recognize and discard** comments (not modeled), so
   they never leak into speech.
-- **Paragraph line splitting:** **preserve** internal soft line breaks so
-  succession (multiple dialogue lines inside one Markdown paragraph) can be split
-  downstream.
+- **Line-break preservation (D7):** map each in-paragraph break to a `LineBreak`
+  node with a hard/soft `IsHard` flag; the transpiler decides speech boundaries
+  (hard = new speech, soft = space, blank line = new paragraph/speech).
 - **Link label fidelity:** flatten a link's label to a single string. The DSL
   never nests structure inside a jump label.
 - **Markdig dependency:** adopt **Markdig** (BSD-2-Clause) as the backing parser.

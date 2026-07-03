@@ -8,6 +8,7 @@ using MarkdigHtmlBlock = Markdig.Syntax.HtmlBlock;
 using MarkdigHtmlBlockType = Markdig.Syntax.HtmlBlockType;
 using MarkdigHtmlInline = Markdig.Syntax.Inlines.HtmlInline;
 using MarkdigInline = Markdig.Syntax.Inlines.Inline;
+using MarkdigLineBreakInline = Markdig.Syntax.Inlines.LineBreakInline;
 using MarkdigLinkInline = Markdig.Syntax.Inlines.LinkInline;
 using MarkdigListBlock = Markdig.Syntax.ListBlock;
 using MarkdigListItemBlock = Markdig.Syntax.ListItemBlock;
@@ -100,6 +101,7 @@ internal sealed class MarkdownAstMapper
         MarkdigLiteralInline literal => new TextInline(literal.Content.ToString(), MapSpan(literal.Span)),
         MarkdigLinkInline link when !link.IsImage => MapLink(link),
         MarkdigCodeInline code => new CodeSpanInline(code.Content, MapSpan(code.Span)),
+        MarkdigLineBreakInline lineBreak => new LineBreak(lineBreak.IsHard, MapSpan(lineBreak.Span)),
         _ => throw new NotSupportedException(
             $"Markdown inline '{inline.GetType().Name}' is not yet supported."),
     };

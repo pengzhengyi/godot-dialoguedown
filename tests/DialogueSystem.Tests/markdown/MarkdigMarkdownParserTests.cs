@@ -41,10 +41,22 @@ public sealed class MarkdigMarkdownParserTests
         Assert.Throws<NotSupportedException>(() => _parser.Parse("# Heading"));
     }
 
+    [Theory]
+    [InlineData("I *really* mean it")]
+    [InlineData("keep_the_underscores")]
+    public void Parse_EmphasisMarkers_StayLiteral(string source)
+    {
+        var document = _parser.Parse(source);
+
+        var paragraph = Assert.IsType<Paragraph>(Assert.Single(document.Blocks));
+        var text = Assert.IsType<TextInline>(Assert.Single(paragraph.Inlines));
+        Assert.Equal(source, text.Text);
+    }
+
     [Fact]
     public void Parse_InlineNotYetSupported_Throws()
     {
-        // Likewise for inline kinds not yet mapped (emphasis here).
-        Assert.Throws<NotSupportedException>(() => _parser.Parse("*emphasis*"));
+        // A code span is not mapped yet, so it fails loudly for now.
+        Assert.Throws<NotSupportedException>(() => _parser.Parse("`code`"));
     }
 }

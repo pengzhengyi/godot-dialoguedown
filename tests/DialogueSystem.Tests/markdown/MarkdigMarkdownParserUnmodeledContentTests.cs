@@ -6,10 +6,25 @@ namespace DialogueSystem.Tests.Markdown;
 
 public sealed class MarkdigMarkdownParserUnmodeledContentTests : MarkdigMarkdownParserTestBase
 {
+    private const string CodeBlockSource =
+        """
+        ```mermaid
+        graph TD
+        A --> B
+        ```
+        """;
+
+    private const string TableSource =
+        """
+        | Speaker | Mood  |
+        | ------- | ----- |
+        | Alice   | happy |
+        """;
+
     [Theory]
-    [InlineData("---")]                                  // thematic break
-    [InlineData("```mermaid\ngraph TD\nA --> B\n```")]   // fenced code block
-    [InlineData("| Speaker | Mood |\n| --- | --- |\n| Alice | happy |")] // table
+    [InlineData("---")]
+    [InlineData(CodeBlockSource)]
+    [InlineData(TableSource)]
     public void Parse_IgnoredByDefault_ProducesEmptyDocument(string source)
     {
         // Authoring aids (dividers, code/diagrams, tables) are not speech, so the

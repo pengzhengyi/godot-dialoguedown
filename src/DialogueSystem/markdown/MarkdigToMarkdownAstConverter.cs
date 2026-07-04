@@ -78,10 +78,14 @@ internal sealed class MarkdigToMarkdownAstConverter
     };
 
     private MarkdownBlock? HandleUnmodeledBlock(MarkdigBlock block) =>
-        IsIgnored(MarkdigUnmodeledNodeClassifier.ClassifyBlock(block)) ? null : FlattenBlock(block);
+        HandlingForBlock(block) switch
+        {
+            UnmodeledNodeHandling.Ignore => null,
+            _ => FlattenBlock(block), // AsRawText: keep the construct as raw text.
+        };
 
-    private bool IsIgnored(UnmodeledNodeKind kind) =>
-        _policy.HandlingFor(kind) == UnmodeledNodeHandling.Ignore;
+    private UnmodeledNodeHandling HandlingForBlock(MarkdigBlock block) =>
+        _policy.HandlingFor(MarkdigUnmodeledNodeClassifier.ClassifyBlock(block));
 
     private ListBlock ConvertList(MarkdigListBlock block)
     {
@@ -145,7 +149,14 @@ internal sealed class MarkdigToMarkdownAstConverter
     };
 
     private MarkdownInline? HandleUnmodeledInline(MarkdigInline inline) =>
-        IsIgnored(MarkdigUnmodeledNodeClassifier.ClassifyInline(inline)) ? null : FlattenInline(inline);
+        HandlingForInline(inline) switch
+        {
+            UnmodeledNodeHandling.Ignore => null,
+            _ => FlattenInline(inline), // AsRawText: keep the construct as raw text.
+        };
+
+    private UnmodeledNodeHandling HandlingForInline(MarkdigInline inline) =>
+        _policy.HandlingFor(MarkdigUnmodeledNodeClassifier.ClassifyInline(inline));
 
     private TextInline FlattenInline(MarkdigInline inline)
     {

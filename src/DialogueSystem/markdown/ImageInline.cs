@@ -1,9 +1,5 @@
 namespace DialogueSystem.Markdown;
 
-// TODO(transpiler/DSL): decide the author-facing image syntax and how a chat
-// renders an inline image (portrait, emoji, sizing, placement). This front-end
-// only models the node; the meaning of an image in speech is defined downstream.
-
 /// <summary>
 /// A Markdown image (<c>![alt](src)</c>). <see cref="Source"/> is where the image
 /// is loaded from and <see cref="AltText"/> is its alternative text; both are kept

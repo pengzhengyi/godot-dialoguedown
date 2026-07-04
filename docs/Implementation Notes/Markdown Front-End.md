@@ -208,7 +208,11 @@ Consequences:
   those.
 - **Standard text handling.** With the parser on, `LiteralInline.Content` already
   gives the correctly unescaped text and code spans stay raw, so emphasis needs no
-  source-span slicing or fragment coalescing.
+  source-span slicing.
+- **No text coalescing.** Adjacent text runs are left as separate `TextInline`s,
+  so an escape (`\*`) or an emphasis boundary can split contiguous text into a few
+  runs (e.g. `\*x\*` → `*`, `x`, `*`). This is harmless — downstream concatenates
+  text runs — and keeps the converter simple.
 - **Bold-italic falls out of nesting.** `***x***` and `**_x_**` parse as nested
   emphasis, so no separate "bold-italic" kind is needed.
 - **Faithful to Markdown (D3).** Emphasis *is* a Markdown construct; modeling it is

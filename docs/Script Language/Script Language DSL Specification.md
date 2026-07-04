@@ -189,7 +189,7 @@ Styling can wrap other speech constructs — a query inside bold still resolves:
 Bob: **Hello `"MainCharacter.Name"`!**
 ```
 
-renders a bold *Hello Alice!*.
+The result is a bold *Hello Alice!*.
 
 > [!NOTE]
 > This spec defines *what* styling an author can write. How a given style renders

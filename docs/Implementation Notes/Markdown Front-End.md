@@ -360,8 +360,10 @@ convertInline(comment) -> (discarded; excluded from surrounding text)
 | Mixed line endings (`\n`, `\r\n`) | Normalized by Markdig; spans still valid. |
 | Unterminated code span `` `foo `` | Follows CommonMark: treated as literal text. Not an error here. |
 | Deeply nested lists | Represented faithfully; no artificial depth limit at this layer. |
-| Emphasis `*italic*` / `**bold**` | Modeled as `EmphasisInline` (Kind + parsed children); a literal `*` needs escaping `\*` (D2). |
+| Emphasis `*italic*` / `**bold**` / `~~struck~~` | Modeled as `EmphasisInline` (Kind + parsed children); a literal `*` or `~` needs escaping (`\*`, `\~`) (D2). |
 | Escaped `\*` or intraword `keep_the_underscores` | Stays literal `TextInline` — no emphasis (standard CommonMark). |
+| Unbalanced or single tilde (`~x~`, `~~x~`) | Stays literal — only balanced `~~...~~` is strikethrough. |
+| `~~~...~~~` at line start | A tilde-fenced **code block** (like ```` ``` ````), not strikethrough — handled per the unmodeled-node policy (dropped by default). |
 | Image `![alt](src)` | Modeled as `ImageInline` (source + raw alt text), like a link; the transpiler decides inline rendering. |
 | Bracketed text that is not a link | Follows CommonMark link rules; a valid link becomes `LinkInline`. Downstream decides relevance. |
 | Tables, strikethrough, task lists (GFM) | GFM extensions are **not** enabled (D6); they remain literal text. |

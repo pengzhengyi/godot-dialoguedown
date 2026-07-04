@@ -172,18 +172,21 @@ Alice: " Hello, Bob!"
 
 ### Styling
 
-Speech may use standard Markdown emphasis for **styling**:
+Speech may use standard Markdown emphasis and strikethrough for **styling**:
 
 ```markdown
 Alice: I *really* mean it.
 
 Alice: This is **very** important.
+
+Alice: That plan is ~~cancelled~~.
 ```
 
-- `*text*` or `_text_` is **italic**; `**text**` or `__text__` is **bold**.
-  Combine them (`***text***`) for bold italic.
-- To type a **literal** asterisk or underscore, escape it (`\*`, `\_`).
-  Underscores inside a word (`snake_case_name`) are never emphasis.
+- `*text*` or `_text_` is **italic**; `**text**` or `__text__` is **bold**;
+  `~~text~~` is **strikethrough**. Combine emphasis (`***text***`) for bold italic.
+- To type a **literal** asterisk, underscore, or tilde, escape it (`\*`, `\_`,
+  `\~`). Underscores inside a word (`snake_case_name`) are never emphasis, and a
+  single `~` is not strikethrough — only `~~...~~` is.
 
 Styling can wrap other speech constructs — a query inside bold still resolves:
 

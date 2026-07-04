@@ -1,7 +1,7 @@
 # Implementation note: Markdown front-end
 
 > [!NOTE]
-> Status: **proposed** — awaiting review. Not yet implemented.
+> Status: **implemented**.
 > Component 1 of the DialogueSystem script compiler.
 
 ## Table of contents

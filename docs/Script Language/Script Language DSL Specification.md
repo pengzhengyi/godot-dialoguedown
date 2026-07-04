@@ -28,6 +28,7 @@ model for developers.
   - [Speaker references](#speaker-references)
   - [Dialogue structure](#dialogue-structure)
     - [Comments](#comments)
+    - [Front matter](#front-matter)
     - [Authoring aids](#authoring-aids)
     - [Succession](#succession)
     - [Choices](#choices)
@@ -308,6 +309,25 @@ author notes.
 Alice @A #main: Hello, Bob! <!-- Alice speaks in a warm tone. -->
 
 Bob @B #npc: Hello, Alice!
+```
+
+### Front matter
+
+A script may open with a **front matter** block — a `---`-fenced section of
+metadata (title, tags, author, and the like) at the very top of the file. It is
+never spoken and is **always discarded**, like a comment. Unlike authoring aids,
+this is not configurable: metadata is never speech.
+
+Only a block at the document start is front matter; a `---` later in the script
+is a thematic break (an authoring aid).
+
+```markdown
+---
+title: Reunion
+tags: [chapter-1, intro]
+---
+
+Alice: Hello, Bob!
 ```
 
 ### Authoring aids

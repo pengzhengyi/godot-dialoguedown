@@ -32,5 +32,6 @@ internal sealed class MarkdigMarkdownParser : IMarkdownParser
             .UsePreciseSourceLocation()
             .UsePipeTables()
             .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
+            .UseYamlFrontMatter()
             .Build();
 }

@@ -15,6 +15,7 @@ using MarkdigListItemBlock = Markdig.Syntax.ListItemBlock;
 using MarkdigLiteralInline = Markdig.Syntax.Inlines.LiteralInline;
 using MarkdigParagraphBlock = Markdig.Syntax.ParagraphBlock;
 using MarkdigSpan = Markdig.Syntax.SourceSpan;
+using MarkdigYamlFrontMatterBlock = Markdig.Extensions.Yaml.YamlFrontMatterBlock;
 
 namespace DialogueSystem.Markdown;
 
@@ -41,6 +42,9 @@ internal sealed class MarkdigToMarkdownAstConverter
     private static bool IsComment(MarkdigBlock block) =>
         block is MarkdigHtmlBlock html && html.Type == MarkdigHtmlBlockType.Comment;
 
+    private static bool IsFrontMatter(MarkdigBlock block) =>
+        block is MarkdigYamlFrontMatterBlock;
+
     private static bool IsComment(MarkdigInline inline) =>
         inline is MarkdigHtmlInline html && html.Tag.StartsWith("<!--", StringComparison.Ordinal);
 
@@ -59,7 +63,7 @@ internal sealed class MarkdigToMarkdownAstConverter
         var converted = new List<MarkdownBlock>();
         foreach (var block in blocks)
         {
-            if (IsComment(block))
+            if (IsComment(block) || IsFrontMatter(block))
             {
                 continue;
             }

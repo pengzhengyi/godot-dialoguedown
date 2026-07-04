@@ -22,26 +22,21 @@ namespace DialogueSystem.Markdown;
 /// Converts a Markdig syntax tree into our own Markdown AST. Keeping this
 /// translation in one place is what isolates the rest of the compiler from the
 /// Markdig library. A fresh instance is created per parse and holds the source
-/// text, so constructs we do not model can be sliced back to their raw text and
-/// flattened rather than dropped or rejected.
+/// text and a handling policy, so an unmodeled construct can be sliced back to
+/// raw text or dropped, as the policy directs.
 /// </summary>
 internal sealed class MarkdigToMarkdownAstConverter
 {
     private readonly string _source;
+    private readonly IUnmodeledNodeHandlingPolicy _policy;
 
-    public MarkdigToMarkdownAstConverter(string source)
+    public MarkdigToMarkdownAstConverter(string source, IUnmodeledNodeHandlingPolicy policy)
     {
         _source = source;
+        _policy = policy;
     }
 
     public MarkdownDocument Convert(MarkdigDocument document) => new(ConvertBlocks(document));
-
-    // Single decision point for content that is dropped entirely instead of being
-    // flattened to raw text. A future kind to ignore (or a configurable skip list)
-    // extends here, without touching the conversion switches.
-    private static bool ShouldSkip(MarkdigBlock block) => IsComment(block);
-
-    private static bool ShouldSkip(MarkdigInline inline) => IsComment(inline);
 
     private static bool IsComment(MarkdigBlock block) =>
         block is MarkdigHtmlBlock html && html.Type == MarkdigHtmlBlockType.Comment;
@@ -59,24 +54,34 @@ internal sealed class MarkdigToMarkdownAstConverter
         var converted = new List<MarkdownBlock>();
         foreach (var block in blocks)
         {
-            if (ShouldSkip(block))
+            if (IsComment(block))
             {
                 continue;
             }
 
-            converted.Add(ConvertBlock(block));
+            var mapped = ConvertBlock(block);
+            if (mapped is not null)
+            {
+                converted.Add(mapped);
+            }
         }
 
         return converted;
     }
 
-    private MarkdownBlock ConvertBlock(MarkdigBlock block) => block switch
+    private MarkdownBlock? ConvertBlock(MarkdigBlock block) => block switch
     {
         MarkdigHeadingBlock heading => ConvertHeading(heading),
         MarkdigParagraphBlock paragraph => ConvertParagraph(paragraph),
         MarkdigListBlock list => ConvertList(list),
-        _ => FlattenBlock(block),
+        _ => HandleUnmodeledBlock(block),
     };
+
+    private MarkdownBlock? HandleUnmodeledBlock(MarkdigBlock block) =>
+        IsIgnored(MarkdigUnmodeledNodeClassifier.ClassifyBlock(block)) ? null : FlattenBlock(block);
+
+    private bool IsIgnored(UnmodeledNodeKind kind) =>
+        _policy.HandlingFor(kind) == UnmodeledNodeHandling.Ignore;
 
     private ListBlock ConvertList(MarkdigListBlock block)
     {
@@ -102,8 +107,8 @@ internal sealed class MarkdigToMarkdownAstConverter
 
     private Paragraph FlattenBlock(MarkdigBlock block)
     {
-        // A construct we do not model (blockquote, thematic break, ...) survives as
-        // a paragraph of its exact source text, so nothing is silently dropped.
+        // A construct we do not model (blockquote, raw HTML, ...) survives as a
+        // paragraph of its exact source text, so nothing is silently dropped.
         var span = ConvertSpan(block.Span);
         return new Paragraph([new TextInline(Slice(block.Span), span)], span);
     }
@@ -113,18 +118,22 @@ internal sealed class MarkdigToMarkdownAstConverter
         var inlines = new List<MarkdownInline>();
         foreach (var inline in container)
         {
-            if (ShouldSkip(inline))
+            if (IsComment(inline))
             {
                 continue;
             }
 
-            inlines.Add(ConvertInline(inline));
+            var mapped = ConvertInline(inline);
+            if (mapped is not null)
+            {
+                inlines.Add(mapped);
+            }
         }
 
         return inlines;
     }
 
-    private MarkdownInline ConvertInline(MarkdigInline inline) => inline switch
+    private MarkdownInline? ConvertInline(MarkdigInline inline) => inline switch
     {
         MarkdigLiteralInline literal => new TextInline(literal.Content.ToString(), ConvertSpan(literal.Span)),
         MarkdigEmphasisInline emphasis => ConvertEmphasis(emphasis),
@@ -132,13 +141,16 @@ internal sealed class MarkdigToMarkdownAstConverter
         MarkdigLinkInline image => ConvertImage(image),
         MarkdigCodeInline code => new CodeSpanInline(code.Content, ConvertSpan(code.Span)),
         MarkdigLineBreakInline lineBreak => new LineBreak(lineBreak.IsHard, ConvertSpan(lineBreak.Span)),
-        _ => FlattenInline(inline),
+        _ => HandleUnmodeledInline(inline),
     };
+
+    private MarkdownInline? HandleUnmodeledInline(MarkdigInline inline) =>
+        IsIgnored(MarkdigUnmodeledNodeClassifier.ClassifyInline(inline)) ? null : FlattenInline(inline);
 
     private TextInline FlattenInline(MarkdigInline inline)
     {
-        // A construct we do not model (image, autolink, ...) survives as its exact
-        // source text so no spoken content is lost.
+        // A construct we do not model (autolink, raw HTML, ...) survives as its
+        // exact source text so no spoken content is lost.
         var span = ConvertSpan(inline.Span);
         return new TextInline(Slice(inline.Span), span);
     }

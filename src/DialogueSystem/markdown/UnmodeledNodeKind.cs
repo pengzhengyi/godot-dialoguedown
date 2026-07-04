@@ -24,4 +24,7 @@ internal enum UnmodeledNodeKind
 
     /// <summary>An autolink (<c>&lt;https://...&gt;</c>).</summary>
     Autolink,
+
+    /// <summary>Any other unmodeled construct not called out above.</summary>
+    Other,
 }

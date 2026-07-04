@@ -2,6 +2,7 @@ using MarkdigBlock = Markdig.Syntax.Block;
 using MarkdigCodeInline = Markdig.Syntax.Inlines.CodeInline;
 using MarkdigContainerInline = Markdig.Syntax.Inlines.ContainerInline;
 using MarkdigDocument = Markdig.Syntax.MarkdownDocument;
+using MarkdigEmphasisInline = Markdig.Syntax.Inlines.EmphasisInline;
 using MarkdigHeadingBlock = Markdig.Syntax.HeadingBlock;
 using MarkdigHtmlBlock = Markdig.Syntax.HtmlBlock;
 using MarkdigHtmlBlockType = Markdig.Syntax.HtmlBlockType;
@@ -49,6 +50,9 @@ internal sealed class MarkdigToMarkdownAstConverter
         inline is MarkdigHtmlInline html && html.Tag.StartsWith("<!--", StringComparison.Ordinal);
 
     private static SourceSpan ConvertSpan(MarkdigSpan span) => new(span.Start, span.Length);
+
+    private static EmphasisKind EmphasisKindFor(int delimiterCount) =>
+        delimiterCount == 2 ? EmphasisKind.Bold : EmphasisKind.Italic;
 
     private IReadOnlyList<MarkdownBlock> ConvertBlocks(IEnumerable<MarkdigBlock> blocks)
     {
@@ -123,6 +127,7 @@ internal sealed class MarkdigToMarkdownAstConverter
     private MarkdownInline ConvertInline(MarkdigInline inline) => inline switch
     {
         MarkdigLiteralInline literal => new TextInline(literal.Content.ToString(), ConvertSpan(literal.Span)),
+        MarkdigEmphasisInline emphasis => ConvertEmphasis(emphasis),
         MarkdigLinkInline link when !link.IsImage => ConvertLink(link),
         MarkdigLinkInline image => ConvertImage(image),
         MarkdigCodeInline code => new CodeSpanInline(code.Content, ConvertSpan(code.Span)),
@@ -141,6 +146,9 @@ internal sealed class MarkdigToMarkdownAstConverter
     private LinkInline ConvertLink(MarkdigLinkInline link) =>
         // A parsed inline link always has a URL (empty string when omitted), never null.
         new(link.Url!, FlattenLabel(link), ConvertSpan(link.Span));
+
+    private EmphasisInline ConvertEmphasis(MarkdigEmphasisInline emphasis) =>
+        new(EmphasisKindFor(emphasis.DelimiterCount), ConvertInlines(emphasis), ConvertSpan(emphasis.Span));
 
     private ImageInline ConvertImage(MarkdigLinkInline image) =>
         // Same shape as a link: the URL is the source and the bracket text is the alt.

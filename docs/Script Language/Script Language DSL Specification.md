@@ -22,6 +22,8 @@ model for developers.
     - [Default speaker](#default-speaker)
     - [Inline speaker declaration](#inline-speaker-declaration)
     - [Whitespace around the colon](#whitespace-around-the-colon)
+    - [Styling](#styling)
+    - [Images](#images)
   - [Tags](#tags)
   - [Speaker references](#speaker-references)
   - [Dialogue structure](#dialogue-structure)
@@ -166,6 +168,55 @@ depending on ambiguous whitespace:
 ```markdown
 Alice: " Hello, Bob!"
 ```
+
+### Styling
+
+Speech may use standard Markdown emphasis for **styling**:
+
+```markdown
+Alice: I *really* mean it.
+
+Alice: This is **very** important.
+```
+
+- `*text*` or `_text_` is **italic**; `**text**` or `__text__` is **bold**.
+  Combine them (`***text***`) for bold italic.
+- To type a **literal** asterisk or underscore, escape it (`\*`, `\_`).
+  Underscores inside a word (`snake_case_name`) are never emphasis.
+
+Styling can wrap other speech constructs — a query inside bold still resolves:
+
+```markdown
+Bob: **Hello `"MainCharacter.Name"`!**
+```
+
+The result is a bold *Hello Alice!*.
+
+> [!NOTE]
+> This spec defines *what* styling an author can write. How a given style renders
+> (color, bold weight, BBCode, plain text, …) is decided by the game's
+> presentation layer, not by the compiler.
+
+### Images
+
+Embed an image inline in speech with standard Markdown image syntax; it appears
+at that position in the line:
+
+```markdown
+Alice: Here is the photo you wanted. ![sunset](sunset.png)
+```
+
+Presentation **tags** may be added inside the **alt** text to customize how the
+image is shown (size, alignment, or any hint the game defines), using the same
+`#tag` / `#group=value` form as speaker tags:
+
+```markdown
+Alice: ![Alice smiling #size=small #align=left](alice.png)
+```
+
+The compiler keeps the source path and the alt text (including any tags) exactly
+as written; the presentation layer decides what the tags mean and how the image
+renders.
 
 ## Tags
 

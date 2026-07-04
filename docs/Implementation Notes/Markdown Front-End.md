@@ -15,7 +15,7 @@
   - [The Markdown AST model](#the-markdown-ast-model)
   - [Key design decisions](#key-design-decisions)
     - [D1 — Own AST as an anti-corruption layer (chosen)](#d1--own-ast-as-an-anti-corruption-layer-chosen)
-    - [D2 — Keep speech text raw](#d2--keep-speech-text-raw)
+    - [D2 — Model emphasis as styling](#d2--model-emphasis-as-styling)
     - [D3 — Faithful-to-Markdown boundary](#d3--faithful-to-markdown-boundary)
     - [D4 — Immutability and source spans](#d4--immutability-and-source-spans)
     - [D5 — Comment handling: recognize and discard](#d5--comment-handling-recognize-and-discard)
@@ -83,8 +83,9 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
       (queries/commands are parsed later).
 - [x] **Recognize and strip HTML comments** (`<!-- ... -->`) so they never leak
       into speech; they are discarded, not modeled (D5).
-- [x] Keep speech/text **raw**: emphasis and other styling markers are **not**
-      interpreted; their literal characters survive.
+- [x] Model **emphasis** (`*italic*`, `**bold**`) as styling nodes with parsed
+      children (so queries/jumps nested inside still work); a literal `*` is
+      escaped (`\*`), and intraword `_` stays literal.
 - [x] Attach a **source span** (start offset + length) to every node for later
       diagnostics; a line/column can be derived from an offset downstream if needed.
 - [x] Recognize `#`..`######` **only at line start** as headings; a `#` elsewhere
@@ -131,6 +132,7 @@ classDiagram
     class LinkInline { string Target }
     class ImageInline { string Source }
     class CodeSpanInline { string Content }
+    class EmphasisInline { EmphasisKind Kind }
     class LineBreak { bool IsHard }
 
     MarkdownDocument o-- MarkdownBlock
@@ -145,7 +147,9 @@ classDiagram
     MarkdownInline <|-- LinkInline
     MarkdownInline <|-- ImageInline
     MarkdownInline <|-- CodeSpanInline
+    MarkdownInline <|-- EmphasisInline
     MarkdownInline <|-- LineBreak
+    EmphasisInline o-- MarkdownInline
 ```
 
 Notes:
@@ -156,11 +160,13 @@ Notes:
 - **`ListItem` contains blocks** (a paragraph plus an optional nested
   `ListBlock`). That block-in-item nesting is exactly how choice nesting is
   represented.
-- **Inlines** are limited to five kinds — text, link, image, code span, and line
-  break. Anything Markdig would treat as emphasis, autolink, etc. collapses into
-  `TextInline` raw text (see decisions below); recognized HTML comments are
-  discarded (D5). A `LineBreak` records an in-paragraph break and its `IsHard`
-  flag, with no speech meaning attached here (D7).
+- **Inlines** are six kinds — text, link, image, code span, emphasis, and line
+  break. `EmphasisInline` is the only inline that **contains other inlines**
+  (italic/bold, with parsed children); anything Markdig would treat as an autolink
+  or other unmodeled inline collapses into `TextInline` raw text (see decisions
+  below); recognized HTML comments are discarded (D5). A `LineBreak` records an
+  in-paragraph break and its `IsHard` flag, with no speech meaning attached here
+  (D7).
 - `LinkInline` keeps the **target** and its label as raw text; the label is not
   a place we expect dialogue structure. `ImageInline` mirrors it — a **source**
   plus raw alt text — so a presentation layer can render an image inline in a chat.
@@ -179,47 +185,42 @@ downstream.
 - **Cost:** roughly a dozen small record types plus a converter. Accepted as
   bounded.
 
-### D2 — Keep speech text raw
+### D2 — Model emphasis as styling
 
-We must preserve the writer's literal characters in speech. The challenge:
-Markdig's core parses emphasis, so `I *really* mean it` becomes an emphasis node
-and the `*` delimiters are **consumed**.
+Emphasis carries meaning in speech, so we **model** it rather than treating `*`/`_`
+as literal text.
 
-Two ways to keep text raw:
+Markdig parses `*x*` / `**x**` into an `EmphasisInline` (delimiter count 1 or 2)
+whose children are the parsed inner content. We map it to our own
+`EmphasisInline(Kind, Children, Span)`, where `Kind` is `Italic` or `Bold`, and we
+**recurse into the children** — so a query, jump, image, or nested emphasis inside
+emphasis is parsed, not frozen as text. For example,
+`**Hello \`"MainCharacter.Name"\`!**` becomes
+`Emphasis(Bold, [Text "Hello ", CodeSpan("\"MainCharacter.Name\""), Text "!"])`,
+which the transpiler can render bold *and* resolve the inner query.
 
-**Approach 1 — disable unwanted inline parsers.** Remove the emphasis inline
-parser so `*` is never special.
+Consequences:
 
-- Input `I *really* mean it` → one literal run `I *really* mean it` (asterisks
-  kept).
-- Pro: simple mapping; no emphasis nodes to flatten.
-- Con: customizes Markdig; `LiteralInline` may still normalize backslash escapes
-  (`\*`) and HTML entities (`&amp;`), so it is *mostly* raw, not byte-exact.
+- **`*`/`_` mean styling.** An author who wants a literal asterisk escapes it
+  (`\*`), exactly like standard Markdown. Intraword underscores
+  (`keep_the_underscores`) stay literal — CommonMark does not emphasize those.
+- **Standard text handling.** `LiteralInline.Content` gives the correctly
+  unescaped text and code spans stay raw, so emphasis needs no source-span slicing.
+- **No text coalescing.** Adjacent text runs are left as separate `TextInline`s,
+  so an escape (`\*`) or an emphasis boundary can split contiguous text into a few
+  runs (e.g. `\*x\*` → `*`, `x`, `*`). This is harmless — downstream concatenates
+  text runs — and keeps the converter simple.
+- **Bold-italic falls out of nesting.** `***x***` and `**_x_**` parse as nested
+  emphasis, so no separate "bold-italic" kind is needed.
+- **Faithful to Markdown (D3).** Emphasis *is* a Markdown construct; the front-end
+  records only *that* text is italic or bold — how it renders (BBCode, etc.) stays
+  a downstream `ISpeechFormatter` concern.
+- **Enables delimiter-dependent features.** Keeping the emphasis parser on also
+  supports Markdig features that rely on its delimiter processing (notably GFM pipe
+  tables), which a later configuration component builds on.
 
-**Approach 2 — take text from source spans.** Keep Markdig stock; for any run we
-treat as text, slice the **original source string** using the node's `SourceSpan`
-(we already carry spans — see D4) instead of trusting Markdig's transformed text.
-
-- Input `I *really* mean it` → we emit the exact source slice, `*` and all.
-- Pro: **byte-exact** raw text — escapes and entities survive untouched. The same
-  mechanism flattens any *unmodeled* node (autolinks, raw HTML, etc.) to its raw
-  text (see D6), so one rule handles them and surprises uniformly.
-- Con: the mapper must coalesce adjacent text fragments and skip the spans of
-  nodes it recognizes structurally (links, code spans).
-
-**Decision (as built):** disable the emphasis parser (Approach 1), so `*`/`_` are
-never special and each text run arrives as a single `LiteralInline` whose content
-is already the raw source — no fragment coalescing needed. Use explicit
-source-span slicing (Approach 2) for the cases that genuinely need the original
-string: flattening any *unmodeled* node and reading a link's label (see D6). One
-span-based rule thus covers autolinks, blockquotes, and surprises uniformly.
-Emphasis-disabling is essential, not optional — it is what keeps styling markers
-literal. (Backslash escapes and HTML entities are still normalized by Markdig's
-other inline parsers, so text is raw but not byte-exact.)
-
-Either way this realizes "raw string now, styling seam later": a future
-`ISpeechFormatter` (Markdown → BBCode) plugs in downstream without this component
-interpreting styling.
+Unmodeled constructs are still flattened to raw text by source-span slicing (D6);
+that mechanism is unchanged.
 
 ### D3 — Faithful-to-Markdown boundary
 
@@ -264,7 +265,7 @@ tables, strikethrough, task lists, autolinks). Consequences:
 Rationale: in a dialogue script, ambiguous Markdown is far more likely to be text
 the writer typed than structural intent. Erring toward raw text preserves speech
 and keeps the recognized structural set tiny (document, heading, list/item,
-paragraph, link, image, code span, line break).
+paragraph, link, image, code span, emphasis, line break).
 
 ### D7 — Line breaks preserved with a hard/soft flag
 
@@ -291,8 +292,8 @@ spec's *Succession* section for the author-facing rule.
 | `ParagraphBlock` | `Paragraph` | map inline content |
 | `ListBlock` | `ListBlock` | copy `IsOrdered`; map items |
 | `ListItemBlock` | `ListItem` | map child blocks (enables nesting) |
-| `LiteralInline` | `TextInline` | raw text |
-| `EmphasisInline` (if it appears) | `TextInline` | flattened to literal; normally disabled in D2 |
+| `LiteralInline` | `TextInline` | text with escapes resolved by Markdig |
+| `EmphasisInline` | `EmphasisInline` | `Kind` = `Italic`/`Bold` from delimiter count; **recurse** children |
 | `LinkInline` (link) | `LinkInline` | keep `Url` as target; label sliced to its raw source text |
 | `LinkInline` (image) | `ImageInline` | `IsImage` is set; keep `Url` as source and the alt text sliced to its raw source |
 | `CodeInline` | `CodeSpanInline` | keep raw inner content; inner grammar parsed later |
@@ -312,6 +313,7 @@ convertBlock(list)     -> ListBlock(ordered, items.map(convertItem))
 convertBlock(other)    -> Paragraph([TextInline(sourceSlice(span), span)])
 convertItem(item)      -> ListItem(item.children.map(convertBlock))
 convertInline(literal) -> TextInline(rawText, span)
+convertInline(emph)    -> EmphasisInline(kind, children.map(convertInline), span)
 convertInline(link)    -> LinkInline(target, sourceSlice(labelSpan), span)
 convertInline(image)   -> ImageInline(source, sourceSlice(altSpan), span)
 convertInline(code)    -> CodeSpanInline(content, span)
@@ -331,7 +333,8 @@ convertInline(comment) -> (discarded; excluded from surrounding text)
 | Mixed line endings (`\n`, `\r\n`) | Normalized by Markdig; spans still valid. |
 | Unterminated code span `` `foo `` | Follows CommonMark: treated as literal text. Not an error here. |
 | Deeply nested lists | Represented faithfully; no artificial depth limit at this layer. |
-| Emphasis/bold markers in text | Preserved literally as `TextInline` (D2). |
+| Emphasis `*italic*` / `**bold**` | Modeled as `EmphasisInline` (Kind + parsed children); a literal `*` needs escaping `\*` (D2). |
+| Escaped `\*` or intraword `keep_the_underscores` | Stays literal `TextInline` — no emphasis (standard CommonMark). |
 | Image `![alt](src)` | Modeled as `ImageInline` (source + raw alt text), like a link; the transpiler decides inline rendering. |
 | Bracketed text that is not a link | Follows CommonMark link rules; a valid link becomes `LinkInline`. Downstream decides relevance. |
 | Tables, strikethrough, task lists (GFM) | GFM extensions are **not** enabled (D6); they remain literal text. |
@@ -359,12 +362,14 @@ guard.
   transpiler can be tested against a fake `IMarkdownParser` with NSubstitute).
 - **Assertion helpers:** add `AssertXxx` helpers (e.g. `AssertParagraph`,
   `AssertHeading`, `AssertTextInline`) and small builders to keep tests readable.
-- **Coverage focus:** the mapper's branches (each node kind), the narrowing (D2:
-  emphasis stays literal), boundary cases above, and the null guard. Target full
-  meaningful coverage via `coverlet`.
+- **Coverage focus:** the mapper's branches (each node kind), emphasis modeling
+  (D2: italic/bold with recursed children, escape stays literal), boundary cases
+  above, and the null guard. Target full meaningful coverage via `coverlet`.
 - **Boundary tests to cover exhaustively:**
   - `#` heading at line start vs a `#` that appears inline (literal text).
   - Every list marker: `-`, `+`, `*`, and ordered `1.` / `1)`.
+  - Emphasis: italic/bold, nested bold-italic (`***x***`), a code-span query and a
+    link **inside** emphasis, an escaped `\*`, and intraword `keep_the_underscores`.
   - Deeply **nested lists** (choices within choices, plus succession lines under a
     choice) round-trip to the right block/item nesting.
   - Multiple lines in one paragraph become `LineBreak` nodes; soft breaks (a plain
@@ -378,9 +383,9 @@ guard.
 
 ## Resolved decisions (from review)
 
-- **Raw-text mechanism (D2):** disable the emphasis parser so text runs stay raw
-  literals, and slice the original source by span for unmodeled nodes and link
-  labels.
+- **Emphasis modeling (D2):** enable the emphasis parser and model `*italic*` /
+  `**bold**` as an `EmphasisInline(Kind, Children)` with **parsed** children;
+  styling meaning is decided downstream.
 - **Comment handling (D5):** **recognize and discard** comments (not modeled), so
   they never leak into speech.
 - **Line-break preservation (D7):** map each in-paragraph break to a `LineBreak`

@@ -1,13 +1,12 @@
 using Markdig;
-using Markdig.Parsers.Inlines;
 
 namespace DialogueSystem.Markdown;
 
 /// <summary>
 /// Parses a script with the Markdig library and converts its tree into our own
-/// Markdown AST. The pipeline is kept minimal (plain CommonMark, no GitHub
-/// extensions) so script text is not reinterpreted as tables and the like, and
-/// emphasis parsing is turned off so styling markers stay part of the raw text.
+/// Markdown AST. The pipeline is stock CommonMark (no GitHub extensions), so
+/// script text is not reinterpreted as tables and the like; emphasis is parsed so
+/// that italic/bold styling can be modeled and interpreted downstream.
 /// </summary>
 internal sealed class MarkdigMarkdownParser : IMarkdownParser
 {
@@ -21,10 +20,6 @@ internal sealed class MarkdigMarkdownParser : IMarkdownParser
         return new MarkdigToMarkdownAstConverter(source).Convert(parsed);
     }
 
-    private static MarkdownPipeline BuildPipeline()
-    {
-        var builder = new MarkdownPipelineBuilder().UsePreciseSourceLocation();
-        builder.InlineParsers.TryRemove<EmphasisInlineParser>();
-        return builder.Build();
-    }
+    private static MarkdownPipeline BuildPipeline() =>
+        new MarkdownPipelineBuilder().UsePreciseSourceLocation().Build();
 }

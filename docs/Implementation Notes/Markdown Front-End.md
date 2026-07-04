@@ -21,6 +21,7 @@
     - [D5 — Comment handling: recognize and discard](#d5--comment-handling-recognize-and-discard)
     - [D6 — Minimal pipeline; unmodeled constructs become raw text](#d6--minimal-pipeline-unmodeled-constructs-become-raw-text)
     - [D7 — Line breaks preserved with a hard/soft flag](#d7--line-breaks-preserved-with-a-hardsoft-flag)
+    - [D8 — Configurable unmodeled-node handling](#d8--configurable-unmodeled-node-handling)
   - [Markdig to AST mapping](#markdig-to-ast-mapping)
   - [Error and boundary cases](#error-and-boundary-cases)
   - [Integration](#integration)
@@ -252,15 +253,16 @@ keeping the recognition means nodes can be re-introduced trivially if one appear
 
 ### D6 — Minimal pipeline; unmodeled constructs become raw text
 
-The input is a *dialogue script*, not a general document, so we run the
-**narrowest CommonMark pipeline** — core only, with **no GFM extensions** (no
-tables, strikethrough, task lists, autolinks). Consequences:
+The input is a *dialogue script*, not a general document, so the pipeline stays
+**close to CommonMark core**. The only extension enabled is **pipe tables**, and
+only so a table can be *recognized* and then handled per policy (D8); no other
+GFM syntax (strikethrough, task lists, GFM autolinks) is enabled. Consequences:
 
-- A pipe table `| a | b |` in a script is **not** a table; it stays literal text
-  the writer typed. Same for other GFM syntax.
-- Any construct we do not model (blockquotes, stray HTML, etc.) is **flattened to
-  its
-  raw source text** via the span mechanism (D2), never silently dropped.
+- Non-table GFM syntax stays literal text the writer typed.
+- Any construct we do not model (blockquotes, thematic breaks, code blocks,
+  tables, stray HTML, …) is by **default flattened to its raw source text** via
+  the span mechanism (D2), never silently dropped — though the handling policy
+  (D8) can instead **ignore** a given kind.
 
 Rationale: in a dialogue script, ambiguous Markdown is far more likely to be text
 the writer typed than structural intent. Erring toward raw text preserves speech
@@ -282,6 +284,26 @@ the same speech, and a **blank line** (already a separate Markdown paragraph) is
 the primary speech separator. Keeping the distinction here means the transpiler
 never touches Markdig and the rule stays easy to change later. See the DSL
 spec's *Succession* section for the author-facing rule.
+
+### D8 — Configurable unmodeled-node handling
+
+Some unmodeled constructs are authoring aids, not speech — a table of speakers, a
+mermaid diagram, a section divider. Leaking them into speech as raw text is noise.
+So each **unmodeled node kind** is resolved by a policy to either **`Ignore`**
+(drop it, like a comment) or **`AsRawText`** (keep it as literal speech — the
+default).
+
+`DefaultUnmodeledNodeHandlingPolicy` ignores `CodeBlock`, `ThematicBreak`, and
+`Table` (authoring aids) and keeps `BlockQuote`, `RawHtml`, and `Autolink` as raw
+text (possibly intended content). A caller can pass a custom
+`IUnmodeledNodeHandlingPolicy` to `MarkdigMarkdownParser` to override any kind.
+The `ShouldSkip` seam consults the policy; comments stay firmly discarded (D5),
+outside it. Recognizing a `Table` requires enabling Markdig's pipe-table
+extension (D6).
+
+See **[Unmodeled Markdown Handling](./Unmodeled%20Markdown%20Handling.md)** for the
+full kind list, defaults, and how to plug in a custom policy. The *configuration
+format* (selecting a policy from a file) is not yet decided.
 
 ## Markdig to AST mapping
 

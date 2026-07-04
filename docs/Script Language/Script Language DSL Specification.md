@@ -28,6 +28,7 @@ model for developers.
   - [Speaker references](#speaker-references)
   - [Dialogue structure](#dialogue-structure)
     - [Comments](#comments)
+    - [Authoring aids](#authoring-aids)
     - [Succession](#succession)
     - [Choices](#choices)
     - [Jumps](#jumps)
@@ -305,6 +306,30 @@ Alice @A #main: Hello, Bob! <!-- Alice speaks in a warm tone. -->
 
 Bob @B #npc: Hello, Alice!
 ```
+
+### Authoring aids
+
+Markdown constructs that organize the script rather than say something —
+**tables**, **fenced code blocks** (including diagrams like mermaid), and
+**thematic breaks** (`---`) — are treated as author-only aids and are **dropped
+from speech by default**, much like comments. Use them freely to document
+speakers, sketch scene relationships, or divide sections.
+
+```markdown
+<!-- A table of who appears in this scene — never spoken. -->
+
+| Speaker | Mood  |
+| ------- | ----- |
+| Alice   | happy |
+| Bob     | shy   |
+
+Alice: Nice to see you, Bob!
+```
+
+> [!NOTE]
+> Which unmodeled constructs are dropped versus kept as literal speech is
+> configurable. See the internal *Unmodeled Markdown Handling* note for the
+> defaults and how to override them.
 
 ### Succession
 

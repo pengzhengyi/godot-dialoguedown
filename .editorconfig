@@ -37,6 +37,8 @@ max_line_length = 120
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
 csharp_using_directive_placement = outside_namespace:warning
+# Flag (and let `dotnet format` remove) unused using directives.
+dotnet_diagnostic.IDE0005.severity = warning
 
 # --- namespaces (modern C#) ---
 csharp_style_namespace_declarations = file_scoped:warning

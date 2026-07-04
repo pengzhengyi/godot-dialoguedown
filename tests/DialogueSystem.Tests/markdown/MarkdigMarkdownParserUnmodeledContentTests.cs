@@ -6,13 +6,41 @@ namespace DialogueSystem.Tests.Markdown;
 
 public sealed class MarkdigMarkdownParserUnmodeledContentTests : MarkdigMarkdownParserTestBase
 {
+    private const string CodeBlockSource =
+        """
+        ```mermaid
+        graph TD
+        A --> B
+        ```
+        """;
+
+    private const string TableSource =
+        """
+        | Speaker | Mood  |
+        | ------- | ----- |
+        | Alice   | happy |
+        """;
+
     [Theory]
-    [InlineData("> quote")]
     [InlineData("---")]
-    public void Parse_UnmodeledBlock_FlattensToRawTextParagraph(string source)
+    [InlineData(CodeBlockSource)]
+    [InlineData(TableSource)]
+    public void Parse_IgnoredByDefault_ProducesEmptyDocument(string source)
     {
-        // Blockquotes, thematic breaks, and the like are not modeled; they survive
-        // as a paragraph of their exact source text rather than throwing.
+        // Authoring aids (dividers, code/diagrams, tables) are not speech, so the
+        // default policy drops them.
+        var document = Parser.Parse(source);
+
+        Assert.Empty(document.Blocks);
+    }
+
+    [Theory]
+    [InlineData("> quote")]         // block quote
+    [InlineData("<div>hi</div>")]   // raw HTML block
+    public void Parse_RawTextByDefault_FlattensToParagraph(string source)
+    {
+        // Ambiguous constructs may be intended content, so the default policy keeps
+        // them as a paragraph of their exact source text.
         var document = Parser.Parse(source);
 
         var paragraph = AssertSingleBlock<Paragraph>(document);
@@ -24,11 +52,20 @@ public sealed class MarkdigMarkdownParserUnmodeledContentTests : MarkdigMarkdown
     [InlineData("<mailto:alice@example.com>")]
     public void Parse_UnmodeledInline_FlattensToRawText(string source)
     {
-        // Autolinks are not modeled; they survive as their exact source text so
-        // nothing spoken is lost.
+        // Autolinks are kept as their exact source text by default.
         var document = Parser.Parse(source);
 
         var paragraph = AssertSingleBlock<Paragraph>(document);
         AssertSingleText(paragraph.Inlines, source);
+    }
+
+    [Fact]
+    public void Parse_RawInlineHtml_FlattensToRawText()
+    {
+        // Inline HTML is kept as raw text (each tag flattens; surrounding text stays).
+        var document = Parser.Parse("<b>hi</b>");
+
+        var paragraph = AssertSingleBlock<Paragraph>(document);
+        AssertAllText(paragraph.Inlines, "<b>hi</b>");
     }
 }

@@ -29,6 +29,25 @@ public sealed class MarkdigMarkdownParserEmphasisTests : MarkdigMarkdownParserTe
     }
 
     [Fact]
+    public void Parse_DoubleTilde_ProducesStrikethrough()
+    {
+        var emphasis = SingleEmphasis("~~word~~");
+
+        Assert.Equal(EmphasisKind.Strikethrough, emphasis.Kind);
+        AssertSingleText(emphasis.Children, "word");
+    }
+
+    [Fact]
+    public void Parse_TripleTildeAtLineStart_IsCodeFenceNotStrikethrough()
+    {
+        // `~~~` opens a tilde-fenced code block (like ```), not strikethrough. The
+        // default policy drops code blocks, so the document ends up empty.
+        var document = Parser.Parse("~~~word~~~");
+
+        Assert.Empty(document.Blocks);
+    }
+
+    [Fact]
     public void Parse_BoldItalic_NestsEmphasis()
     {
         // ***x*** is italic wrapping bold in Markdig, so nesting covers bold-italic.
@@ -98,6 +117,9 @@ public sealed class MarkdigMarkdownParserEmphasisTests : MarkdigMarkdownParserTe
     [Theory]
     [InlineData(@"\*not styled\*", "*not styled*")]
     [InlineData("keep_the_underscores", "keep_the_underscores")]
+    [InlineData("a ~single~ tilde", "a ~single~ tilde")]
+    [InlineData("~~open only~", "~~open only~")]
+    [InlineData("~close only~~", "~close only~~")]
     public void Parse_NonEmphasis_StaysLiteralText(string source, string expected)
     {
         // Escaped asterisks and intraword underscores never form emphasis.

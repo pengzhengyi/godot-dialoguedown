@@ -1,4 +1,5 @@
 using Markdig;
+using Markdig.Extensions.EmphasisExtras;
 
 namespace DialogueSystem.Markdown;
 
@@ -27,5 +28,9 @@ internal sealed class MarkdigMarkdownParser : IMarkdownParser
     }
 
     private static MarkdownPipeline BuildPipeline() =>
-        new MarkdownPipelineBuilder().UsePreciseSourceLocation().UsePipeTables().Build();
+        new MarkdownPipelineBuilder()
+            .UsePreciseSourceLocation()
+            .UsePipeTables()
+            .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
+            .Build();
 }

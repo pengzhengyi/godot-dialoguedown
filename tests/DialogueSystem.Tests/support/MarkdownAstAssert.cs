@@ -34,4 +34,10 @@ internal static class MarkdownAstAssert
 
     public static void AssertText(MarkdownInline inline, string expected) =>
         Assert.Equal(expected, Assert.IsType<TextInline>(inline).Text);
+
+    public static void AssertAllText(IReadOnlyList<MarkdownInline> inlines, string expected)
+    {
+        var text = string.Concat(inlines.Select(inline => Assert.IsType<TextInline>(inline).Text));
+        Assert.Equal(expected, text);
+    }
 }

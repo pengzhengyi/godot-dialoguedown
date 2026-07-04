@@ -187,9 +187,8 @@ downstream.
 
 ### D2 — Model emphasis as styling
 
-Earlier this component *disabled* Markdig's emphasis parser to keep `*`/`_`
-literal in speech ("raw text now, styling later"). That is now **reversed**:
-emphasis carries meaning, so we **model** it.
+Emphasis carries meaning in speech, so we **model** it rather than treating `*`/`_`
+as literal text.
 
 Markdig parses `*x*` / `**x**` into an `EmphasisInline` (delimiter count 1 or 2)
 whose children are the parsed inner content. We map it to our own
@@ -202,26 +201,23 @@ which the transpiler can render bold *and* resolve the inner query.
 
 Consequences:
 
-- **`*`/`_` now mean styling.** An author who wants a literal asterisk escapes it
+- **`*`/`_` mean styling.** An author who wants a literal asterisk escapes it
   (`\*`), exactly like standard Markdown. Intraword underscores
-  (`keep_the_underscores`) still stay literal — CommonMark does not emphasize
-  those.
-- **Standard text handling.** With the parser on, `LiteralInline.Content` already
-  gives the correctly unescaped text and code spans stay raw, so emphasis needs no
-  source-span slicing.
+  (`keep_the_underscores`) stay literal — CommonMark does not emphasize those.
+- **Standard text handling.** `LiteralInline.Content` gives the correctly
+  unescaped text and code spans stay raw, so emphasis needs no source-span slicing.
 - **No text coalescing.** Adjacent text runs are left as separate `TextInline`s,
   so an escape (`\*`) or an emphasis boundary can split contiguous text into a few
   runs (e.g. `\*x\*` → `*`, `x`, `*`). This is harmless — downstream concatenates
   text runs — and keeps the converter simple.
 - **Bold-italic falls out of nesting.** `***x***` and `**_x_**` parse as nested
   emphasis, so no separate "bold-italic" kind is needed.
-- **Faithful to Markdown (D3).** Emphasis *is* a Markdown construct; modeling it is
-  more faithful than the previous suppression. The front-end records only *that*
-  text is italic or bold; how it renders (BBCode, etc.) stays a downstream
-  `ISpeechFormatter` concern.
-- **Side benefit.** Re-enabling the emphasis parser also restores Markdig features
-  that depend on its delimiter processing (notably GFM pipe tables), which a later
-  configuration component builds on.
+- **Faithful to Markdown (D3).** Emphasis *is* a Markdown construct; the front-end
+  records only *that* text is italic or bold — how it renders (BBCode, etc.) stays
+  a downstream `ISpeechFormatter` concern.
+- **Enables delimiter-dependent features.** Keeping the emphasis parser on also
+  supports Markdig features that rely on its delimiter processing (notably GFM pipe
+  tables), which a later configuration component builds on.
 
 Unmodeled constructs are still flattened to raw text by source-span slicing (D6);
 that mechanism is unchanged.
@@ -389,8 +385,7 @@ guard.
 
 - **Emphasis modeling (D2):** enable the emphasis parser and model `*italic*` /
   `**bold**` as an `EmphasisInline(Kind, Children)` with **parsed** children;
-  styling meaning is decided downstream. (Supersedes the earlier "disable emphasis
-  to keep it raw" stance.)
+  styling meaning is decided downstream.
 - **Comment handling (D5):** **recognize and discard** comments (not modeled), so
   they never leak into speech.
 - **Line-break preservation (D7):** map each in-paragraph break to a `LineBreak`

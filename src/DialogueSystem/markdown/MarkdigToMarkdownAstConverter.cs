@@ -46,8 +46,13 @@ internal sealed class MarkdigToMarkdownAstConverter
 
     private static SourceSpan ConvertSpan(MarkdigSpan span) => new(span.Start, span.Length);
 
-    private static EmphasisKind EmphasisKindFor(int delimiterCount) =>
-        delimiterCount == 2 ? EmphasisKind.Bold : EmphasisKind.Italic;
+    private static EmphasisKind EmphasisKindFor(MarkdigEmphasisInline emphasis) =>
+        (emphasis.DelimiterChar, emphasis.DelimiterCount) switch
+        {
+            ('~', _) => EmphasisKind.Strikethrough,
+            (_, 2) => EmphasisKind.Bold,
+            _ => EmphasisKind.Italic,
+        };
 
     private IReadOnlyList<MarkdownBlock> ConvertBlocks(IEnumerable<MarkdigBlock> blocks)
     {
@@ -171,7 +176,7 @@ internal sealed class MarkdigToMarkdownAstConverter
         new(link.Url!, FlattenLabel(link), ConvertSpan(link.Span));
 
     private EmphasisInline ConvertEmphasis(MarkdigEmphasisInline emphasis) =>
-        new(EmphasisKindFor(emphasis.DelimiterCount), ConvertInlines(emphasis), ConvertSpan(emphasis.Span));
+        new(EmphasisKindFor(emphasis), ConvertInlines(emphasis), ConvertSpan(emphasis.Span));
 
     private ImageInline ConvertImage(MarkdigLinkInline image) =>
         // Same shape as a link: the URL is the source and the bracket text is the alt.

@@ -307,8 +307,9 @@ comments stay firmly discarded (D5), outside the policy. Recognizing a `Table`
 requires enabling Markdig's pipe-table extension (D6).
 
 See **[Unmodeled Markdown Handling](./Unmodeled%20Markdown%20Handling.md)** for the
-full kind list, defaults, and how to plug in a custom policy. The *configuration
-format* (selecting a policy from a file) is not yet decided.
+full kind list, defaults, and how to plug in a custom policy. A project selects a
+policy from a **TOML** config file (`dialogue.toml`); the loader that reads it is
+future work.
 
 ## Markdig to AST mapping
 

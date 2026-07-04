@@ -331,8 +331,8 @@ Alice: Nice to see you, Bob!
 
 > [!NOTE]
 > Which unmodeled constructs are dropped versus kept as literal speech is
-> configurable. See the internal *Unmodeled Markdown Handling* note for the
-> defaults and how to override them.
+> configurable per project in a `dialogue.toml` file. See the internal
+> *Unmodeled Markdown Handling* note for the defaults and how to override them.
 
 ### Succession
 

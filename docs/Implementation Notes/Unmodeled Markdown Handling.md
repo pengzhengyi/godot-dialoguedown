@@ -6,8 +6,9 @@ override the defaults with a custom policy.
 
 > [!NOTE]
 > The in-code policy and defaults below are implemented and are the source of
-> truth for *behavior*. The **configuration format** (how a policy is selected
-> from a file) is not yet decided — see [Open questions](#open-questions).
+> truth for *behavior*. The **configuration format** is TOML (a project
+> `dialogue.toml`; see [Configuration format](#configuration-format)); the loader
+> that reads it is future work.
 
 ## Table of contents
 
@@ -17,7 +18,7 @@ override the defaults with a custom policy.
 - [The policy seam](#the-policy-seam)
 - [Custom policy](#custom-policy)
 - [Recognizing tables](#recognizing-tables)
-- [Open questions](#open-questions)
+- [Configuration format](#configuration-format)
 
 ## Background
 
@@ -102,8 +103,45 @@ To *ignore* a table, Markdig must first recognize it as one, which needs the
 `Table` block (dropped by default); stray pipes that do not form a table stay
 literal text. No other GitHub-flavored extensions are enabled.
 
-## Open questions
+## Configuration format
 
-- **Configuration format.** How a policy is selected or customized from *outside*
-  code — a JSON or INI file, a `.dialogue.md` front-matter block, or something
-  else — is undecided. TODO before an authoring-facing configuration ships.
+A DialogueSystem project is configured by a **TOML** file at the project root
+(`dialogue.toml`). Unmodeled-node handling lives under a `[markdown.unmodeled]`
+section, mapping each kind to `"ignore"` or `"raw-text"`:
+
+```toml
+# dialogue.toml
+
+[markdown.unmodeled]
+code-block     = "ignore"    # mermaid/code: illustration, not speech
+thematic-break = "ignore"
+table          = "ignore"
+block-quote    = "raw-text"
+raw-html       = "raw-text"
+autolink       = "raw-text"
+other          = "raw-text"
+```
+
+Omitted keys fall back to the built-in defaults. Other project concerns (speakers,
+runtime, …) get their own top-level sections in the same file.
+
+### Why TOML
+
+Considered INI, JSON, YAML, and TOML against **sectioning**, **readability for
+developers and writers**, **editor support**, and being a **standard**:
+
+- **TOML (chosen):** explicit `[section]` headers (exactly the sectioning we
+  want), INI-like clarity with real types and comments, a published standard
+  (TOML 1.0; used by Cargo and `pyproject.toml`), first-class .NET parsing
+  (Tomlyn, used by the .NET SDK), and schema-aware editor support (Even Better
+  TOML / Taplo).
+- **YAML:** very readable but whitespace-sensitive — a hazard when non-technical
+  writers edit it.
+- **JSON:** ubiquitous but has no comments and is noisy to hand-edit.
+- **INI:** simplest, but has no formal standard, no schema/validation, and no
+  nested sections.
+
+> [!NOTE]
+> This records the *format* decision only. The loader that reads `dialogue.toml`
+> and builds an `IUnmodeledNodeHandlingPolicy` (and other project settings) is a
+> separate, future component.

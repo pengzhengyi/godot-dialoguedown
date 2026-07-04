@@ -13,6 +13,19 @@ coverage*.xml
 coverage*.cobertura.xml
 TestResults/
 
+# --- .NET package artifacts ---
+*.nupkg
+*.snupkg
+
+# --- Local configuration / secrets ---
+.env
+.env.*
+!.env.example
+*.pfx
+*.pem
+*.key
+*.snk
+
 # --- Rider / VS / VS Code ---
 .idea/
 .vs/

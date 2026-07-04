@@ -5,10 +5,9 @@ dialogue — each is either kept **as raw text** or **ignored** — and how to
 override the defaults with a custom policy.
 
 > [!NOTE]
-> This is the design reference for a proposed component. The in-code policy and
-> defaults below are the source of truth for *behavior*; the **configuration
-> format** (how a policy is selected from a file) is not yet decided — see
-> [Open questions](#open-questions).
+> The in-code policy and defaults below are implemented and are the source of
+> truth for *behavior*. The **configuration format** (how a policy is selected
+> from a file) is not yet decided — see [Open questions](#open-questions).
 
 ## Table of contents
 
@@ -26,7 +25,7 @@ The front-end models only the constructs the DSL uses — headings, paragraphs,
 lists, links, images, code spans, emphasis, and line breaks (see
 [Markdown Front-End](./Markdown%20Front-End.md)). Everything else is *unmodeled*.
 
-By default an unmodeled construct is flattened to its raw source text so nothing
+By default, an unmodeled construct is flattened to its raw source text so nothing
 is silently lost. But some constructs are **authoring aids, not speech** — a
 table listing speakers and their moods, or a mermaid diagram showing how scenes
 connect. Leaking those into speech as raw text is noise. The handling policy lets
@@ -54,11 +53,12 @@ aids, keep ambiguous content:
 | `BlockQuote` | `> an aside` | `AsRawText` | Could be an intended spoken aside |
 | `RawHtml` | `<div>`, `<br>` | `AsRawText` | Ambiguous; the author typed it deliberately |
 | `Autolink` | `<https://example.com>` | `AsRawText` | A URL that is content |
+| `Other` | any unrecognized unmodeled construct | `AsRawText` | Fallback; kept rather than silently dropped |
 
 ## The policy seam
 
 ```csharp
-internal enum UnmodeledNodeKind { CodeBlock, ThematicBreak, Table, BlockQuote, RawHtml, Autolink }
+internal enum UnmodeledNodeKind { CodeBlock, ThematicBreak, Table, BlockQuote, RawHtml, Autolink, Other }
 
 internal enum UnmodeledNodeHandling { AsRawText, Ignore }
 

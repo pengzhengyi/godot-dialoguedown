@@ -294,12 +294,13 @@ So each **unmodeled node kind** is resolved by a policy to either **`Ignore`**
 default).
 
 `DefaultUnmodeledNodeHandlingPolicy` ignores `CodeBlock`, `ThematicBreak`, and
-`Table` (authoring aids) and keeps `BlockQuote`, `RawHtml`, and `Autolink` as raw
-text (possibly intended content). A caller can pass a custom
-`IUnmodeledNodeHandlingPolicy` to `MarkdigMarkdownParser` to override any kind.
-The `ShouldSkip` seam consults the policy; comments stay firmly discarded (D5),
-outside it. Recognizing a `Table` requires enabling Markdig's pipe-table
-extension (D6).
+`Table` (authoring aids) and keeps `BlockQuote`, `RawHtml`, `Autolink`, and any
+`Other` unrecognized construct as raw text (possibly intended content). A caller
+can pass a custom `IUnmodeledNodeHandlingPolicy` to `MarkdigMarkdownParser` to
+override any kind. The converter classifies each unmodeled node with a static
+`MarkdigUnmodeledNodeClassifier`, then drops or flattens it per the policy;
+comments stay firmly discarded (D5), outside the policy. Recognizing a `Table`
+requires enabling Markdig's pipe-table extension (D6).
 
 See **[Unmodeled Markdown Handling](./Unmodeled%20Markdown%20Handling.md)** for the
 full kind list, defaults, and how to plug in a custom policy. The *configuration

@@ -22,6 +22,7 @@
     - [D6 — Minimal pipeline; unmodeled constructs become raw text](#d6--minimal-pipeline-unmodeled-constructs-become-raw-text)
     - [D7 — Line breaks preserved with a hard/soft flag](#d7--line-breaks-preserved-with-a-hardsoft-flag)
     - [D8 — Configurable unmodeled-node handling](#d8--configurable-unmodeled-node-handling)
+    - [D9 — Discard front matter](#d9--discard-front-matter)
   - [Markdig to AST mapping](#markdig-to-ast-mapping)
   - [Error and boundary cases](#error-and-boundary-cases)
   - [Integration](#integration)
@@ -84,6 +85,8 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
       (queries/commands are parsed later).
 - [x] **Recognize and strip HTML comments** (`<!-- ... -->`) so they never leak
       into speech; they are discarded, not modeled (D5).
+- [x] **Recognize and discard leading front matter** (a `---`-fenced metadata
+      block) so it never enters speech (D9).
 - [x] Model **emphasis and strikethrough** (`*italic*`, `**bold**`, `~~struck~~`)
       as styling nodes with parsed children (so queries/jumps nested inside still
       work); a literal `*` or `~` is escaped (`\*`, `\~`), and intraword `_` stays
@@ -257,10 +260,12 @@ keeping the recognition means nodes can be re-introduced trivially if one appear
 ### D6 — Minimal pipeline; unmodeled constructs become raw text
 
 The input is a *dialogue script*, not a general document, so the pipeline stays
-**close to CommonMark core**. Two GFM extensions are enabled: **pipe tables** (so
-a table can be *recognized* and then handled per policy — D8) and **strikethrough**
-(so `~~...~~` can be *modeled* as styling — D2). No other GFM syntax (task lists,
-GFM autolinks, subscript/superscript) is enabled. Consequences:
+**close to CommonMark core**. Three Markdig extensions are enabled: **pipe
+tables** (so a table can be *recognized* and then handled per policy — D8),
+**strikethrough** (so `~~...~~` can be *modeled* as styling — D2), and **YAML
+front matter** (so a leading `---`-fenced metadata block is recognized and
+discarded — D9). No other GFM syntax (task lists, GFM autolinks,
+subscript/superscript) is enabled. Consequences:
 
 - Other GFM syntax stays literal text the writer typed.
 - Any construct we do not model (blockquotes, thematic breaks, code blocks,
@@ -311,6 +316,18 @@ full kind list, defaults, and how to plug in a custom policy. A project selects 
 policy from a **TOML** config file (`dialogue.toml`); the loader that reads it is
 future work.
 
+### D9 — Discard front matter
+
+A script may begin with a `---`-fenced **front matter** block carrying authoring
+metadata (title, tags, and the like). It is never speech, so — with Markdig's
+YAML front-matter extension enabled — the whole `YamlFrontMatterBlock` is
+**firmly discarded**, exactly like a comment (D5), *before* the handling policy
+sees it. It is deliberately **not** a policy kind: keeping metadata "as raw text"
+would make no sense.
+
+Front matter is only recognized at the very start of the document; a `---` after
+content is an ordinary thematic break (handled per the policy — D8).
+
 ## Markdig to AST mapping
 
 | Markdig node | Our node | Notes |
@@ -327,6 +344,7 @@ future work.
 | `CodeInline` | `CodeSpanInline` | keep raw inner content; inner grammar parsed later |
 | `LineBreakInline` | `LineBreak` | keep the `IsHard` flag; no speech meaning here (D7) |
 | `HtmlInline`/`HtmlBlock` comment | *(discarded)* | recognized and dropped so it never enters speech (D5) |
+| `YamlFrontMatterBlock` | *(discarded)* | leading `---` metadata block, firmly dropped (D9) |
 | unmodeled **inline** (autolink, other HTML) | `TextInline` (raw source) | flatten via source span; never dropped |
 | unmodeled **block** (blockquote, thematic break, fenced code, other HTML) | `Paragraph` of one raw `TextInline` | flatten via source span; never dropped |
 
@@ -367,7 +385,9 @@ convertInline(comment) -> (discarded; excluded from surrounding text)
 | `~~~...~~~` at line start | A tilde-fenced **code block** (like ```` ``` ````), not strikethrough — handled per the unmodeled-node policy (dropped by default). |
 | Image `![alt](src)` | Modeled as `ImageInline` (source + raw alt text), like a link; the transpiler decides inline rendering. |
 | Bracketed text that is not a link | Follows CommonMark link rules; a valid link becomes `LinkInline`. Downstream decides relevance. |
-| Tables, strikethrough, task lists (GFM) | GFM extensions are **not** enabled (D6); they remain literal text. |
+| Task lists / other GFM (autolinks, sub/superscript) | These extensions are **not** enabled (D6); they remain literal text. |
+| Pipe tables (GFM) | Recognized via the pipe-table extension (D6), then handled per the unmodeled-node policy — dropped by default (D8). |
+| Leading `---`-fenced front matter | Recognized and discarded (D9); a `---` after content is a thematic break. |
 | Multiple lines in one paragraph | Each in-paragraph break becomes a `LineBreak` node carrying its `IsHard` flag. No speech meaning is assigned here; the transpiler maps hard→new speech, soft→space (D7). |
 
 This component raises **no DSL diagnostics** (no "unknown speaker", no "dangling

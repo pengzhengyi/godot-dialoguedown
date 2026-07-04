@@ -17,6 +17,7 @@
     // --- Git & docs ---
     "eamodio.gitlens",
     "yzhang.markdown-all-in-one",      // for docs/ notes
+    "DavidAnson.vscode-markdownlint",  // mirrors the repository Markdown checks
     "MermaidChart.vscode-mermaid-chart", // official Mermaid editing + preview (syntax, pan/zoom) for docs/ design diagrams
     "esbenp.prettier-vscode",          // format json/md/yaml
     "vscode-icons-team.vscode-icons"

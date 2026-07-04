@@ -22,6 +22,7 @@ model for developers.
     - [Default speaker](#default-speaker)
     - [Inline speaker declaration](#inline-speaker-declaration)
     - [Whitespace around the colon](#whitespace-around-the-colon)
+    - [Styling](#styling)
   - [Tags](#tags)
   - [Speaker references](#speaker-references)
   - [Dialogue structure](#dialogue-structure)
@@ -166,6 +167,34 @@ depending on ambiguous whitespace:
 ```markdown
 Alice: " Hello, Bob!"
 ```
+
+### Styling
+
+Speech may use standard Markdown emphasis for **styling**:
+
+```markdown
+Alice: I *really* mean it.
+
+Alice: This is **very** important.
+```
+
+- `*text*` or `_text_` is **italic**; `**text**` or `__text__` is **bold**.
+  Combine them (`***text***`) for bold italic.
+- To type a **literal** asterisk or underscore, escape it (`\*`, `\_`).
+  Underscores inside a word (`snake_case_name`) are never emphasis.
+
+Styling can wrap other speech constructs — a query inside bold still resolves:
+
+```markdown
+Bob: **Hello `"MainCharacter.Name"`!**
+```
+
+renders a bold *Hello Alice!*.
+
+> [!NOTE]
+> This spec defines *what* styling an author can write. How a given style renders
+> (color, bold weight, BBCode, plain text, …) is decided by the game's
+> presentation layer, not by the compiler.
 
 ## Tags
 

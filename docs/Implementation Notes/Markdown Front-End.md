@@ -84,9 +84,10 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
       (queries/commands are parsed later).
 - [x] **Recognize and strip HTML comments** (`<!-- ... -->`) so they never leak
       into speech; they are discarded, not modeled (D5).
-- [x] Model **emphasis** (`*italic*`, `**bold**`) as styling nodes with parsed
-      children (so queries/jumps nested inside still work); a literal `*` is
-      escaped (`\*`), and intraword `_` stays literal.
+- [x] Model **emphasis and strikethrough** (`*italic*`, `**bold**`, `~~struck~~`)
+      as styling nodes with parsed children (so queries/jumps nested inside still
+      work); a literal `*` or `~` is escaped (`\*`, `\~`), and intraword `_` stays
+      literal.
 - [x] Attach a **source span** (start offset + length) to every node for later
       diagnostics; a line/column can be derived from an offset downstream if needed.
 - [x] Recognize `#`..`######` **only at line start** as headings; a `#` elsewhere
@@ -188,23 +189,24 @@ downstream.
 
 ### D2 — Model emphasis as styling
 
-Emphasis carries meaning in speech, so we **model** it rather than treating `*`/`_`
-as literal text.
+Emphasis and strikethrough carry meaning in speech, so we **model** them rather
+than treating `*`/`_`/`~` as literal text.
 
-Markdig parses `*x*` / `**x**` into an `EmphasisInline` (delimiter count 1 or 2)
-whose children are the parsed inner content. We map it to our own
-`EmphasisInline(Kind, Children, Span)`, where `Kind` is `Italic` or `Bold`, and we
-**recurse into the children** — so a query, jump, image, or nested emphasis inside
-emphasis is parsed, not frozen as text. For example,
-`**Hello \`"MainCharacter.Name"\`!**` becomes
+Markdig parses `*x*` / `**x**` into an `EmphasisInline` (delimiter count 1 or 2),
+and — with the strikethrough extension enabled — `~~x~~` into an `EmphasisInline`
+with a `~` delimiter. We map it to our own `EmphasisInline(Kind, Children, Span)`,
+where `Kind` is `Italic`, `Bold`, or `Strikethrough`, and we **recurse into the
+children** — so a query, jump, image, or nested emphasis inside is parsed, not
+frozen as text. For example, `**Hello \`"MainCharacter.Name"\`!**` becomes
 `Emphasis(Bold, [Text "Hello ", CodeSpan("\"MainCharacter.Name\""), Text "!"])`,
 which the transpiler can render bold *and* resolve the inner query.
 
 Consequences:
 
-- **`*`/`_` mean styling.** An author who wants a literal asterisk escapes it
-  (`\*`), exactly like standard Markdown. Intraword underscores
-  (`keep_the_underscores`) stay literal — CommonMark does not emphasize those.
+- **`*`/`_`/`~` mean styling.** An author who wants a literal asterisk or tilde
+  escapes it (`\*`, `\~`), exactly like standard Markdown. Intraword underscores
+  (`keep_the_underscores`) stay literal, and a single `~` is not strikethrough —
+  only `~~...~~` is.
 - **Standard text handling.** `LiteralInline.Content` gives the correctly
   unescaped text and code spans stay raw, so emphasis needs no source-span slicing.
 - **No text coalescing.** Adjacent text runs are left as separate `TextInline`s,
@@ -213,9 +215,10 @@ Consequences:
   text runs — and keeps the converter simple.
 - **Bold-italic falls out of nesting.** `***x***` and `**_x_**` parse as nested
   emphasis, so no separate "bold-italic" kind is needed.
-- **Faithful to Markdown (D3).** Emphasis *is* a Markdown construct; the front-end
-  records only *that* text is italic or bold — how it renders (BBCode, etc.) stays
-  a downstream `ISpeechFormatter` concern.
+- **Faithful to Markdown (D3).** Emphasis and strikethrough *are* Markdown
+  constructs; the front-end records only *that* text is italic, bold, or
+  strikethrough — how it renders (BBCode, etc.) stays a downstream
+  `ISpeechFormatter` concern.
 - **Enables delimiter-dependent features.** Keeping the emphasis parser on also
   supports Markdig features that rely on its delimiter processing (notably GFM pipe
   tables), which a later configuration component builds on.
@@ -254,11 +257,12 @@ keeping the recognition means nodes can be re-introduced trivially if one appear
 ### D6 — Minimal pipeline; unmodeled constructs become raw text
 
 The input is a *dialogue script*, not a general document, so the pipeline stays
-**close to CommonMark core**. The only extension enabled is **pipe tables**, and
-only so a table can be *recognized* and then handled per policy (D8); no other
-GFM syntax (strikethrough, task lists, GFM autolinks) is enabled. Consequences:
+**close to CommonMark core**. Two GFM extensions are enabled: **pipe tables** (so
+a table can be *recognized* and then handled per policy — D8) and **strikethrough**
+(so `~~...~~` can be *modeled* as styling — D2). No other GFM syntax (task lists,
+GFM autolinks, subscript/superscript) is enabled. Consequences:
 
-- Non-table GFM syntax stays literal text the writer typed.
+- Other GFM syntax stays literal text the writer typed.
 - Any construct we do not model (blockquotes, thematic breaks, code blocks,
   tables, stray HTML, …) is by **default flattened to its raw source text** via
   the span mechanism (D2), never silently dropped — though the handling policy
@@ -316,7 +320,7 @@ format* (selecting a policy from a file) is not yet decided.
 | `ListBlock` | `ListBlock` | copy `IsOrdered`; map items |
 | `ListItemBlock` | `ListItem` | map child blocks (enables nesting) |
 | `LiteralInline` | `TextInline` | text with escapes resolved by Markdig |
-| `EmphasisInline` | `EmphasisInline` | `Kind` = `Italic`/`Bold` from delimiter count; **recurse** children |
+| `EmphasisInline` | `EmphasisInline` | `Kind` = `Italic`/`Bold`/`Strikethrough` from delimiter char + count; **recurse** children |
 | `LinkInline` (link) | `LinkInline` | keep `Url` as target; label sliced to its raw source text |
 | `LinkInline` (image) | `ImageInline` | `IsImage` is set; keep `Url` as source and the alt text sliced to its raw source |
 | `CodeInline` | `CodeSpanInline` | keep raw inner content; inner grammar parsed later |
@@ -391,8 +395,9 @@ guard.
 - **Boundary tests to cover exhaustively:**
   - `#` heading at line start vs a `#` that appears inline (literal text).
   - Every list marker: `-`, `+`, `*`, and ordered `1.` / `1)`.
-  - Emphasis: italic/bold, nested bold-italic (`***x***`), a code-span query and a
-    link **inside** emphasis, an escaped `\*`, and intraword `keep_the_underscores`.
+  - Emphasis: italic/bold/**strikethrough** (`~~x~~`), nested bold-italic
+    (`***x***`), a code-span query and a link **inside** emphasis, an escaped `\*`,
+    a single `~` staying literal, and intraword `keep_the_underscores`.
   - Deeply **nested lists** (choices within choices, plus succession lines under a
     choice) round-trip to the right block/item nesting.
   - Multiple lines in one paragraph become `LineBreak` nodes; soft breaks (a plain
@@ -406,9 +411,10 @@ guard.
 
 ## Resolved decisions (from review)
 
-- **Emphasis modeling (D2):** enable the emphasis parser and model `*italic*` /
-  `**bold**` as an `EmphasisInline(Kind, Children)` with **parsed** children;
-  styling meaning is decided downstream.
+- **Emphasis modeling (D2):** enable the emphasis parser (plus the strikethrough
+  extension) and model `*italic*` / `**bold**` / `~~struck~~` as an
+  `EmphasisInline(Kind, Children)` with **parsed** children; styling meaning is
+  decided downstream.
 - **Comment handling (D5):** **recognize and discard** comments (not modeled), so
   they never leak into speech.
 - **Line-break preservation (D7):** map each in-paragraph break to a `LineBreak`

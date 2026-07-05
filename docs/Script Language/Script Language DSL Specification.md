@@ -19,23 +19,24 @@ model for developers.
   - [Processing model](#processing-model)
   - [Syntax summary](#syntax-summary)
   - [Text lines](#text-lines)
-    - [Default speaker](#default-speaker)
-    - [Inline speaker declaration](#inline-speaker-declaration)
+    - [Speaker](#speaker)
+      - [Inline speaker declaration](#inline-speaker-declaration)
+      - [Speaker reference](#speaker-reference)
+      - [Default speaker](#default-speaker)
     - [Whitespace around the colon](#whitespace-around-the-colon)
     - [Styling](#styling)
+    - [Tags](#tags)
     - [Images](#images)
-  - [Tags](#tags)
-  - [Speaker references](#speaker-references)
-  - [Dialogue structure](#dialogue-structure)
-    - [Comments](#comments)
-    - [Front matter](#front-matter)
-    - [Authoring aids](#authoring-aids)
-    - [Succession](#succession)
-    - [Choices](#choices)
-    - [Jumps](#jumps)
   - [Game-state integration](#game-state-integration)
     - [Queries](#queries)
     - [Commands](#commands)
+  - [Dialogue structure](#dialogue-structure)
+    - [Succession](#succession)
+    - [Choices](#choices)
+    - [Jumps](#jumps)
+    - [Comments](#comments)
+    - [Front matter](#front-matter)
+    - [Authoring aids](#authoring-aids)
   - [Complete example](#complete-example)
   - [File format](#file-format)
 
@@ -107,24 +108,14 @@ Canonical form:
 Alice: Hello, Bob!
 ```
 
-### Default speaker
+### Speaker
 
-When a line omits `Speaker`, the compiler will use the default speaker. If no
-default speaker exists, it will use the system speaker.
+A line may name who speaks before the colon. A speaker prefix is either a
+**declaration** (which binds a name, an optional id, and tags) or a **reference**
+(which only points at a known speaker); omitting the prefix uses the default
+speaker.
 
-```markdown
-The narrator speaks because no explicit speaker is provided.
-```
-
-Mark a speaker as the default speaker with the reserved `##default` tag:
-
-```markdown
-Narrator @narrator ##default: The story begins.
-
-This line is also spoken by Narrator.
-```
-
-### Inline speaker declaration
+#### Inline speaker declaration
 
 Inline speaker declarations are a lightweight way to introduce or enrich
 speakers directly in script.
@@ -146,9 +137,67 @@ Alice #avatar="alice.png": The weather is nice today!
 Inline declarations may appear multiple times as long as they don't conflict with
 existing speaker identity. Conflicting speaker metadata is a compile-time error.
 
+A prefix counts as a *declaration* only when it binds metadata — an `@id` and/or
+tags. A prefix that is **only** a name (`Alice:`) or **only** an `@id` (`@A:`) is
+a [speaker reference](#speaker-reference), not a declaration.
+
 > [!NOTE]
 > Speaker tags apply globally to the speaker, not just to the single text line
 > where the tag appears.
+
+#### Speaker reference
+
+Speakers can be referenced by name or by stable ID.
+
+```ebnf
+SpeakerReference = SpeakerName | "@" , SpeakerId ;
+```
+
+Examples:
+
+```markdown
+Alice: Hello, Bob!
+
+@A: Hello, Bob!
+```
+
+Stable IDs are useful when a character has nicknames, localized names, or
+multiple display names.
+
+For long-form stories, keep a central `speakers.json` file so speaker identity
+and metadata have a single source of truth.
+
+```json
+[
+  {
+    "name": "Alice",
+    "id": "A",
+    "tags": ["main"]
+  },
+  {
+    "name": "Bob",
+    "id": "B",
+    "tags": ["npc"]
+  }
+]
+```
+
+#### Default speaker
+
+When a line omits `Speaker`, the compiler will use the default speaker. If no
+default speaker exists, it will use the system speaker.
+
+```markdown
+The narrator speaks because no explicit speaker is provided.
+```
+
+Mark a speaker as the default speaker with the reserved `##default` tag:
+
+```markdown
+Narrator @narrator ##default: The story begins.
+
+This line is also spoken by Narrator.
+```
 
 ### Whitespace around the colon
 
@@ -202,28 +251,7 @@ The result is a bold *Hello Alice!*.
 > (color, bold weight, BBCode, plain text, …) is decided by the game's
 > presentation layer, not by the compiler.
 
-### Images
-
-Embed an image inline in speech with standard Markdown image syntax; it appears
-at that position in the line:
-
-```markdown
-Alice: Here is the photo you wanted. ![sunset](sunset.png)
-```
-
-Presentation **tags** may be added inside the **alt** text to customize how the
-image is shown (size, alignment, or any hint the game defines), using the same
-`#tag` / `#group=value` form as speaker tags:
-
-```markdown
-Alice: ![Alice smiling #size=small #align=left](alice.png)
-```
-
-The compiler keeps the source path and the alt text (including any tags) exactly
-as written; the presentation layer decides what the tags mean and how the image
-renders.
-
-## Tags
+### Tags
 
 Tags attach metadata that plugins, tools, or runtime systems can interpret.
 
@@ -261,201 +289,26 @@ with the element it annotates, never standing alone as a line.
 Currently, the only supported reserved tag is `##default`, which marks a speaker
 as the default speaker.
 
-## Speaker references
+### Images
 
-Speakers can be referenced by name or by stable ID.
-
-```ebnf
-SpeakerReference = SpeakerName | "@" , SpeakerId ;
-```
-
-Examples:
+Embed an image inline in speech with standard Markdown image syntax; it appears
+at that position in the line:
 
 ```markdown
-Alice: Hello, Bob!
-
-@A: Hello, Bob!
+Alice: Here is the photo you wanted. ![sunset](sunset.png)
 ```
 
-Stable IDs are useful when a character has nicknames, localized names, or
-multiple display names.
-
-For long-form stories, keep a central `speakers.json` file so speaker identity
-and metadata have a single source of truth.
-
-```json
-[
-  {
-    "name": "Alice",
-    "id": "A",
-    "tags": ["main"]
-  },
-  {
-    "name": "Bob",
-    "id": "B",
-    "tags": ["npc"]
-  }
-]
-```
-
-## Dialogue structure
-
-Dialogue sections become graph nodes and edges. Linear lines create succession
-edges. Choices and jumps create branches.
-
-### Comments
-
-Because the DSL is Markdown-inspired, use Markdown-compatible HTML comments for
-author notes.
+Presentation **tags** may be added inside the **alt** text to customize how the
+image is shown (size, alignment, or any hint the game defines), using the same
+`#tag` / `#group=value` form as speaker tags:
 
 ```markdown
-Alice @A #main: Hello, Bob! <!-- Alice speaks in a warm tone. -->
-
-Bob @B #npc: Hello, Alice!
+Alice: ![Alice smiling #size=small #align=left](alice.png)
 ```
 
-### Front matter
-
-A script may open with a **front matter** block — a `---`-fenced section of
-metadata (title, tags, author, and the like) at the very top of the file. It is
-never spoken and is **always discarded**, like a comment. Unlike authoring aids,
-this is not configurable: metadata is never speech.
-
-Only a block at the document start is front matter; a `---` later in the script
-is a thematic break (an authoring aid).
-
-```markdown
----
-title: Reunion
-tags: [chapter-1, intro]
----
-
-Alice: Hello, Bob!
-```
-
-### Authoring aids
-
-Markdown constructs that organize the script rather than say something —
-**tables**, **fenced code blocks** (including diagrams like mermaid), and
-**thematic breaks** (`---`) — are treated as author-only aids and are **dropped
-from speech by default**, much like comments. Use them freely to document
-speakers, sketch scene relationships, or divide sections.
-
-```markdown
-<!-- A table of who appears in this scene — never spoken. -->
-
-| Speaker | Mood  |
-| ------- | ----- |
-| Alice   | happy |
-| Bob     | shy   |
-
-Alice: Nice to see you, Bob!
-```
-
-> [!NOTE]
-> Which unmodeled constructs are dropped versus kept as literal speech is
-> configurable per project in a `dialogue.toml` file. See the internal
-> *Unmodeled Markdown Handling* note for the defaults and how to override them.
-
-### Succession
-
-When one text line follows another, the second line is the only successor of the
-first line. Separate successive speeches with a **blank line** so that each
-speech is its own Markdown paragraph.
-
-```markdown
-Alice @A #main: Hello, Bob!
-
-Bob @B #npc: Hello, Alice!
-```
-
-The script language follows standard Markdown line-break rules, so a Markdown
-preview groups lines into speeches exactly as the compiler does:
-
-- A **blank line** starts a new speech. This is the primary, most readable way to
-  separate successive speeches.
-- A **soft break** (a plain newline with no blank line) keeps both lines in the
-  same speech. Use it to wrap one long speech across several source lines.
-- A **hard break** starts a new speech without a blank line, for a compact
-  layout. Make a break hard in either of the two standard Markdown ways: end the
-  line with two or more trailing spaces, or end it with a backslash (`\`).
-
-A soft break wraps a single speech across source lines; it is still one speech:
-
-```markdown
-Alice: This is a single long speech that the author wrapped across
-several source lines for readability. It is still spoken as one speech.
-```
-
-A hard break separates two speeches without a blank line. The trailing backslash
-below is one of the two hard-break forms; two trailing spaces is the other:
-
-```markdown
-Alice: Hello, Bob!\
-Bob: Hello, Alice!
-```
-
-### Choices
-
-Use `-` to offer selectable responses.
-
-```markdown
-Alice: The weather is nice today!
-- Bob: Is it really?
-- Bob: Yes, I agree.
-```
-
-Choices can be nested, but deep nesting becomes hard to scan. Prefer jumps when
-branches split and later merge again.
-
-```markdown
-Alice: The weather is nice today!
-- Bob: Is it really?
-    - Alice: Yes. Let's play tennis!
-- Bob: Yes, I agree.
-    - Alice: Wonderful. Let's play tennis!
-```
-
-Choice **ordering** follows the list type. An **ordered** list (`1.`, `2.`, …)
-means the choices must be presented in that textual order. An **unordered** list
-(`-`) leaves later stages free to shuffle the display order — useful when the
-options should appear in a random order.
-
-### Jumps
-
-A jump is `=>` followed by a Markdown-style link.
-
-```ebnf
-Jump = "=>" , MarkdownLink ;
-```
-
-Use same-file anchors for local dialogue and relative paths for cross-file
-dialogue.
-
-```markdown
-=> [Play tennis](#play-tennis)
-=> [Meet Bob](chapter-02.md#meet-bob)
-```
-
-Example:
-
-```markdown
-## Greetings
-
-Alice: The weather is nice today!
-- Bob: Is it really?
-    - Alice: Yes. Let's play tennis!
-        => [Play tennis](#play-tennis)
-- Bob: Yes, I agree.
-    - Alice: Wonderful. Let's play tennis!
-        => [Play tennis](#play-tennis)
-
-## Play tennis
-
-Alice: Tennis is fun!
-
-Bob: Yes, I agree.
-```
+The compiler keeps the source path and the alt text (including any tags) exactly
+as written; the presentation layer decides what the tags mean and how the image
+renders.
 
 ## Game-state integration
 
@@ -594,6 +447,165 @@ by the default speaker.
 
 The compiler will emit a special node for each game-system call. The node shape
 and runtime execution contract are outside this document's scope.
+
+## Dialogue structure
+
+Dialogue sections become graph nodes and edges. Linear lines create succession
+edges. Choices and jumps create branches.
+
+### Succession
+
+When one text line follows another, the second line is the only successor of the
+first line. Separate successive speeches with a **blank line** so that each
+speech is its own Markdown paragraph.
+
+```markdown
+Alice @A #main: Hello, Bob!
+
+Bob @B #npc: Hello, Alice!
+```
+
+The script language follows standard Markdown line-break rules, so a Markdown
+preview groups lines into speeches exactly as the compiler does:
+
+- A **blank line** starts a new speech. This is the primary, most readable way to
+  separate successive speeches.
+- A **soft break** (a plain newline with no blank line) keeps both lines in the
+  same speech. Use it to wrap one long speech across several source lines.
+- A **hard break** starts a new speech without a blank line, for a compact
+  layout. Make a break hard in either of the two standard Markdown ways: end the
+  line with two or more trailing spaces, or end it with a backslash (`\`).
+
+A soft break wraps a single speech across source lines; it is still one speech:
+
+```markdown
+Alice: This is a single long speech that the author wrapped across
+several source lines for readability. It is still spoken as one speech.
+```
+
+A hard break separates two speeches without a blank line. The trailing backslash
+below is one of the two hard-break forms; two trailing spaces is the other:
+
+```markdown
+Alice: Hello, Bob!\
+Bob: Hello, Alice!
+```
+
+### Choices
+
+Use `-` to offer selectable responses.
+
+```markdown
+Alice: The weather is nice today!
+- Bob: Is it really?
+- Bob: Yes, I agree.
+```
+
+Choices can be nested, but deep nesting becomes hard to scan. Prefer jumps when
+branches split and later merge again.
+
+```markdown
+Alice: The weather is nice today!
+- Bob: Is it really?
+    - Alice: Yes. Let's play tennis!
+- Bob: Yes, I agree.
+    - Alice: Wonderful. Let's play tennis!
+```
+
+Choice **ordering** follows the list type. An **ordered** list (`1.`, `2.`, …)
+means the choices must be presented in that textual order. An **unordered** list
+(`-`) leaves later stages free to shuffle the display order — useful when the
+options should appear in a random order.
+
+### Jumps
+
+A jump is `=>` followed by a Markdown-style link.
+
+```ebnf
+Jump = "=>" , MarkdownLink ;
+```
+
+Use same-file anchors for local dialogue and relative paths for cross-file
+dialogue.
+
+```markdown
+=> [Play tennis](#play-tennis)
+=> [Meet Bob](chapter-02.md#meet-bob)
+```
+
+Example:
+
+```markdown
+## Greetings
+
+Alice: The weather is nice today!
+- Bob: Is it really?
+    - Alice: Yes. Let's play tennis!
+        => [Play tennis](#play-tennis)
+- Bob: Yes, I agree.
+    - Alice: Wonderful. Let's play tennis!
+        => [Play tennis](#play-tennis)
+
+## Play tennis
+
+Alice: Tennis is fun!
+
+Bob: Yes, I agree.
+```
+
+### Comments
+
+Because the DSL is Markdown-inspired, use Markdown-compatible HTML comments for
+author notes.
+
+```markdown
+Alice @A #main: Hello, Bob! <!-- Alice speaks in a warm tone. -->
+
+Bob @B #npc: Hello, Alice!
+```
+
+### Front matter
+
+A script may open with a **front matter** block — a `---`-fenced section of
+metadata (title, tags, author, and the like) at the very top of the file. It is
+never spoken and is **always discarded**, like a comment. Unlike authoring aids,
+this is not configurable: metadata is never speech.
+
+Only a block at the document start is front matter; a `---` later in the script
+is a thematic break (an authoring aid).
+
+```markdown
+---
+title: Reunion
+tags: [chapter-1, intro]
+---
+
+Alice: Hello, Bob!
+```
+
+### Authoring aids
+
+Markdown constructs that organize the script rather than say something —
+**tables**, **fenced code blocks** (including diagrams like mermaid), and
+**thematic breaks** (`---`) — are treated as author-only aids and are **dropped
+from speech by default**, much like comments. Use them freely to document
+speakers, sketch scene relationships, or divide sections.
+
+```markdown
+<!-- A table of who appears in this scene — never spoken. -->
+
+| Speaker | Mood  |
+| ------- | ----- |
+| Alice   | happy |
+| Bob     | shy   |
+
+Alice: Nice to see you, Bob!
+```
+
+> [!NOTE]
+> Which unmodeled constructs are dropped versus kept as literal speech is
+> configurable per project in a `dialogue.toml` file. See the internal
+> *Unmodeled Markdown Handling* note for the defaults and how to override them.
 
 ## Complete example
 

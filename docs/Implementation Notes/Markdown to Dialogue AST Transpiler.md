@@ -26,6 +26,7 @@
     - [D8 — Jump tokenized as JumpIndicator + Link](#d8--jump-tokenized-as-jumpindicator--link)
     - [D9 — Tags: a dedicated pluggable parser](#d9--tags-a-dedicated-pluggable-parser)
     - [D10 — Errors: DialogueSyntaxError, friendly messages](#d10--errors-dialoguesyntaxerror-friendly-messages)
+    - [D11 — Speaker: declaration vs reference](#d11--speaker-declaration-vs-reference)
   - [Leaf grammars](#leaf-grammars)
   - [Transpiling in pseudocode](#transpiling-in-pseudocode)
   - [Markdown AST to Dialogue AST mapping](#markdown-ast-to-dialogue-ast-mapping)
@@ -85,29 +86,33 @@ The Dialogue AST speaks three small, coherent sub-vocabularies. Every type, test
 and doc uses **exactly** these words. The whole tree is the **Dialogue AST**; its
 root node type is **Script**.
 
-| Term               | Meaning                                                | Bounded context     |
-| ------------------ | ------------------------------------------------------ | ------------------- |
-| **Script**         | the whole compiled file (the AST root)                 | theatre             |
-| **Scene**          | a section of the script; a Jump's destination          | theatre             |
-| **Line**           | one utterance: an optional **Speaker** plus **Speech** | theatre             |
-| **Speaker**        | who speaks: name / `@id` / `#tags`, **unresolved**     | theatre             |
-| **Speech**         | the words of a Line: an ordered list of fragments      | theatre             |
-| **SpeechFragment** | one piece of Speech (see below)                        | theatre             |
-| **Text**           | a plain-words fragment                                 | theatre             |
-| **StyledText**     | italic / bold / strikethrough (nests fragments)        | theatre             |
-| **Image**          | an inline image fragment                               | theatre             |
-| **LineBreak**      | a **soft** break kept as a display-wrap hint           | theatre             |
-| **Choices**        | the group of options offered at a branch               | interactive fiction |
-| **Choice**         | one selectable option                                  | interactive fiction |
-| **JumpIndicator**  | the `=>` token that marks a jump                       | interactive fiction |
-| **Link**           | a Markdown link: label + **unresolved** target         | interactive fiction |
-| **GameCall**       | a game-state hook; a kind of SpeechFragment            | engine              |
-| **Query**          | a GameCall that *reads* state and inserts text         | engine              |
-| **DefaultCommand** | a `( "…" )` command                                    | engine              |
-| **CustomCommand**  | a `Name(args)` command                                 | engine              |
-| **Tag**            | metadata attached to content (abstract; see below)     | metadata            |
-| **CustomTag**      | a project-defined tag; open, opaque metadata           | metadata            |
-| **ReservedTag**    | a built-in tag owned by DialogueDown (a known set)     | metadata            |
+| Term                     | Meaning                                                 | Bounded context     |
+| ------------------------ | ------------------------------------------------------- | ------------------- |
+| **Script**               | the whole compiled file (the AST root)                  | theatre             |
+| **Scene**                | a section of the script; a Jump's destination           | theatre             |
+| **Line**                 | one utterance: an optional **Speaker** plus **Speech**  | theatre             |
+| **Speaker**              | who speaks (abstract; unresolved — see below)           | theatre             |
+| **SpeakerDeclaration**   | a prefix that binds metadata: name + optional id + tags | theatre             |
+| **SpeakerReference**     | a prefix that only points at a speaker (abstract)       | theatre             |
+| **SpeakerNameReference** | points at a speaker by bare name                        | theatre             |
+| **SpeakerIdReference**   | points at a speaker by bare `@id`                       | theatre             |
+| **Speech**               | the words of a Line: an ordered list of fragments       | theatre             |
+| **SpeechFragment**       | one piece of Speech (see below)                         | theatre             |
+| **Text**                 | a plain-words fragment                                  | theatre             |
+| **StyledText**           | italic / bold / strikethrough (nests fragments)         | theatre             |
+| **Image**                | an inline image fragment                                | theatre             |
+| **LineBreak**            | a **soft** break kept as a display-wrap hint            | theatre             |
+| **Choices**              | the group of options offered at a branch                | interactive fiction |
+| **Choice**               | one selectable option                                   | interactive fiction |
+| **JumpIndicator**        | the `=>` token that marks a jump                        | interactive fiction |
+| **Link**                 | a Markdown link: label + **unresolved** target          | interactive fiction |
+| **GameCall**             | a game-state hook; a kind of SpeechFragment             | engine              |
+| **Query**                | a GameCall that *reads* state and inserts text          | engine              |
+| **DefaultCommand**       | a `( "…" )` command                                     | engine              |
+| **CustomCommand**        | a `Name(args)` command                                  | engine              |
+| **Tag**                  | metadata attached to content (abstract; see below)      | metadata            |
+| **CustomTag**            | a project-defined tag; open, opaque metadata            | metadata            |
+| **ReservedTag**          | a built-in tag owned by DialogueDown (a known set)      | metadata            |
 
 **Downstream terms.** A **Jump** (composed from `JumpIndicator + Link`) is a
 **Desugar** concept, not produced here. A **default speaker** is likewise filled
@@ -148,8 +153,9 @@ through narrow interfaces, so each can be swapped or tested alone.
 - [ ] **Script** root wraps the document's top-level content.
 - [ ] **Scene** from a heading; owns the content beneath it; **nests by level**.
 - [ ] **Line** from a paragraph; a paragraph **splits into Lines at hard breaks**.
-- [ ] **Speaker split**: try-parse a `Name @id #tags:` prefix; on no match the
-      Line has **no speaker** (default filled later in Desugar).
+- [ ] **Speaker split**: try-parse a `Name @id #tags:` prefix into a
+      **`SpeakerDeclaration`** / **`SpeakerNameReference`** / **`SpeakerIdReference`**
+      (D11); on no match the Line has **no speaker** (default filled in Desugar).
 - [ ] **Speech** as ordered **SpeechFragment**s: Text, StyledText, Image, soft
       LineBreak, GameCall, JumpIndicator, Link, Tag.
 - [ ] **Soft breaks kept** as `LineBreak` (display-wrap hints); **hard breaks
@@ -188,7 +194,15 @@ classDiagram
     class Script
     class Scene
     class Line
-    class Speaker
+    class Speaker {
+        <<abstract>>
+    }
+    class SpeakerDeclaration
+    class SpeakerReference {
+        <<abstract>>
+    }
+    class SpeakerNameReference
+    class SpeakerIdReference
     class Choices
     class Choice
     class Tag {
@@ -222,7 +236,11 @@ classDiagram
     Choices o-- Choice
     Choice o-- Line
     Choice o-- Choices : nested
-    Speaker o-- Tag
+    SpeakerDeclaration o-- Tag
+    Speaker <|-- SpeakerDeclaration
+    Speaker <|-- SpeakerReference
+    SpeakerReference <|-- SpeakerNameReference
+    SpeakerReference <|-- SpeakerIdReference
     SpeechFragment <|-- Text
     SpeechFragment <|-- StyledText
     SpeechFragment <|-- Image
@@ -355,6 +373,26 @@ arrow, *"did you mean the text `=>`? write it as part of speech, e.g. `Alice: =>
 The shared exception **base classes** live in `DialogueDown.Common.Errors`; each
 component's **concrete** error type lives in that component's namespace.
 
+### D11 — Speaker: declaration vs reference
+
+A speaker prefix is one of two things, decided by its **shape** (a local,
+syntactic call), so the transpiler emits distinct node types and the semantic
+analyzer can treat them differently — a reference *resolves* to a known speaker,
+a declaration *binds* metadata. Under an abstract **`Speaker`** base:
+
+| Prefix shape                | Node                                       | Meaning                     |
+| --------------------------- | ------------------------------------------ | --------------------------- |
+| name **+ (id and/or tags)** | **`SpeakerDeclaration`** (Name, Id?, Tags) | binds metadata              |
+| bare name (`Alice:`)        | **`SpeakerNameReference`** (Name)          | points at a speaker by name |
+| bare `@id` (`@A:`)          | **`SpeakerIdReference`** (Id)              | points at a speaker by id   |
+
+`SpeakerNameReference` and `SpeakerIdReference` share an abstract
+**`SpeakerReference`** base. The parser reads the components once, then classifies
+(no ordered back-tracking). Metadata (an `@id` or a tag) is what promotes a name to
+a **declaration**; a bare name is a **reference** that the semantic analyzer
+auto-declares on first use. A prefix carrying metadata but **no name** (`@A #main:`)
+has nothing to declare and is a **`DialogueSyntaxError`**.
+
 ## Leaf grammars
 
 All three grammars are simple and unambiguous, the sweet spot for Superpower.
@@ -430,7 +468,7 @@ convertLine(inlines):
 | `MarkdownDocument`      | `Script`                                     | root                             |
 | `Heading`               | `Scene`                                      | nests by level (D5)              |
 | `Paragraph`             | one or more `Line`                           | split at hard breaks (D4/D7)     |
-| leading text of a Line  | `Speaker` (optional)                         | try-parse prefix (D3)            |
+| leading text of a Line  | `SpeakerDeclaration` / `SpeakerReference`    | try-parse prefix (D3, D11)       |
 | `TextInline`            | `Text`                                       | plain words                      |
 | `EmphasisInline`        | `StyledText`                                 | style + nested fragments         |
 | `ImageInline`           | `Image`                                      | alt text may carry tags (D9)     |

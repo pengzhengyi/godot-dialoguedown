@@ -1,6 +1,6 @@
-using DialogueDown.Markdown;
+using DialogueDown.Common;
 
-namespace DialogueDown.Tests.Markdown;
+namespace DialogueDown.Tests.Common;
 
 public sealed class SourceSpanTests
 {

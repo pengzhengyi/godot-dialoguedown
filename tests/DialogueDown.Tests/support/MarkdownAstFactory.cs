@@ -1,4 +1,5 @@
 using Bogus;
+using DialogueDown.Common;
 using DialogueDown.Markdown;
 
 namespace DialogueDown.Tests.Support;
@@ -17,7 +18,8 @@ internal static class MarkdownAstFactory
 
     private static Faker Faker => _faker ??= new Faker();
 
-    public static SourceSpan Span(int start = 0, int length = 1) => new(start, length);
+    public static SourceSpan Span(int start = 0, int length = 1) =>
+        SourceSpanFactory.Span(start, length);
 
     public static TextInline Text(string? text = null) =>
         new(text ?? Faker.Lorem.Sentence(), Span());

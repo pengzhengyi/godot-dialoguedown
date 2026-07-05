@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using MarkdigBlock = Markdig.Syntax.Block;
 using MarkdigCodeInline = Markdig.Syntax.Inlines.CodeInline;
 using MarkdigContainerInline = Markdig.Syntax.Inlines.ContainerInline;

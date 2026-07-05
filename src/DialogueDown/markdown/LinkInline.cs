@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 namespace DialogueDown.Markdown;
 
 /// <summary>

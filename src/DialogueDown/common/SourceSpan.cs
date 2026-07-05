@@ -1,4 +1,4 @@
-namespace DialogueDown.Markdown;
+namespace DialogueDown.Common;
 
 /// <summary>
 /// A half-open character range <c>[Start, End)</c> into the script source.

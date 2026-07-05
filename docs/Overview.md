@@ -1,6 +1,6 @@
-# DialogueSystem overview
+# DialogueDown overview
 
-DialogueSystem is an engine-agnostic C# library for branching game dialogue. It
+DialogueDown is an engine-agnostic C# library for branching game dialogue. It
 keeps dialogue data, graph logic, tags, and game-state integration outside any
 specific engine so Godot projects can use the core library through thin
 presentation adapters.
@@ -57,7 +57,7 @@ For the proposed script syntax, see
 
 ## Current implementation status
 
-- **Project shape:** `src/DialogueSystem` targets `net8.0` and has no Godot
+- **Project shape:** `src/DialogueDown` targets `net8.0` and has no Godot
   dependency.
 - **Graph model:** early internal interfaces exist for `INode`, `IEdge`,
   `IDialogue`, `ISpeaker`, `ISpeech`, `ITag`, and `ITaggable`.

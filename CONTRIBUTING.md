@@ -1,6 +1,6 @@
-# Contributing to DialogueSystem
+# Contributing to DialogueDown
 
-Thank you for considering a contribution. DialogueSystem is early stage, so
+Thank you for considering a contribution. DialogueDown is early stage, so
 small, well-scoped changes are easiest to review and merge.
 
 ## Ways to contribute
@@ -27,9 +27,9 @@ Requirements:
 Clone the repository and run:
 
 ```bash
-dotnet restore DialogueSystem.sln
-dotnet build DialogueSystem.sln --configuration Release --no-restore
-dotnet test DialogueSystem.sln --configuration Release --no-build
+dotnet restore DialogueDown.sln
+dotnet build DialogueDown.sln --configuration Release --no-restore
+dotnet test DialogueDown.sln --configuration Release --no-build
 ```
 
 ## Commit style
@@ -51,7 +51,7 @@ Before opening a pull request:
 
 - [ ] Add or update tests for behavior changes.
 - [ ] Update documentation for public API or script-language changes.
-- [ ] Run `dotnet test DialogueSystem.sln`.
+- [ ] Run `dotnet test DialogueDown.sln`.
 - [ ] Keep the pull request focused on one topic.
 - [ ] Explain why the change is useful.
 

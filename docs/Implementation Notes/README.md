@@ -1,6 +1,6 @@
 # Implementation notes
 
-Design and rationale notes for DialogueSystem's compiler. Each note covers one
+Design and rationale notes for DialogueDown's compiler. Each note covers one
 component; this README indexes them and records **cross-cutting conventions**
 that every component shares — starting with the error model.
 
@@ -49,7 +49,7 @@ carrying a clear, actionable message.
   (unknown speaker, dangling jump). They are different types, so callers and tools
   can react differently.
 - **One base to catch them all.** Every domain fault derives from a single base
-  (`DialogueSystemException`), so a caller can `catch` broadly or narrowly.
+  (`DialogueDownException`), so a caller can `catch` broadly or narrowly.
 - **Locate everything.** Every compilation error carries a
   [`SourceSpan`](./Markdown%20Front-End.md#the-markdown-ast-model) so messages and
   tooling can point at the exact offending characters.
@@ -63,7 +63,7 @@ carrying a clear, actionable message.
 
 ```mermaid
 classDiagram
-    class DialogueSystemException {
+    class DialogueDownException {
         <<abstract>>
     }
     class ScriptCompilationException {
@@ -80,7 +80,7 @@ classDiagram
     class DialogueSyntaxError
     class DialogueSemanticError
 
-    DialogueSystemException <|-- ScriptCompilationException
+    DialogueDownException <|-- ScriptCompilationException
     ScriptCompilationException <|-- SyntaxError
     ScriptCompilationException <|-- SemanticError
     SyntaxError <|-- MarkdownSyntaxError
@@ -88,12 +88,12 @@ classDiagram
     SemanticError <|-- DialogueSemanticError
 ```
 
-- **`DialogueSystemException`** — abstract base for everything the library throws
-  as a domain fault. Callers catch this to handle "any DialogueSystem error".
+- **`DialogueDownException`** — abstract base for everything the library throws
+  as a domain fault. Callers catch this to handle "any DialogueDown error".
 - **`ScriptCompilationException`** — abstract; a fault while compiling a script.
   Carries the `SourceSpan` (and, derived from it, a line/column) that locates the
   problem. A future **runtime** branch (graph execution faults) can hang directly
-  off `DialogueSystemException`, parallel to this one.
+  off `DialogueDownException`, parallel to this one.
 - **`SyntaxError`** — abstract; structurally malformed input.
 - **`SemanticError`** — abstract; well-formed input that breaks a rule.
 - The concrete leaves are what each stage actually throws (next section).
@@ -122,7 +122,7 @@ It is **not** for **programmer mistakes** calling the API. Those stay as standar
 | An AST invariant is violated in code (e.g. a heading level outside 1–6, an empty text run, a non-positive span length) | `ArgumentException` / `ArgumentOutOfRangeException` | Internal construction bug, caught in tests, not something a script author can cause. |
 
 Rule of thumb: if a **script author** can trigger it by writing a bad `.dialogue.md`,
-it is a `DialogueSystemException`. If only a **developer** can trigger it by
+it is a `DialogueDownException`. If only a **developer** can trigger it by
 misusing the API, it is a standard argument/usage exception.
 
 ### Every error carries a location
@@ -160,7 +160,7 @@ until an editor integration needs stable identifiers.
 
 Flagged for confirmation before implementation:
 
-- **Base type name.** `DialogueSystemException` (matches the library name) vs a
+- **Base type name.** `DialogueDownException` (matches the library name) vs a
   shorter `DialogueException`.
 - **Intermediate `ScriptCompilationException`.** Keep it as the span-carrying
   parent (recommended, leaves room for a runtime branch), or fold `Span` directly

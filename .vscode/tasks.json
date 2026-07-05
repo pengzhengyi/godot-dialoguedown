@@ -4,14 +4,14 @@
     {
       "label": "restore",
       "type": "shell",
-      "command": "dotnet restore DialogueSystem.sln",
+      "command": "dotnet restore DialogueDown.sln",
       "group": "build",
       "problemMatcher": "$msCompile"
     },
     {
       "label": "build",
       "type": "shell",
-      "command": "dotnet build DialogueSystem.sln --configuration Release --no-restore",
+      "command": "dotnet build DialogueDown.sln --configuration Release --no-restore",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -22,7 +22,7 @@
     {
       "label": "test",
       "type": "shell",
-      "command": "dotnet test DialogueSystem.sln --configuration Release --no-build",
+      "command": "dotnet test DialogueDown.sln --configuration Release --no-build",
       "group": {
         "kind": "test",
         "isDefault": true

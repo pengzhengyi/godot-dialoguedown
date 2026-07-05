@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > Status: **implemented**.
-> Component 1 of the DialogueSystem script compiler.
+> Component 1 of the DialogueDown script compiler.
 
 ## Table of contents
 
@@ -400,8 +400,8 @@ guard.
   `.dialogue.md` convention are the caller's concern, not this component's.
 - **Downstream:** the transpiler depends only on `IMarkdownParser` and the AST
   records. It never references Markdig. Swapping parsers is a localized change.
-- **Existing code:** additive only. Lives in `src/DialogueSystem/markdown/`,
-  namespace `DialogueSystem.Markdown`. No changes to current interfaces.
+- **Existing code:** additive only. Lives in `src/DialogueDown/markdown/`,
+  namespace `DialogueDown.Markdown`. No changes to current interfaces.
 
 ## Testability
 
@@ -426,7 +426,7 @@ guard.
   - Multiple lines in one paragraph become `LineBreak` nodes; soft breaks (a plain
     newline, either line-ending style) and hard breaks (two trailing spaces or a
     backslash) are told apart by `IsHard`.
-- **Access:** add `InternalsVisibleTo("DialogueSystem.Tests")` so tests can see
+- **Access:** add `InternalsVisibleTo("DialogueDown.Tests")` so tests can see
   the `internal` AST types.
 - **Test data:** derive concrete cases from the DSL spec examples (headings,
   nested choices, jump links, code-span queries/commands) — but assert only their

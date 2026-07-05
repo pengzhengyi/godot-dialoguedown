@@ -23,10 +23,10 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Restore
-        run: dotnet restore DialogueSystem.sln
+        run: dotnet restore DialogueDown.sln
 
       - name: Build
-        run: dotnet build DialogueSystem.sln --configuration Release --no-restore
+        run: dotnet build DialogueDown.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test DialogueSystem.sln --configuration Release --no-build
+        run: dotnet test DialogueDown.sln --configuration Release --no-build

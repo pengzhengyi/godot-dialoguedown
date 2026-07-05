@@ -105,7 +105,7 @@ literal text. No other GitHub-flavored extensions are enabled.
 
 ## Configuration format
 
-A DialogueSystem project is configured by a **TOML** file at the project root
+A DialogueDown project is configured by a **TOML** file at the project root
 (`dialogue.toml`). Unmodeled-node handling lives under a `[markdown.unmodeled]`
 section, mapping each kind to `"ignore"` or `"raw-text"`:
 

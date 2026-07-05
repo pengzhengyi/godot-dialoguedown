@@ -8,11 +8,12 @@ release policy is added later.
 
 ## Reporting a vulnerability
 
-Please don't report security vulnerabilities in public issues.
+Please don't report security vulnerabilities in public issues. Use GitHub's
+private vulnerability reporting for this repository instead.
 
-> [!WARNING]
-> Add a private security contact or enable GitHub private vulnerability reporting
-> before the first public release.
+Open the repository's **Security** tab, choose **Report a vulnerability**, and
+submit the private report. GitHub will notify maintainers without making the
+details public.
 
 When reporting a vulnerability, include:
 

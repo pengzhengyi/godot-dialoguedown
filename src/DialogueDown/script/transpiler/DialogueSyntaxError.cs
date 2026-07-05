@@ -14,4 +14,9 @@ internal sealed class DialogueSyntaxError : SyntaxError
         : base(message, span)
     {
     }
+
+    public DialogueSyntaxError(string message, SourceSpan span, Exception innerException)
+        : base(message, span, innerException)
+    {
+    }
 }

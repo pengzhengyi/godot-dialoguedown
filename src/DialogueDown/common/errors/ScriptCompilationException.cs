@@ -10,5 +10,8 @@ internal abstract class ScriptCompilationException : DialogueDownException
     protected ScriptCompilationException(string message, SourceSpan span)
         : base(message) => Span = span;
 
+    protected ScriptCompilationException(string message, SourceSpan span, Exception innerException)
+        : base(message, innerException) => Span = span;
+
     public SourceSpan Span { get; }
 }

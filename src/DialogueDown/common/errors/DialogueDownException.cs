@@ -10,4 +10,9 @@ internal abstract class DialogueDownException : Exception
         : base(message)
     {
     }
+
+    protected DialogueDownException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
 }

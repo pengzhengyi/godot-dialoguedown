@@ -12,7 +12,7 @@ public sealed class DefaultCommandTests
 
         var command = new DefaultCommand("Alice joins Art", span);
 
-        Assert.Equal("Alice joins Art", command.Text);
+        Assert.Equal("Alice joins Art", command.Action);
         Assert.Equal(span, command.Span);
         Assert.IsAssignableFrom<GameCall>(command);
     }

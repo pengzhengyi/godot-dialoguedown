@@ -11,4 +11,9 @@ internal abstract class SyntaxError : ScriptCompilationException
         : base(message, span)
     {
     }
+
+    protected SyntaxError(string message, SourceSpan span, Exception innerException)
+        : base(message, span, innerException)
+    {
+    }
 }

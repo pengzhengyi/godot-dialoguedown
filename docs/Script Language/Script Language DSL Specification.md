@@ -249,11 +249,12 @@ Alice #"speaker tone"="warm": I'm glad to see you.
 Narrator @narrator ##default: The story begins.
 ```
 
-Regular tags (`#...`) are project-defined custom metadata. Reserved tags
-(`##...`) are built-in language tags owned by DialogueDown.
+**Custom tags** (`#...`) are project-defined, opaque metadata. **Reserved tags**
+(`##...`) are built-in language tags owned by DialogueDown, drawn from a known
+set. A tag that carries a value (`#name=value`) is a **tag group**.
 
 Tags may appear wherever they attach to content: in a **speaker declaration**, in
-a **link or image label**, and **anywhere within speech text**. A regular or
+a **link or image label**, and **anywhere within speech text**. A custom or
 reserved tag must never start a line at block scope — a tag always rides along
 with the element it annotates, never standing alone as a line.
 

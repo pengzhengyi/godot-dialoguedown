@@ -105,7 +105,9 @@ root node type is **Script**.
 | **Query**          | a GameCall that *reads* state and inserts text         | engine              |
 | **DefaultCommand** | a `( "…" )` command                                    | engine              |
 | **CustomCommand**  | a `Name(args)` command                                 | engine              |
-| **Tag**            | a metadata tag (`#name`, `#k=v`, `##reserved`)         | metadata            |
+| **Tag**            | metadata attached to content (abstract; see below)     | metadata            |
+| **CustomTag**      | a project-defined tag; open, opaque metadata           | metadata            |
+| **ReservedTag**    | a built-in tag owned by DialogueDown (a known set)     | metadata            |
 
 **Downstream terms.** A **Jump** (composed from `JumpIndicator + Link`) is a
 **Desugar** concept, not produced here. A **default speaker** is likewise filled
@@ -189,7 +191,11 @@ classDiagram
     class Speaker
     class Choices
     class Choice
-    class Tag
+    class Tag {
+        <<abstract>>
+    }
+    class CustomTag
+    class ReservedTag
 
     class SpeechFragment {
         <<abstract>>
@@ -228,6 +234,8 @@ classDiagram
     GameCall <|-- Query
     GameCall <|-- DefaultCommand
     GameCall <|-- CustomCommand
+    Tag <|-- CustomTag
+    Tag <|-- ReservedTag
 ```
 
 Every node is an immutable `record` carrying a `SourceSpan`, mirroring the
@@ -325,11 +333,15 @@ left to the semantic analyzer.
 
 Tags have a non-trivial grammar — plain (`#name`), groups (`#k=v`), reserved
 (`##name`, `##k=v`), and quoted names (`#"speaker tone"="warm"`). A dedicated,
-reusable **`TagParser`** owns it, and a **`Tag`** node captures the parsed form.
-The same parser serves everywhere a tag may appear — in a speaker prefix, in a
-link or image label, and **anywhere within speech text** — so the rule lives in
-one place. (Broadening tag placement beyond speaker declarations extends the DSL;
-the spec is updated to match.)
+reusable **`TagParser`** owns it. The parsed form splits on the **reserved-vs-
+custom** axis into two node types — **`CustomTag`** (project-defined, opaque) and
+**`ReservedTag`** (built-in, a known set the semantic analyzer validates) — under
+an abstract **`Tag`** base, so downstream handling can match on type. The **group**
+form (`=value`) is data, a nullable `Value` on the base, not another subclass. The
+same parser serves everywhere a tag may appear — in a speaker prefix, in a link or
+image label, and **anywhere within speech text** — so the rule lives in one place.
+(Broadening tag placement beyond speaker declarations extends the DSL; the spec is
+updated to match.)
 
 ### D10 — Errors: DialogueSyntaxError, friendly messages
 

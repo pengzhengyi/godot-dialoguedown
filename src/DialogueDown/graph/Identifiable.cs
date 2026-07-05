@@ -1,4 +1,4 @@
-namespace DialogueDown;
+namespace DialogueDown.Graph;
 
 #pragma warning disable IDE1006 // Naming Styles
 internal interface Identifiable

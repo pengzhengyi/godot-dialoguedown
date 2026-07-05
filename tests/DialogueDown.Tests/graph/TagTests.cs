@@ -1,4 +1,5 @@
-namespace DialogueDown.Tests;
+using DialogueDown.Graph;
+namespace DialogueDown.Tests.Graph;
 
 public sealed class TagTests
 {

@@ -28,7 +28,7 @@ that every component shares — starting with the error model.
 | --- | --- | --- |
 | [Markdown Front-End](./Markdown%20Front-End.md) | Source text → Markdown AST (Markdig adapter) | Implemented |
 | [Unmodeled Markdown Handling](./Unmodeled%20Markdown%20Handling.md) | How unmodeled Markdown nodes are ignored vs kept as raw text | Implemented |
-| [Transpiler Design](./Transpiler%20Design.md) | Markdown AST → Dialogue AST | Draft |
+| [Markdown to Dialogue AST Transpiler](./Markdown%20to%20Dialogue%20AST%20Transpiler.md) | Markdown AST → Dialogue AST | Draft |
 
 ## Error model
 

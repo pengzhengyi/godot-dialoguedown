@@ -252,8 +252,10 @@ Narrator @narrator ##default: The story begins.
 Regular tags (`#...`) are project-defined custom metadata. Reserved tags
 (`##...`) are built-in language tags owned by DialogueDown.
 
-Tags must attach to another syntax element, such as a speaker declaration. A
-regular or reserved tag must never start a line at block scope.
+Tags may appear wherever they attach to content: in a **speaker declaration**, in
+a **link or image label**, and **anywhere within speech text**. A regular or
+reserved tag must never start a line at block scope — a tag always rides along
+with the element it annotates, never standing alone as a line.
 
 Currently, the only supported reserved tag is `##default`, which marks a speaker
 as the default speaker.
@@ -412,6 +414,11 @@ Alice: The weather is nice today!
 - Bob: Yes, I agree.
     - Alice: Wonderful. Let's play tennis!
 ```
+
+Choice **ordering** follows the list type. An **ordered** list (`1.`, `2.`, …)
+means the choices must be presented in that textual order. An **unordered** list
+(`-`) leaves later stages free to shuffle the display order — useful when the
+options should appear in a random order.
 
 ### Jumps
 

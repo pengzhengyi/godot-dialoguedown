@@ -1,4 +1,4 @@
-# DialogueSystem
+# DialogueDown
 
 Engine-agnostic, C#-first branching **dialogue library**. Kept free of any Godot
 dependency so the core (dialogue graph, runner, effects, conditions) is
@@ -7,7 +7,7 @@ presentation (panels, typewriter, input) lives in each consuming game as a thin
 adapter over this library's interfaces.
 
 > [!NOTE]
-> DialogueSystem is a work-in-progress open-source project. The public API,
+> DialogueDown is a work-in-progress open-source project. The public API,
 > script language, and runtime model may change while the library is still in
 > early development.
 
@@ -33,17 +33,17 @@ adapter over this library's interfaces.
 
 | Path | Purpose |
 | --- | --- |
-| `src/DialogueSystem/` | the reusable class library (net8.0, no engine refs) |
-| `tests/DialogueSystem.Tests/` | xUnit tests for the pure logic |
+| `src/DialogueDown/` | the reusable class library (net8.0, no engine refs) |
+| `tests/DialogueDown.Tests/` | xUnit tests for the pure logic |
 
 ## Build and test
 
 Restore, build, and test the solution:
 
 ```bash
-dotnet restore DialogueSystem.sln
-dotnet build DialogueSystem.sln --configuration Release --no-restore
-dotnet test DialogueSystem.sln
+dotnet restore DialogueDown.sln
+dotnet build DialogueDown.sln --configuration Release --no-restore
+dotnet test DialogueDown.sln
 ```
 
 ## Documentation
@@ -83,4 +83,4 @@ Please don't report vulnerabilities in public issues. See
 
 ## License
 
-DialogueSystem is released under the [MIT License](LICENSE).
+DialogueDown is released under the [MIT License](LICENSE).

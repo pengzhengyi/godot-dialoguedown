@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to DialogueSystem will be documented in this file.
+All notable changes to DialogueDown will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project uses [Conventional Commits](https://www.conventionalcommits.org/) to keep

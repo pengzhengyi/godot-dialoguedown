@@ -1,12 +1,12 @@
 # Script language specification
 
-This specification defines DialogueSystem's script language: a Markdown-subset
+This specification defines DialogueDown's script language: a Markdown-subset
 domain-specific language (DSL) for writing dialogue scripts. The language is
 designed to stay readable for writers while still compiling into a precise graph
 model for developers.
 
 > [!NOTE]
-> DialogueSystem is in early development. The script language, compiler model,
+> DialogueDown is in early development. The script language, compiler model,
 > and runtime behavior described here are subject to change as the library
 > evolves.
 
@@ -250,7 +250,7 @@ Narrator @narrator ##default: The story begins.
 ```
 
 Regular tags (`#...`) are project-defined custom metadata. Reserved tags
-(`##...`) are built-in language tags owned by DialogueSystem.
+(`##...`) are built-in language tags owned by DialogueDown.
 
 Tags must attach to another syntax element, such as a speaker declaration. A
 regular or reserved tag must never start a line at block scope.
@@ -636,4 +636,4 @@ Example filenames:
 - `npc/shopkeeper.dialogue.md`
 
 Use normal Markdown tooling for editing and review. The compiler will treat these
-files as DialogueSystem script files.
+files as DialogueDown script files.

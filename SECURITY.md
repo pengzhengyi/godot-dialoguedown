@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-DialogueSystem is in early development and hasn't published stable releases
+DialogueDown is in early development and hasn't published stable releases
 yet. Security fixes apply to the latest commit on the default branch unless a
 release policy is added later.
 

@@ -1,5 +1,5 @@
 {
-  // Recommended extensions for the DialogueSystem library.
+  // Recommended extensions for the DialogueDown library.
   // This is an engine-agnostic C# (.NET) class library, so Godot-specific and
   // pixel-art extensions are intentionally omitted. Keep lean & vetted; mirror
   // shared docs/quality tooling with the Game hub game projects.

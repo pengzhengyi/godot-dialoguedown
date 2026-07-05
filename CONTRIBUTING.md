@@ -32,6 +32,25 @@ dotnet build DialogueDown.sln --configuration Release --no-restore
 dotnet test DialogueDown.sln --configuration Release --no-build
 ```
 
+To collect coverage focused on production source code:
+
+```bash
+dotnet tool restore
+dotnet test DialogueDown.sln \
+  --settings coverage.runsettings \
+  --collect:"XPlat Code Coverage"
+dotnet reportgenerator \
+  "-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml" \
+  "-targetdir:coverage-report" \
+  "-reporttypes:Html;MarkdownSummary;Cobertura"
+```
+
+Coverage is verified against the `DialogueDown` source assembly and excludes
+test files. Cobertura output is written under `TestResults/`, and the interactive
+report is written to `coverage-report/index.html`.
+
+CI fails below 90% line coverage and warns below 100%.
+
 ## Commit style
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
@@ -52,6 +71,7 @@ Before opening a pull request:
 - [ ] Add or update tests for behavior changes.
 - [ ] Update documentation for public API or script-language changes.
 - [ ] Run `dotnet test DialogueDown.sln`.
+- [ ] Run source-focused coverage when changing tested behavior.
 - [ ] Keep the pull request focused on one topic.
 - [ ] Explain why the change is useful.
 

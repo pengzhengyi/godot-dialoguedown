@@ -30,3 +30,48 @@ jobs:
 
       - name: Test
         run: dotnet test DialogueDown.sln --configuration Release --no-build
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Collect coverage
+        run: >
+          dotnet test DialogueDown.sln
+          --settings coverage.runsettings
+          --collect:"XPlat Code Coverage"
+
+      - name: Generate coverage report
+        run: >
+          dotnet reportgenerator
+          "-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml"
+          "-targetdir:coverage-report"
+          "-reporttypes:Html;MarkdownSummaryGithub;Cobertura"
+
+      - name: Check coverage threshold
+        run: |
+          python3 - <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("coverage-report/Cobertura.xml").getroot()
+          line_rate = float(root.attrib["line-rate"]) * 100
+          print(f"Line coverage: {line_rate:.2f}%")
+
+          if line_rate < 90:
+              raise SystemExit("Line coverage is below the 90% required floor.")
+
+          if line_rate < 100:
+              print(
+                  f"::warning::Line coverage is {line_rate:.2f}%; "
+                  "100% is the aspirational target."
+              )
+          PY
+
+      - name: Add coverage summary
+        run: cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report

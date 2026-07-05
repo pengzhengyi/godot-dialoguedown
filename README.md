@@ -46,6 +46,27 @@ dotnet build DialogueDown.sln --configuration Release --no-restore
 dotnet test DialogueDown.sln
 ```
 
+To collect source-focused coverage for the core library:
+
+```bash
+dotnet tool restore
+dotnet test DialogueDown.sln \
+  --settings coverage.runsettings \
+  --collect:"XPlat Code Coverage"
+dotnet reportgenerator \
+  "-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml" \
+  "-targetdir:coverage-report" \
+  "-reporttypes:Html;MarkdownSummary;Cobertura"
+```
+
+Coverage is verified against the `DialogueDown` source assembly and excludes
+test files. The collector writes Cobertura XML under `TestResults/`, and
+ReportGenerator writes an interactive HTML report to `coverage-report/index.html`.
+Both output folders are ignored by Git.
+
+CI fails if line coverage drops below 90% and emits a warning when it is below
+100%.
+
 ## Documentation
 
 - [Overview](docs/Overview.md), architecture, representations, and current

@@ -61,8 +61,8 @@ For the proposed script syntax, see
   dependency.
 - **Graph model:** early internal interfaces exist for `INode`, `IEdge`,
   `IDialogue`, `ISpeaker`, `ISpeech`, `ITag`, and `ITaggable`.
-- **Tags:** `Tag` and `TagRegistry` provide an initial internal tag model and
-  lookup store.
+- **Tags:** `Tag` provides the initial internal tag value object. Registry and
+  lookup behavior will be added when the compiler needs it.
 - **Game integration:** `IGameSystem` exposes `Query(string)` and
   `Execute(string)` for game-state reads and side effects.
 - **Tests:** the current test project verifies the assembly anchor type. Broader

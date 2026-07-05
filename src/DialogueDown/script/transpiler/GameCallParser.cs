@@ -14,12 +14,6 @@ namespace DialogueDown.Script.Transpiler;
 /// </summary>
 internal static class GameCallParser
 {
-    private static readonly TextParser<string> _quotedStringParser =
-        from open in Character.EqualTo('"')
-        from chars in Character.Except('"').Many()
-        from close in Character.EqualTo('"')
-        select new string(chars);
-
     // A comma between arguments may be padded with whitespace on either side, so
     // JoinClub("Alice" , "Art") parses the same as JoinClub("Alice", "Art").
     private static readonly TextParser<char> _argumentSeparator =
@@ -29,17 +23,18 @@ internal static class GameCallParser
         select comma;
 
     private static readonly TextParser<GameCallFromSpan> _queryParser =
-        _quotedStringParser.Select(key => (GameCallFromSpan)(span => new Query(key, span)));
+        ParserPrimitives.QuotedString.Select(
+            key => (GameCallFromSpan)(span => new Query(key, span)));
 
     private static readonly TextParser<GameCallFromSpan> _defaultCommandParser =
-        from action in _quotedStringParser.Between(Character.EqualTo('('), Character.EqualTo(')'))
+        from action in ParserPrimitives.QuotedString.EnclosedInParentheses()
         select (GameCallFromSpan)(span => new DefaultCommand(action, span));
 
     private static readonly TextParser<GameCallFromSpan> _customCommandParser =
         from name in Identifier.CStyle
-        from open in Character.EqualTo('(')
-        from args in _quotedStringParser.ManyDelimitedBy(_argumentSeparator)
-        from close in Character.EqualTo(')')
+        from args in ParserPrimitives.QuotedString
+            .ManyDelimitedBy(_argumentSeparator)
+            .EnclosedInParentheses()
         select (GameCallFromSpan)(span => new CustomCommand(name.ToStringValue(), args, span));
 
     private static readonly TextParser<GameCallFromSpan> _grammar =

@@ -1,30 +1,23 @@
 using DialogueDown.Script.Ast;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DialogueAstAssert;
 
 namespace DialogueDown.Tests.Script.Ast;
 
 public sealed class CustomTagTests
 {
     [Fact]
-    public void Constructor_PlainTag_ExposesNameNoValueAndSpan_AndIsATag()
+    public void Constructor_PlainTag_ExposesNameNoValueSpan_AndIsASpeechFragment()
     {
         var span = SourceSpanFactory.Span();
 
-        var tag = new CustomTag("main", Value: null, span);
+        var tag = AssertCustomTag(new CustomTag("main", Value: null, span), "main");
 
-        Assert.Equal("main", tag.Name);
-        Assert.Null(tag.Value);
         Assert.Equal(span, tag.Span);
-        Assert.IsAssignableFrom<Tag>(tag);
         Assert.IsAssignableFrom<SpeechFragment>(tag);
     }
 
     [Fact]
-    public void Constructor_GroupTag_ExposesValue()
-    {
-        var tag = new CustomTag("mood", "happy", SourceSpanFactory.Span());
-
-        Assert.Equal("mood", tag.Name);
-        Assert.Equal("happy", tag.Value);
-    }
+    public void Constructor_GroupTag_ExposesValue() =>
+        AssertCustomTag(new CustomTag("mood", "happy", SourceSpanFactory.Span()), "mood", "happy");
 }

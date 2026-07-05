@@ -1,28 +1,23 @@
 using DialogueDown.Script.Ast;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DialogueAstAssert;
 
 namespace DialogueDown.Tests.Script.Ast;
 
 public sealed class ReservedTagTests
 {
     [Fact]
-    public void Constructor_ExposesNameValueAndSpan_AndIsATag()
+    public void Constructor_PlainTag_ExposesNameNoValueAndSpan()
     {
         var span = SourceSpanFactory.Span();
 
-        var tag = new ReservedTag("default", Value: null, span);
+        var tag = AssertReservedTag(new ReservedTag("default", Value: null, span), "default");
 
-        Assert.Equal("default", tag.Name);
-        Assert.Null(tag.Value);
         Assert.Equal(span, tag.Span);
-        Assert.IsAssignableFrom<Tag>(tag);
     }
 
     [Fact]
-    public void Constructor_GroupTag_ExposesValue()
-    {
-        var tag = new ReservedTag("mode", "silent", SourceSpanFactory.Span());
-
-        Assert.Equal("silent", tag.Value);
-    }
+    public void Constructor_GroupTag_ExposesValue() =>
+        AssertReservedTag(
+            new ReservedTag("mode", "silent", SourceSpanFactory.Span()), "mode", "silent");
 }

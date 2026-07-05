@@ -31,6 +31,13 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "coverage",
+      "type": "shell",
+      "command": "dotnet tool restore && dotnet test DialogueDown.sln --settings coverage.runsettings --collect:\"XPlat Code Coverage\" && dotnet reportgenerator \"-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml\" \"-targetdir:coverage-report\" \"-reporttypes:Html;MarkdownSummary;Cobertura\"",
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "docs: lint oss markdown",
       "type": "shell",
       "command": "markdownlint README.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md CHANGELOG.md .github/pull_request_template.md",

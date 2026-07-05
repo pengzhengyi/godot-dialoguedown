@@ -12,6 +12,7 @@ coverage*.json
 coverage*.xml
 coverage*.cobertura.xml
 TestResults/
+coverage-report/
 
 # --- .NET package artifacts ---
 *.nupkg

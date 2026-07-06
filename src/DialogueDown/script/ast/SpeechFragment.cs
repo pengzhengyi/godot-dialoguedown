@@ -7,4 +7,4 @@ namespace DialogueDown.Script.Ast;
 /// call, and so on. Fragments stay granular at this stage; later stages coalesce
 /// them into a rendered speech.
 /// </summary>
-internal abstract record SpeechFragment(SourceSpan Span);
+internal abstract record SpeechFragment(SourceSpan Span) : ScriptNode(Span);

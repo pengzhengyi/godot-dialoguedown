@@ -16,5 +16,6 @@ public sealed class QueryTests
         Assert.Equal(span, query.Span);
         Assert.IsAssignableFrom<GameCall>(query);
         Assert.IsAssignableFrom<SpeechFragment>(query);
+        Assert.IsAssignableFrom<ScriptNode>(query);
     }
 }

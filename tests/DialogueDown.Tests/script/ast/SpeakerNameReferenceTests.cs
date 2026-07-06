@@ -16,5 +16,6 @@ public sealed class SpeakerNameReferenceTests
         var asserted = AssertSpeakerNameReference(reference, "Alice");
         Assert.Equal(span, asserted.Span);
         Assert.IsAssignableFrom<Speaker>(asserted);
+        Assert.IsAssignableFrom<ScriptNode>(asserted);
     }
 }

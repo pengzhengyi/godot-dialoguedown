@@ -42,6 +42,15 @@ internal static class ParserCombinators
     public static IParser<T?> Optional<T>(this IParser<T> parser) =>
         new OptionalParser<T>(parser);
 
+    /// <summary>
+    /// Matches a parser zero or more times, collecting the values. It always
+    /// succeeds — an empty list when nothing matches. A match that consumes nothing
+    /// stops the loop (rather than spinning forever), so the inner parser should make
+    /// progress on each match.
+    /// </summary>
+    public static IParser<IReadOnlyList<T>> Repeated<T>(this IParser<T> item) =>
+        new RepeatedParser<T>(item);
+
     private sealed class SelectParser<T, TResult>(
         IParser<T> inner, Func<T, TextRange, TResult> project) : IParser<TResult>
     {
@@ -96,6 +105,28 @@ internal static class ParserCombinators
 
             // Absent: succeed with the default, consuming nothing.
             return ParseResult<T?>.Empty(input.Position);
+        }
+    }
+
+    private sealed class RepeatedParser<T>(IParser<T> item) : IParser<IReadOnlyList<T>>
+    {
+        public ParseResult<IReadOnlyList<T>> Consume(ParseInput input)
+        {
+            var items = new List<T>();
+            var rest = input;
+            while (item.Consume(rest) is { Success: true } result)
+            {
+                if (result.MatchedLength == 0)
+                {
+                    break; // no progress — stop rather than loop on an empty match
+                }
+
+                items.Add(result.MatchedValue);
+                rest = rest.Advance(result.MatchedLength);
+            }
+
+            var range = new TextRange(input.Position, rest.Position - input.Position);
+            return ParseResult<IReadOnlyList<T>>.Ok(new ParseMatch<IReadOnlyList<T>>(items, range));
         }
     }
 }

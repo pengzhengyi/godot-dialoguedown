@@ -122,4 +122,42 @@ public sealed class ParserCombinatorsTests
         Assert.Equal("ab!", present.MatchedValue);
         Assert.Equal(3, present.MatchedLength);
     }
+
+    [Fact]
+    public void Repeated_CollectsConsecutiveMatches_ThreadingThePosition()
+    {
+        var parser = TestParsers.Symbol('a').Repeated();
+
+        var result = parser.Consume(ParseInputFactory.Input("aaab", 10));
+
+        Assert.Equal(new[] { 'a', 'a', 'a' }, result.MatchedValue);
+        Assert.Equal(10, result.MatchedRange.Start);
+        Assert.Equal(3, result.MatchedLength);
+    }
+
+    [Fact]
+    public void Repeated_NoMatch_SucceedsWithAnEmptyList_ConsumingNothing()
+    {
+        var parser = TestParsers.Symbol('a').Repeated();
+
+        var result = parser.Consume(ParseInputFactory.Input("bbb", 5));
+
+        Assert.True(result.Success);
+        Assert.Empty(result.MatchedValue);
+        Assert.Equal(0, result.MatchedLength);
+        Assert.Equal(5, result.MatchedRange.Start);
+    }
+
+    [Fact]
+    public void Repeated_StopsOnANonConsumingMatch_RatherThanLooping()
+    {
+        // The inner parser always succeeds (Optional), matching nothing once the
+        // 'a's run out; the empty-match guard stops the loop instead of spinning.
+        var parser = TestParsers.Symbol('a').Optional().Repeated();
+
+        var result = parser.Consume(ParseInputFactory.Input("aab"));
+
+        Assert.Equal(2, result.MatchedValue.Count);
+        Assert.Equal(2, result.MatchedLength);
+    }
 }

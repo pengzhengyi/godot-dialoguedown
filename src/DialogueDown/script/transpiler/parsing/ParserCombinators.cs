@@ -33,6 +33,15 @@ internal static class ParserCombinators
         Func<T, TCollection, TResult> resultSelector) =>
         new SelectManyParser<T, TCollection, TResult>(source, collectionSelector, resultSelector);
 
+    /// <summary>
+    /// Makes a parser optional: on success it passes the value through; when it does
+    /// not match, it still succeeds — consuming nothing and yielding the default
+    /// (<see langword="null"/> for reference types). Use on reference-type parsers so
+    /// absence is distinguishable as <see langword="null"/>.
+    /// </summary>
+    public static IParser<T?> Optional<T>(this IParser<T> parser) =>
+        new OptionalParser<T>(parser);
+
     private sealed class SelectParser<T, TResult>(
         IParser<T> inner, Func<T, TextRange, TResult> project) : IParser<TResult>
     {
@@ -72,6 +81,21 @@ internal static class ParserCombinators
             var value = resultSelector(first.MatchedValue, second.MatchedValue);
             var range = new TextRange(input.Position, first.MatchedLength + second.MatchedLength);
             return ParseResult<TResult>.Ok(new ParseMatch<TResult>(value, range));
+        }
+    }
+
+    private sealed class OptionalParser<T>(IParser<T> inner) : IParser<T?>
+    {
+        public ParseResult<T?> Consume(ParseInput input)
+        {
+            var result = inner.Consume(input);
+            if (result.Success)
+            {
+                return ParseResult<T?>.Ok(new ParseMatch<T?>(result.MatchedValue, result.MatchedRange));
+            }
+
+            // Absent: succeed with the default, consuming nothing.
+            return ParseResult<T?>.Empty(input.Position);
         }
     }
 }

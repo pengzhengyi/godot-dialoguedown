@@ -81,4 +81,45 @@ public sealed class ParserCombinatorsTests
 
         Assert.False(result.Success);
     }
+
+    [Fact]
+    public void Optional_Present_ReturnsTheValueAndItsRange()
+    {
+        var parser = TestParsers.Identifier.Optional();
+
+        var result = parser.Consume(ParseInputFactory.Input("abc", 5));
+
+        Assert.Equal("abc", result.MatchedValue);
+        Assert.Equal(3, result.MatchedLength);
+    }
+
+    [Fact]
+    public void Optional_Absent_SucceedsWithDefault_ConsumingNothing()
+    {
+        var parser = TestParsers.Identifier.Optional();
+
+        var result = parser.Consume(ParseInputFactory.Input("123", 5));
+
+        Assert.True(result.Success);
+        Assert.Null(result.MatchedValue);
+        Assert.Equal(0, result.MatchedLength);
+        Assert.Equal(5, result.MatchedRange.Start);
+    }
+
+    [Fact]
+    public void Optional_InSequence_WhenAbsent_LeavesThePositionForTheNextParser()
+    {
+        var parser =
+            from name in TestParsers.Identifier.Optional()
+            from mark in TestParsers.Symbol('!')
+            select $"{name ?? "<none>"}{mark}";
+
+        var absent = parser.Consume(ParseInputFactory.Input("!"));
+        Assert.Equal("<none>!", absent.MatchedValue);
+        Assert.Equal(1, absent.MatchedLength);
+
+        var present = parser.Consume(ParseInputFactory.Input("ab!"));
+        Assert.Equal("ab!", present.MatchedValue);
+        Assert.Equal(3, present.MatchedLength);
+    }
 }

@@ -31,4 +31,12 @@ internal readonly struct ParseResult<T>
     public static ParseResult<T> Ok(ParseMatch<T> match) => new(true, match, null);
 
     public static ParseResult<T> Fail(ParseError error) => new(false, default, error);
+
+    /// <summary>
+    /// A successful match that consumed nothing: an empty range at
+    /// <paramref name="position"/> carrying the default value. Used for an optional
+    /// element that is absent, so <typeparamref name="T"/> should be nullable.
+    /// </summary>
+    public static ParseResult<T> Empty(int position) =>
+        Ok(new ParseMatch<T>(default!, new TextRange(position, 0)));
 }

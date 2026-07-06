@@ -37,6 +37,12 @@ internal static class TagParser
 
     private static readonly TextParser<TagFromSpan> _grammar = _tag.AtEnd();
 
+    /// <summary>
+    /// The tag parser without an end-of-input requirement, so other grammars (like
+    /// the speaker prefix) can consume a single tag and continue.
+    /// </summary>
+    internal static TextParser<TagFromSpan> Token => _tag;
+
     public static Tag Parse(string content, SourceSpan span)
     {
         try

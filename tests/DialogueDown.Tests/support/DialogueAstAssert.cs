@@ -34,7 +34,15 @@ internal static class DialogueAstAssert
         }
         else
         {
-            Assert.Equal(tags, declaration.Tags);
+            // Compare by kind, name, and value — not span, which depends on the
+            // tag's position in the source and is asserted separately.
+            Assert.Equal(tags.Length, declaration.Tags.Count);
+            for (var i = 0; i < tags.Length; i++)
+            {
+                Assert.Equal(tags[i].GetType(), declaration.Tags[i].GetType());
+                Assert.Equal(tags[i].Name, declaration.Tags[i].Name);
+                Assert.Equal(tags[i].Value, declaration.Tags[i].Value);
+            }
         }
 
         return declaration;

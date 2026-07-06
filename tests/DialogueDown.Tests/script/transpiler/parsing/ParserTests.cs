@@ -1,8 +1,6 @@
 using DialogueDown.Script.Transpiler;
 using DialogueDown.Script.Transpiler.Parsing;
 using DialogueDown.Tests.Support;
-using Superpower;
-using Superpower.Parsers;
 
 namespace DialogueDown.Tests.Script.Transpiler.Parsing;
 
@@ -76,10 +74,8 @@ public sealed class ParserTests
 
     private class IdentifierParser : Parser<string>
     {
-        private static readonly IParser<string> _inner =
-            SuperpowerParser.Wrap(Identifier.CStyle.Select(name => name.ToStringValue()));
-
-        public override ParseResult<string> Consume(ParseInput input) => _inner.Consume(input);
+        public override ParseResult<string> Consume(ParseInput input) =>
+            TestParsers.Identifier.Consume(input);
 
         protected override string DescribeFailure(string text) => $"\"{text}\" is not valid here.";
     }

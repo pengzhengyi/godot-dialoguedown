@@ -30,4 +30,19 @@ public sealed class TextRangeTests
     [Fact]
     public void RejectsNegativeLength() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => new TextRange(0, -1));
+
+    [Fact]
+    public void ToSourceSpan_PreservesStartAndLength()
+    {
+        var span = new TextRange(5, 3).ToSourceSpan();
+
+        Assert.Equal(5, span.Start);
+        Assert.Equal(3, span.Length);
+    }
+
+    [Fact]
+    public void ToSourceSpan_EmptyRange_Throws() =>
+        // A node always covers at least one character, so an empty range cannot
+        // become a SourceSpan.
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TextRange(5, 0).ToSourceSpan());
 }

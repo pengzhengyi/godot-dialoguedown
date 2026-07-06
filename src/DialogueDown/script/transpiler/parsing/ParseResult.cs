@@ -19,6 +19,12 @@ internal readonly struct ParseResult<T>
 
     public ParseError? Error { get; }
 
+    /// <summary>The parsed value. Meaningful only when <see cref="Success"/>.</summary>
+    public T MatchedValue => Match.Value;
+
+    /// <summary>The consumed range. Meaningful only when <see cref="Success"/>.</summary>
+    public TextRange MatchedRange => Match.Range;
+
     public static ParseResult<T> Ok(ParseMatch<T> match) => new(true, match, null);
 
     public static ParseResult<T> Fail(ParseError error) => new(false, default, error);

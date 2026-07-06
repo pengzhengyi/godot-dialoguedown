@@ -3,12 +3,13 @@ using DialogueDown.Common;
 namespace DialogueDown.Script.Transpiler.Parsing;
 
 /// <summary>
-/// A consume-oriented parser: <see cref="Consume"/> reads a prefix of the input and
-/// reports the value and how much text it consumed, or a failure with the reason.
-/// Parsing a whole string is the same contract with an added end check
-/// (<see cref="ParseAll"/>).
+/// The entry-point layer over <see cref="IParser{T}"/>: a parser meant to consume a
+/// whole string via <see cref="ParseAll"/>, reporting author-facing errors when the
+/// input is not a complete, valid value. Domain parsers extend this and describe
+/// their grammar through <see cref="DescribeFailure"/>; composites and leaves stay
+/// plain <see cref="IParser{T}"/>.
 /// </summary>
-internal abstract class Parser<T>
+internal abstract class Parser<T> : IParser<T>
 {
     public abstract ParseResult<T> Consume(ParseInput input);
 

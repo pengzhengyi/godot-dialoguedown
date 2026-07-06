@@ -176,17 +176,17 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                   | Collaborators                |
-| --------------------------------- | ---------------------------------------------------------------- | ---------------------------- |
-| `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)` | Markdown AST, `Script`       |
-| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                             | AST nodes, parsers           |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                 | `SourceSpan`                 |
-| `Parser<T>`                       | uniform `Consume` / `ParseAll` contract (D12)                    | `ParseInput`, `ParseResult`  |
-| composites + Superpower adapter   | `Sequence` / `Optional` / `Repeated`; wrap a `TextParser`        | `Parser<T>`                  |
-| game-call / tag / speaker parsers | leaf `Parser<T>`s for the code-facing grammars                   | `GameCall`, `Tag`, `Speaker` |
+| Type                              | Responsibility                                                         | Collaborators                |
+| --------------------------------- | ---------------------------------------------------------------------- | ---------------------------- |
+| `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)`       | Markdown AST, `Script`       |
+| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                   | AST nodes, parsers           |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                       | `SourceSpan`                 |
+| `IParser<T>` / `Parser<T>`        | composable `Consume` core; entry-point `ParseAll` + errors (D12)       | `ParseInput`, `ParseResult`  |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser` | `IParser<T>`                 |
+| game-call / tag / speaker parsers | leaf `Parser<T>`s for the code-facing grammars                         | `GameCall`, `Tag`, `Speaker` |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
-(Apache-2.0) powers the character-level leaves, wrapped behind the `Parser<T>`
+(Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
 contract (D12).
 
 ## The Dialogue AST model
@@ -404,11 +404,23 @@ full consumption a special case rather than a separate mechanism, lets parsers
 parser also serves image alt text), and keeps source-span tracking in one place
 instead of each parser re-deriving it.
 
-Every parser is a `Parser<T>` with a single core method:
+The contract is split by responsibility. The **composable core** is a single
+method every leaf and composite implements:
 
 ```csharp
-ParseResult<T> Consume(ParseInput input);
+interface IParser<T> { ParseResult<T> Consume(ParseInput input); }
 ```
+
+The **entry point** adds whole-string parsing and author-facing errors, and only
+the outermost domain parsers extend it:
+
+```csharp
+abstract class Parser<T> : IParser<T> { T ParseAll(ParseInput input); /* + messages */ }
+```
+
+Keeping `Consume` in an interface means composites never inherit entry-point
+concerns they don't need (no throwaway error-message hooks), while `ParseAll`'s
+messaging stays enforced on the parsers that actually surface errors.
 
 - **`ParseInput(string Text, int Position)`** — the text to read and the
   absolute `Position` its first character occupies in the source. Parsing always
@@ -432,30 +444,33 @@ ParseResult<T> Consume(ParseInput input);
   "…"`). Both raise a `DialogueSyntaxError`.
 
 **Leaves stay in Superpower.** A one-time adapter wraps a Superpower
-`TextParser<…>` into a `Parser<T>` and fills in the consumed range — Superpower
+`TextParser<…>` into an `IParser<T>` and fills in the consumed range — Superpower
 keeps doing the character-level work it is good at (identifiers, quoted strings,
 literals, a single tag).
 
-**Structure composes** with a minimal, reusable set — **`Sequence`** (run parsers
-in order, threading the position so each child's range comes out absolute with
-*no* manual math), **`Optional`**, and **`Repeated`** — plus `Select` to build the
-resulting node. A composite is why a `SpeakerDeclaration`'s tags now get exact
-spans for free.
+**Structure composes** through LINQ query syntax. `Select` and `SelectMany` let a
+grammar read `from name in … from id in … select …`, threading the position so
+each part's range comes out absolute with *no* manual math; **`Optional`** and
+**`Repeated`** round out the minimal set. Composition is why a
+`SpeakerDeclaration`'s tags now get exact spans for free.
 
-**Refinement of the model.** The general currency is `Parser<T>` for *any* `T`
-(a name yields a `string`, a tag yields a `Tag`), because a composite combines
+**Refinement of the model.** The general currency is `IParser<T>` for *any* `T`
+(a name yields a `string`, a tag yields a `Tag`), because composition combines
 non-node parts into a node. **`ScriptNode`** is a separate concern: the base every
 Dialogue AST node now shares, carrying `Span`, which DRYs the span that each node
 used to declare itself. The public leaf parsers produce `ScriptNode`s.
 
 ```csharp
 // leaves: wrap Superpower once
-Parser<Tag> tag = Superpower.Wrap(tagGrammar);
+IParser<Tag> tag = SuperpowerParser.Wrap(tagGrammar);
 
-// structure: compose; positions thread automatically
-Parser<Speaker> speaker =
-    Sequence(name.Optional(), id.Optional(), tag.Repeated(), colon)
-        .Select((name, id, tags, _) => Classify(name, id, tags));
+// structure: compose with query syntax; positions thread automatically
+IParser<Speaker> speaker =
+    from name in nameLeaf.Optional()
+    from id   in idLeaf.Optional()
+    from tags in tag.Repeated()
+    from _    in colon
+    select Classify(name, id, tags);
 ```
 
 ## Leaf grammars

@@ -181,7 +181,7 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 | `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)` | Markdown AST, `Script`       |
 | `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                             | AST nodes, parsers           |
 | `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                 | `SourceSpan`                 |
-| `Parser<T>`                       | uniform `TryConsume` / `ParseAll` contract (D12)                 | `ParseInput`, `ParseMatch`   |
+| `Parser<T>`                       | uniform `Consume` / `ParseAll` contract (D12)                    | `ParseInput`, `ParseResult`  |
 | composites + Superpower adapter   | `Sequence` / `Optional` / `Repeated`; wrap a `TextParser`        | `Parser<T>`                  |
 | game-call / tag / speaker parsers | leaf `Parser<T>`s for the code-facing grammars                   | `GameCall`, `Tag`, `Speaker` |
 
@@ -407,25 +407,38 @@ instead of each parser re-deriving it.
 Every parser is a `Parser<T>` with a single core method:
 
 ```csharp
-bool TryConsume(ParseInput input, out ParseMatch<T> match);
+ParseResult<T> Consume(ParseInput input);
 ```
 
-- **`ParseInput(string Text, int Offset)`** — the text to read and where it starts
-  in the original source, so results are in **absolute** coordinates.
-- **`ParseMatch<T>(T Value, int Start, int Length)`** — the parsed value and the
-  span it consumed. A node's `SourceSpan` is derived from this.
+- **`ParseInput(string Text, int Position)`** — the text to read and the
+  absolute `Position` its first character occupies in the source. Parsing always
+  begins at the start of `Text`; `Position` is only an anchor, so matches report
+  their range in **absolute** coordinates.
+- **`ParseResult<T>`** — the non-throwing outcome: either a successful
+  **`ParseMatch<T>(T Value, TextRange Range)`** (the value and the range it
+  consumed) or a failure carrying a **`ParseError(string Detail)`** with the
+  underlying reason.
+- **`TextRange(int Start, int Length)`** — a half-open `[Start, End)` range used
+  while parsing. Unlike `SourceSpan` it may be **empty** (`Length` of zero),
+  because a parser can match no characters (an absent optional element). It is
+  converted to a strict `SourceSpan` only when a match becomes an AST node —
+  where `SourceSpan`'s `Length >= 1` guard then rejects "a node from nothing"
+  for free.
 - **Full consumption is a specialization**, not a separate mechanism: `ParseAll`
-  runs `TryConsume` and requires the whole input to be consumed, raising a
-  `DialogueSyntaxError` otherwise.
+  runs `Consume` and requires the whole input to be consumed. It distinguishes
+  two failure modes, each with its own message: the grammar can **reject** the
+  input (reported as a plain-language explanation plus the technical reason) or
+  match a prefix yet leave text **unconsumed** (`Cannot match the full text
+  "…"`). Both raise a `DialogueSyntaxError`.
 
 **Leaves stay in Superpower.** A one-time adapter wraps a Superpower
-`TextParser<…>` into a `Parser<T>` and fills in the consumed span — Superpower
+`TextParser<…>` into a `Parser<T>` and fills in the consumed range — Superpower
 keeps doing the character-level work it is good at (identifiers, quoted strings,
 literals, a single tag).
 
 **Structure composes** with a minimal, reusable set — **`Sequence`** (run parsers
-in order, threading the offset so each child's span comes out absolute with *no*
-manual math), **`Optional`**, and **`Repeated`** — plus `Select` to build the
+in order, threading the position so each child's range comes out absolute with
+*no* manual math), **`Optional`**, and **`Repeated`** — plus `Select` to build the
 resulting node. A composite is why a `SpeakerDeclaration`'s tags now get exact
 spans for free.
 
@@ -439,7 +452,7 @@ used to declare itself. The public leaf parsers produce `ScriptNode`s.
 // leaves: wrap Superpower once
 Parser<Tag> tag = Superpower.Wrap(tagGrammar);
 
-// structure: compose; offsets thread automatically
+// structure: compose; positions thread automatically
 Parser<Speaker> speaker =
     Sequence(name.Optional(), id.Optional(), tag.Repeated(), colon)
         .Select((name, id, tags, _) => Classify(name, id, tags));

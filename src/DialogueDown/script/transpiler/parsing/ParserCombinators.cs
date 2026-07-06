@@ -22,6 +22,17 @@ internal static class ParserCombinators
         this IParser<T> parser, Func<T, SourceSpan, TResult> selector) =>
         new SelectParser<T, TResult>(parser, (value, range) => selector(value, range.ToSourceSpan()));
 
+    /// <summary>
+    /// Runs a second parser after the first, threading the position so both parts
+    /// share one absolute range. This is the monadic bind that enables query syntax
+    /// (<c>from a in … from b in … select …</c>).
+    /// </summary>
+    public static IParser<TResult> SelectMany<T, TCollection, TResult>(
+        this IParser<T> source,
+        Func<T, IParser<TCollection>> collectionSelector,
+        Func<T, TCollection, TResult> resultSelector) =>
+        new SelectManyParser<T, TCollection, TResult>(source, collectionSelector, resultSelector);
+
     private sealed class SelectParser<T, TResult>(
         IParser<T> inner, Func<T, TextRange, TResult> project) : IParser<TResult>
     {
@@ -36,6 +47,31 @@ internal static class ParserCombinators
             return ParseResult<TResult>.Ok(
                 new ParseMatch<TResult>(
                     project(result.MatchedValue, result.MatchedRange), result.MatchedRange));
+        }
+    }
+
+    private sealed class SelectManyParser<T, TCollection, TResult>(
+        IParser<T> source,
+        Func<T, IParser<TCollection>> collectionSelector,
+        Func<T, TCollection, TResult> resultSelector) : IParser<TResult>
+    {
+        public ParseResult<TResult> Consume(ParseInput input)
+        {
+            var first = source.Consume(input);
+            if (first.Error is { } firstError)
+            {
+                return ParseResult<TResult>.Fail(firstError);
+            }
+
+            var second = collectionSelector(first.MatchedValue).Consume(input.Advance(first.MatchedLength));
+            if (second.Error is { } secondError)
+            {
+                return ParseResult<TResult>.Fail(secondError);
+            }
+
+            var value = resultSelector(first.MatchedValue, second.MatchedValue);
+            var range = new TextRange(input.Position, first.MatchedLength + second.MatchedLength);
+            return ParseResult<TResult>.Ok(new ParseMatch<TResult>(value, range));
         }
     }
 }

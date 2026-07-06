@@ -37,4 +37,48 @@ public sealed class ParserCombinatorsTests
         Assert.False(result.Success);
         Assert.NotNull(result.Error);
     }
+
+    [Fact]
+    public void SelectMany_SequencesParsers_ThreadingTheAbsolutePosition()
+    {
+        var parser =
+            from first in TestParsers.Identifier
+            from _ in TestParsers.Symbol('-')
+            from second in TestParsers.Identifier
+            select $"{first}+{second}";
+
+        var result = parser.Consume(ParseInputFactory.Input("ab-cd", 10));
+
+        Assert.Equal("ab+cd", result.MatchedValue);
+        Assert.Equal(10, result.MatchedRange.Start);
+        Assert.Equal(5, result.MatchedRange.Length);
+    }
+
+    [Fact]
+    public void SelectMany_PropagatesFailureOfTheFirstParser()
+    {
+        var parser =
+            from first in TestParsers.Identifier
+            from second in TestParsers.Identifier
+            select $"{first}{second}";
+
+        var result = parser.Consume(ParseInputFactory.Input("-nope"));
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public void SelectMany_PropagatesFailureOfTheSecondParser()
+    {
+        var parser =
+            from first in TestParsers.Identifier
+            from _ in TestParsers.Symbol('-')
+            from second in TestParsers.Identifier
+            select $"{first}+{second}";
+
+        // "ab-" has no second identifier, so the second parser fails.
+        var result = parser.Consume(ParseInputFactory.Input("ab-"));
+
+        Assert.False(result.Success);
+    }
 }

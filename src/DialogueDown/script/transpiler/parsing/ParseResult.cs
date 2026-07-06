@@ -22,6 +22,9 @@ internal readonly struct ParseResult<T>
     /// <summary>The parsed value. Meaningful only when <see cref="Success"/>.</summary>
     public T MatchedValue => Match.Value;
 
+    /// <summary>How many characters were consumed. Meaningful only when <see cref="Success"/>.</summary>
+    public int MatchedLength => Match.Range.Length;
+
     /// <summary>The consumed range. Meaningful only when <see cref="Success"/>.</summary>
     public TextRange MatchedRange => Match.Range;
 

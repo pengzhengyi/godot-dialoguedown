@@ -13,4 +13,8 @@ internal static class TestParsers
     public static IParser<string> Identifier { get; } =
         SuperpowerParser.Wrap(
             Superpower.Parsers.Identifier.CStyle.Select(name => name.ToStringValue()));
+
+    /// <summary>A leaf matching a single given character, for sequencing tests.</summary>
+    public static IParser<char> Symbol(char value) =>
+        SuperpowerParser.Wrap(Superpower.Parsers.Character.EqualTo(value));
 }

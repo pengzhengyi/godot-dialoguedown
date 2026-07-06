@@ -27,6 +27,7 @@
     - [D9 — Tags: a dedicated pluggable parser](#d9--tags-a-dedicated-pluggable-parser)
     - [D10 — Errors: DialogueSyntaxError, friendly messages](#d10--errors-dialoguesyntaxerror-friendly-messages)
     - [D11 — Speaker: declaration vs reference](#d11--speaker-declaration-vs-reference)
+    - [D12 — A uniform, span-aware parser abstraction](#d12--a-uniform-span-aware-parser-abstraction)
   - [Leaf grammars](#leaf-grammars)
   - [Transpiling in pseudocode](#transpiling-in-pseudocode)
   - [Markdown AST to Dialogue AST mapping](#markdown-ast-to-dialogue-ast-mapping)
@@ -175,17 +176,18 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                        | Responsibility                                                   | Collaborators             |
-| --------------------------- | ---------------------------------------------------------------- | ------------------------- |
-| `IScriptTranspiler`         | public seam: `Script Transpile(MarkdownDocument, string source)` | Markdown AST, `Script`    |
-| `MarkdownToScriptConverter` | block-layer tree walk → Dialogue AST                             | AST nodes, inline parsers |
-| `ISpeakerPrefixParser`      | pure `string → Speaker?` (try-parse)                             | `Speaker`, `TagParser`    |
-| `IGameCallParser`           | pure `string → GameCall`                                         | `Query`, `*Command`       |
-| `ITagParser`                | pure `string → Tag` (and tag-list parsing)                       | `Tag`                     |
-| Dialogue AST records        | immutable domain nodes (see model)                               | `SourceSpan`              |
+| Type                              | Responsibility                                                   | Collaborators                |
+| --------------------------------- | ---------------------------------------------------------------- | ---------------------------- |
+| `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)` | Markdown AST, `Script`       |
+| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                             | AST nodes, parsers           |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                 | `SourceSpan`                 |
+| `Parser<T>`                       | uniform `TryConsume` / `ParseAll` contract (D12)                 | `ParseInput`, `ParseMatch`   |
+| composites + Superpower adapter   | `Sequence` / `Optional` / `Repeated`; wrap a `TextParser`        | `Parser<T>`                  |
+| game-call / tag / speaker parsers | leaf `Parser<T>`s for the code-facing grammars                   | `GameCall`, `Tag`, `Speaker` |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
-(Apache-2.0) powers the three leaf parsers — its only blast radius.
+(Apache-2.0) powers the character-level leaves, wrapped behind the `Parser<T>`
+contract (D12).
 
 ## The Dialogue AST model
 
@@ -392,6 +394,56 @@ a declaration *binds* metadata. Under an abstract **`Speaker`** base:
 a **declaration**; a bare name is a **reference** that the semantic analyzer
 auto-declares on first use. A prefix carrying metadata but **no name** (`@A #main:`)
 has nothing to declare and is a **`DialogueSyntaxError`**.
+
+### D12 — A uniform, span-aware parser abstraction
+
+Parsing is unified behind one **consume-oriented** contract: every parser reads
+part of an input and reports what it produced and how much it consumed. This makes
+full consumption a special case rather than a separate mechanism, lets parsers
+**compose** (a text run splits into `Text` / `Tag` fragments, and the same tag
+parser also serves image alt text), and keeps source-span tracking in one place
+instead of each parser re-deriving it.
+
+Every parser is a `Parser<T>` with a single core method:
+
+```csharp
+bool TryConsume(ParseInput input, out ParseMatch<T> match);
+```
+
+- **`ParseInput(string Text, int Offset)`** — the text to read and where it starts
+  in the original source, so results are in **absolute** coordinates.
+- **`ParseMatch<T>(T Value, int Start, int Length)`** — the parsed value and the
+  span it consumed. A node's `SourceSpan` is derived from this.
+- **Full consumption is a specialization**, not a separate mechanism: `ParseAll`
+  runs `TryConsume` and requires the whole input to be consumed, raising a
+  `DialogueSyntaxError` otherwise.
+
+**Leaves stay in Superpower.** A one-time adapter wraps a Superpower
+`TextParser<…>` into a `Parser<T>` and fills in the consumed span — Superpower
+keeps doing the character-level work it is good at (identifiers, quoted strings,
+literals, a single tag).
+
+**Structure composes** with a minimal, reusable set — **`Sequence`** (run parsers
+in order, threading the offset so each child's span comes out absolute with *no*
+manual math), **`Optional`**, and **`Repeated`** — plus `Select` to build the
+resulting node. A composite is why a `SpeakerDeclaration`'s tags now get exact
+spans for free.
+
+**Refinement of the model.** The general currency is `Parser<T>` for *any* `T`
+(a name yields a `string`, a tag yields a `Tag`), because a composite combines
+non-node parts into a node. **`ScriptNode`** is a separate concern: the base every
+Dialogue AST node now shares, carrying `Span`, which DRYs the span that each node
+used to declare itself. The public leaf parsers produce `ScriptNode`s.
+
+```csharp
+// leaves: wrap Superpower once
+Parser<Tag> tag = Superpower.Wrap(tagGrammar);
+
+// structure: compose; offsets thread automatically
+Parser<Speaker> speaker =
+    Sequence(name.Optional(), id.Optional(), tag.Repeated(), colon)
+        .Select((name, id, tags, _) => Classify(name, id, tags));
+```
 
 ## Leaf grammars
 

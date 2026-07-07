@@ -1,0 +1,26 @@
+/**
+ * Semantic colour palette. The projection tags each node with a stable,
+ * cross-stage category; a later stage reuses the same name for a corresponding
+ * concept, so the two share a colour (a Markdown code span and the game call it
+ * compiles to are both "call" = red). Only the colour is shared across stages —
+ * the human label in the legend is derived from each stage's own node types.
+ */
+export const CATEGORY_COLORS: Readonly<Record<string, string>> = {
+    document: "#64748b",
+    structure: "#3b82f6",
+    speech: "#22c55e",
+    text: "#14b8a6",
+    choice: "#a855f7",
+    jump: "#06b6d4",
+    media: "#f97316",
+    call: "#ef4444",
+    styling: "#f59e0b",
+    break: "#9ca3af",
+};
+
+export const DEFAULT_COLOR = "#94a3b8";
+
+/** The colour for a category, falling back to a neutral colour for unknowns. */
+export function colorOf(category: string | undefined): string {
+    return (category && CATEGORY_COLORS[category]) || DEFAULT_COLOR;
+}

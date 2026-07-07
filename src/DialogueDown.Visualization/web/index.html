@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>DialogueDown — Compilation Visualization</title>
+    </head>
+    <body>
+        <header class="app-header">
+            <hgroup>
+                <h1>DialogueDown — Compilation Visualization</h1>
+                <p>Each compiler stage appears as an interactive graph in its own tab.</p>
+            </hgroup>
+            <nav class="tabs" id="tabs" aria-label="Compiler stages"></nav>
+        </header>
+        <main id="app">
+            <section id="stages"></section>
+            <div id="resizer" title="Drag to resize the panel"></div>
+            <aside id="detail" aria-label="Node details">
+                <article>
+                    <header id="detail-title">Node details</header>
+                    <div id="detail-body">
+                        <p>
+                            Click any node in the graph to see the source it was produced from, and
+                            a rendered preview.
+                        </p>
+                    </div>
+                </article>
+            </aside>
+        </main>
+        <footer class="app-footer">
+            <details>
+                <summary>How to use</summary>
+                <div class="shortcuts">
+                    <p>
+                        <strong>Click a node</strong> (its label or details) to inspect the source
+                        it was produced from and a rendered preview.
+                    </p>
+                    <p>
+                        <strong>Click a node's circle</strong> to collapse or expand its children.
+                    </p>
+                    <p>
+                        <strong>Drag</strong> to pan, <strong>scroll</strong> to zoom, and
+                        <strong>drag the divider</strong> to resize this panel.
+                    </p>
+                    <p>
+                        <strong>Zoom controls</strong> (bottom-right of the graph): <kbd>+</kbd> /
+                        <kbd>−</kbd> to zoom, and click the percentage to reset the view.
+                    </p>
+                    <p>
+                        <strong>Hover a legend entry</strong> (top-right) to highlight its nodes;
+                        <strong>click</strong> it to dim or show that type. The count shows how many
+                        are present.
+                    </p>
+                    <p>
+                        <strong>Arrow keys</strong> move the selection: <kbd>→</kbd> first child,
+                        <kbd>←</kbd> parent, <kbd>↑</kbd>/<kbd>↓</kbd> siblings; <kbd>Enter</kbd> or
+                        <kbd>Space</kbd> collapses or expands.
+                    </p>
+                </div>
+            </details>
+        </footer>
+        <script>
+            window.__DD_STAGES__ = "__STAGES__";
+        </script>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>

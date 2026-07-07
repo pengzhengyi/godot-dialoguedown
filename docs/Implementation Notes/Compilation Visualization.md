@@ -365,3 +365,18 @@ target where it is cheap.
 
 Tests build the IR via the existing test factories where possible and keep unit
 tests independent, so the runner parallelizes them.
+
+### Frontend quality gates
+
+The client assets (`report.js`, `report.css`, `report.html`) have their own
+quality gates under `render/`, run locally with `npm run check` and in CI (the
+**Frontend** job):
+
+- **ESLint** lints `report.js` (browser globals; vendored minified libraries are
+  ignored).
+- **Stylelint** (`stylelint-config-standard`) lints `report.css`, enforcing modern
+  CSS notation; a `.browserslistrc` records the modern-evergreen target.
+- **Accessibility** — `check-a11y.mjs` assembles the report exactly as
+  `HtmlTemplate` does, renders it in jsdom, and runs **axe-core** over the result,
+  failing on any violation. (Colour-contrast is excluded — it needs a real
+  browser; run Lighthouse/axe in a browser for that.)

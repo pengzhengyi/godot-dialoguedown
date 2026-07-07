@@ -1,0 +1,9 @@
+{
+  "extends": "stylelint-config-standard",
+  "ignoreFiles": ["assets/pico.min.css", "assets/tippy.css", "node_modules/**"],
+  "rules": {
+    "no-descending-specificity": null,
+    "color-function-notation": "modern",
+    "alpha-value-notation": "number"
+  }
+}

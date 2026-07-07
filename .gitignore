@@ -35,3 +35,6 @@ coverage-report/
 # --- macOS ---
 .DS_Store
 ._*
+
+# --- Node (frontend quality tooling for the visualization report) ---
+node_modules/

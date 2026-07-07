@@ -99,7 +99,7 @@
     if (window.marked && typeof window.marked.parse === "function") {
       try {
         return window.marked.parse(body);
-      } catch (err) {
+      } catch {
         /* fall through to the escaped raw text below */
       }
     }
@@ -616,7 +616,7 @@
         var tx = size.width / 2 - scale * (bounds.x + bounds.width / 2);
         var ty = size.height / 2 - scale * (bounds.y + bounds.height / 2);
         svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
-      } catch (err) {
+      } catch {
         /* leave the tree at its default position */
       }
     }
@@ -629,7 +629,7 @@
         var tx = size.width / 2 - node.y * transform.k;
         var ty = size.height / 2 - node.x * transform.k;
         svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(transform.k));
-      } catch (err) {
+      } catch {
         /* centring is optional */
       }
     }

@@ -27,6 +27,7 @@ if (!getComputedStyle(document.documentElement).getPropertyValue("--pico-backgro
 </header>
 <main id="app">
   <section id="stages"></section>
+  <div id="resizer" title="Drag to resize the panel"></div>
   <aside id="detail">
     <article>
       <header id="detail-title">Node details</header>
@@ -36,6 +37,17 @@ if (!getComputedStyle(document.documentElement).getPropertyValue("--pico-backgro
     </article>
   </aside>
 </main>
+<footer class="app-footer">
+  <details>
+    <summary>Mouse &amp; keyboard shortcuts</summary>
+    <div class="shortcuts">
+      <p><strong>Click a node</strong> (its label or details) to inspect the source it was produced from and a rendered preview.</p>
+      <p><strong>Click a node's circle</strong> to collapse or expand its children.</p>
+      <p><strong>Drag</strong> to pan, <strong>scroll</strong> to zoom, and <strong>drag the divider</strong> to resize this panel.</p>
+      <p><strong>Arrow keys</strong> move the selection: <kbd>→</kbd> first child, <kbd>←</kbd> parent, <kbd>↑</kbd>/<kbd>↓</kbd> siblings; <kbd>Enter</kbd> or <kbd>Space</kbd> collapses or expands.</p>
+    </div>
+  </details>
+</footer>
 <!-- D3 and marked: CDN-first with a vendored offline fallback each. -->
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" crossorigin="anonymous"></script>
 <script id="d3-fallback" type="text/plain">__D3__</script>

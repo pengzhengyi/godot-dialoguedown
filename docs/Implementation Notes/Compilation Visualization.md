@@ -76,7 +76,8 @@ One concept, one name — used here, in code, and in tests.
 | **Stage** | A compilation phase that produces an IR (Markdown AST, Dialogue AST, runtime graph, …). |
 | **IR** | Intermediate representation — the tree or directed graph a stage produces (e.g. `MarkdownDocument`). |
 | **Node projection** | The unified seam (`INodeProjection<TNode>`): for one IR node, its `Label`, `Attributes`, and out-neighbours. One small implementation per IR family. |
-| **Display node** | One node prepared for display: an `Id`, a short `Label`, optional `Attributes` (key–value extras such as span or kind), and the optional `Source` snippet it was produced from. Renderer-agnostic. |
+| **Display node** | One node prepared for display: an `Id`, a short `Label`, optional `Attributes` (key–value extras such as span or kind), the optional `Source` snippet it was produced from, and an optional `Category`. Renderer-agnostic. |
+| **Category** | A stable, cross-stage semantic group name (for example `call`, `speech`) that the renderer maps to a colour. Corresponding concepts in different stages share a category, so they share a colour. |
 | **Display edge** | A directed link between display nodes, with a `Kind` — a normal **child** edge, or a **reference** edge back to an already-seen node (how a cycle or shared node is shown). |
 | **Display graph** | A titled diagram for one stage: a `Title`, its display nodes, and its display edges. A **tree** is the acyclic, single-parent case. |
 | **Walk** | The graph-aware traversal that builds a display graph from an IR root plus a projection, using a visited set so cycles terminate. |
@@ -96,9 +97,12 @@ One concept, one name — used here, in code, and in tests.
       `ImageInline`, `CodeSpanInline`, `EmphasisInline`, `LineBreak`) to a
       labelled display node with useful attributes (span, kind, target, etc.).
 - [x] An **HTML renderer** emits an interactive, collapsible view with a detail
-      panel: clicking a node shows its attributes and the source snippet it was
-      produced from (with a rendered Markdown preview). Assets load from a CDN with
-      a bundled copy for offline use.
+      panel: clicking a node (a generous hit area, not just the dot) shows its
+      attributes and the source snippet it was produced from, with a rendered
+      Markdown preview. Arrow keys navigate; the panel is resizable. Assets load
+      from a CDN with a bundled copy for offline use.
+- [x] A **semantic colour scheme**: each node carries a cross-stage category that
+      the renderer maps to a colour, shown on nodes, a legend, and the panel.
 - [x] A **report** facade compiles a source string and assembles one **tab per
       stage** into a single self-contained HTML page.
 - [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
@@ -179,10 +183,10 @@ out-edges) for its IR family; the walk supplies the graph-aware mechanics.
 
 | Type | Responsibility | Collaborators |
 | --- | --- | --- |
-| `DisplayNode` | Immutable display node: `Id`, `Label`, `Attributes`, optional `Source` snippet. | built by the walk |
+| `DisplayNode` | Immutable display node: `Id`, `Label`, `Attributes`, optional `Source` snippet, optional `Category`. | built by the walk |
 | `DisplayEdge` | Directed edge with a `Kind` (child or reference). | built by the walk |
 | `DisplayGraph` | Titled diagram: `Title` + display nodes + display edges. A tree is the acyclic case. | produced by the walk |
-| `NodeDescription` | What a projection reports for one node: its `Label`, `Attributes`, and optional `Source`. | `INodeProjection`, walk |
+| `NodeDescription` | What a projection reports for one node: its `Label`, `Attributes`, optional `Source`, and optional `Category`. | `INodeProjection`, walk |
 | `INodeProjection<TNode>` | The unified seam: `Title`, `Describe(node)`, and `Neighbours(node)` for one IR family. | `GraphWalk` |
 | `GraphWalk` | Generic graph-aware traversal: `Walk(root, projection) → DisplayGraph`, with cycle-safe visited tracking. | every projection |
 | `MarkdownAstProjection` | `INodeProjection` over `MarkdownDocument` and its node types; titled "Markdown AST". | `IMarkdownParser` |
@@ -279,6 +283,22 @@ if a fluent DOT builder is later wanted, `DotNetGraph` (MIT) is the vetted choic
 The report is a **single self-contained HTML page with a tab per stage**
 (Markdown AST, later Dialogue AST, …). One artifact opens in any browser, needs
 no server, and reads well for non-developers.
+
+### D8 — Semantic categories drive a stable, cross-stage colour scheme
+
+Colour carries meaning here, so it must be **consistent and cross-stage**. The
+projection tags each node with a **category** — a small, stable vocabulary
+(`document`, `structure`, `speech`, `text`, `choice`, `jump`, `media`, `call`,
+`styling`, `break`) — and the renderer owns the palette that maps a category to a
+colour. This keeps domain knowledge (what a node *means*) in the projection and
+presentation (what colour it *is*) in the renderer.
+
+The categories are chosen so **corresponding concepts across stages share one**,
+and therefore share a colour: a Markdown `CodeSpanInline` and the runtime **game
+call** it compiles to are both `call` (red), so a reader can trace a concept by
+colour from one stage to the next. The HTML view shows the colour on each node, in
+a per-stage **legend**, and as a chip in the detail panel; a category is optional,
+so a node without one falls back to a neutral colour.
 
 ## Error and boundary cases
 

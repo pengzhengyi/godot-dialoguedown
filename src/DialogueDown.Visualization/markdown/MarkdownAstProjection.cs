@@ -12,6 +12,20 @@ namespace DialogueDown.Visualization;
 /// </summary>
 internal sealed class MarkdownAstProjection : INodeProjection<object>
 {
+    // Semantic categories: a stable, cross-stage vocabulary the renderer maps to
+    // colours. Later stages reuse these names so corresponding concepts share a
+    // colour — e.g. a code span becomes a game call, so both are "call".
+    private const string DocumentCategory = "document";
+    private const string StructureCategory = "structure";
+    private const string SpeechCategory = "speech";
+    private const string TextCategory = "text";
+    private const string ChoiceCategory = "choice";
+    private const string JumpCategory = "jump";
+    private const string MediaCategory = "media";
+    private const string CallCategory = "call";
+    private const string StylingCategory = "styling";
+    private const string BreakCategory = "break";
+
     private readonly string _source;
 
     public MarkdownAstProjection(string source)
@@ -27,34 +41,44 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
         ArgumentNullException.ThrowIfNull(node);
         return node switch
         {
-            MarkdownDocument => new("Document", source: _source),
+            MarkdownDocument => new("Document", source: _source, category: DocumentCategory),
             Heading heading => new(
                 $"Heading (H{heading.Level})",
                 [new("level", $"{heading.Level}"), SpanAttribute(heading.Span)],
-                Slice(heading.Span)),
-            Paragraph paragraph => new("Paragraph", [SpanAttribute(paragraph.Span)], Slice(paragraph.Span)),
+                Slice(heading.Span),
+                StructureCategory),
+            Paragraph paragraph => new(
+                "Paragraph", [SpanAttribute(paragraph.Span)], Slice(paragraph.Span), SpeechCategory),
             ListBlock list => new(
                 list.IsOrdered ? "List (ordered)" : "List (unordered)",
                 [SpanAttribute(list.Span)],
-                Slice(list.Span)),
-            ListItem item => new("List item", [SpanAttribute(item.Span)], Slice(item.Span)),
-            TextInline text => new("Text", [new("text", text.Text), SpanAttribute(text.Span)], Slice(text.Span)),
+                Slice(list.Span),
+                ChoiceCategory),
+            ListItem item => new("List item", [SpanAttribute(item.Span)], Slice(item.Span), ChoiceCategory),
+            TextInline text => new(
+                "Text", [new("text", text.Text), SpanAttribute(text.Span)], Slice(text.Span), TextCategory),
             LinkInline link => new(
                 "Link",
                 [new("target", link.Target), new("label", link.Label), SpanAttribute(link.Span)],
-                Slice(link.Span)),
+                Slice(link.Span),
+                JumpCategory),
             ImageInline image => new(
                 "Image",
                 [new("source", image.Source), new("alt", image.AltText), SpanAttribute(image.Span)],
-                Slice(image.Span)),
+                Slice(image.Span),
+                MediaCategory),
             CodeSpanInline code => new(
-                "Code span", [new("content", code.Content), SpanAttribute(code.Span)], Slice(code.Span)),
+                "Code span",
+                [new("content", code.Content), SpanAttribute(code.Span)],
+                Slice(code.Span),
+                CallCategory),
             EmphasisInline emphasis => new(
-                $"Emphasis ({emphasis.Kind})", [SpanAttribute(emphasis.Span)], Slice(emphasis.Span)),
+                $"Emphasis ({emphasis.Kind})", [SpanAttribute(emphasis.Span)], Slice(emphasis.Span), StylingCategory),
             LineBreak lineBreak => new(
                 lineBreak.IsHard ? "Line break (hard)" : "Line break (soft)",
                 [SpanAttribute(lineBreak.Span)],
-                Slice(lineBreak.Span)),
+                Slice(lineBreak.Span),
+                BreakCategory),
             _ => throw new ArgumentException(
                 $"Unsupported Markdown AST node type '{node.GetType().Name}'.", nameof(node)),
         };

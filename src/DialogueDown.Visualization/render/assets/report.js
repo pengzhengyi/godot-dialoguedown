@@ -1,151 +1,203 @@
-/* Renders each compiler stage in window.STAGES as an interactive D3 tree, and
- * shows a clicked node's details — attributes, the source it was produced from,
- * and a rendered Markdown preview of that source — in the side panel.
+/*
+ * Client for the DialogueDown compilation-visualization report.
  *
- * Child edges form the tree; reference edges (shared nodes, cycles) are dashed
- * overlays. Click a node to select it; click a node's circle to collapse/expand.
+ * window.STAGES holds one entry per compiler stage: { title, nodes, edges }.
+ * This script renders each stage as an interactive D3 tree and drives the
+ * detail panel, the colour legend, keyboard navigation, and the panel resizer.
+ *
+ * The file is organised top-down into small, focused units:
+ *   - palette helpers        (category -> colour + label)
+ *   - text helpers           (escaping, Markdown rendering)
+ *   - createDetailPanel()    (the side panel showing a selected node)
+ *   - buildLegend()          (the per-stage colour key)
+ *   - createTreeView()       (one stage's D3 tree + interactions)
+ *   - initResizer()          (drag to resize the detail panel)
+ *   - initApp()              (wires tabs, stages, keyboard, resizer together)
  */
 (function () {
   "use strict";
 
-  var stages = window.STAGES || [];
-  var tabsEl = document.getElementById("tabs");
-  var stagesEl = document.getElementById("stages");
-  var detailTitle = document.getElementById("detail-title");
-  var detailBody = document.getElementById("detail-body");
+  /* ------------------------------------------------------------------ *
+   * Semantic colour palette
+   *
+   * The projection tags each node with a stable, cross-stage category; a
+   * later stage reuses the same name for a corresponding concept, so the two
+   * share a colour (a Markdown code span and the game call it compiles to are
+   * both "call" = red).
+   * ------------------------------------------------------------------ */
 
-  var trees = [];
+  var CATEGORY = {
+    document: { color: "#64748b", label: "Document" },
+    structure: { color: "#3b82f6", label: "Structure" },
+    speech: { color: "#22c55e", label: "Speech" },
+    text: { color: "#14b8a6", label: "Text" },
+    choice: { color: "#a855f7", label: "Choice" },
+    jump: { color: "#06b6d4", label: "Jump" },
+    media: { color: "#f97316", label: "Media" },
+    call: { color: "#ef4444", label: "Game call" },
+    styling: { color: "#f59e0b", label: "Styling" },
+    break: { color: "#9ca3af", label: "Break" },
+  };
+  var DEFAULT_CATEGORY = { color: "#94a3b8", label: "Other" };
 
-  stages.forEach(function (stage, index) {
-    var tab = document.createElement("button");
-    tab.className = "tab";
-    tab.type = "button";
-    tab.textContent = stage.title;
-    tab.addEventListener("click", function () {
-      activate(index);
-    });
-    tabsEl.appendChild(tab);
-
-    var section = document.createElement("section");
-    section.className = "stage";
-    stagesEl.appendChild(section);
-    try {
-      var tree = renderTree(stage);
-      section.appendChild(tree.svg);
-      trees.push(tree);
-    } catch (err) {
-      section.classList.add("error");
-      section.textContent = "Failed to render stage: " + err.message;
-      trees.push(null);
-    }
-  });
-
-  if (stages.length > 0) {
-    activate(0);
+  /** Look up a category's colour and label, falling back for unknown names. */
+  function categoryOf(name) {
+    return (name && CATEGORY[name]) || DEFAULT_CATEGORY;
   }
 
-  function activate(index) {
-    forEachChild(tabsEl, function (el, i) {
-      el.classList.toggle("active", i === index);
-    });
-    forEachChild(stagesEl, function (el, i) {
-      el.classList.toggle("active", i === index);
-    });
-    clearDetail();
-  }
+  /* ------------------------------------------------------------------ *
+   * Text helpers
+   * ------------------------------------------------------------------ */
 
-  function forEachChild(parent, fn) {
-    Array.prototype.forEach.call(parent.children, fn);
-  }
-
-  function clearDetail() {
-    trees.forEach(function (tree) {
-      if (tree) {
-        tree.clearSelection();
-      }
-    });
-    detailTitle.textContent = "Node details";
-    detailBody.innerHTML =
-      "<p>Click any node in the graph to see the source it was produced from, and a rendered preview.</p>";
-  }
-
-  function showDetail(data) {
-    detailTitle.textContent = data.label;
-    var html = "";
-    if (data.attributes && data.attributes.length) {
-      html += "<table><tbody>";
-      data.attributes.forEach(function (attr) {
-        html +=
-          "<tr><th scope=\"row\">" +
-          escapeHtml(attr.name) +
-          "</th><td>" +
-          escapeHtml(attr.value) +
-          "</td></tr>";
-      });
-      html += "</tbody></table>";
-    }
-    if (typeof data.source === "string") {
-      html += "<h4>Source</h4><pre><code>" + escapeHtml(data.source) + "</code></pre>";
-      html += "<h4>Preview</h4><div class=\"preview\">" + renderMarkdown(data.source) + "</div>";
-    }
-    detailBody.innerHTML = html || "<p>No further detail for this node.</p>";
-  }
-
-  function renderMarkdown(source) {
-    if (window.marked && typeof window.marked.parse === "function") {
-      try {
-        return window.marked.parse(source);
-      } catch (err) {
-        /* fall back to raw text below */
-      }
-    }
-    return "<pre><code>" + escapeHtml(source) + "</code></pre>";
-  }
-
+  /** Escape a value for safe insertion into HTML. */
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (ch) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch];
     });
   }
 
-  function renderTree(stage) {
-    var parentOf = new Map();
-    var references = [];
-    stage.edges.forEach(function (edge) {
-      if (edge.kind === "Reference") {
-        references.push(edge);
-      } else {
-        parentOf.set(edge.toId, edge.fromId);
+  /** Render Markdown to HTML with marked, falling back to escaped raw text. */
+  function renderMarkdown(source) {
+    if (window.marked && typeof window.marked.parse === "function") {
+      try {
+        return window.marked.parse(source);
+      } catch (err) {
+        /* fall through to the escaped raw text below */
+      }
+    }
+    return "<pre><code>" + escapeHtml(source) + "</code></pre>";
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Detail panel — shows the selected node's category, attributes, and the
+   * source it was produced from (raw plus a rendered Markdown preview).
+   * ------------------------------------------------------------------ */
+
+  function createDetailPanel() {
+    var titleEl = document.getElementById("detail-title");
+    var bodyEl = document.getElementById("detail-body");
+    var placeholder =
+      "<p>Click any node to see the source it was produced from, and a rendered preview.</p>";
+
+    /** Show one node's details (the `data` carried on each display node). */
+    function show(data) {
+      titleEl.innerHTML = escapeHtml(data.label) + categoryChip(data.category);
+      bodyEl.innerHTML = attributesTable(data.attributes) + sourceSection(data.source);
+    }
+
+    /** Reset the panel to its empty prompt. */
+    function clear() {
+      titleEl.textContent = "Node details";
+      bodyEl.innerHTML = placeholder;
+    }
+
+    function categoryChip(category) {
+      if (!category) {
+        return "";
+      }
+      var info = categoryOf(category);
+      return (
+        " <span class=\"chip\" style=\"background:" + info.color + "\">" +
+        escapeHtml(info.label) +
+        "</span>"
+      );
+    }
+
+    function attributesTable(attributes) {
+      if (!attributes || !attributes.length) {
+        return "";
+      }
+      var rows = attributes
+        .map(function (attr) {
+          return (
+            "<tr><th scope=\"row\">" + escapeHtml(attr.name) + "</th><td>" +
+            escapeHtml(attr.value) + "</td></tr>"
+          );
+        })
+        .join("");
+      return "<table><tbody>" + rows + "</tbody></table>";
+    }
+
+    function sourceSection(source) {
+      if (typeof source !== "string") {
+        return "";
+      }
+      return (
+        "<h4>Source</h4><pre><code>" + escapeHtml(source) + "</code></pre>" +
+        "<h4>Preview</h4><div class=\"preview\">" + renderMarkdown(source) + "</div>"
+      );
+    }
+
+    return { show: show, clear: clear };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Legend — a colour key for the categories present in one stage.
+   * ------------------------------------------------------------------ */
+
+  function buildLegend(stage) {
+    var present = {};
+    stage.nodes.forEach(function (node) {
+      if (node.category) {
+        present[node.category] = true;
       }
     });
 
-    // Child edges form a spanning tree; stratify them into a hierarchy.
-    var root = d3
-      .stratify()
-      .id(function (d) {
-        return d.id;
-      })
-      .parentId(function (d) {
-        return parentOf.get(d.id) || null;
-      })(stage.nodes);
+    var legend = document.createElement("div");
+    legend.className = "legend";
+    Object.keys(CATEGORY).forEach(function (key) {
+      if (!present[key]) {
+        return;
+      }
+      var item = document.createElement("div");
+      item.className = "legend-item";
 
-    root.each(function (d) {
-      d._children = d.children;
+      var swatch = document.createElement("span");
+      swatch.className = "swatch";
+      swatch.style.background = CATEGORY[key].color;
+
+      var label = document.createElement("span");
+      label.textContent = CATEGORY[key].label;
+
+      item.appendChild(swatch);
+      item.appendChild(label);
+      legend.appendChild(item);
+    });
+    return legend;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Tree view — renders one stage as an interactive, collapsible D3 tree.
+   *
+   * Child edges form the tree; reference edges (shared nodes, cycles) are
+   * dashed overlays. Clicking a node selects it (and reports it via onSelect);
+   * clicking its circle also collapses/expands it. Arrow keys navigate.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * @param {{title:string, nodes:Array, edges:Array}} stage
+   * @param {(data:object)=>void} onSelect - called with a node's data on select
+   * @returns {{svg:SVGElement, legend:HTMLElement, handleKey:Function, clearSelection:Function}}
+   */
+  function createTreeView(stage, onSelect) {
+    var root = stratify(stage);
+    root.each(function (node) {
+      node._children = node.children;
     });
 
     var selected = null;
 
     var svg = d3.create("svg").attr("class", "tree");
-    var g = svg.append("g");
-    var gLinks = g.append("g");
-    var gRefs = g.append("g");
-    var gNodes = g.append("g");
+    var viewport = svg.append("g");
+    var gLinks = viewport.append("g");
+    var gReferences = viewport.append("g");
+    var gNodes = viewport.append("g");
 
     var zoom = d3
       .zoom()
       .scaleExtent([0.1, 3])
       .on("zoom", function (event) {
-        g.attr("transform", event.transform);
+        viewport.attr("transform", event.transform);
       });
     svg.call(zoom);
 
@@ -160,20 +212,49 @@
       });
 
     update();
-    center();
+    fitToViewport();
 
     return {
       svg: svg.node(),
+      legend: buildLegend(stage),
+      handleKey: handleKey,
       clearSelection: function () {
         selected = null;
         applySelection();
       },
     };
 
-    function select(d) {
-      selected = d;
+    /* --- hierarchy --- */
+
+    function stratify(stage) {
+      var parentOf = new Map();
+      stage.edges.forEach(function (edge) {
+        if (edge.kind !== "Reference") {
+          parentOf.set(edge.toId, edge.fromId);
+        }
+      });
+      return d3
+        .stratify()
+        .id(function (d) {
+          return d.id;
+        })
+        .parentId(function (d) {
+          return parentOf.get(d.id) || null;
+        })(stage.nodes);
+    }
+
+    function referenceEdges() {
+      return stage.edges.filter(function (edge) {
+        return edge.kind === "Reference";
+      });
+    }
+
+    /* --- selection --- */
+
+    function select(node) {
+      selected = node;
       applySelection();
-      showDetail(d.data);
+      onSelect(node.data);
     }
 
     function applySelection() {
@@ -182,10 +263,79 @@
       });
     }
 
+    /* --- collapse / expand --- */
+
+    function toggle(node) {
+      node.children = node.children ? null : node._children;
+      update();
+    }
+
+    function expand(node) {
+      if (!node.children && node._children) {
+        node.children = node._children;
+        update();
+      }
+    }
+
+    /* --- keyboard navigation --- */
+
+    function handleKey(event) {
+      var navigationKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " "];
+      if (navigationKeys.indexOf(event.key) === -1) {
+        return;
+      }
+      event.preventDefault();
+
+      if (!selected) {
+        select(root);
+        fitToViewport();
+        return;
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        toggle(selected);
+        applySelection();
+        return;
+      }
+
+      var next = nextNode(event.key);
+      if (next) {
+        select(next);
+        centerOn(next);
+      }
+    }
+
+    function nextNode(key) {
+      if (key === "ArrowRight") {
+        expand(selected);
+        return selected.children ? selected.children[0] : null;
+      }
+      if (key === "ArrowLeft") {
+        return selected.parent || null;
+      }
+      if (key === "ArrowDown") {
+        return sibling(selected, 1);
+      }
+      if (key === "ArrowUp") {
+        return sibling(selected, -1);
+      }
+      return null;
+    }
+
+    function sibling(node, offset) {
+      if (!node.parent) {
+        return null;
+      }
+      var siblings = node.parent.children;
+      return siblings[siblings.indexOf(node) + offset] || null;
+    }
+
+    /* --- rendering --- */
+
     function update() {
       layout(root);
       var nodes = root.descendants();
-      var position = new Map(
+      var positionById = new Map(
         nodes.map(function (d) {
           return [d.id, d];
         })
@@ -200,11 +350,11 @@
         .attr("class", "link")
         .attr("d", diagonal);
 
-      gRefs
+      gReferences
         .selectAll("path.reference")
         .data(
-          references.filter(function (r) {
-            return position.has(r.fromId) && position.has(r.toId);
+          referenceEdges().filter(function (r) {
+            return positionById.has(r.fromId) && positionById.has(r.toId);
           }),
           function (r) {
             return r.fromId + "->" + r.toId;
@@ -213,42 +363,55 @@
         .join("path")
         .attr("class", "link reference")
         .attr("d", function (r) {
-          return diagonal({ source: position.get(r.fromId), target: position.get(r.toId) });
+          return diagonal({ source: positionById.get(r.fromId), target: positionById.get(r.toId) });
         });
 
       var node = gNodes.selectAll("g.node").data(nodes, function (d) {
         return d.id;
       });
+      node.exit().remove();
+      appendEnteringNodes(node.enter());
 
-      var enter = node
-        .enter()
-        .append("g")
-        .attr("class", "node");
+      gNodes
+        .selectAll("g.node")
+        .attr("transform", function (d) {
+          return "translate(" + d.y + "," + d.x + ")";
+        })
+        .classed("collapsed", function (d) {
+          return !d.children && d._children;
+        });
 
-      enter
+      applySelection();
+    }
+
+    function appendEnteringNodes(enter) {
+      var group = enter.append("g").attr("class", "node");
+
+      group
         .append("circle")
         .attr("r", 5)
+        .style("fill", function (d) {
+          return categoryOf(d.data.category).color;
+        })
         .on("click", function (event, d) {
-          d.children = d.children ? null : d._children;
-          update();
+          toggle(d);
           select(d);
         });
 
-      enter
+      group
         .append("text")
+        .attr("class", "label")
         .attr("dy", "0.32em")
         .attr("x", 9)
         .text(function (d) {
           return d.data.label;
-        })
-        .on("click", function (event, d) {
-          select(d);
         });
 
-      enter.each(function (d) {
-        var group = d3.select(this);
-        (d.data.attributes || []).forEach(function (attr, i) {
-          group
+      group.each(function (d) {
+        var attributes = d.data.attributes || [];
+        var self = d3.select(this);
+        attributes.forEach(function (attr, i) {
+          self
             .append("text")
             .attr("class", "attr")
             .attr("x", 9)
@@ -257,39 +420,193 @@
         });
       });
 
-      enter
-        .merge(node)
-        .attr("transform", function (d) {
-          return "translate(" + d.y + "," + d.x + ")";
-        })
-        .classed("collapsed", function (d) {
-          return !d.children && d._children;
-        });
-
-      node.exit().remove();
-      applySelection();
+      // A generous transparent hit area behind the label and attributes, so the
+      // whole node block (not just the tiny circle) is clickable to inspect. Its
+      // size is estimated from the text rather than measured, so it never depends
+      // on getBBox (which some SVG engines compute lazily or not at all).
+      group.each(function (d) {
+        var lines = [d.data.label].concat(
+          (d.data.attributes || []).map(function (attr) {
+            return attr.name + ": " + attr.value;
+          })
+        );
+        var longest = lines.reduce(function (max, line) {
+          return Math.max(max, line.length);
+        }, 0);
+        var width = 9 + longest * 6.5 + 10;
+        var height = 20 + (d.data.attributes || []).length * 12;
+        d3.select(this)
+          .insert("rect", ":first-child")
+          .attr("class", "hit")
+          .attr("x", -8)
+          .attr("y", -12)
+          .attr("width", width)
+          .attr("height", height)
+          .on("click", function () {
+            select(d);
+          });
+      });
     }
 
-    function center() {
+    /* --- camera --- */
+
+    /** Fit the whole tree into the viewport on first render. */
+    function fitToViewport() {
       requestAnimationFrame(function () {
-        // Auto-centering is a nicety; never let an environment quirk (an SVG
-        // engine without getBBox or zoom support) break an otherwise-good tree.
+        // Never let an environment quirk (an SVG engine without getBBox or zoom
+        // support) break an otherwise-good tree — auto-fit is only a nicety.
         try {
-          var bounds = g.node().getBBox();
+          var bounds = viewport.node().getBBox();
           if (!bounds.width || !bounds.height) {
             return;
           }
-          var parent = svg.node().parentElement;
-          var width = parent.clientWidth || 800;
-          var height = parent.clientHeight || 600;
-          var scale = Math.min(1, 0.9 / Math.max(bounds.width / width, bounds.height / height));
-          var tx = width / 2 - scale * (bounds.x + bounds.width / 2);
-          var ty = height / 2 - scale * (bounds.y + bounds.height / 2);
+          var size = viewportSize();
+          var scale = Math.min(
+            1,
+            0.9 / Math.max(bounds.width / size.width, bounds.height / size.height)
+          );
+          var tx = size.width / 2 - scale * (bounds.x + bounds.width / 2);
+          var ty = size.height / 2 - scale * (bounds.y + bounds.height / 2);
           svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
         } catch (err) {
           /* leave the tree at its default position */
         }
       });
     }
+
+    /** Pan (keeping the current zoom) so a node sits at the viewport centre. */
+    function centerOn(node) {
+      try {
+        var size = viewportSize();
+        var transform = d3.zoomTransform(svg.node());
+        var tx = size.width / 2 - node.y * transform.k;
+        var ty = size.height / 2 - node.x * transform.k;
+        svg
+          .transition()
+          .duration(200)
+          .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(transform.k));
+      } catch (err) {
+        /* centring is optional */
+      }
+    }
+
+    function viewportSize() {
+      var parent = svg.node().parentElement;
+      return {
+        width: (parent && parent.clientWidth) || 800,
+        height: (parent && parent.clientHeight) || 600,
+      };
+    }
   }
+
+  /* ------------------------------------------------------------------ *
+   * Panel resizer — drag the divider to widen or narrow the detail panel.
+   * ------------------------------------------------------------------ */
+
+  function initResizer() {
+    var resizer = document.getElementById("resizer");
+    var detail = document.getElementById("detail");
+    var minWidth = 280;
+    var maxWidth = 760;
+    var dragging = false;
+
+    resizer.addEventListener("mousedown", function (event) {
+      dragging = true;
+      document.body.style.userSelect = "none";
+      event.preventDefault();
+    });
+
+    document.addEventListener("mousemove", function (event) {
+      if (!dragging) {
+        return;
+      }
+      var width = window.innerWidth - event.clientX;
+      detail.style.flexBasis = Math.max(minWidth, Math.min(maxWidth, width)) + "px";
+    });
+
+    document.addEventListener("mouseup", function () {
+      dragging = false;
+      document.body.style.userSelect = "";
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * App bootstrap — build the tabs and stages, and wire shared interactions.
+   * ------------------------------------------------------------------ */
+
+  function initApp() {
+    var stages = window.STAGES || [];
+    var tabsEl = document.getElementById("tabs");
+    var stagesEl = document.getElementById("stages");
+    var panel = createDetailPanel();
+    var views = [];
+    var activeIndex = 0;
+
+    stages.forEach(function (stage, index) {
+      tabsEl.appendChild(createTab(stage, index));
+
+      var section = document.createElement("section");
+      section.className = "stage";
+      stagesEl.appendChild(section);
+
+      try {
+        var view = createTreeView(stage, panel.show);
+        section.appendChild(view.svg);
+        section.appendChild(view.legend);
+        views.push(view);
+      } catch (err) {
+        section.classList.add("error");
+        section.textContent = "Failed to render stage: " + err.message;
+        views.push(null);
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.target && event.target.closest && event.target.closest("button, input, textarea, select")) {
+        return;
+      }
+      var view = views[activeIndex];
+      if (view) {
+        view.handleKey(event);
+      }
+    });
+
+    initResizer();
+    if (stages.length > 0) {
+      activate(0);
+    }
+
+    function createTab(stage, index) {
+      var tab = document.createElement("button");
+      tab.className = "tab";
+      tab.type = "button";
+      tab.textContent = stage.title;
+      tab.addEventListener("click", function () {
+        activate(index);
+      });
+      return tab;
+    }
+
+    function activate(index) {
+      activeIndex = index;
+      forEachChild(tabsEl, function (el, i) {
+        el.classList.toggle("active", i === index);
+      });
+      forEachChild(stagesEl, function (el, i) {
+        el.classList.toggle("active", i === index);
+      });
+      views.forEach(function (view) {
+        if (view) {
+          view.clearSelection();
+        }
+      });
+      panel.clear();
+    }
+  }
+
+  function forEachChild(parent, fn) {
+    Array.prototype.forEach.call(parent.children, fn);
+  }
+
+  initApp();
 })();

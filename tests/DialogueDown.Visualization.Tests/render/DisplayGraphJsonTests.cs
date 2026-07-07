@@ -38,6 +38,16 @@ public sealed class DisplayGraphJsonTests
     }
 
     [Fact]
+    public void Serialize_IncludesNodeCategoryWhenPresent()
+    {
+        var graph = Graph("G", [new DisplayNode("n0", "Code span", [], null, "call")], []);
+
+        var json = DisplayGraphJson.Serialize([graph]);
+
+        Assert.Contains("\"category\":\"call\"", json);
+    }
+
+    [Fact]
     public void Serialize_EscapesHtmlSensitiveCharacters_SoScriptCannotBreakOut()
     {
         var graph = Graph("G", [Node("n0", "</script><b>&")], []);

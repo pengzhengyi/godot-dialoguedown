@@ -77,6 +77,26 @@ public sealed class MarkdownAstProjectionTests
     }
 
     [Fact]
+    public void Describe_AssignsSemanticCategoryPerNodeType()
+    {
+        var span = new SourceSpan(0, 2);
+
+        // The categories are a cross-stage vocabulary: a code span is "call" so it
+        // shares a colour with the game call it later compiles to.
+        Assert.Equal("document", _projection.Describe(new MarkdownDocument([])).Category);
+        Assert.Equal("structure", _projection.Describe(new Heading(1, [], span)).Category);
+        Assert.Equal("speech", _projection.Describe(new Paragraph([], span)).Category);
+        Assert.Equal("choice", _projection.Describe(new ListBlock(false, [], span)).Category);
+        Assert.Equal("choice", _projection.Describe(new ListItem([], span)).Category);
+        Assert.Equal("text", _projection.Describe(new TextInline("x", span)).Category);
+        Assert.Equal("jump", _projection.Describe(new LinkInline("t", "l", span)).Category);
+        Assert.Equal("media", _projection.Describe(new ImageInline("s", "a", span)).Category);
+        Assert.Equal("call", _projection.Describe(new CodeSpanInline("c", span)).Category);
+        Assert.Equal("styling", _projection.Describe(new EmphasisInline(EmphasisKind.Bold, [], span)).Category);
+        Assert.Equal("break", _projection.Describe(new LineBreak(false, span)).Category);
+    }
+
+    [Fact]
     public void Describe_Heading_IncludesLevelAndSpan()
     {
         var description = _projection.Describe(new Heading(2, [], new SourceSpan(0, 8)));

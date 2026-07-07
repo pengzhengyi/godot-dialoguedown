@@ -85,8 +85,10 @@ compiler produced at each stage. The optional
 stage's intermediate representation as an interactive HTML report — one tab per
 stage, pan and zoom, click a node to collapse or expand — plus Mermaid and DOT
 text for quick embedding. Click a node to inspect **the source it was produced
-from**, with a rendered Markdown preview, in a side panel. The report loads D3,
-Pico.css, and marked from a CDN and falls back to bundled copies, so it still
+from**, with a rendered Markdown preview, in a resizable side panel. Nodes are
+**colour-coded by a cross-stage category** (a code span and the game call it
+becomes share a colour), with a legend and arrow-key navigation. The report loads
+D3, Pico.css, and marked from a CDN and falls back to bundled copies, so it still
 works offline. It reads the compiler through the same seams the tests use and
 never touches the shipped core package, so the core stays dependency-light. The
 Markdown AST view ships today; the Dialogue AST view lands with the transpiler.

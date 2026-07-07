@@ -100,8 +100,8 @@ One concept, one name — used here, in code, and in tests.
       panel: clicking a node (a generous hit area, not just the dot) shows its
       attributes and the source snippet it was produced from, with a rendered
       Markdown preview. Arrow keys navigate; on-screen zoom controls (+/−, click
-      the ratio to reset) and a resizable panel round it out. Assets load from a
-      CDN with a bundled copy for offline use.
+      the ratio to reset) and a resizable panel round it out. The whole report is
+      one self-contained file, so it works offline.
 - [x] A **semantic colour scheme**: each node carries a cross-stage category that
       the renderer maps to a colour, shown on nodes, the panel, and an interactive
       legend that counts each type, highlights it on hover, and toggles it
@@ -247,32 +247,32 @@ The walk produces a single renderer-agnostic **display graph**; renderers are
 class, and every stage automatically gets every format. This is the "thin wrapper
 over a good library" shape: the model is tiny, and each renderer is a formatter.
 
-### D5 — Interactive HTML via D3 and Pico.css, CDN-first with an offline fallback
+### D5 — Interactive HTML via D3 and Pico.css, built as one self-contained file
 
 The flagship format is an interactive, collapsible **HTML** view built on
 **D3.js** — the gold standard for readable, expand/collapse, zoom/pan trees, and
-extensible to graph layouts when the runtime graph arrives. The .NET side emits
-the display graph as JSON plus a small HTML template; D3 does the layout and
+extensible to graph layouts when the runtime graph arrives. D3 does the layout and
 interaction, so the .NET code never hand-rolls rendering. **Pico.css** styles the
 page chrome for a clean, modern light/dark look with almost no custom CSS.
 
 A **detail panel** sits beside the graph. Clicking a node shows its attributes and
 the **source snippet** it was produced from (sliced from the node's span), with a
-rendered **Markdown preview** of that snippet via **marked**. This is what makes
-the view legible to non-developers: you can see exactly which text became which
-node.
+rendered **Markdown preview** of that snippet via **marked**, and **Tippy.js**
+gives each node a rich hover tooltip. This is what makes the view legible to
+non-developers: you can see exactly which text became which node.
 
-Each library loads in a **layered** way: the page first requests the latest
-version from a CDN (jsDelivr), so an online reader gets current patches; if a
-request fails — offline, air-gapped, or a blocked CDN — the page falls back to a
-**vendored copy bundled in the page**. D3 v7.9.0 (ISC), Pico.css v2.0.6 (MIT), and
-marked v12.0.2 (MIT) are the pinned, verified fallbacks, embedded verbatim with an
-attribution `NOTICE`; the stylesheet and client script are always inlined.
+The client is a small **TypeScript** application (in `web/`) that **Vite** builds
+and inlines into **one self-contained HTML file** — every script and stylesheet
+embedded, no CDN, no external requests — so the report opens with no server and
+works fully offline, even air-gapped. The libraries are npm dependencies pinned by
+`package-lock.json` and tree-shaken into the bundle: D3 v7.9.0 (ISC), Pico.css
+v2.1.1 (MIT), marked v12.0.2 (MIT), and Tippy.js v6.3.7 (MIT, which bundles
+Popper); `web/NOTICE.md` records versions and licenses. The .NET side embeds this
+built file and injects only the per-report **stage JSON** into its data slot.
 
-The tradeoffs are deliberate: an online reader's browser makes a few CDN requests
-(a telemetry surface some fully-offline setups prefer to avoid), and the floating
-CDN URLs cannot carry Subresource Integrity hashes, so the CDN copies are trusted
-rather than pinned. The bundled fallbacks are the pinned, verified copies.
+The tradeoff is deliberate: the bundle pins specific, reviewed library versions
+(updated by bumping `package.json` and rebuilding) rather than floating to the
+latest, in exchange for a reproducible, zero-network, offline-first artifact.
 
 ### D6 — Mermaid and DOT as fast-follow text formats
 
@@ -366,17 +366,26 @@ target where it is cheap.
 Tests build the IR via the existing test factories where possible and keep unit
 tests independent, so the runner parallelizes them.
 
-### Frontend quality gates
+### Frontend quality gates and tests
 
-The client assets (`report.js`, `report.css`, `report.html`) have their own
-quality gates under `render/`, run locally with `npm run check` and in CI (the
+The client is a self-contained **TypeScript + Vite** project under `web/`, with a
+test pyramid and quality gates run locally (`npm run check`) and in CI (the
 **Frontend** job):
 
-- **ESLint** lints `report.js` (browser globals; vendored minified libraries are
-  ignored).
-- **Stylelint** (`stylelint-config-standard`) lints `report.css`, enforcing modern
-  CSS notation; a `.browserslistrc` records the modern-evergreen target.
-- **Accessibility** — `check-a11y.mjs` assembles the report exactly as
-  `HtmlTemplate` does, renders it in jsdom, and runs **axe-core** over the result,
-  failing on any violation. (Colour-contrast is excluded — it needs a real
-  browser; run Lighthouse/axe in a browser for that.)
+- **Typecheck** — `tsc --noEmit` over the strict-mode TypeScript modules.
+- **ESLint** (`typescript-eslint`) and **Stylelint** (`stylelint-config-standard`)
+  lint the sources and stylesheet; **Prettier** enforces formatting.
+- **Unit (Vitest + jsdom)** — the pure and DOM-light modules (text, palette,
+  legend, detail panel, zoom controls, resizer) are unit-tested at 100% coverage.
+  This is the broad base of the pyramid.
+- **End-to-end (Playwright + Chromium)** — the actual built report is loaded in a
+  real browser and driven: nodes render, clicking shows source and preview,
+  hovering shows a tooltip, the legend dims, zoom works, and arrow keys navigate.
+  A **`@axe-core/playwright`** pass asserts no accessibility violations —
+  including **colour-contrast**, which a real browser can measure (jsdom cannot).
+- **Build freshness** — CI rebuilds the single-file report and fails if the
+  committed `web/dist/index.html` is stale (`git diff --exit-code`), so the
+  embedded UI can never drift from its sources.
+
+The Vite build targets **ES2022**, so the report runs on current evergreen
+browsers without legacy transpilation.

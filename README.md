@@ -87,11 +87,12 @@ stage, pan and zoom, click a node to collapse or expand — plus Mermaid and DOT
 text for quick embedding. Click a node to inspect **the source it was produced
 from**, with a rendered Markdown preview, in a resizable side panel. Nodes are
 **colour-coded by a cross-stage category** (a code span and the game call it
-becomes share a colour), with a legend and arrow-key navigation. The report loads
-D3, Pico.css, and marked from a CDN and falls back to bundled copies, so it still
-works offline. It reads the compiler through the same seams the tests use and
-never touches the shipped core package, so the core stays dependency-light. The
-Markdown AST view ships today; the Dialogue AST view lands with the transpiler.
+becomes share a colour), with a legend and arrow-key navigation. The report is a
+**single self-contained HTML file** — D3, Pico.css, marked, and Tippy.js are all
+bundled in, so it needs no server and works fully offline. It reads the compiler
+through the same seams the tests use and never touches the shipped core package,
+so the core stays dependency-light. The Markdown AST view ships today; the
+Dialogue AST view lands with the transpiler.
 
 > [!NOTE]
 > The visualizer is a diagnostics helper, built quickly with lighter review than

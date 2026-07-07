@@ -1,8 +1,9 @@
 namespace DialogueDown.Visualization;
 
 /// <summary>
-/// Reads a bundled client asset (the D3 library, CSS, JS, and HTML skeleton)
-/// embedded in this assembly, so a generated report needs no files on disk.
+/// Reads a bundled client asset embedded in this assembly — the single
+/// self-contained report page built by the <c>web/</c> Vite project — so a
+/// generated report needs no files on disk.
 /// </summary>
 internal static class EmbeddedAsset
 {

@@ -10,6 +10,10 @@
     <!-- Diagnostics-only companion to the core: never referenced by the shipped
          DialogueDown package, so the core stays engine-agnostic and dependency-light. -->
     <Description>Diagnostic visualization of DialogueDown compiler stages (Markdown AST, ...).</Description>
+    <!-- The web/ frontend is a self-contained Vite/TypeScript project with its own
+         toolchain; keep the .NET SDK from globbing its sources (and node_modules).
+         Only the pre-built single-file report is embedded, below. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);web\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,18 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Client assets inlined into generated HTML reports so they work offline.
-         d3.v7.min.js, pico.min.css, and marked.min.js are vendored verbatim;
-         see render/assets/NOTICE.md for versions and licenses. -->
-    <EmbeddedResource Include="render\assets\d3.v7.min.js" />
-    <EmbeddedResource Include="render\assets\pico.min.css" />
-    <EmbeddedResource Include="render\assets\marked.min.js" />
-    <EmbeddedResource Include="render\assets\popper.min.js" />
-    <EmbeddedResource Include="render\assets\tippy.umd.min.js" />
-    <EmbeddedResource Include="render\assets\tippy.css" />
-    <EmbeddedResource Include="render\assets\report.css" />
-    <EmbeddedResource Include="render\assets\report.js" />
-    <EmbeddedResource Include="render\assets\report.html" />
+    <!-- The report frontend, built by the web/ Vite project into ONE self-contained
+         HTML file (all JS/CSS inlined). The .NET side only injects the per-report
+         stage data into its data slot. Built and committed; CI verifies it stays in
+         sync with web/ sources. See web/NOTICE.md for bundled third-party licenses. -->
+    <EmbeddedResource Include="web\dist\index.html" />
   </ItemGroup>
 
 </Project>

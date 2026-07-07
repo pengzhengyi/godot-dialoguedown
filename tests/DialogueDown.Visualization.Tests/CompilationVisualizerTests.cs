@@ -47,9 +47,9 @@ public sealed class CompilationVisualizerTests
             World
             """);
 
-        Assert.StartsWith("<!DOCTYPE html>", html);
-        Assert.Contains("cdn.jsdelivr.net/npm/d3@7", html); // latest D3 when online
-        Assert.Contains("d3js.org v7.9.0", html);           // vendored fallback for offline
+        Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cdn.jsdelivr.net", html);    // self-contained: no CDN
+        Assert.Contains(".tippy-box", html);                // client libs inlined
         Assert.Contains("\"title\":\"Markdown AST\"", html);
         Assert.Contains("Heading (H1)", html);
         Assert.Contains("Paragraph", html);

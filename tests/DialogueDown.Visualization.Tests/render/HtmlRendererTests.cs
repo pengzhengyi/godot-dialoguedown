@@ -13,24 +13,21 @@ public sealed class HtmlRendererTests
     }
 
     [Fact]
-    public void Render_PrefersCdnWithOfflineFallbackForEachLibrary()
+    public void Render_ProducesSelfContainedOfflinePage()
     {
         var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
 
         var html = _renderer.Render(graph);
 
-        Assert.StartsWith("<!DOCTYPE html>", html);
-        // Each library is requested from a CDN and also inlined as an offline fallback.
-        Assert.Contains("cdn.jsdelivr.net/npm/d3@7", html);
-        Assert.Contains("d3js.org v7.9.0", html);
-        Assert.Contains("cdn.jsdelivr.net/npm/@picocss/pico@2", html);
-        Assert.Contains("Pico CSS", html);
-        Assert.Contains("cdn.jsdelivr.net/npm/marked@12", html);
-        Assert.Contains("marked v12.0.2", html);
-        Assert.Contains("cdn.jsdelivr.net/npm/@popperjs/core@2", html);
-        Assert.Contains("@popperjs/core v2.11.8", html);
-        Assert.Contains("cdn.jsdelivr.net/npm/tippy.js@6", html);
+        Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
+        // The page is one self-contained file: the client libraries are inlined
+        // (no CDN, works offline). Pico and Tippy leave recognisable CSS markers.
+        Assert.DoesNotContain("cdn.jsdelivr.net", html);
+        Assert.DoesNotContain("<script src=\"http", html);
+        Assert.Contains("--pico-", html);
         Assert.Contains(".tippy-box", html);
+        // The stage-data slot was filled, not left as the raw placeholder.
+        Assert.DoesNotContain("\"__STAGES__\"", html);
     }
 
     [Fact]

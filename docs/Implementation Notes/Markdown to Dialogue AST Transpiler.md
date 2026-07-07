@@ -28,6 +28,7 @@
     - [D10 — Errors: DialogueSyntaxError, friendly messages](#d10--errors-dialoguesyntaxerror-friendly-messages)
     - [D11 — Speaker: declaration vs reference](#d11--speaker-declaration-vs-reference)
     - [D12 — A uniform, span-aware parser abstraction](#d12--a-uniform-span-aware-parser-abstraction)
+    - [D13 — Parsing yields data; a builder constructs the AST](#d13--parsing-yields-data-a-builder-constructs-the-ast)
   - [Leaf grammars](#leaf-grammars)
   - [Transpiling in pseudocode](#transpiling-in-pseudocode)
   - [Markdown AST to Dialogue AST mapping](#markdown-ast-to-dialogue-ast-mapping)
@@ -176,16 +177,17 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                               | Responsibility                                                         | Collaborators                |
-| ---------------------------------- | ---------------------------------------------------------------------- | ---------------------------- |
-| `IScriptTranspiler`                | public seam: `Script Transpile(MarkdownDocument, string source)`       | Markdown AST, `Script`       |
-| `MarkdownToScriptConverter`        | block-layer tree walk → Dialogue AST                                   | AST nodes, parsers           |
-| `ScriptNode`                       | base for every Dialogue AST node; carries `Span`                       | `SourceSpan`                 |
-| `IParser<T>`                       | composable, non-throwing `Consume` prefix core (D12)                   | `ParseInput`, `ParseResult`  |
-| `IFullParser<T>` / `FullParser<T>` | consumes a whole input via `ParseAll`, with author-facing errors       | `IParser<T>`                 |
-| `IPrefixParser<T>`                 | consumes a leading portion; `Fail` = no prefix, throws if malformed    | `ParseResult<T>`             |
-| composites + Superpower adapter    | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser` | `IParser<T>`                 |
-| game-call / tag / speaker parsers  | full parsers for code spans; a prefix parser for speakers              | `GameCall`, `Tag`, `Speaker` |
+| Type                              | Responsibility                                                         | Collaborators               |
+| --------------------------------- | ---------------------------------------------------------------------- | --------------------------- |
+| `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)`       | Markdown AST, `Script`      |
+| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                   | builder, parsers            |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                       | `SourceSpan`                |
+| `IParser<T>`                      | composable, non-throwing `Consume` prefix core (D12)                   | `ParseInput`, `ParseResult` |
+| `IFullParser<T>`                  | non-throwing `ParseAll`: consumes a whole input, else `Fail`           | `IParser<T>`                |
+| `IPrefixParser<T>`                | non-throwing `ParsePrefix`: consumes a leading portion, else `Fail`    | `ParseResult<T>`            |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser` | `IParser<T>`                |
+| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                 | `…Data` records             |
+| `DialogueAstBuilder`              | parsed data → AST nodes; classifies, validates, raises errors (D13)    | `…Data`, AST nodes          |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -414,22 +416,22 @@ non-throwing:
 interface IParser<T> { ParseResult<T> Consume(ParseInput input); }
 ```
 
-Two **entry points** sit on top, matching how the converter uses a parser:
+Two **entry points** sit on top, matching how the builder uses a parser. Both are
+**non-throwing** — they return a `ParseResult<T>`; no parser raises a
+`DialogueSyntaxError`. Turning a failure into an author-facing diagnostic is the
+builder's job (see D13), because only the builder holds the document span.
 
 ```csharp
-// consumes the WHOLE input; throws on failure or leftover (a code span's game call / tag)
-interface IFullParser<T> { T ParseAll(ParseInput input); }
-abstract class FullParser<T> : IParser<T>, IFullParser<T> { /* ParseAll + messages */ }
+// consumes the WHOLE input; Fail if it does not (a code span's game call)
+interface IFullParser<T> { ParseResult<T> ParseAll(ParseInput input); }
 
 // consumes a LEADING portion, leaving the rest (a line's speaker prefix)
 interface IPrefixParser<T> { ParseResult<T> ParsePrefix(ParseInput input); }
 ```
 
-A full parser owns an entire span and reports rich errors; a prefix parser reads
-the head of a line and returns how much it consumed (`Fail` = "no such prefix"),
-throwing only when a prefix is *present but malformed*. Keeping `Consume` in an
-interface means composites never inherit entry-point concerns they don't need,
-while error messaging stays enforced on the parsers that surface it.
+Keeping `Consume` in an interface means composites never inherit entry-point
+concerns they don't need. A full parser requires the whole input; a prefix parser
+returns how much it consumed so the caller can continue after it.
 
 - **`ParseInput(string Text, int Position)`** — the text to read and the
   absolute `Position` its first character occupies in the source. Parsing always
@@ -438,19 +440,13 @@ while error messaging stays enforced on the parsers that surface it.
 - **`ParseResult<T>`** — the non-throwing outcome: either a successful
   **`ParseMatch<T>(T Value, TextRange Range)`** (the value and the range it
   consumed) or a failure carrying a **`ParseError(string Detail)`** with the
-  underlying reason.
+  underlying reason for the builder to surface.
 - **`TextRange(int Start, int Length)`** — a half-open `[Start, End)` range used
   while parsing. Unlike `SourceSpan` it may be **empty** (`Length` of zero),
   because a parser can match no characters (an absent optional element). It is
   converted to a strict `SourceSpan` only when a match becomes an AST node —
   where `SourceSpan`'s `Length >= 1` guard then rejects "a node from nothing"
   for free.
-- **Full consumption is a specialization**, not a separate mechanism: `ParseAll`
-  runs `Consume` and requires the whole input to be consumed. It distinguishes
-  two failure modes, each with its own message: the grammar can **reject** the
-  input (reported as a plain-language explanation plus the technical reason) or
-  match a prefix yet leave text **unconsumed** (`Cannot match the full text
-  "…"`). Both raise a `DialogueSyntaxError`.
 
 **Leaves stay in Superpower.** A one-time adapter wraps a Superpower
 `TextParser<…>` into an `IParser<T>` and fills in the consumed range — Superpower
@@ -460,26 +456,54 @@ literals, a single tag).
 **Structure composes** through LINQ query syntax. `Select` and `SelectMany` let a
 grammar read `from name in … from id in … select …`, threading the position so
 each part's range comes out absolute with *no* manual math; **`Optional`** and
-**`Repeated`** round out the minimal set. Composition is why a
-`SpeakerDeclaration`'s tags now get exact spans for free.
+**`Repeated`** round out the minimal set. Composition is why a speaker's tags each
+get an exact span for free.
 
-**Refinement of the model.** The general currency is `IParser<T>` for *any* `T`
-(a name yields a `string`, a tag yields a `Tag`), because composition combines
-non-node parts into a node. **`ScriptNode`** is a separate concern: the base every
-Dialogue AST node now shares, carrying `Span`, which DRYs the span that each node
-used to declare itself. The public leaf parsers produce `ScriptNode`s.
+**What parsers produce.** The general currency is `IParser<T>` for *any* `T`.
+Parsers do **not** build AST nodes; they produce **parsed data** — plain records
+of what was recognized (D13). A positioned sub-part carries its span via
+**`Spanned<T>(T Value, SourceSpan Span)`** (built by the span-aware `Select`), so
+a list of tags keeps each tag's location. **`ScriptNode`** remains the base of the
+Dialogue AST, carrying `Span`; nodes are created later, by the builder.
+
+### D13 — Parsing yields data; a builder constructs the AST
+
+Recognizing syntax and constructing the semantic AST are **separate jobs**.
+Fusing them forced each parser to both match text *and* stamp a `SourceSpan` onto
+a node — awkward because the parser rarely knows the node's true document span
+(for a code span it excludes the backticks the parser never sees), and it made a
+tag's grammar exist twice. So the seam is drawn between them:
+
+- **Parsers → parsed data.** Each parser is a pure `text → data` function
+  returning span-free records: `TagData(bool IsReserved, Name, Value)`;
+  `GameCallData` as `QueryData` / `DefaultCommandData` / `CustomCommandData`;
+  `SpeakerPrefixData(Name?, Id?, tags)`. Positions travel with the
+  `ParseResult`/`Spanned<T>`, never baked into the data.
+- **`DialogueAstBuilder` → the AST.** One place owns construction: it maps parsed
+  data to nodes, **classifies** a speaker prefix (declaration vs name/id
+  reference, per D11), **validates** (nameless metadata), and stamps the
+  **`SourceSpan`** it alone knows — the code span's document location, or a
+  sub-part's threaded span. It raises every `DialogueSyntaxError`, with a
+  plain-language message plus the parser's technical reason.
+
+This makes parsers trivially testable as data, keeps one grammar per construct,
+and puts document-span knowledge and diagnostics in the single component that has
+them.
 
 ```csharp
-// leaves: wrap Superpower once
-IParser<Tag> tag = SuperpowerParser.Wrap(tagGrammar);
+// leaves: wrap Superpower once, producing parsed data
+IParser<TagData> tag = SuperpowerParser.Wrap(tagGrammar);
 
 // structure: compose with query syntax; positions thread automatically
-IParser<Speaker> speaker =
+IParser<SpeakerPrefixData> speakerPrefix =
     from name in nameLeaf.Optional()
     from id   in idLeaf.Optional()
-    from tags in tag.Repeated()
+    from tags in tag.Located().Repeated()   // Spanned<TagData> keeps each tag's span
     from _    in colon
-    select Classify(name, id, tags);
+    select new SpeakerPrefixData(name, id, tags);
+
+// the builder classifies and constructs, stamping the span it knows
+Speaker speaker = builder.BuildSpeaker(speakerPrefix, prefixSpan);
 ```
 
 ## Leaf grammars

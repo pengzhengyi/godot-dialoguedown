@@ -1,0 +1,198 @@
+using DialogueDown.Markdown;
+
+namespace DialogueDown.Visualization.Tests.Markdown;
+
+public sealed class MarkdownAstProjectionTests
+{
+    private readonly MarkdownAstProjection _projection = new();
+
+    [Fact]
+    public void Title_IsMarkdownAst()
+    {
+        Assert.Equal("Markdown AST", _projection.Title);
+    }
+
+    [Fact]
+    public void Describe_NullNode_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _projection.Describe(null!));
+    }
+
+    [Fact]
+    public void Describe_UnsupportedType_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => _projection.Describe("not an AST node"));
+    }
+
+    [Fact]
+    public void Describe_Document_LabelsDocumentWithNoAttributes()
+    {
+        var description = _projection.Describe(new MarkdownDocument([]));
+
+        Assert.Equal("Document", description.Label);
+        Assert.Empty(description.Attributes);
+    }
+
+    [Fact]
+    public void Describe_Heading_IncludesLevelAndSpan()
+    {
+        var description = _projection.Describe(new Heading(2, [], new SourceSpan(0, 8)));
+
+        Assert.Equal("Heading (H2)", description.Label);
+        Assert.Equal("2", Attribute(description, "level"));
+        Assert.Equal("[0, 8)", Attribute(description, "span"));
+    }
+
+    [Fact]
+    public void Describe_Paragraph_LabelsParagraphWithSpan()
+    {
+        var description = _projection.Describe(new Paragraph([], new SourceSpan(3, 5)));
+
+        Assert.Equal("Paragraph", description.Label);
+        Assert.Equal("[3, 8)", Attribute(description, "span"));
+    }
+
+    [Theory]
+    [InlineData(true, "List (ordered)")]
+    [InlineData(false, "List (unordered)")]
+    public void Describe_ListBlock_ReflectsOrdering(bool ordered, string expectedLabel)
+    {
+        var description = _projection.Describe(new ListBlock(ordered, [], new SourceSpan(0, 4)));
+
+        Assert.Equal(expectedLabel, description.Label);
+    }
+
+    [Fact]
+    public void Describe_ListItem_LabelsListItem()
+    {
+        var description = _projection.Describe(new ListItem([], new SourceSpan(0, 2)));
+
+        Assert.Equal("List item", description.Label);
+    }
+
+    [Fact]
+    public void Describe_Text_IncludesTextAndSpan()
+    {
+        var description = _projection.Describe(new TextInline("Hello", new SourceSpan(0, 5)));
+
+        Assert.Equal("Text", description.Label);
+        Assert.Equal("Hello", Attribute(description, "text"));
+        Assert.Equal("[0, 5)", Attribute(description, "span"));
+    }
+
+    [Fact]
+    public void Describe_Link_IncludesTargetAndLabel()
+    {
+        var description = _projection.Describe(new LinkInline("#scene", "Go", new SourceSpan(0, 12)));
+
+        Assert.Equal("Link", description.Label);
+        Assert.Equal("#scene", Attribute(description, "target"));
+        Assert.Equal("Go", Attribute(description, "label"));
+    }
+
+    [Fact]
+    public void Describe_Image_IncludesSourceAndAlt()
+    {
+        var description = _projection.Describe(new ImageInline("hero.png", "Hero", new SourceSpan(0, 16)));
+
+        Assert.Equal("Image", description.Label);
+        Assert.Equal("hero.png", Attribute(description, "source"));
+        Assert.Equal("Hero", Attribute(description, "alt"));
+    }
+
+    [Fact]
+    public void Describe_CodeSpan_IncludesContent()
+    {
+        var description = _projection.Describe(new CodeSpanInline("hasKey", new SourceSpan(0, 8)));
+
+        Assert.Equal("Code span", description.Label);
+        Assert.Equal("hasKey", Attribute(description, "content"));
+    }
+
+    [Fact]
+    public void Describe_Emphasis_IncludesKind()
+    {
+        var description = _projection.Describe(new EmphasisInline(EmphasisKind.Bold, [], new SourceSpan(0, 4)));
+
+        Assert.Equal("Emphasis (Bold)", description.Label);
+    }
+
+    [Theory]
+    [InlineData(true, "Line break (hard)")]
+    [InlineData(false, "Line break (soft)")]
+    public void Describe_LineBreak_ReflectsHardness(bool hard, string expectedLabel)
+    {
+        var description = _projection.Describe(new LineBreak(hard, new SourceSpan(0, 1)));
+
+        Assert.Equal(expectedLabel, description.Label);
+    }
+
+    [Fact]
+    public void Neighbours_NullNode_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => _projection.Neighbours(null!));
+    }
+
+    [Fact]
+    public void Neighbours_Document_ReturnsBlocks()
+    {
+        var paragraph = new Paragraph([], new SourceSpan(0, 1));
+        var document = new MarkdownDocument([paragraph]);
+
+        Assert.Equal(new object[] { paragraph }, _projection.Neighbours(document));
+    }
+
+    [Fact]
+    public void Neighbours_Heading_ReturnsInlines()
+    {
+        var text = new TextInline("Hi", new SourceSpan(0, 2));
+        var heading = new Heading(1, [text], new SourceSpan(0, 4));
+
+        Assert.Equal(new object[] { text }, _projection.Neighbours(heading));
+    }
+
+    [Fact]
+    public void Neighbours_Paragraph_ReturnsInlines()
+    {
+        var text = new TextInline("Hi", new SourceSpan(0, 2));
+        var paragraph = new Paragraph([text], new SourceSpan(0, 2));
+
+        Assert.Equal(new object[] { text }, _projection.Neighbours(paragraph));
+    }
+
+    [Fact]
+    public void Neighbours_ListBlock_ReturnsItems()
+    {
+        var item = new ListItem([], new SourceSpan(0, 1));
+        var list = new ListBlock(false, [item], new SourceSpan(0, 1));
+
+        Assert.Equal(new object[] { item }, _projection.Neighbours(list));
+    }
+
+    [Fact]
+    public void Neighbours_ListItem_ReturnsBlocks()
+    {
+        var paragraph = new Paragraph([], new SourceSpan(0, 1));
+        var item = new ListItem([paragraph], new SourceSpan(0, 1));
+
+        Assert.Equal(new object[] { paragraph }, _projection.Neighbours(item));
+    }
+
+    [Fact]
+    public void Neighbours_Emphasis_ReturnsChildren()
+    {
+        var text = new TextInline("Hi", new SourceSpan(0, 2));
+        var emphasis = new EmphasisInline(EmphasisKind.Italic, [text], new SourceSpan(0, 4));
+
+        Assert.Equal(new object[] { text }, _projection.Neighbours(emphasis));
+    }
+
+    [Fact]
+    public void Neighbours_LeafInline_IsEmpty()
+    {
+        Assert.Empty(_projection.Neighbours(new TextInline("Hi", new SourceSpan(0, 2))));
+    }
+
+    private static string Attribute(NodeDescription description, string name) =>
+        description.Attributes.Single(a => a.Name == name).Value;
+}

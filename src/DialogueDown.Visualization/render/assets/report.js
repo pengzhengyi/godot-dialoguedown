@@ -59,6 +59,9 @@
    * Text helpers
    * ------------------------------------------------------------------ */
 
+  // Longest inline label/attribute drawn on a node before it is ellipsised.
+  var MAX_INLINE_TEXT = 30;
+
   /** Escape a value for safe insertion into HTML. */
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (ch) {
@@ -66,16 +69,44 @@
     });
   }
 
-  /** Render Markdown to HTML with marked, falling back to escaped raw text. */
+  /** Shorten a string to a maximum length with an ellipsis. */
+  function ellipsize(text, max) {
+    return text.length > max ? text.slice(0, max - 1) + "…" : text;
+  }
+
+  /** Render Markdown to HTML with marked, handling a leading YAML front matter. */
   function renderMarkdown(source) {
+    var parts = splitFrontMatter(source);
+    var head = parts.frontMatter
+      ? "<h4>Front matter</h4><pre class=\"frontmatter\"><code>" +
+        escapeHtml(parts.frontMatter) +
+        "</code></pre>"
+      : "";
+    return head + renderMarkdownBody(parts.body);
+  }
+
+  function renderMarkdownBody(body) {
     if (window.marked && typeof window.marked.parse === "function") {
       try {
-        return window.marked.parse(source);
+        return window.marked.parse(body);
       } catch (err) {
         /* fall through to the escaped raw text below */
       }
     }
-    return "<pre><code>" + escapeHtml(source) + "</code></pre>";
+    return "<pre><code>" + escapeHtml(body) + "</code></pre>";
+  }
+
+  /**
+   * Split a leading YAML front matter block off a source string. marked has no
+   * notion of front matter and would render `title:` + `---` as a heading, so we
+   * peel it off and show it as metadata instead.
+   */
+  function splitFrontMatter(source) {
+    var match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(source);
+    if (match) {
+      return { frontMatter: match[1], body: source.slice(match[0].length) };
+    }
+    return { frontMatter: null, body: source };
   }
 
   /* ------------------------------------------------------------------ *
@@ -207,7 +238,9 @@
 
     var controls = buildZoomControls();
 
-    var layout = d3.tree().nodeSize([46, 220]);
+    // Vertical gap (46 -> 62) leaves room for nodes with up to three attribute
+    // lines (image, link) without overlapping their siblings.
+    var layout = d3.tree().nodeSize([62, 220]);
     var diagonal = d3
       .linkHorizontal()
       .x(function (d) {
@@ -500,23 +533,28 @@
         var attributes = d.data.attributes || [];
         var self = d3.select(this);
         attributes.forEach(function (attr, i) {
-          self
+          var full = attr.name + ": " + attr.value;
+          var text = self
             .append("text")
             .attr("class", "attr")
             .attr("x", 12)
             .attr("dy", 15 + i * 12)
-            .text(attr.name + ": " + attr.value);
+            .text(ellipsize(full, MAX_INLINE_TEXT));
+          // Native tooltip shows the full, untruncated value on hover.
+          if (full.length > MAX_INLINE_TEXT) {
+            text.append("title").text(full);
+          }
         });
       });
 
       // A generous transparent hit area behind the label and attributes, so the
       // whole node block (not just the tiny circle) is clickable to inspect. Its
-      // size is estimated from the text rather than measured, so it never depends
-      // on getBBox (which some SVG engines compute lazily or not at all).
+      // size is estimated from the (ellipsised) text rather than measured, so it
+      // never depends on getBBox (which some SVG engines compute lazily or not).
       group.each(function (d) {
         var lines = [d.data.label].concat(
           (d.data.attributes || []).map(function (attr) {
-            return attr.name + ": " + attr.value;
+            return ellipsize(attr.name + ": " + attr.value, MAX_INLINE_TEXT);
           })
         );
         var longest = lines.reduce(function (max, line) {

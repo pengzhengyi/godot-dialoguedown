@@ -328,6 +328,10 @@ svg.tree {
   font-size: 0.8rem;
 }
 
+#detail pre.frontmatter {
+  border-left: 3px solid var(--pico-muted-border-color);
+}
+
 .preview {
   padding: 0.5rem 0.85rem;
   border: 1px solid var(--pico-muted-border-color);

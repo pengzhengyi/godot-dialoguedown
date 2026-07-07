@@ -22,6 +22,7 @@ model for developers.
     - [Speaker](#speaker)
       - [Inline speaker declaration](#inline-speaker-declaration)
       - [Speaker reference](#speaker-reference)
+      - [Partial declaration](#partial-declaration)
       - [Default speaker](#default-speaker)
     - [Whitespace around the colon](#whitespace-around-the-colon)
     - [Styling](#styling)
@@ -86,6 +87,7 @@ flowchart TD
 | Default speaker | `Hello from the narrator.` | Use the default speaker. |
 | Inline speaker declaration | `Alice @A #main: Hello!` | Declare a speaker. |
 | Speaker ID | `@A: Hello!` | Reference a stable speaker ID. |
+| Partial declaration | `@A #excited: Hi!` | Reference a speaker and add tags. |
 | Tag | `#main` | Attach custom metadata. |
 | Reserved tag | `##default` | Mark built-in behavior. |
 | Choice | `- Bob: Really?` | Offer a selectable response. |
@@ -137,9 +139,10 @@ Alice #avatar="alice.png": The weather is nice today!
 Inline declarations may appear multiple times as long as they don't conflict with
 existing speaker identity. Conflicting speaker metadata is a compile-time error.
 
-A prefix counts as a *declaration* only when it binds metadata — an `@id` and/or
-tags. A prefix that is **only** a name (`Alice:`) or **only** an `@id` (`@A:`) is
-a [speaker reference](#speaker-reference), not a declaration.
+A prefix counts as a *declaration* only when it binds metadata **with a name** — a
+name plus an `@id` and/or tags. A prefix that is **only** a name (`Alice:`) or
+**only** an `@id` (`@A:`) is a [speaker reference](#speaker-reference); an `@id`
+**with** tags but no name is a [partial declaration](#partial-declaration).
 
 > [!NOTE]
 > Speaker tags apply globally to the speaker, not just to the single text line
@@ -181,6 +184,23 @@ and metadata have a single source of truth.
   }
 ]
 ```
+
+#### Partial declaration
+
+An `@id` **with** tags but no name is a *partial declaration*: it references a
+speaker by id and contributes extra tags to them.
+
+```ebnf
+PartialSpeakerDeclaration = "@" , SpeakerId , Tags ;
+```
+
+```markdown
+@A #excited: I can't wait to see the festival!
+```
+
+The referenced speaker is resolved and the tags are merged into their metadata (a
+no-conflict merge) during compilation. Tags with **neither** a name nor an `@id`
+(`#tag:`) have no speaker to attach to and are a compile-time error.
 
 #### Default speaker
 

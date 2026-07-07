@@ -379,7 +379,7 @@ component's **concrete** error type lives in that component's namespace.
 
 ### D11 — Speaker: declaration vs reference
 
-A speaker prefix is one of two things, decided by its **shape** (a local,
+A speaker prefix is one of a few forms, decided by its **shape** (a local,
 syntactic call), so the transpiler emits distinct node types and the semantic
 analyzer can treat them differently — a reference *resolves* to a known speaker,
 a declaration *binds* metadata. Under an abstract **`Speaker`** base:
@@ -389,13 +389,17 @@ a declaration *binds* metadata. Under an abstract **`Speaker`** base:
 | name **+ (id and/or tags)** | **`SpeakerDeclaration`** (Name, Id?, Tags) | binds metadata              |
 | bare name (`Alice:`)        | **`SpeakerNameReference`** (Name)          | points at a speaker by name |
 | bare `@id` (`@A:`)          | **`SpeakerIdReference`** (Id)              | points at a speaker by id   |
+| `@id` **+ tags** (`@A #x:`) | **`PartialSpeakerDeclaration`** (Id, Tags) | references by id, adds tags |
 
 `SpeakerNameReference` and `SpeakerIdReference` share an abstract
 **`SpeakerReference`** base. The parser reads the components once, then classifies
 (no ordered back-tracking). Metadata (an `@id` or a tag) is what promotes a name to
 a **declaration**; a bare name is a **reference** that the semantic analyzer
-auto-declares on first use. A prefix carrying metadata but **no name** (`@A #main:`)
-has nothing to declare and is a **`DialogueSyntaxError`**.
+auto-declares on first use. An `@id` **with** tags is a
+**`PartialSpeakerDeclaration`** — it points at a speaker by id and contributes extra
+tags, which **Desugar** resolves against the referenced speaker (a no-conflict
+merge). Only tags with **neither a name nor an id** (`#tag:`) have nothing to attach
+to and are a **`DialogueSyntaxError`**.
 
 ### D12 — A uniform, span-aware parser abstraction
 

@@ -12,7 +12,7 @@ public sealed class MarkdownDisplayExtensionsTests
             new Paragraph([new TextInline("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
         ]);
 
-        var graph = document.ToDisplayGraph();
+        var graph = document.ToDisplayGraph("Hi");
 
         Assert.Equal("Markdown AST", graph.Title);
         Assert.Equal("Document", graph.Nodes[0].Label);

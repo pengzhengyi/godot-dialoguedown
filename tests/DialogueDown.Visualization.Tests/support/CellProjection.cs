@@ -14,6 +14,9 @@ internal sealed class CellProjection : INodeProjection<Cell>
     private readonly Dictionary<Cell, IReadOnlyList<DisplayAttribute>> _attributes =
         new(ReferenceEqualityComparer.Instance);
 
+    private readonly Dictionary<Cell, string> _sources =
+        new(ReferenceEqualityComparer.Instance);
+
     public string Title { get; init; } = "Cells";
 
     public CellProjection Link(Cell from, params Cell[] to)
@@ -28,8 +31,17 @@ internal sealed class CellProjection : INodeProjection<Cell>
         return this;
     }
 
+    public CellProjection WithSource(Cell node, string source)
+    {
+        _sources[node] = source;
+        return this;
+    }
+
     public NodeDescription Describe(Cell node) =>
-        new(node.Name, _attributes.TryGetValue(node, out var attributes) ? attributes : null);
+        new(
+            node.Name,
+            _attributes.TryGetValue(node, out var attributes) ? attributes : null,
+            _sources.TryGetValue(node, out var source) ? source : null);
 
     public IEnumerable<Cell> Neighbours(Cell node) =>
         _neighbours.TryGetValue(node, out var neighbours) ? neighbours : [];

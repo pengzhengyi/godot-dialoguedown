@@ -58,6 +58,17 @@ public sealed class GraphWalkTests
     }
 
     [Fact]
+    public void Walk_CarriesSourceSnippet()
+    {
+        var root = new Cell("root");
+        var projection = new CellProjection().WithSource(root, "# heading");
+
+        var node = Assert.Single(GraphWalk.Walk(root, projection).Nodes);
+
+        Assert.Equal("# heading", node.Source);
+    }
+
+    [Fact]
     public void Walk_Tree_EmitsChildEdgesInPreOrderWithSequentialIds()
     {
         // root ─┬─ a ── c

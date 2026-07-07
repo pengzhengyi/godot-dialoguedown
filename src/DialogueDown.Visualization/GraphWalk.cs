@@ -35,7 +35,7 @@ public static class GraphWalk
             var id = "n" + idByNode.Count;
             idByNode[node] = id;
             var description = projection.Describe(node);
-            nodes.Add(new DisplayNode(id, description.Label, description.Attributes));
+            nodes.Add(new DisplayNode(id, description.Label, description.Attributes, description.Source));
 
             foreach (var neighbour in projection.Neighbours(node))
             {

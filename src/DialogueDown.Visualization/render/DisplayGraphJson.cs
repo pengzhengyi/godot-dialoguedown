@@ -15,6 +15,7 @@ internal static class DisplayGraphJson
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter() },
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     public static string Serialize(IEnumerable<DisplayGraph> graphs) =>

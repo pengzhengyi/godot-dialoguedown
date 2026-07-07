@@ -4,24 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DialogueDown — Compilation Visualization</title>
+<!-- Pico.css: prefer the latest v2 from the CDN; fall back to the vendored copy
+     (below) when the CDN is unreachable, so the report still styles offline. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<style id="pico-fallback" type="text/css-fallback">__PICO_CSS__</style>
+<script>
+if (!getComputedStyle(document.documentElement).getPropertyValue("--pico-background-color")) {
+  var pico = document.createElement("style");
+  pico.textContent = document.getElementById("pico-fallback").textContent;
+  document.head.appendChild(pico);
+}
+</script>
 <style>__CSS__</style>
 </head>
 <body>
-<header>
-<h1>DialogueDown — Compilation Visualization</h1>
-<p>Full-process transparency: each compiler stage as an interactive graph. Click a node to collapse or expand; drag to pan; scroll to zoom.</p>
+<header class="app-header">
+  <hgroup>
+    <h1>DialogueDown — Compilation Visualization</h1>
+    <p>Full-process transparency: each compiler stage as an interactive graph. Click a node to inspect the source it was produced from; drag to pan, scroll to zoom.</p>
+  </hgroup>
+  <nav class="tabs" id="tabs"></nav>
 </header>
-<nav class="tabs" id="tabs"></nav>
-<main id="stages"></main>
-<!-- Prefer the latest D3 v7 from the CDN when online; fall back to the vendored
-     copy (below) when the CDN is unreachable, so the report still works offline. -->
+<main id="app">
+  <section id="stages"></section>
+  <aside id="detail">
+    <article>
+      <header id="detail-title">Node details</header>
+      <div id="detail-body">
+        <p>Click any node in the graph to see the source it was produced from, and a rendered preview.</p>
+      </div>
+    </article>
+  </aside>
+</main>
+<!-- D3 and marked: CDN-first with a vendored offline fallback each. -->
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" crossorigin="anonymous"></script>
 <script id="d3-fallback" type="text/plain">__D3__</script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" crossorigin="anonymous"></script>
+<script id="marked-fallback" type="text/plain">__MARKED__</script>
 <script>
 if (!window.d3) {
-  var fallback = document.createElement("script");
-  fallback.textContent = document.getElementById("d3-fallback").textContent;
-  document.head.appendChild(fallback);
+  var d3s = document.createElement("script");
+  d3s.textContent = document.getElementById("d3-fallback").textContent;
+  document.head.appendChild(d3s);
+}
+if (!window.marked) {
+  var mk = document.createElement("script");
+  mk.textContent = document.getElementById("marked-fallback").textContent;
+  document.head.appendChild(mk);
 }
 </script>
 <script>window.STAGES = __STAGES__;</script>

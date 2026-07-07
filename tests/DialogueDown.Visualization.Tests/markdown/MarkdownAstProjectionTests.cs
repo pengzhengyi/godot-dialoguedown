@@ -4,7 +4,13 @@ namespace DialogueDown.Visualization.Tests.Markdown;
 
 public sealed class MarkdownAstProjectionTests
 {
-    private readonly MarkdownAstProjection _projection = new();
+    private readonly MarkdownAstProjection _projection = new(new string('.', 64));
+
+    [Fact]
+    public void Constructor_NullSource_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new MarkdownAstProjection(null!));
+    }
 
     [Fact]
     public void Title_IsMarkdownAst()
@@ -31,6 +37,43 @@ public sealed class MarkdownAstProjectionTests
 
         Assert.Equal("Document", description.Label);
         Assert.Empty(description.Attributes);
+    }
+
+    [Fact]
+    public void Describe_Document_UsesWholeSourceAsSnippet()
+    {
+        var source =
+            """
+            # Hi
+
+            World
+            """;
+
+        var description = new MarkdownAstProjection(source).Describe(new MarkdownDocument([]));
+
+        Assert.Equal(source, description.Source);
+    }
+
+    [Fact]
+    public void Describe_Node_CarriesSourceSnippetSlicedFromSpan()
+    {
+        var source = "# Hello";
+        var heading = new Heading(1, [], new SourceSpan(0, 7));
+
+        var description = new MarkdownAstProjection(source).Describe(heading);
+
+        Assert.Equal("# Hello", description.Source);
+    }
+
+    [Fact]
+    public void Describe_Node_WithSpanPastEnd_ClampsSnippet()
+    {
+        var source = "ab";
+        var paragraph = new Paragraph([], new SourceSpan(1, 10));
+
+        var description = new MarkdownAstProjection(source).Describe(paragraph);
+
+        Assert.Equal("b", description.Source);
     }
 
     [Fact]

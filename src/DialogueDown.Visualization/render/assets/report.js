@@ -1,6 +1,9 @@
-/* Renders each compiler stage in window.STAGES as an interactive D3 tree.
- * Child edges form the tree; reference edges (shared nodes, cycles) are drawn as
- * dashed overlays. Click a node to collapse or expand; drag to pan; scroll to zoom.
+/* Renders each compiler stage in window.STAGES as an interactive D3 tree, and
+ * shows a clicked node's details — attributes, the source it was produced from,
+ * and a rendered Markdown preview of that source — in the side panel.
+ *
+ * Child edges form the tree; reference edges (shared nodes, cycles) are dashed
+ * overlays. Click a node to select it; click a node's circle to collapse/expand.
  */
 (function () {
   "use strict";
@@ -8,10 +11,15 @@
   var stages = window.STAGES || [];
   var tabsEl = document.getElementById("tabs");
   var stagesEl = document.getElementById("stages");
+  var detailTitle = document.getElementById("detail-title");
+  var detailBody = document.getElementById("detail-body");
+
+  var trees = [];
 
   stages.forEach(function (stage, index) {
     var tab = document.createElement("button");
     tab.className = "tab";
+    tab.type = "button";
     tab.textContent = stage.title;
     tab.addEventListener("click", function () {
       activate(index);
@@ -22,10 +30,13 @@
     section.className = "stage";
     stagesEl.appendChild(section);
     try {
-      section.appendChild(renderTree(stage));
+      var tree = renderTree(stage);
+      section.appendChild(tree.svg);
+      trees.push(tree);
     } catch (err) {
       section.classList.add("error");
       section.textContent = "Failed to render stage: " + err.message;
+      trees.push(null);
     }
   });
 
@@ -34,11 +45,66 @@
   }
 
   function activate(index) {
-    Array.prototype.forEach.call(tabsEl.children, function (el, i) {
+    forEachChild(tabsEl, function (el, i) {
       el.classList.toggle("active", i === index);
     });
-    Array.prototype.forEach.call(stagesEl.children, function (el, i) {
+    forEachChild(stagesEl, function (el, i) {
       el.classList.toggle("active", i === index);
+    });
+    clearDetail();
+  }
+
+  function forEachChild(parent, fn) {
+    Array.prototype.forEach.call(parent.children, fn);
+  }
+
+  function clearDetail() {
+    trees.forEach(function (tree) {
+      if (tree) {
+        tree.clearSelection();
+      }
+    });
+    detailTitle.textContent = "Node details";
+    detailBody.innerHTML =
+      "<p>Click any node in the graph to see the source it was produced from, and a rendered preview.</p>";
+  }
+
+  function showDetail(data) {
+    detailTitle.textContent = data.label;
+    var html = "";
+    if (data.attributes && data.attributes.length) {
+      html += "<table><tbody>";
+      data.attributes.forEach(function (attr) {
+        html +=
+          "<tr><th scope=\"row\">" +
+          escapeHtml(attr.name) +
+          "</th><td>" +
+          escapeHtml(attr.value) +
+          "</td></tr>";
+      });
+      html += "</tbody></table>";
+    }
+    if (typeof data.source === "string") {
+      html += "<h4>Source</h4><pre><code>" + escapeHtml(data.source) + "</code></pre>";
+      html += "<h4>Preview</h4><div class=\"preview\">" + renderMarkdown(data.source) + "</div>";
+    }
+    detailBody.innerHTML = html || "<p>No further detail for this node.</p>";
+  }
+
+  function renderMarkdown(source) {
+    if (window.marked && typeof window.marked.parse === "function") {
+      try {
+        return window.marked.parse(source);
+      } catch (err) {
+        /* fall back to raw text below */
+      }
+    }
+    return "<pre><code>" + escapeHtml(source) + "</code></pre>";
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch];
     });
   }
 
@@ -67,6 +133,8 @@
       d._children = d.children;
     });
 
+    var selected = null;
+
     var svg = d3.create("svg").attr("class", "tree");
     var g = svg.append("g");
     var gLinks = g.append("g");
@@ -94,7 +162,25 @@
     update();
     center();
 
-    return svg.node();
+    return {
+      svg: svg.node(),
+      clearSelection: function () {
+        selected = null;
+        applySelection();
+      },
+    };
+
+    function select(d) {
+      selected = d;
+      applySelection();
+      showDetail(d.data);
+    }
+
+    function applySelection() {
+      gNodes.selectAll("g.node").classed("selected", function (d) {
+        return d === selected;
+      });
+    }
 
     function update() {
       layout(root);
@@ -145,6 +231,7 @@
         .on("click", function (event, d) {
           d.children = d.children ? null : d._children;
           update();
+          select(d);
         });
 
       enter
@@ -153,6 +240,9 @@
         .attr("x", 9)
         .text(function (d) {
           return d.data.label;
+        })
+        .on("click", function (event, d) {
+          select(d);
         });
 
       enter.each(function (d) {
@@ -177,6 +267,7 @@
         });
 
       node.exit().remove();
+      applySelection();
     }
 
     function center() {

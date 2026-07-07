@@ -45,6 +45,8 @@ contain cycles**. The display model and the traversal are therefore
   formats.
 - A **Markdown AST** visualization (this stage exists on `main` today).
 - An interactive **HTML** report with one tab per available stage, usable offline.
+- A **detail panel**: clicking a node shows its attributes and the **source
+  snippet** it was produced from, with a rendered Markdown preview.
 - Secondary text formats (**Mermaid**, **DOT**) from the same display model.
 - A seam for the **Dialogue AST** visualization, activated once the transpiler
   lands on `main`, and for the runtime graph after it.
@@ -74,7 +76,7 @@ One concept, one name — used here, in code, and in tests.
 | **Stage** | A compilation phase that produces an IR (Markdown AST, Dialogue AST, runtime graph, …). |
 | **IR** | Intermediate representation — the tree or directed graph a stage produces (e.g. `MarkdownDocument`). |
 | **Node projection** | The unified seam (`INodeProjection<TNode>`): for one IR node, its `Label`, `Attributes`, and out-neighbours. One small implementation per IR family. |
-| **Display node** | One node prepared for display: an `Id`, a short `Label`, and optional `Attributes` (key–value extras such as span or kind). Renderer-agnostic. |
+| **Display node** | One node prepared for display: an `Id`, a short `Label`, optional `Attributes` (key–value extras such as span or kind), and the optional `Source` snippet it was produced from. Renderer-agnostic. |
 | **Display edge** | A directed link between display nodes, with a `Kind` — a normal **child** edge, or a **reference** edge back to an already-seen node (how a cycle or shared node is shown). |
 | **Display graph** | A titled diagram for one stage: a `Title`, its display nodes, and its display edges. A **tree** is the acyclic, single-parent case. |
 | **Walk** | The graph-aware traversal that builds a display graph from an IR root plus a projection, using a visited set so cycles terminate. |
@@ -93,8 +95,10 @@ One concept, one name — used here, in code, and in tests.
       `Heading`, `Paragraph`, `ListBlock`, `ListItem`, `TextInline`, `LinkInline`,
       `ImageInline`, `CodeSpanInline`, `EmphasisInline`, `LineBreak`) to a
       labelled display node with useful attributes (span, kind, target, etc.).
-- [x] An **HTML renderer** emits an interactive, collapsible view, loading D3 from
-      a CDN with a bundled copy for offline use.
+- [x] An **HTML renderer** emits an interactive, collapsible view with a detail
+      panel: clicking a node shows its attributes and the source snippet it was
+      produced from (with a rendered Markdown preview). Assets load from a CDN with
+      a bundled copy for offline use.
 - [x] A **report** facade compiles a source string and assembles one **tab per
       stage** into a single self-contained HTML page.
 - [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
@@ -175,10 +179,10 @@ out-edges) for its IR family; the walk supplies the graph-aware mechanics.
 
 | Type | Responsibility | Collaborators |
 | --- | --- | --- |
-| `DisplayNode` | Immutable display node: `Id`, `Label`, `Attributes`. | built by the walk |
+| `DisplayNode` | Immutable display node: `Id`, `Label`, `Attributes`, optional `Source` snippet. | built by the walk |
 | `DisplayEdge` | Directed edge with a `Kind` (child or reference). | built by the walk |
 | `DisplayGraph` | Titled diagram: `Title` + display nodes + display edges. A tree is the acyclic case. | produced by the walk |
-| `NodeDescription` | What a projection reports for one node: its `Label` and `Attributes`. | `INodeProjection`, walk |
+| `NodeDescription` | What a projection reports for one node: its `Label`, `Attributes`, and optional `Source`. | `INodeProjection`, walk |
 | `INodeProjection<TNode>` | The unified seam: `Title`, `Describe(node)`, and `Neighbours(node)` for one IR family. | `GraphWalk` |
 | `GraphWalk` | Generic graph-aware traversal: `Walk(root, projection) → DisplayGraph`, with cycle-safe visited tracking. | every projection |
 | `MarkdownAstProjection` | `INodeProjection` over `MarkdownDocument` and its node types; titled "Markdown AST". | `IMarkdownParser` |
@@ -236,26 +240,32 @@ The walk produces a single renderer-agnostic **display graph**; renderers are
 class, and every stage automatically gets every format. This is the "thin wrapper
 over a good library" shape: the model is tiny, and each renderer is a formatter.
 
-### D5 — Interactive HTML via D3, CDN-first with an offline fallback
+### D5 — Interactive HTML via D3 and Pico.css, CDN-first with an offline fallback
 
 The flagship format is an interactive, collapsible **HTML** view built on
 **D3.js** — the gold standard for readable, expand/collapse, zoom/pan trees, and
 extensible to graph layouts when the runtime graph arrives. The .NET side emits
 the display graph as JSON plus a small HTML template; D3 does the layout and
-interaction, so the .NET code never hand-rolls rendering.
+interaction, so the .NET code never hand-rolls rendering. **Pico.css** styles the
+page chrome for a clean, modern light/dark look with almost no custom CSS.
 
-D3 loads in a **layered** way: the page first requests the latest D3 v7 from a CDN
-(jsDelivr), so an online reader gets current patches; if that request fails —
-offline, air-gapped, or a blocked CDN — the page falls back to a **vendored copy
-bundled in the page**, so the report still works with no network. The stylesheet
-and client script are always inlined, so the only external request is the D3 CDN.
-D3 v7.9.0 (ISC license) is the vendored fallback, embedded verbatim with an
-attribution `NOTICE`.
+A **detail panel** sits beside the graph. Clicking a node shows its attributes and
+the **source snippet** it was produced from (sliced from the node's span), with a
+rendered **Markdown preview** of that snippet via **marked**. This is what makes
+the view legible to non-developers: you can see exactly which text became which
+node.
 
-The tradeoffs are deliberate: an online reader's browser makes one CDN request (a
-telemetry surface some fully-offline setups prefer to avoid), and the floating
-`d3@7` CDN URL cannot carry a Subresource Integrity hash, so the CDN copy is
-trusted rather than pinned. The bundled fallback is the pinned, verified copy.
+Each library loads in a **layered** way: the page first requests the latest
+version from a CDN (jsDelivr), so an online reader gets current patches; if a
+request fails — offline, air-gapped, or a blocked CDN — the page falls back to a
+**vendored copy bundled in the page**. D3 v7.9.0 (ISC), Pico.css v2.0.6 (MIT), and
+marked v12.0.2 (MIT) are the pinned, verified fallbacks, embedded verbatim with an
+attribution `NOTICE`; the stylesheet and client script are always inlined.
+
+The tradeoffs are deliberate: an online reader's browser makes a few CDN requests
+(a telemetry surface some fully-offline setups prefer to avoid), and the floating
+CDN URLs cannot carry Subresource Integrity hashes, so the CDN copies are trusted
+rather than pinned. The bundled fallbacks are the pinned, verified copies.
 
 ### D6 — Mermaid and DOT as fast-follow text formats
 

@@ -23,8 +23,11 @@
 
   <ItemGroup>
     <!-- Client assets inlined into generated HTML reports so they work offline.
-         d3.v7.min.js is vendored verbatim (ISC); see render/assets/NOTICE.md. -->
+         d3.v7.min.js, pico.min.css, and marked.min.js are vendored verbatim;
+         see render/assets/NOTICE.md for versions and licenses. -->
     <EmbeddedResource Include="render\assets\d3.v7.min.js" />
+    <EmbeddedResource Include="render\assets\pico.min.css" />
+    <EmbeddedResource Include="render\assets\marked.min.js" />
     <EmbeddedResource Include="render\assets\report.css" />
     <EmbeddedResource Include="render\assets\report.js" />
     <EmbeddedResource Include="render\assets\report.html" />

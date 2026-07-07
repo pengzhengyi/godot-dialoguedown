@@ -53,5 +53,6 @@ public sealed class CompilationVisualizerTests
         Assert.Contains("\"title\":\"Markdown AST\"", html);
         Assert.Contains("Heading (H1)", html);
         Assert.Contains("Paragraph", html);
+        Assert.Contains("\"source\":\"# Hello\"", html);     // heading's source snippet
     }
 }

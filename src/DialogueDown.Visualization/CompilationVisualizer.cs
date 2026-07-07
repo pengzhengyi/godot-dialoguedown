@@ -32,7 +32,7 @@ internal sealed class CompilationVisualizer
     {
         ArgumentNullException.ThrowIfNull(source);
         var markdown = _parser.Parse(source);
-        return [markdown.ToDisplayGraph()];
+        return [markdown.ToDisplayGraph(source)];
     }
 
     /// <summary>Compiles the source and renders the multi-tab HTML report.</summary>

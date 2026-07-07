@@ -23,6 +23,21 @@ public sealed class DisplayGraphJsonTests
     }
 
     [Fact]
+    public void Serialize_IncludesNodeSourceWhenPresentAndOmitsWhenNull()
+    {
+        var graph = Graph(
+            "G",
+            [new DisplayNode("n0", "Text", [], "# Hi"), Node("n1", "Empty")],
+            []);
+
+        var json = DisplayGraphJson.Serialize([graph]);
+
+        Assert.Contains("\"source\":\"# Hi\"", json);
+        var sourceKeyCount = json.Split("\"source\":").Length - 1;
+        Assert.Equal(1, sourceKeyCount);
+    }
+
+    [Fact]
     public void Serialize_EscapesHtmlSensitiveCharacters_SoScriptCannotBreakOut()
     {
         var graph = Graph("G", [Node("n0", "</script><b>&")], []);

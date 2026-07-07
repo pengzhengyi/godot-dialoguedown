@@ -5,6 +5,10 @@
 > that renders each compiler stage's intermediate representation as a
 > human-readable tree or graph. It is developed in parallel with the main compiler
 > work and syncs from `main` as new stages land.
+>
+> **Maturity caveat.** Unlike the core library, this component was built quickly
+> ("vibe-coded") with lighter design review. It is well-tested and works, but its
+> abstractions are not yet battle-hardened and may be refined as it sees real use.
 
 Full-process transparency is a goal of DialogueDown: a reader should be able to
 *see* what the compiler produced at each step. This component renders those
@@ -40,7 +44,7 @@ contain cycles**. The display model and the traversal are therefore
 - A stage-agnostic pipeline: any IR → one display model → one or more output
   formats.
 - A **Markdown AST** visualization (this stage exists on `main` today).
-- An interactive, self-contained **HTML** report with one tab per available stage.
+- An interactive **HTML** report with one tab per available stage, usable offline.
 - Secondary text formats (**Mermaid**, **DOT**) from the same display model.
 - A seam for the **Dialogue AST** visualization, activated once the transpiler
   lands on `main`, and for the runtime graph after it.
@@ -89,8 +93,8 @@ One concept, one name — used here, in code, and in tests.
       `Heading`, `Paragraph`, `ListBlock`, `ListItem`, `TextInline`, `LinkInline`,
       `ImageInline`, `CodeSpanInline`, `EmphasisInline`, `LineBreak`) to a
       labelled display node with useful attributes (span, kind, target, etc.).
-- [x] An **HTML renderer** emits an interactive, collapsible view with the JS
-      bundled for offline use.
+- [x] An **HTML renderer** emits an interactive, collapsible view, loading D3 from
+      a CDN with a bundled copy for offline use.
 - [x] A **report** facade compiles a source string and assembles one **tab per
       stage** into a single self-contained HTML page.
 - [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
@@ -232,7 +236,7 @@ The walk produces a single renderer-agnostic **display graph**; renderers are
 class, and every stage automatically gets every format. This is the "thin wrapper
 over a good library" shape: the model is tiny, and each renderer is a formatter.
 
-### D5 — Interactive, offline HTML via D3
+### D5 — Interactive HTML via D3, CDN-first with an offline fallback
 
 The flagship format is an interactive, collapsible **HTML** view built on
 **D3.js** — the gold standard for readable, expand/collapse, zoom/pan trees, and
@@ -240,11 +244,18 @@ extensible to graph layouts when the runtime graph arrives. The .NET side emits
 the display graph as JSON plus a small HTML template; D3 does the layout and
 interaction, so the .NET code never hand-rolls rendering.
 
-The **JavaScript is bundled** into the page, so the report works fully offline —
-one self-contained HTML file that opens in any browser without a network or a
-server. D3 v7 (pinned; ISC license) is vendored verbatim as an embedded asset with
-an attribution `NOTICE`; the stylesheet and client script are embedded the same
-way, so a report is a single file with no external references.
+D3 loads in a **layered** way: the page first requests the latest D3 v7 from a CDN
+(jsDelivr), so an online reader gets current patches; if that request fails —
+offline, air-gapped, or a blocked CDN — the page falls back to a **vendored copy
+bundled in the page**, so the report still works with no network. The stylesheet
+and client script are always inlined, so the only external request is the D3 CDN.
+D3 v7.9.0 (ISC license) is the vendored fallback, embedded verbatim with an
+attribution `NOTICE`.
+
+The tradeoffs are deliberate: an online reader's browser makes one CDN request (a
+telemetry surface some fully-offline setups prefer to avoid), and the floating
+`d3@7` CDN URL cannot carry a Subresource Integrity hash, so the CDN copy is
+trusted rather than pinned. The bundled fallback is the pinned, verified copy.
 
 ### D6 — Mermaid and DOT as fast-follow text formats
 

@@ -82,12 +82,19 @@ CI fails if line coverage drops below 90% and emits a warning when it is below
 DialogueDown aims to be **transparent end to end**: you can *see* what the
 compiler produced at each stage. The optional
 [`DialogueDown.Visualization`](src/DialogueDown.Visualization/) project renders a
-stage's intermediate representation as an interactive, self-contained HTML report
-— one tab per stage, pan and zoom, click a node to collapse or expand — plus
-Mermaid and DOT text for quick embedding. It reads the compiler through the same
+stage's intermediate representation as an interactive HTML report — one tab per
+stage, pan and zoom, click a node to collapse or expand — plus Mermaid and DOT
+text for quick embedding. The report loads D3 from a CDN and falls back to a
+bundled copy, so it still works offline. It reads the compiler through the same
 seams the tests use and never touches the shipped core package, so the core stays
 dependency-light. The Markdown AST view ships today; the Dialogue AST view lands
-with the transpiler. See the
+with the transpiler.
+
+> [!NOTE]
+> The visualizer is a diagnostics helper, built quickly with lighter review than
+> the core library; its API and abstractions may still change.
+
+See the
 [Compilation Visualization note](docs/Implementation%20Notes/Compilation%20Visualization.md).
 
 ## Design intent

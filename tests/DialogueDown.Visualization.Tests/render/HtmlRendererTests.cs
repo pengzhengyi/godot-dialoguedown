@@ -13,15 +13,15 @@ public sealed class HtmlRendererTests
     }
 
     [Fact]
-    public void Render_ProducesSelfContainedOfflineDocument()
+    public void Render_PrefersCdnWithOfflineFallback()
     {
         var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
 
         var html = _renderer.Render(graph);
 
         Assert.StartsWith("<!DOCTYPE html>", html);
-        Assert.Contains("d3js.org v7.9.0", html);   // D3 is inlined, not linked
-        Assert.DoesNotContain("<script src", html); // no external resources
+        Assert.Contains("cdn.jsdelivr.net/npm/d3@7", html); // latest D3 when online
+        Assert.Contains("d3js.org v7.9.0", html);           // vendored fallback for offline
     }
 
     [Fact]

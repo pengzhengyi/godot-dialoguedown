@@ -48,8 +48,8 @@ public sealed class CompilationVisualizerTests
             """);
 
         Assert.StartsWith("<!DOCTYPE html>", html);
-        Assert.Contains("d3js.org v7.9.0", html);   // D3 inlined for offline use
-        Assert.DoesNotContain("<script src", html);
+        Assert.Contains("cdn.jsdelivr.net/npm/d3@7", html); // latest D3 when online
+        Assert.Contains("d3js.org v7.9.0", html);           // vendored fallback for offline
         Assert.Contains("\"title\":\"Markdown AST\"", html);
         Assert.Contains("Heading (H1)", html);
         Assert.Contains("Paragraph", html);

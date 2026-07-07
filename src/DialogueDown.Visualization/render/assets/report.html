@@ -13,7 +13,17 @@
 </header>
 <nav class="tabs" id="tabs"></nav>
 <main id="stages"></main>
-<script>__D3__</script>
+<!-- Prefer the latest D3 v7 from the CDN when online; fall back to the vendored
+     copy (below) when the CDN is unreachable, so the report still works offline. -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" crossorigin="anonymous"></script>
+<script id="d3-fallback" type="text/plain">__D3__</script>
+<script>
+if (!window.d3) {
+  var fallback = document.createElement("script");
+  fallback.textContent = document.getElementById("d3-fallback").textContent;
+  document.head.appendChild(fallback);
+}
+</script>
 <script>window.STAGES = __STAGES__;</script>
 <script>__REPORT_JS__</script>
 </body>

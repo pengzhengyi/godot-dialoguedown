@@ -27,6 +27,10 @@ public sealed class HtmlRendererTests
         Assert.Contains("Pico CSS", html);
         Assert.Contains("cdn.jsdelivr.net/npm/marked@12", html);
         Assert.Contains("marked v12.0.2", html);
+        Assert.Contains("cdn.jsdelivr.net/npm/@popperjs/core@2", html);
+        Assert.Contains("@popperjs/core v2.11.8", html);
+        Assert.Contains("cdn.jsdelivr.net/npm/tippy.js@6", html);
+        Assert.Contains(".tippy-box", html);
     }
 
     [Fact]

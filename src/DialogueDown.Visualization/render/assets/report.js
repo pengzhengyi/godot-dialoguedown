@@ -12,6 +12,7 @@
  *   - createDetailPanel()    (the side panel showing a selected node)
  *   - createTreeView()       (one stage's D3 tree, its legend, and interactions)
  *   - initResizer()          (drag to resize the detail panel)
+ *   - initTooltips()         (Tippy.js hover tooltips over the graph nodes)
  *   - initApp()              (wires tabs, stages, keyboard, resizer together)
  */
 (function () {
@@ -72,6 +73,15 @@
   /** Shorten a string to a maximum length with an ellipsis. */
   function ellipsize(text, max) {
     return text.length > max ? text.slice(0, max - 1) + "…" : text;
+  }
+
+  /** HTML for a node's hover tooltip: its label and full (untruncated) attributes. */
+  function tooltipHtml(data) {
+    var parts = ["<strong>" + escapeHtml(data.label) + "</strong>"];
+    (data.attributes || []).forEach(function (attr) {
+      parts.push("<div>" + escapeHtml(attr.name) + ": " + escapeHtml(attr.value) + "</div>");
+    });
+    return parts.join("");
   }
 
   /** Render Markdown to HTML with marked, handling a leading YAML front matter. */
@@ -507,7 +517,12 @@
     }
 
     function appendEnteringNodes(enter) {
-      var group = enter.append("g").attr("class", "node");
+      var group = enter
+        .append("g")
+        .attr("class", "node")
+        .attr("data-tip", function (d) {
+          return tooltipHtml(d.data);
+        });
 
       group
         .append("circle")
@@ -533,17 +548,12 @@
         var attributes = d.data.attributes || [];
         var self = d3.select(this);
         attributes.forEach(function (attr, i) {
-          var full = attr.name + ": " + attr.value;
-          var text = self
+          self
             .append("text")
             .attr("class", "attr")
             .attr("x", 12)
             .attr("dy", 15 + i * 12)
-            .text(ellipsize(full, MAX_INLINE_TEXT));
-          // Native tooltip shows the full, untruncated value on hover.
-          if (full.length > MAX_INLINE_TEXT) {
-            text.append("title").text(full);
-          }
+            .text(ellipsize(attr.name + ": " + attr.value, MAX_INLINE_TEXT));
         });
       });
 
@@ -712,6 +722,26 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Tooltips — rich, accessible hover tooltips (Tippy.js) showing a node's
+   * full label and attributes. Delegation covers nodes added later on expand.
+   * ------------------------------------------------------------------ */
+
+  function initTooltips(parent) {
+    if (!window.tippy) {
+      return;
+    }
+    window.tippy.delegate(parent, {
+      target: "g.node",
+      allowHTML: true,
+      maxWidth: 340,
+      delay: [120, 0],
+      content: function (reference) {
+        return reference.getAttribute("data-tip");
+      },
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
    * App bootstrap — build the tabs and stages, and wire shared interactions.
    * ------------------------------------------------------------------ */
 
@@ -754,6 +784,7 @@
     });
 
     initResizer();
+    initTooltips(stagesEl);
     if (stages.length > 0) {
       activate(0);
     }

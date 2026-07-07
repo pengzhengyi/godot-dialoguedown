@@ -15,6 +15,7 @@ if (!getComputedStyle(document.documentElement).getPropertyValue("--pico-backgro
   document.head.appendChild(pico);
 }
 </script>
+<style>__TIPPY_CSS__</style>
 <style>__CSS__</style>
 </head>
 <body>
@@ -50,22 +51,27 @@ if (!getComputedStyle(document.documentElement).getPropertyValue("--pico-backgro
     </div>
   </details>
 </footer>
-<!-- D3 and marked: CDN-first with a vendored offline fallback each. -->
+<!-- D3, marked, and Tippy (with Popper): CDN-first, vendored offline fallback each. -->
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js" crossorigin="anonymous"></script>
 <script id="d3-fallback" type="text/plain">__D3__</script>
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js" crossorigin="anonymous"></script>
 <script id="marked-fallback" type="text/plain">__MARKED__</script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2/dist/umd/popper.min.js" crossorigin="anonymous"></script>
+<script id="popper-fallback" type="text/plain">__POPPER__</script>
+<script src="https://cdn.jsdelivr.net/npm/tippy.js@6/dist/tippy.umd.min.js" crossorigin="anonymous"></script>
+<script id="tippy-fallback" type="text/plain">__TIPPY_JS__</script>
 <script>
-if (!window.d3) {
-  var d3s = document.createElement("script");
-  d3s.textContent = document.getElementById("d3-fallback").textContent;
-  document.head.appendChild(d3s);
+function loadFallback(globalName, scriptId) {
+  if (!window[globalName]) {
+    var script = document.createElement("script");
+    script.textContent = document.getElementById(scriptId).textContent;
+    document.head.appendChild(script);
+  }
 }
-if (!window.marked) {
-  var mk = document.createElement("script");
-  mk.textContent = document.getElementById("marked-fallback").textContent;
-  document.head.appendChild(mk);
-}
+loadFallback("d3", "d3-fallback");
+loadFallback("marked", "marked-fallback");
+loadFallback("Popper", "popper-fallback"); // Popper must load before Tippy
+loadFallback("tippy", "tippy-fallback");
 </script>
 <script>window.STAGES = __STAGES__;</script>
 <script>__REPORT_JS__</script>

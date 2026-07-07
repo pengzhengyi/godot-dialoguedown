@@ -14,9 +14,12 @@ internal static class HtmlTemplate
     {
         return EmbeddedAsset.ReadText("report.html")
             .Replace("__PICO_CSS__", EmbeddedAsset.ReadText("pico.min.css"))
+            .Replace("__TIPPY_CSS__", EmbeddedAsset.ReadText("tippy.css"))
             .Replace("__CSS__", EmbeddedAsset.ReadText("report.css"))
             .Replace("__D3__", EmbeddedAsset.ReadText("d3.v7.min.js"))
             .Replace("__MARKED__", EmbeddedAsset.ReadText("marked.min.js"))
+            .Replace("__POPPER__", EmbeddedAsset.ReadText("popper.min.js"))
+            .Replace("__TIPPY_JS__", EmbeddedAsset.ReadText("tippy.umd.min.js"))
             .Replace("__STAGES__", DisplayGraphJson.Serialize(stages))
             .Replace("__REPORT_JS__", EmbeddedAsset.ReadText("report.js"));
     }

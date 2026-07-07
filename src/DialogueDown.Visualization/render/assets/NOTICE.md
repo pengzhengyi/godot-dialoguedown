@@ -11,12 +11,17 @@ packages; they ship only inside generated report HTML.
 | [D3.js](https://d3js.org) | 7.9.0 | ISC | `f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539` |
 | [Pico.css](https://picocss.com) | 2.0.6 | MIT | `dd5fd5591afd81ee21dcc117ad85c014dc3f1f19dc2d7b7d101ea0acc29274c2` |
 | [marked](https://marked.js.org) | 12.0.2 | MIT | `15fabce5b65898b32b03f5ed25e9f891a729ad4c0d6d877110a7744aa847a894` |
+| [Popper](https://popper.js.org) | 2.11.8 | MIT | `c212f4b505a86352aed62b24a8f16f999f821ecbe6456c7f3c8a04bc87968782` |
+| [Tippy.js](https://atomiks.github.io/tippyjs/) | 6.3.7 | MIT | `3f0fe70eb26ccf28f6887a192e29d38dd7ef7c2f079a73304ad42ddc7bed37de` |
 
 Source URLs (pinned):
 
 - `https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js`
 - `https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css`
 - `https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js`
+- `https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js`
+- `https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.umd.min.js` (needs Popper)
+- `https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.css`
 
 Updating any of these is a deliberate, reviewable file swap: replace the file,
 then update its version and SHA-256 above.
@@ -41,10 +46,11 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### Pico.css and marked — MIT
+### Pico.css, marked, Popper, and Tippy.js — MIT
 
-Both are distributed under the MIT License (Copyright 2019-2024 Pico.css
-contributors, and Copyright 2011-2024 Christopher Jeffrey, respectively). The MIT
-License permits use, copy, modification, and distribution provided the copyright
-and permission notice are retained; the full notice is preserved in each vendored
-file's header and at the projects' repositories.
+These are distributed under the MIT License (Copyright, respectively: 2019-2024
+Pico.css contributors; 2011-2024 Christopher Jeffrey; 2019 Federico Zivolo
+(Popper); 2017-2021 atomiks (Tippy.js)). The MIT License permits use, copy,
+modification, and distribution provided the copyright and permission notice are
+retained; the full notice is preserved in each vendored file's header and at the
+projects' repositories.

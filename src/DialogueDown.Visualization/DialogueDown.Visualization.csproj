@@ -28,6 +28,9 @@
     <EmbeddedResource Include="render\assets\d3.v7.min.js" />
     <EmbeddedResource Include="render\assets\pico.min.css" />
     <EmbeddedResource Include="render\assets\marked.min.js" />
+    <EmbeddedResource Include="render\assets\popper.min.js" />
+    <EmbeddedResource Include="render\assets\tippy.umd.min.js" />
+    <EmbeddedResource Include="render\assets\tippy.css" />
     <EmbeddedResource Include="render\assets\report.css" />
     <EmbeddedResource Include="render\assets\report.js" />
     <EmbeddedResource Include="render\assets\report.html" />

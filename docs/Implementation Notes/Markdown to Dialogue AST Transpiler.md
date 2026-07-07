@@ -182,9 +182,7 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 | `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)`       | Markdown AST, `Script`      |
 | `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                   | builder, parsers            |
 | `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                       | `SourceSpan`                |
-| `IParser<T>`                      | composable, non-throwing `Consume` prefix core (D12)                   | `ParseInput`, `ParseResult` |
-| `IFullParser<T>`                  | non-throwing `ParseAll`: consumes a whole input, else `Fail`           | `IParser<T>`                |
-| `IPrefixParser<T>`                | non-throwing `ParsePrefix`: consumes a leading portion, else `Fail`    | `ParseResult<T>`            |
+| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)      | `ParseInput`, `ParseResult` |
 | composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser` | `IParser<T>`                |
 | game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                 | `…Data` records             |
 | `DialogueAstBuilder`              | parsed data → AST nodes; classifies, validates, raises errors (D13)    | `…Data`, AST nodes          |
@@ -408,30 +406,21 @@ full consumption a special case rather than a separate mechanism, lets parsers
 parser also serves image alt text), and keeps source-span tracking in one place
 instead of each parser re-deriving it.
 
-The contract is split by responsibility. The **composable core** is a single
-method every leaf and composite implements — it consumes a *prefix* and is
-non-throwing:
+Every parser — leaf, composite, or a whole grammar — is a single **non-throwing**
+contract that consumes a *prefix* and reports what it recognized:
 
 ```csharp
 interface IParser<T> { ParseResult<T> Consume(ParseInput input); }
 ```
 
-Two **entry points** sit on top, matching how the builder uses a parser. Both are
-**non-throwing** — they return a `ParseResult<T>`; no parser raises a
-`DialogueSyntaxError`. Turning a failure into an author-facing diagnostic is the
-builder's job (see D13), because only the builder holds the document span.
-
-```csharp
-// consumes the WHOLE input; Fail if it does not (a code span's game call)
-interface IFullParser<T> { ParseResult<T> ParseAll(ParseInput input); }
-
-// consumes a LEADING portion, leaving the rest (a line's speaker prefix)
-interface IPrefixParser<T> { ParseResult<T> ParsePrefix(ParseInput input); }
-```
-
-Keeping `Consume` in an interface means composites never inherit entry-point
-concerns they don't need. A full parser requires the whole input; a prefix parser
-returns how much it consumed so the caller can continue after it.
+No parser raises a `DialogueSyntaxError`; turning a failure into an author-facing
+diagnostic is the builder's job (see D13), because only the builder holds the
+document span. There is deliberately **no separate "full" or "prefix" parser
+type**: whether the whole input must be consumed (a code span's game call) or a
+leading portion suffices (a line's speaker prefix) is a **consumption policy the
+builder applies**, not a property of the parser. A grammar is just a named
+`IParser<T>` value (for example `TagParser.Token`), composed from leaves and
+combinators.
 
 - **`ParseInput(string Text, int Position)`** — the text to read and the
   absolute `Position` its first character occupies in the source. Parsing always

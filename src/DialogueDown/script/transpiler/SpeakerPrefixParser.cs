@@ -1,101 +1,42 @@
-using DialogueDown.Common;
-using DialogueDown.Script.Ast;
+using DialogueDown.Script.Transpiler.Parsed;
+using DialogueDown.Script.Transpiler.Parsing;
 using Superpower;
-using Superpower.Model;
 using Superpower.Parsers;
-using TagFromSpan =
-    System.Func<DialogueDown.Common.SourceSpan, DialogueDown.Script.Ast.Tag>;
 
 namespace DialogueDown.Script.Transpiler;
 
 /// <summary>
-/// Recognizes a speaker prefix at the start of a line and classifies it (D11):
-/// metadata (an id and/or tags) makes it a <see cref="SpeakerDeclaration"/>; a bare
-/// name is a <see cref="SpeakerNameReference"/>; a bare id is a
-/// <see cref="SpeakerIdReference"/>. Metadata without a name is a
-/// <see cref="DialogueSyntaxError"/>. If the leading text is not a valid prefix,
-/// the line has no speaker and the whole text is speech.
+/// The grammar that recognizes a speaker prefix at the start of a line and reports
+/// its parts as <see cref="SpeakerPrefixData"/> — an optional name, an optional id,
+/// and any tags. It only recognizes shape; a separate builder classifies and
+/// validates. A failed parse means the text is not a speaker prefix.
 /// </summary>
 internal static class SpeakerPrefixParser
 {
-    private static readonly TextParser<string> _name =
+    private static readonly IParser<string> _name = SuperpowerParser.Wrap(
         ParserPrimitives.QuotedString.Try()
-            .Or(Identifier.CStyle.Select(name => name.ToStringValue()));
+            .Or(Identifier.CStyle.Select(name => name.ToStringValue())));
 
-    private static readonly TextParser<string?> _optionalName =
-        _name.Select(name => (string?)name).OptionalOrDefault();
+    private static readonly IParser<string> _id = SuperpowerParser.Wrap(
+        Character.EqualTo('@').IgnoreThen(Identifier.CStyle.Select(id => id.ToStringValue())));
 
-    private static readonly TextParser<string?> _optionalId =
-        Character.EqualTo('@')
-            .IgnoreThen(Identifier.CStyle.Select(id => (string?)id.ToStringValue()))
-            .OptionalOrDefault();
+    private static readonly IParser<char[]> _whitespace =
+        SuperpowerParser.Wrap(Character.WhiteSpace.Many());
 
-    private static readonly TextParser<(TagFromSpan Value, TextSpan Location)[]> _tags =
-        (from leading in Character.WhiteSpace.Many()
-         from tag in TagParser.Token.Located()
-         select tag).Try().Many();
+    private static readonly IParser<char> _colon =
+        SuperpowerParser.Wrap(Character.EqualTo(':'));
 
-    private static readonly TextParser<ParsedPrefix> _grammar =
-        from name in _optionalName
-        from afterName in Character.WhiteSpace.Many()
-        from id in _optionalId
-        from tags in _tags
-        from beforeColon in Character.WhiteSpace.Many()
-        from colon in Character.EqualTo(':')
-        select new ParsedPrefix(name, id, tags);
+    private static readonly IParser<Spanned<TagData>> _spacedTag =
+        from _ in _whitespace
+        from tag in TagParser.Token.Located()
+        select tag;
 
-    public static SpeakerPrefix? TryParse(string text, SourceSpan span)
-    {
-        var result = _grammar.TryParse(text);
-        if (!result.HasValue)
-        {
-            return null;
-        }
-
-        var parsed = result.Value;
-        var baseOffset = span.Start;
-        var consumed = result.Remainder.Position.Absolute;
-        var prefixSpan = new SourceSpan(baseOffset, consumed);
-
-        var tags = parsed.Tags
-            .Select(tag => tag.Value(
-                new SourceSpan(baseOffset + tag.Location.Position.Absolute, tag.Location.Length)))
-            .ToList();
-
-        var speaker = Classify(parsed.Name, parsed.Id, tags, prefixSpan, text);
-        return speaker is null ? null : new SpeakerPrefix(speaker, consumed);
-    }
-
-    private static Speaker? Classify(
-        string? name, string? id, IReadOnlyList<Tag> tags, SourceSpan span, string content)
-    {
-        var hasMetadata = id is not null || tags.Count > 0;
-        if (name is not null)
-        {
-            return hasMetadata
-                ? new SpeakerDeclaration(name, id, tags, span)
-                : new SpeakerNameReference(name, span);
-        }
-
-        if (id is not null && tags.Count == 0)
-        {
-            return new SpeakerIdReference(id, span);
-        }
-
-        if (hasMetadata)
-        {
-            throw new DialogueSyntaxError(NamelessMessage(content), span);
-        }
-
-        return null;
-    }
-
-    private static string NamelessMessage(string content) =>
-        $"""
-        "{content}" binds a speaker id or tags but names no speaker. Give the
-        speaker a name, for example: Alice @A #main:.
-        """;
-
-    private sealed record ParsedPrefix(
-        string? Name, string? Id, IReadOnlyList<(TagFromSpan Value, TextSpan Location)> Tags);
+    public static IParser<SpeakerPrefixData> Prefix { get; } =
+        from name in _name.Optional()
+        from _afterName in _whitespace
+        from id in _id.Optional()
+        from tags in _spacedTag.Repeated()
+        from _beforeColon in _whitespace
+        from _colonChar in _colon
+        select new SpeakerPrefixData(name, id, tags);
 }

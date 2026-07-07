@@ -1,44 +1,60 @@
 using DialogueDown.Script.Transpiler;
+using DialogueDown.Script.Transpiler.Parsed;
 using DialogueDown.Tests.Support;
-using static DialogueDown.Tests.Support.DialogueAstAssert;
 
 namespace DialogueDown.Tests.Script.Transpiler;
 
 public sealed class TagParserTests
 {
     [Fact]
-    public void Parse_CustomPlainTag_IsCustomTagWithNameAndSpan()
+    public void CustomPlainTag_HasNameAndNoValue()
     {
-        var span = SourceSpanFactory.Span(1, 4);
+        var tag = Parse("#main");
 
-        var tag = AssertCustomTag(TagParser.Parse("#main", span), "main");
-
-        Assert.Equal(span, tag.Span);
+        Assert.False(tag.IsReserved);
+        Assert.Equal("main", tag.Name);
+        Assert.Null(tag.Value);
     }
 
     [Fact]
-    public void Parse_ReservedPlainTag_IsReservedTag() =>
-        AssertReservedTag(TagParser.Parse("##default", SourceSpanFactory.Span()), "default");
+    public void ReservedPlainTag_IsReserved()
+    {
+        var tag = Parse("##default");
+
+        Assert.True(tag.IsReserved);
+        Assert.Equal("default", tag.Name);
+    }
 
     [Fact]
-    public void Parse_CustomGroup_HasNameAndValue() =>
-        AssertCustomTag(TagParser.Parse("#mood=happy", SourceSpanFactory.Span()), "mood", "happy");
+    public void CustomGroup_HasNameAndValue()
+    {
+        var tag = Parse("#mood=happy");
+
+        Assert.Equal("mood", tag.Name);
+        Assert.Equal("happy", tag.Value);
+    }
 
     [Fact]
-    public void Parse_ReservedGroup_HasNameAndValue() =>
-        AssertReservedTag(
-            TagParser.Parse("##mode=silent", SourceSpanFactory.Span()), "mode", "silent");
+    public void ReservedGroup_HasNameAndValue()
+    {
+        var tag = Parse("##mode=silent");
+
+        Assert.True(tag.IsReserved);
+        Assert.Equal("mode", tag.Name);
+        Assert.Equal("silent", tag.Value);
+    }
 
     [Fact]
-    public void Parse_QuotedNames_AllowSpaces() =>
-        AssertCustomTag(
-            TagParser.Parse(
-                """
-                #"speaker tone"="warm"
-                """,
-                SourceSpanFactory.Span()),
-            "speaker tone",
-            "warm");
+    public void QuotedNames_AllowSpaces()
+    {
+        var tag = Parse(
+            """
+            #"speaker tone"="warm"
+            """);
+
+        Assert.Equal("speaker tone", tag.Name);
+        Assert.Equal("warm", tag.Value);
+    }
 
     [Theory]
     [InlineData("main")]        // no # prefix
@@ -46,9 +62,19 @@ public sealed class TagParserTests
     [InlineData("#=warm")]      // a value with no name
     [InlineData("#mood=")]      // a group with no value
     [InlineData("###main")]     // three hashes is not a valid prefix
-    public void Parse_Malformed_ThrowsDialogueSyntaxError(string content)
+    public void Malformed_DoesNotMatchACompleteTag(string content)
     {
-        Assert.Throws<DialogueSyntaxError>(
-            () => TagParser.Parse(content, SourceSpanFactory.Span()));
+        var result = TagParser.Token.Consume(ParseInputFactory.Input(content));
+
+        // Either it fails outright, or it matches only a prefix of the text — never
+        // the whole thing as one valid tag.
+        Assert.False(result.Success && result.MatchedLength == content.Length);
+    }
+
+    private static TagData Parse(string content)
+    {
+        var result = TagParser.Token.Consume(ParseInputFactory.Input(content));
+        Assert.True(result.Success);
+        return result.MatchedValue;
     }
 }

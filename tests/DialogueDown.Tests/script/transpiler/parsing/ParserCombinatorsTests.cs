@@ -18,13 +18,15 @@ public sealed class ParserCombinatorsTests
     }
 
     [Fact]
-    public void Select_WithSpan_ExposesTheConsumedSourceSpan()
+    public void Located_PairsTheValueWithItsConsumedRange()
     {
-        var parser = TestParsers.Identifier.Select((name, span) => $"{name}@{span.Start}:{span.Length}");
+        var parser = TestParsers.Identifier.Located();
 
-        var result = parser.Consume(ParseInputFactory.Input("abc", 5));
+        var result = parser.Consume(ParseInputFactory.Input("abc def", 5));
 
-        Assert.Equal("abc@5:3", result.MatchedValue);
+        Assert.Equal("abc", result.MatchedValue.Value);
+        Assert.Equal(5, result.MatchedValue.Range.Start);
+        Assert.Equal(3, result.MatchedValue.Range.Length);
     }
 
     [Fact]

@@ -1,89 +1,110 @@
-using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler;
+using DialogueDown.Script.Transpiler.Parsed;
+using DialogueDown.Script.Transpiler.Parsing;
 using DialogueDown.Tests.Support;
-using static DialogueDown.Tests.Support.DialogueAstAssert;
-using static DialogueDown.Tests.Support.DialogueAstFactory;
 
 namespace DialogueDown.Tests.Script.Transpiler;
 
 public sealed class SpeakerPrefixParserTests
 {
     [Fact]
-    public void NameWithIdAndTags_IsADeclaration() =>
-        AssertSpeakerDeclaration(Speaker("Alice @A #main: Hello"), "Alice", "A", CustomTag("main"));
+    public void NameIdAndTags_AreAllReported()
+    {
+        var data = Data("Alice @A #main: Hello");
+
+        Assert.Equal("Alice", data.Name);
+        Assert.Equal("A", data.Id);
+        var tag = Assert.Single(data.Tags);
+        Assert.Equal("main", tag.Value.Name);
+        Assert.False(tag.Value.IsReserved);
+    }
 
     [Fact]
-    public void NameWithTagOnly_IsADeclaration() =>
-        AssertSpeakerDeclaration(Speaker("Alice #main: Hi"), "Alice", tags: CustomTag("main"));
+    public void BareName_HasNoIdOrTags()
+    {
+        var data = Data("Alice: Hello");
 
-    [Fact]
-    public void BareName_IsANameReference() =>
-        AssertSpeakerNameReference(Speaker("Alice: Hello"), "Alice");
+        Assert.Equal("Alice", data.Name);
+        Assert.Null(data.Id);
+        Assert.Empty(data.Tags);
+    }
 
     [Fact]
     public void QuotedName_AllowsSpaces() =>
-        AssertSpeakerNameReference(Speaker("\"Old Man\": Hello"), "Old Man");
+        Assert.Equal("Old Man", Data("\"Old Man\": Hello").Name);
 
     [Fact]
-    public void BareId_IsAnIdReference() =>
-        AssertSpeakerIdReference(Speaker("@A: Hello"), "A");
+    public void BareId_HasNoName() =>
+        Assert.Equal("A", Data("@A: Hello").Id);
 
     [Fact]
-    public void Declaration_TagCarriesItsOwnAbsoluteSpan()
+    public void ReservedTag_IsReported()
     {
-        // The prefix begins at offset 10, so the tag's span is relative to there,
-        // proving per-part spans are precise rather than the whole prefix's span.
-        var text = "Alice #mood=happy: Hi";
-        var baseOffset = 10;
+        var tag = Assert.Single(Data("Alice ##vip: Hi").Tags);
 
-        var prefix = SpeakerPrefixParser.TryParse(
-            text, SourceSpanFactory.Span(baseOffset, text.Length));
-
-        Assert.NotNull(prefix);
-        var declaration = Assert.IsType<SpeakerDeclaration>(prefix.Speaker);
-        var tag = Assert.Single(declaration.Tags);
-        Assert.Equal(baseOffset + text.IndexOf('#'), tag.Span.Start);
+        Assert.True(tag.Value.IsReserved);
+        Assert.Equal("vip", tag.Value.Name);
     }
 
     [Fact]
-    public void SpeechStart_IsJustAfterTheColon()
+    public void MetadataWithoutName_StillParses_AsData()
+    {
+        // The parser only recognizes shape; the builder rejects nameless metadata.
+        var data = Data("@A #main: Hi");
+
+        Assert.Null(data.Name);
+        Assert.Equal("A", data.Id);
+        Assert.Single(data.Tags);
+    }
+
+    [Fact]
+    public void BareColon_MatchesAnEmptyPrefix()
+    {
+        var data = Data(": Hello");
+
+        Assert.Null(data.Name);
+        Assert.Null(data.Id);
+        Assert.Empty(data.Tags);
+    }
+
+    [Fact]
+    public void Tag_CarriesItsOwnAbsoluteSpan()
+    {
+        var text = "Alice #mood=happy: Hi";
+
+        var result = Parse(text, 10);
+
+        Assert.True(result.Success);
+        var tag = Assert.Single(result.MatchedValue.Tags);
+        Assert.Equal(10 + text.IndexOf('#'), tag.Range.Start);
+    }
+
+    [Fact]
+    public void ConsumedLength_IsJustAfterTheColon()
     {
         var text = "Alice: Hello";
 
-        var prefix = SpeakerPrefixParser.TryParse(text, SourceSpanFactory.Span(0, text.Length));
+        var result = Parse(text);
 
-        Assert.NotNull(prefix);
-        Assert.Equal(text.IndexOf(':') + 1, prefix.SpeechStart);
+        Assert.True(result.Success);
+        Assert.Equal(text.IndexOf(':') + 1, result.MatchedLength);
     }
 
     [Fact]
-    public void ColonInsideSpeech_IsNotASpeaker() =>
-        Assert.Null(SpeakerPrefixParser.TryParse(
-            "The time is 3:00", SourceSpanFactory.Span(0, 16)));
+    public void ColonInsideSpeech_IsNotAPrefix() =>
+        Assert.False(Parse("The time is 3:00").Success);
 
     [Fact]
-    public void UnquotedMultiWordName_IsNotASpeaker() =>
-        // A multi-word name must be quoted; unquoted, this is default-speaker speech.
-        Assert.Null(SpeakerPrefixParser.TryParse(
-            "Old Man: Hello", SourceSpanFactory.Span(0, 14)));
+    public void UnquotedMultiWordName_IsNotAPrefix() =>
+        Assert.False(Parse("Old Man: Hello").Success);
 
-    [Fact]
-    public void LeadingColon_IsNotASpeaker() =>
-        Assert.Null(SpeakerPrefixParser.TryParse(": Hello", SourceSpanFactory.Span(0, 7)));
+    private static ParseResult<SpeakerPrefixData> Parse(string text, int position = 0) =>
+        SpeakerPrefixParser.Prefix.Consume(ParseInputFactory.Input(text, position));
 
-    [Fact]
-    public void MetadataWithoutName_ThrowsDialogueSyntaxError()
+    private static SpeakerPrefixData Data(string text)
     {
-        var error = Assert.Throws<DialogueSyntaxError>(
-            () => SpeakerPrefixParser.TryParse("@A #main: Hi", SourceSpanFactory.Span(0, 12)));
-
-        Assert.Contains("names no speaker", error.Message);
-    }
-
-    private static Speaker Speaker(string text)
-    {
-        var prefix = SpeakerPrefixParser.TryParse(text, SourceSpanFactory.Span(0, text.Length));
-        Assert.NotNull(prefix);
-        return prefix.Speaker;
+        var result = Parse(text);
+        Assert.True(result.Success);
+        return result.MatchedValue;
     }
 }

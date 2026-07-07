@@ -1,5 +1,3 @@
-using DialogueDown.Common;
-
 namespace DialogueDown.Script.Transpiler.Parsing;
 
 /// <summary>
@@ -12,15 +10,15 @@ internal static class ParserCombinators
     /// <summary>Transforms a parser's value, consuming exactly the same input.</summary>
     public static IParser<TResult> Select<T, TResult>(
         this IParser<T> parser, Func<T, TResult> selector) =>
-        new SelectParser<T, TResult>(parser, (value, _) => selector(value));
+        new SelectParser<T, TResult>(parser, selector);
 
     /// <summary>
-    /// Transforms a parser's value with access to the <see cref="SourceSpan"/> it
-    /// consumed, for building an AST node that carries its own span.
+    /// Pairs a parser's value with the <see cref="TextRange"/> it consumed, so a
+    /// composed part keeps its location without baking a span into the value. The
+    /// builder converts the range to a source span when it makes the node.
     /// </summary>
-    public static IParser<TResult> Select<T, TResult>(
-        this IParser<T> parser, Func<T, SourceSpan, TResult> selector) =>
-        new SelectParser<T, TResult>(parser, (value, range) => selector(value, range.ToSourceSpan()));
+    public static IParser<Spanned<T>> Located<T>(this IParser<T> parser) =>
+        new LocatedParser<T>(parser);
 
     /// <summary>
     /// Runs a second parser after the first, threading the position so both parts
@@ -52,7 +50,7 @@ internal static class ParserCombinators
         new RepeatedParser<T>(item);
 
     private sealed class SelectParser<T, TResult>(
-        IParser<T> inner, Func<T, TextRange, TResult> project) : IParser<TResult>
+        IParser<T> inner, Func<T, TResult> selector) : IParser<TResult>
     {
         public ParseResult<TResult> Consume(ParseInput input)
         {
@@ -63,8 +61,22 @@ internal static class ParserCombinators
             }
 
             return ParseResult<TResult>.Ok(
-                new ParseMatch<TResult>(
-                    project(result.MatchedValue, result.MatchedRange), result.MatchedRange));
+                new ParseMatch<TResult>(selector(result.MatchedValue), result.MatchedRange));
+        }
+    }
+
+    private sealed class LocatedParser<T>(IParser<T> inner) : IParser<Spanned<T>>
+    {
+        public ParseResult<Spanned<T>> Consume(ParseInput input)
+        {
+            var result = inner.Consume(input);
+            if (result.Error is { } error)
+            {
+                return ParseResult<Spanned<T>>.Fail(error);
+            }
+
+            var located = new Spanned<T>(result.MatchedValue, result.MatchedRange);
+            return ParseResult<Spanned<T>>.Ok(new ParseMatch<Spanned<T>>(located, result.MatchedRange));
         }
     }
 

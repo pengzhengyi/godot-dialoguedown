@@ -1,0 +1,18 @@
+Example images for the DialogueDown script-language "Complete example".
+Both are in the public domain; attribution is kept as good practice.
+
+bobs-photo.jpg
+  Title:   The Tetons and the Snake River
+  Author:  Ansel Adams (1942)
+  Source:  U.S. National Archives (NARA) via Wikimedia Commons
+           https://commons.wikimedia.org/wiki/File:Adams_The_Tetons_and_the_Snake_River.jpg
+  License: Public Domain (work created for a U.S. Government project; NARA)
+
+christinas-painting.jpg
+  Title:   Starry Night Over the Rhône
+  Author:  Vincent van Gogh (1888)
+  Source:  Wikimedia Commons
+           https://commons.wikimedia.org/wiki/File:Starry_Night_Over_the_Rhone.jpg
+  License: Public Domain (PD-Art; the author died in 1890)
+
+Both files were downscaled to 480px wide for the repository.

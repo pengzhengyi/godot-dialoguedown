@@ -162,4 +162,48 @@ public sealed class ParserCombinatorsTests
         Assert.Equal(2, result.MatchedValue.Count);
         Assert.Equal(2, result.MatchedLength);
     }
+
+    [Fact]
+    public void Or_UsesTheFirstParserWhenItMatches()
+    {
+        var parser = TestParsers.Symbol('a').Or(TestParsers.Symbol('b'));
+
+        var result = parser.Consume(ParseInputFactory.Input("a"));
+
+        Assert.True(result.Success);
+        Assert.Equal('a', result.MatchedValue);
+    }
+
+    [Fact]
+    public void Or_FallsBackToTheSecondParser()
+    {
+        var parser = TestParsers.Symbol('a').Or(TestParsers.Symbol('b'));
+
+        var result = parser.Consume(ParseInputFactory.Input("b"));
+
+        Assert.True(result.Success);
+        Assert.Equal('b', result.MatchedValue);
+    }
+
+    [Fact]
+    public void Or_FailsWhenNeitherMatches()
+    {
+        var parser = TestParsers.Symbol('a').Or(TestParsers.Symbol('b'));
+        Assert.False(parser.Consume(ParseInputFactory.Input("c")).Success);
+    }
+
+    [Fact]
+    public void OptionalOrDefault_Present_ReturnsTheValue() =>
+        Assert.Equal("abc", TestParsers.Identifier.OptionalOrDefault("<none>")
+            .Consume(ParseInputFactory.Input("abc")).MatchedValue);
+
+    [Fact]
+    public void OptionalOrDefault_Absent_ReturnsTheDefault_ConsumingNothing()
+    {
+        var result = TestParsers.Identifier.OptionalOrDefault("<none>")
+            .Consume(ParseInputFactory.Input("123"));
+
+        Assert.Equal("<none>", result.MatchedValue);
+        Assert.Equal(0, result.MatchedLength);
+    }
 }

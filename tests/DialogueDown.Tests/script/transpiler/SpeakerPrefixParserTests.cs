@@ -47,6 +47,37 @@ public sealed class SpeakerPrefixParserTests
     }
 
     [Fact]
+    public void GluedIdAndTag_IsNotAPrefix() =>
+        // No whitespace between the id and the tag, so this is not a speaker prefix.
+        AssertNotAPrefix("Alice @A#mood=happy: Hi");
+
+    [Fact]
+    public void GluedTags_AreNotAPrefix() =>
+        // "#tag1#tag2" cannot be read as one tag or two, so it is not a prefix.
+        AssertNotAPrefix("Alice @A #tag1#tag2: Hi");
+
+    [Fact]
+    public void WhitespaceSeparatedTags_AreAllReported()
+    {
+        var data = Data("Alice #a #b: Hi");
+
+        Assert.Equal(2, data.Tags.Count);
+        Assert.Equal("a", data.Tags[0].Value.Name);
+        Assert.Equal("b", data.Tags[1].Value.Name);
+    }
+
+    [Fact]
+    public void NamelessTags_ParseInOrder()
+    {
+        var data = Data("#a #b: Hi");
+
+        Assert.Null(data.Name);
+        Assert.Null(data.Id);
+        Assert.Equal("a", data.Tags[0].Value.Name);
+        Assert.Equal("b", data.Tags[1].Value.Name);
+    }
+
+    [Fact]
     public void MetadataWithoutName_StillParses_AsData()
     {
         // The parser only recognizes shape; the builder rejects nameless metadata.
@@ -92,11 +123,11 @@ public sealed class SpeakerPrefixParserTests
 
     [Fact]
     public void ColonInsideSpeech_IsNotAPrefix() =>
-        Assert.False(Parse("The time is 3:00").Success);
+        AssertNotAPrefix("The time is 3:00");
 
     [Fact]
     public void UnquotedMultiWordName_IsNotAPrefix() =>
-        Assert.False(Parse("Old Man: Hello").Success);
+        AssertNotAPrefix("Old Man: Hello");
 
     private static ParseResult<SpeakerPrefixData> Parse(string text, int position = 0) =>
         SpeakerPrefixParser.Prefix.Consume(ParseInputFactory.Input(text, position));
@@ -107,4 +138,6 @@ public sealed class SpeakerPrefixParserTests
         Assert.True(result.Success);
         return result.MatchedValue;
     }
+
+    private static void AssertNotAPrefix(string text) => Assert.False(Parse(text).Success);
 }

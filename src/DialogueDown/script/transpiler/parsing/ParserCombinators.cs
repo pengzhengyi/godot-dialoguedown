@@ -41,6 +41,14 @@ internal static class ParserCombinators
         new OptionalParser<T>(parser);
 
     /// <summary>
+    /// Like <see cref="Optional{T}"/>, but yields a caller-supplied
+    /// <paramref name="defaultValue"/> instead of null when the parser does not
+    /// match — consuming nothing either way.
+    /// </summary>
+    public static IParser<T> OptionalOrDefault<T>(this IParser<T> parser, T defaultValue) =>
+        new OptionalOrDefaultParser<T>(parser, defaultValue);
+
+    /// <summary>
     /// Matches a parser zero or more times, collecting the values. It always
     /// succeeds — an empty list when nothing matches. A match that consumes nothing
     /// stops the loop (rather than spinning forever), so the inner parser should make
@@ -48,6 +56,14 @@ internal static class ParserCombinators
     /// </summary>
     public static IParser<IReadOnlyList<T>> Repeated<T>(this IParser<T> item) =>
         new RepeatedParser<T>(item);
+
+    /// <summary>
+    /// Tries the first parser and, if it does not match, tries the second from the
+    /// same position. This is ordered choice: the first success wins, and a failed
+    /// first attempt consumes nothing.
+    /// </summary>
+    public static IParser<T> Or<T>(this IParser<T> first, IParser<T> second) =>
+        new OrParser<T>(first, second);
 
     private sealed class SelectParser<T, TResult>(
         IParser<T> inner, Func<T, TResult> selector) : IParser<TResult>
@@ -139,6 +155,26 @@ internal static class ParserCombinators
 
             var range = new TextRange(input.Position, rest.Position - input.Position);
             return ParseResult<IReadOnlyList<T>>.Ok(new ParseMatch<IReadOnlyList<T>>(items, range));
+        }
+    }
+
+    private sealed class OrParser<T>(IParser<T> first, IParser<T> second) : IParser<T>
+    {
+        public ParseResult<T> Consume(ParseInput input)
+        {
+            var result = first.Consume(input);
+            return result.Success ? result : second.Consume(input);
+        }
+    }
+
+    private sealed class OptionalOrDefaultParser<T>(IParser<T> inner, T defaultValue) : IParser<T>
+    {
+        public ParseResult<T> Consume(ParseInput input)
+        {
+            var result = inner.Consume(input);
+            return result.Success
+                ? result
+                : ParseResult<T>.Ok(new ParseMatch<T>(defaultValue, new TextRange(input.Position, 0)));
         }
     }
 }

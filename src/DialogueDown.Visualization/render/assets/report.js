@@ -20,29 +20,36 @@
   /* ------------------------------------------------------------------ *
    * Semantic colour palette
    *
-   * The projection tags each node with a stable, cross-stage category; a
-   * later stage reuses the same name for a corresponding concept, so the two
-   * share a colour (a Markdown code span and the game call it compiles to are
-   * both "call" = red).
+   * The projection tags each node with a stable, cross-stage category; a later
+   * stage reuses the same name for a corresponding concept, so the two share a
+   * colour (a Markdown code span and the game call it compiles to are both
+   * "call" = red). Only the colour is shared across stages — the human label in
+   * the legend is derived from each stage's own node types, so the Markdown AST
+   * legend reads "Code span", not the future "Game call".
    * ------------------------------------------------------------------ */
 
-  var CATEGORY = {
-    document: { color: "#64748b", label: "Document" },
-    structure: { color: "#3b82f6", label: "Structure" },
-    speech: { color: "#22c55e", label: "Speech" },
-    text: { color: "#14b8a6", label: "Text" },
-    choice: { color: "#a855f7", label: "Choice" },
-    jump: { color: "#06b6d4", label: "Jump" },
-    media: { color: "#f97316", label: "Media" },
-    call: { color: "#ef4444", label: "Game call" },
-    styling: { color: "#f59e0b", label: "Styling" },
-    break: { color: "#9ca3af", label: "Break" },
+  var CATEGORY_COLORS = {
+    document: "#64748b",
+    structure: "#3b82f6",
+    speech: "#22c55e",
+    text: "#14b8a6",
+    choice: "#a855f7",
+    jump: "#06b6d4",
+    media: "#f97316",
+    call: "#ef4444",
+    styling: "#f59e0b",
+    break: "#9ca3af",
   };
-  var DEFAULT_CATEGORY = { color: "#94a3b8", label: "Other" };
+  var DEFAULT_COLOR = "#94a3b8";
 
-  /** Look up a category's colour and label, falling back for unknown names. */
-  function categoryOf(name) {
-    return (name && CATEGORY[name]) || DEFAULT_CATEGORY;
+  /** The colour for a category, falling back to a neutral colour for unknowns. */
+  function colorOf(category) {
+    return (category && CATEGORY_COLORS[category]) || DEFAULT_COLOR;
+  }
+
+  /** A node's type name without any parenthetical detail ("Heading (H2)" -> "Heading"). */
+  function baseLabel(label) {
+    return label.replace(/\s*\(.*\)\s*$/, "");
   }
 
   /* ------------------------------------------------------------------ *
@@ -81,7 +88,7 @@
 
     /** Show one node's details (the `data` carried on each display node). */
     function show(data) {
-      titleEl.innerHTML = escapeHtml(data.label) + categoryChip(data.category);
+      titleEl.innerHTML = categoryDot(data.category) + escapeHtml(data.label);
       bodyEl.innerHTML = attributesTable(data.attributes) + sourceSection(data.source);
     }
 
@@ -91,16 +98,13 @@
       bodyEl.innerHTML = placeholder;
     }
 
-    function categoryChip(category) {
+    // A small colour dot ties the node to its legend colour without repeating a
+    // category name (the node's own label already appears beside it).
+    function categoryDot(category) {
       if (!category) {
         return "";
       }
-      var info = categoryOf(category);
-      return (
-        " <span class=\"chip\" style=\"background:" + info.color + "\">" +
-        escapeHtml(info.label) +
-        "</span>"
-      );
+      return "<span class=\"dot\" style=\"background:" + colorOf(category) + "\"></span>";
     }
 
     function attributesTable(attributes) {
@@ -132,38 +136,55 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Legend — a colour key for the categories present in one stage.
+   * Legend — a colour key for the categories present in one stage, labelled
+   * with that stage's own node-type names (never a later stage's terms).
    * ------------------------------------------------------------------ */
 
   function buildLegend(stage) {
-    var present = {};
-    stage.nodes.forEach(function (node) {
-      if (node.category) {
-        present[node.category] = true;
-      }
-    });
+    var typeNamesByCategory = collectTypeNames(stage.nodes);
 
     var legend = document.createElement("div");
     legend.className = "legend";
-    Object.keys(CATEGORY).forEach(function (key) {
-      if (!present[key]) {
+    Object.keys(CATEGORY_COLORS).forEach(function (category) {
+      var typeNames = typeNamesByCategory[category];
+      if (!typeNames) {
         return;
       }
-      var item = document.createElement("div");
-      item.className = "legend-item";
-
-      var swatch = document.createElement("span");
-      swatch.className = "swatch";
-      swatch.style.background = CATEGORY[key].color;
-
-      var label = document.createElement("span");
-      label.textContent = CATEGORY[key].label;
-
-      item.appendChild(swatch);
-      item.appendChild(label);
-      legend.appendChild(item);
+      legend.appendChild(legendItem(CATEGORY_COLORS[category], typeNames.join(" / ")));
     });
     return legend;
+  }
+
+  /** Group the distinct node-type names present under each category. */
+  function collectTypeNames(nodes) {
+    var byCategory = {};
+    nodes.forEach(function (node) {
+      if (!node.category) {
+        return;
+      }
+      var names = byCategory[node.category] || (byCategory[node.category] = []);
+      var name = baseLabel(node.label);
+      if (names.indexOf(name) === -1) {
+        names.push(name);
+      }
+    });
+    return byCategory;
+  }
+
+  function legendItem(color, text) {
+    var item = document.createElement("div");
+    item.className = "legend-item";
+
+    var swatch = document.createElement("span");
+    swatch.className = "swatch";
+    swatch.style.background = color;
+
+    var label = document.createElement("span");
+    label.textContent = text;
+
+    item.appendChild(swatch);
+    item.appendChild(label);
+    return item;
   }
 
   /* ------------------------------------------------------------------ *
@@ -391,7 +412,7 @@
         .append("circle")
         .attr("r", 5)
         .style("fill", function (d) {
-          return categoryOf(d.data.category).color;
+          return colorOf(d.data.category);
         })
         .on("click", function (event, d) {
           toggle(d);

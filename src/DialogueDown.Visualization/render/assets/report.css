@@ -178,14 +178,12 @@ svg.tree {
   flex: none;
 }
 
-.chip {
+.dot {
   display: inline-block;
-  margin-left: 0.4rem;
-  padding: 0.05rem 0.5rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #fff;
-  border-radius: 999px;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-right: 0.45rem;
+  border-radius: 50%;
   vertical-align: middle;
 }
 

@@ -296,9 +296,11 @@ presentation (what colour it *is*) in the renderer.
 The categories are chosen so **corresponding concepts across stages share one**,
 and therefore share a colour: a Markdown `CodeSpanInline` and the runtime **game
 call** it compiles to are both `call` (red), so a reader can trace a concept by
-colour from one stage to the next. The HTML view shows the colour on each node, in
-a per-stage **legend**, and as a chip in the detail panel; a category is optional,
-so a node without one falls back to a neutral colour.
+colour from one stage to the next. Only the *colour* is shared across stages — the
+human label is stage-local: the per-stage **legend** is labelled with that stage's
+own node types (the Markdown AST legend reads "Code span", never the future "game
+call"), and the detail panel marks the node with a colour **dot**. A category is
+optional, so a node without one falls back to a neutral colour.
 
 ## Error and boundary cases
 

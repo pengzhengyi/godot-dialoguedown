@@ -1,9 +1,9 @@
-using DialogueDown.Script.Transpiler;
 using DialogueDown.Script.Transpiler.Parsed;
+using DialogueDown.Script.Transpiler.Parsers;
 using DialogueDown.Script.Transpiler.Parsing;
 using DialogueDown.Tests.Support;
 
-namespace DialogueDown.Tests.Script.Transpiler;
+namespace DialogueDown.Tests.Script.Transpiler.Parsers;
 
 public sealed class SpeakerPrefixParserTests
 {

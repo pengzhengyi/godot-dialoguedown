@@ -3,7 +3,7 @@ using DialogueDown.Script.Transpiler.Parsing;
 using Superpower;
 using Superpower.Parsers;
 
-namespace DialogueDown.Script.Transpiler;
+namespace DialogueDown.Script.Transpiler.Parsers;
 
 /// <summary>
 /// Parses a single tag token into <see cref="TagData"/>: custom (<c>#name</c>) or
@@ -14,7 +14,7 @@ namespace DialogueDown.Script.Transpiler;
 internal static class TagParser
 {
     private static readonly TextParser<string> _tagName =
-        ParserPrimitives.QuotedString.Try()
+        SuperpowerPrimitives.QuotedString.Try()
             .Or(Identifier.CStyle.Select(name => name.ToStringValue()));
 
     private static readonly TextParser<bool> _reservedPrefix =

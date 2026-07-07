@@ -1,12 +1,13 @@
 using Superpower;
 using Superpower.Parsers;
 
-namespace DialogueDown.Script.Transpiler;
+namespace DialogueDown.Script.Transpiler.Parsing;
 
 /// <summary>
-/// Reusable combinators shared across the transpiler's leaf parsers.
+/// Reusable combinators over Superpower's <see cref="TextParser{T}"/>, shared across
+/// the DSL grammars.
 /// </summary>
-internal static class ParserExtensions
+internal static class SuperpowerCombinators
 {
     /// <summary>
     /// Requires the parsed value to be wrapped in a left and right parenthesis.

@@ -1,7 +1,8 @@
 using DialogueDown.Common;
 using DialogueDown.Script.Ast;
-using DialogueDown.Script.Transpiler;
 using DialogueDown.Script.Transpiler.Builders;
+using DialogueDown.Script.Transpiler.Errors;
+using DialogueDown.Script.Transpiler.Parsers;
 using DialogueDown.Tests.Support;
 
 namespace DialogueDown.Tests.Script.Transpiler.Builders;

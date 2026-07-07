@@ -3,7 +3,7 @@ using DialogueDown.Script.Transpiler.Parsing;
 using Superpower;
 using Superpower.Parsers;
 
-namespace DialogueDown.Script.Transpiler;
+namespace DialogueDown.Script.Transpiler.Parsers;
 
 /// <summary>
 /// The grammar that recognizes the inner text of a code span as a game call and
@@ -22,15 +22,15 @@ internal static class GameCallParser
         select comma;
 
     private static readonly TextParser<GameCallData> _query =
-        ParserPrimitives.QuotedString.Select(key => (GameCallData)new QueryData(key));
+        SuperpowerPrimitives.QuotedString.Select(key => (GameCallData)new QueryData(key));
 
     private static readonly TextParser<GameCallData> _defaultCommand =
-        from action in ParserPrimitives.QuotedString.EnclosedInParentheses()
+        from action in SuperpowerPrimitives.QuotedString.EnclosedInParentheses()
         select (GameCallData)new DefaultCommandData(action);
 
     private static readonly TextParser<GameCallData> _customCommand =
         from name in Identifier.CStyle
-        from args in ParserPrimitives.QuotedString
+        from args in SuperpowerPrimitives.QuotedString
             .ManyDelimitedBy(_argumentSeparator)
             .EnclosedInParentheses()
         select (GameCallData)new CustomCommandData(name.ToStringValue(), args);

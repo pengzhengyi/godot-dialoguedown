@@ -1,8 +1,8 @@
-using DialogueDown.Script.Transpiler;
 using DialogueDown.Script.Transpiler.Parsed;
+using DialogueDown.Script.Transpiler.Parsers;
 using DialogueDown.Tests.Support;
 
-namespace DialogueDown.Tests.Script.Transpiler;
+namespace DialogueDown.Tests.Script.Transpiler.Parsers;
 
 public sealed class GameCallParserTests
 {

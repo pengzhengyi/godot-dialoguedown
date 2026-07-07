@@ -3,7 +3,7 @@ using DialogueDown.Script.Transpiler.Parsing;
 using Superpower;
 using Superpower.Parsers;
 
-namespace DialogueDown.Script.Transpiler;
+namespace DialogueDown.Script.Transpiler.Parsers;
 
 /// <summary>
 /// The grammar that recognizes a speaker prefix at the start of a line and reports
@@ -18,7 +18,7 @@ internal static class SpeakerPrefixParser
     private static readonly SpeakerPrefixData _empty = new(null, null, []);
 
     private static readonly IParser<string> _name = SuperpowerParser.Wrap(
-        ParserPrimitives.QuotedString.Try()
+        SuperpowerPrimitives.QuotedString.Try()
             .Or(Identifier.CStyle.Select(name => name.ToStringValue())));
 
     private static readonly IParser<string> _id = SuperpowerParser.Wrap(

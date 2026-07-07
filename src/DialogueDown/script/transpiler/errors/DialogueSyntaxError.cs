@@ -1,7 +1,7 @@
 using DialogueDown.Common;
 using DialogueDown.Common.Errors;
 
-namespace DialogueDown.Script.Transpiler;
+namespace DialogueDown.Script.Transpiler.Errors;
 
 /// <summary>
 /// A syntax error in the dialogue DSL — for example a code span that is neither a

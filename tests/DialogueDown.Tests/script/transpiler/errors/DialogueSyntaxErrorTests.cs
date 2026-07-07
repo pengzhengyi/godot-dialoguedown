@@ -1,8 +1,8 @@
 using DialogueDown.Common.Errors;
-using DialogueDown.Script.Transpiler;
+using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Tests.Support;
 
-namespace DialogueDown.Tests.Script.Transpiler;
+namespace DialogueDown.Tests.Script.Transpiler.Errors;
 
 public sealed class DialogueSyntaxErrorTests
 {

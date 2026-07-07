@@ -1,13 +1,13 @@
 using Superpower;
 using Superpower.Parsers;
 
-namespace DialogueDown.Script.Transpiler;
+namespace DialogueDown.Script.Transpiler.Parsing;
 
 /// <summary>
-/// Superpower parsers shared across the transpiler's leaf parsers, so a single
-/// definition of a common token (like a quoted string) serves every grammar.
+/// Superpower token parsers shared across the DSL grammars, so a single definition
+/// of a common token (like a quoted string) serves every grammar.
 /// </summary>
-internal static class ParserPrimitives
+internal static class SuperpowerPrimitives
 {
     /// <summary>
     /// A straight-double-quoted string; the surrounding quotes are consumed and

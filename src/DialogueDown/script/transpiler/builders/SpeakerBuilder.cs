@@ -1,5 +1,6 @@
 using DialogueDown.Common;
 using DialogueDown.Script.Ast;
+using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Script.Transpiler.Parsed;
 using DialogueDown.Script.Transpiler.Parsing;
 

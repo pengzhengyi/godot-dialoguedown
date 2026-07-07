@@ -1,6 +1,7 @@
 using DialogueDown.Script.Ast;
-using DialogueDown.Script.Transpiler;
 using DialogueDown.Script.Transpiler.Builders;
+using DialogueDown.Script.Transpiler.Errors;
+using DialogueDown.Script.Transpiler.Parsers;
 using DialogueDown.Script.Transpiler.Parsing;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstAssert;

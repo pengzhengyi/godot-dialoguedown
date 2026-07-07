@@ -119,6 +119,7 @@ svg.tree {
   stroke: var(--pico-card-background-color);
   stroke-width: 1.5px;
   cursor: pointer;
+  transition: transform 0.12s ease;
 }
 
 .node.collapsed circle {
@@ -149,6 +150,24 @@ svg.tree {
 
 .node.dimmed {
   opacity: 0.15;
+}
+
+/* Hovering a legend row highlights its nodes — a gentle pop plus a bold label,
+   and a full-opacity preview even when the category is currently dimmed.
+   Placed after .dimmed so the highlight wins for a dimmed-and-hovered node. */
+.node.highlight {
+  opacity: 1;
+}
+
+.node.highlight circle {
+  transform: scale(1.7);
+  transform-box: fill-box;
+  transform-origin: center;
+  stroke: var(--pico-color);
+}
+
+.node.highlight text.label {
+  font-weight: 700;
 }
 
 .legend {

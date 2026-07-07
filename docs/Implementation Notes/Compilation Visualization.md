@@ -104,7 +104,8 @@ One concept, one name — used here, in code, and in tests.
       CDN with a bundled copy for offline use.
 - [x] A **semantic colour scheme**: each node carries a cross-stage category that
       the renderer maps to a colour, shown on nodes, the panel, and an interactive
-      legend that counts each type and toggles it (dimming) on click.
+      legend that counts each type, highlights it on hover, and toggles it
+      (dimming) on click.
 - [x] A **report** facade compiles a source string and assembles one **tab per
       stage** into a single self-contained HTML page.
 - [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
@@ -305,7 +306,9 @@ call"), and the detail panel marks the node with a colour **dot**. The legend is
 interactive: each row counts how many nodes of that type are present, and clicking
 a row toggles it — dimming its label and every node of that category in the graph,
 so a reader can focus on one kind at a time. A category is optional, so a node
-without one falls back to a neutral colour.
+without one falls back to a neutral colour. Hovering a legend row highlights every
+node of that category (a gentle pop and a bold label), so a reader can spot where
+a kind occurs at a glance.
 
 ## Error and boundary cases
 

@@ -314,7 +314,26 @@
       item.addEventListener("click", function () {
         toggleCategory(category, item);
       });
+      // Hover (or keyboard focus) highlights every node of this category.
+      item.addEventListener("mouseenter", function () {
+        highlightCategory(category);
+      });
+      item.addEventListener("focus", function () {
+        highlightCategory(category);
+      });
+      item.addEventListener("mouseleave", clearHighlight);
+      item.addEventListener("blur", clearHighlight);
       return item;
+    }
+
+    function highlightCategory(category) {
+      gNodes.selectAll("g.node").classed("highlight", function (d) {
+        return d.data.category === category;
+      });
+    }
+
+    function clearHighlight() {
+      gNodes.selectAll("g.node").classed("highlight", false);
     }
 
     function toggleCategory(category, item) {

@@ -43,7 +43,7 @@ jobs:
       - name: Generate coverage report
         run: >
           dotnet reportgenerator
-          "-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml"
+          "-reports:tests/**/TestResults/**/coverage.cobertura.xml"
           "-targetdir:coverage-report"
           "-reporttypes:Html;MarkdownSummaryGithub;Cobertura"
 

@@ -17,8 +17,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Expose internal types (AST nodes, mapper, parser) to the test project. -->
+    <!-- Expose internal types (AST nodes, mapper, parser) to the test and
+         visualization projects. Visualization projects each stage's AST, so it
+         needs the internal nodes and parser seam; it adds no runtime dependency. -->
     <InternalsVisibleTo Include="DialogueDown.Tests" />
+    <InternalsVisibleTo Include="DialogueDown.Visualization" />
+    <InternalsVisibleTo Include="DialogueDown.Visualization.Tests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DialogueDown.Visualization</RootNamespace>
+    <AssemblyName>DialogueDown.Visualization</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <!-- Diagnostics-only companion to the core: never referenced by the shipped
+         DialogueDown package, so the core stays engine-agnostic and dependency-light. -->
+    <Description>Diagnostic visualization of DialogueDown compiler stages (Markdown AST, ...).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Expose internal visualization types (projections, facade) to the test project. -->
+    <InternalsVisibleTo Include="DialogueDown.Visualization.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DialogueDown\DialogueDown.csproj" />
+  </ItemGroup>
+
+</Project>

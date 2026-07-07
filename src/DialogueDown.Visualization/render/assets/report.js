@@ -491,7 +491,7 @@
         .append("text")
         .attr("class", "label")
         .attr("dy", "0.32em")
-        .attr("x", 9)
+        .attr("x", 12)
         .text(function (d) {
           return d.data.label;
         });
@@ -503,7 +503,7 @@
           self
             .append("text")
             .attr("class", "attr")
-            .attr("x", 9)
+            .attr("x", 12)
             .attr("dy", 15 + i * 12)
             .text(attr.name + ": " + attr.value);
         });
@@ -522,7 +522,7 @@
         var longest = lines.reduce(function (max, line) {
           return Math.max(max, line.length);
         }, 0);
-        var width = 9 + longest * 6.5 + 10;
+        var width = 12 + longest * 6.5 + 10;
         var height = 20 + (d.data.attributes || []).length * 12;
         d3.select(this)
           .insert("rect", ":first-child")

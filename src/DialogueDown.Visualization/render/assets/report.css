@@ -160,10 +160,12 @@ svg.tree {
 }
 
 .node.highlight circle {
-  transform: scale(1.7);
+  transform: scale(1.45);
   transform-box: fill-box;
   transform-origin: center;
   stroke: var(--pico-color);
+  /* Keep the ring thin: without this, the scale above also thickens the stroke. */
+  vector-effect: non-scaling-stroke;
 }
 
 .node.highlight text.label {
@@ -233,20 +235,25 @@ svg.tree {
 .zoom-controls {
   position: absolute;
   bottom: 0.75rem;
-  left: 0.75rem;
+  right: 0.75rem;
   display: flex;
   align-items: stretch;
   overflow: hidden;
   background: var(--pico-card-background-color);
   border: 1px solid var(--pico-muted-border-color);
   border-radius: var(--pico-border-radius);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
   font-size: 0.85rem;
 }
 
 .zoom-controls button {
+  /* Pico redefines --pico-color to its inverse (white) on buttons; reset it so
+     the glyphs use the normal foreground instead of white-on-white. */
+  --pico-color: inherit;
+  --pico-background-color: transparent;
   width: auto;
   margin: 0;
-  padding: 0.25rem 0.65rem;
+  padding: 0.25rem 0.7rem;
   color: var(--pico-color);
   background: var(--pico-card-background-color);
   border: none;

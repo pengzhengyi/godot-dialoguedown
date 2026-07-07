@@ -147,28 +147,61 @@ svg.tree {
   cursor: pointer;
 }
 
+.node.dimmed {
+  opacity: 0.15;
+}
+
 .legend {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.1rem;
+  min-width: 9.5rem;
   max-height: 90%;
   overflow: auto;
-  padding: 0.5rem 0.7rem;
+  padding: 0.4rem 0.5rem;
   background: var(--pico-card-background-color);
   border: 1px solid var(--pico-muted-border-color);
   border-radius: var(--pico-border-radius);
   font-size: 0.72rem;
-  pointer-events: none;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.15rem 0.3rem;
   color: var(--pico-muted-color);
+  background: transparent;
+  border: none;
+  border-radius: var(--pico-border-radius);
+  font-size: inherit;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.legend-item:hover {
+  background: var(--pico-muted-border-color);
+}
+
+.legend-item.muted {
+  opacity: 0.4;
+}
+
+.legend-item .legend-label {
+  white-space: nowrap;
+}
+
+.legend-item .count {
+  margin-left: auto;
+  padding-left: 0.75rem;
+  color: var(--pico-muted-color);
+  font-variant-numeric: tabular-nums;
 }
 
 .legend .swatch {

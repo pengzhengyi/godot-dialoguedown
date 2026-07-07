@@ -103,7 +103,8 @@ One concept, one name — used here, in code, and in tests.
       the ratio to reset) and a resizable panel round it out. Assets load from a
       CDN with a bundled copy for offline use.
 - [x] A **semantic colour scheme**: each node carries a cross-stage category that
-      the renderer maps to a colour, shown on nodes, a legend, and the panel.
+      the renderer maps to a colour, shown on nodes, the panel, and an interactive
+      legend that counts each type and toggles it (dimming) on click.
 - [x] A **report** facade compiles a source string and assembles one **tab per
       stage** into a single self-contained HTML page.
 - [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
@@ -300,8 +301,11 @@ call** it compiles to are both `call` (red), so a reader can trace a concept by
 colour from one stage to the next. Only the *colour* is shared across stages — the
 human label is stage-local: the per-stage **legend** is labelled with that stage's
 own node types (the Markdown AST legend reads "Code span", never the future "game
-call"), and the detail panel marks the node with a colour **dot**. A category is
-optional, so a node without one falls back to a neutral colour.
+call"), and the detail panel marks the node with a colour **dot**. The legend is
+interactive: each row counts how many nodes of that type are present, and clicking
+a row toggles it — dimming its label and every node of that category in the graph,
+so a reader can focus on one kind at a time. A category is optional, so a node
+without one falls back to a neutral colour.
 
 ## Error and boundary cases
 

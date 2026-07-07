@@ -8,9 +8,9 @@
  * The file is organised top-down into small, focused units:
  *   - palette helpers        (category -> colour + label)
  *   - text helpers           (escaping, Markdown rendering)
+ *   - categoryStats()        (per-category node counts + type names)
  *   - createDetailPanel()    (the side panel showing a selected node)
- *   - buildLegend()          (the per-stage colour key)
- *   - createTreeView()       (one stage's D3 tree + interactions)
+ *   - createTreeView()       (one stage's D3 tree, its legend, and interactions)
  *   - initResizer()          (drag to resize the detail panel)
  *   - initApp()              (wires tabs, stages, keyboard, resizer together)
  */
@@ -139,55 +139,25 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Legend — a colour key for the categories present in one stage, labelled
-   * with that stage's own node-type names (never a later stage's terms).
+   * Category statistics — how many nodes of each category a stage has, and
+   * the distinct node-type names present under it (for the legend labels).
    * ------------------------------------------------------------------ */
 
-  function buildLegend(stage) {
-    var typeNamesByCategory = collectTypeNames(stage.nodes);
-
-    var legend = document.createElement("div");
-    legend.className = "legend";
-    Object.keys(CATEGORY_COLORS).forEach(function (category) {
-      var typeNames = typeNamesByCategory[category];
-      if (!typeNames) {
-        return;
-      }
-      legend.appendChild(legendItem(CATEGORY_COLORS[category], typeNames.join(" / ")));
-    });
-    return legend;
-  }
-
-  /** Group the distinct node-type names present under each category. */
-  function collectTypeNames(nodes) {
-    var byCategory = {};
+  /** @returns {Object<string,{names:string[], count:number}>} keyed by category. */
+  function categoryStats(nodes) {
+    var stats = {};
     nodes.forEach(function (node) {
       if (!node.category) {
         return;
       }
-      var names = byCategory[node.category] || (byCategory[node.category] = []);
+      var stat = stats[node.category] || (stats[node.category] = { names: [], count: 0 });
+      stat.count += 1;
       var name = baseLabel(node.label);
-      if (names.indexOf(name) === -1) {
-        names.push(name);
+      if (stat.names.indexOf(name) === -1) {
+        stat.names.push(name);
       }
     });
-    return byCategory;
-  }
-
-  function legendItem(color, text) {
-    var item = document.createElement("div");
-    item.className = "legend-item";
-
-    var swatch = document.createElement("span");
-    swatch.className = "swatch";
-    swatch.style.background = color;
-
-    var label = document.createElement("span");
-    label.textContent = text;
-
-    item.appendChild(swatch);
-    item.appendChild(label);
-    return item;
+    return stats;
   }
 
   /* ------------------------------------------------------------------ *
@@ -210,6 +180,7 @@
     });
 
     var selected = null;
+    var dimmedCategories = {}; // category -> true when toggled off in the legend
 
     var svg = d3.create("svg").attr("class", "tree");
     var viewport = svg.append("g");
@@ -251,7 +222,7 @@
 
     return {
       svg: svg.node(),
-      legend: buildLegend(stage),
+      legend: buildLegend(),
       controls: controls,
       handleKey: handleKey,
       clearSelection: function () {
@@ -296,6 +267,68 @@
     function applySelection() {
       gNodes.selectAll("g.node").classed("selected", function (d) {
         return d === selected;
+      });
+    }
+
+    /* --- legend & category filter --- */
+
+    /**
+     * Build the interactive legend: one row per category present, showing its
+     * colour, the stage's own type name(s), and a node count. Clicking a row
+     * toggles that category — dimming its label and all its nodes in the graph.
+     */
+    function buildLegend() {
+      var stats = categoryStats(stage.nodes);
+      var legend = document.createElement("div");
+      legend.className = "legend";
+      Object.keys(CATEGORY_COLORS).forEach(function (category) {
+        var stat = stats[category];
+        if (stat) {
+          legend.appendChild(legendItem(category, stat.names.join(" / "), stat.count));
+        }
+      });
+      return legend;
+    }
+
+    function legendItem(category, typeName, count) {
+      var item = document.createElement("button");
+      item.type = "button";
+      item.className = "legend-item";
+      item.setAttribute("aria-pressed", "true");
+
+      var swatch = document.createElement("span");
+      swatch.className = "swatch";
+      swatch.style.background = CATEGORY_COLORS[category];
+
+      var label = document.createElement("span");
+      label.className = "legend-label";
+      label.textContent = typeName;
+
+      var countEl = document.createElement("span");
+      countEl.className = "count";
+      countEl.textContent = count;
+
+      item.appendChild(swatch);
+      item.appendChild(label);
+      item.appendChild(countEl);
+      item.addEventListener("click", function () {
+        toggleCategory(category, item);
+      });
+      return item;
+    }
+
+    function toggleCategory(category, item) {
+      var dimmed = !dimmedCategories[category];
+      dimmedCategories[category] = dimmed;
+      item.classList.toggle("muted", dimmed);
+      item.setAttribute("aria-pressed", String(!dimmed));
+      applyCategoryFilter();
+    }
+
+    /** Dim every node whose category is currently toggled off. */
+    function applyCategoryFilter() {
+      gNodes.selectAll("g.node").classed("dimmed", function (d) {
+        return !!dimmedCategories[d.data.category];
       });
     }
 
@@ -418,6 +451,7 @@
         });
 
       applySelection();
+      applyCategoryFilter();
     }
 
     function appendEnteringNodes(enter) {

@@ -7,4 +7,4 @@ test-results/
 # The single-file build output is committed for the .NET embed (freshness is
 # verified in CI); ignore everything else Vite may emit under dist/.
 dist/*
-!dist/index.html
+!dist/report.html

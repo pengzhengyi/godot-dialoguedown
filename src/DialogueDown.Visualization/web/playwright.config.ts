@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// e2e tests load the actual built report (dist/index.html) via page.setContent
+// e2e tests load the actual built report (dist/report.html) via page.setContent
 // after injecting sample stage data into the __STAGES__ slot, so no web server is
 // needed — the report is fully self-contained.
 export default defineConfig({

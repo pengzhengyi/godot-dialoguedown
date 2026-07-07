@@ -384,7 +384,7 @@ test pyramid and quality gates run locally (`npm run check`) and in CI (the
   A **`@axe-core/playwright`** pass asserts no accessibility violations —
   including **colour-contrast**, which a real browser can measure (jsdom cannot).
 - **Build freshness** — CI rebuilds the single-file report and fails if the
-  committed `web/dist/index.html` is stale (`git diff --exit-code`), so the
+  committed `web/dist/report.html` is stale (`git diff --exit-code`), so the
   embedded UI can never drift from its sources.
 
 The Vite build targets **ES2022**, so the report runs on current evergreen

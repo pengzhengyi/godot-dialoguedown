@@ -5,10 +5,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Stage } from "../src/model";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const distHtml = path.join(here, "..", "dist", "index.html");
+const distHtml = path.join(here, "..", "dist", "report.html");
 
 /**
- * Assemble the actual built report (dist/index.html) with sample stage data
+ * Assemble the actual built report (dist/report.html) with sample stage data
  * injected into the __STAGES__ slot exactly as the .NET library does, write it to
  * a temp file, and return a file:// URL Playwright can navigate to.
  */

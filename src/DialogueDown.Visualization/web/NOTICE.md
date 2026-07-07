@@ -1,24 +1,24 @@
 # Third-party bundled libraries
 
 The compilation report is built by the `web/` Vite project into a single,
-self-contained HTML file (`web/dist/index.html`) with all JavaScript and CSS
+self-contained HTML file (`web/dist/report.html`) with all JavaScript and CSS
 inlined, so a generated report works fully offline with no CDN or network
 access. The libraries below are bundled into that file. Exact versions are
 pinned by `web/package-lock.json`; **none** of them is a NuGet or runtime
 dependency of the DialogueDown packages — they ship only inside generated
 report HTML.
 
-| Library | Version | License |
-| --- | --- | --- |
-| [D3.js](https://d3js.org) | 7.9.0 | ISC |
-| [Pico.css](https://picocss.com) | 2.1.1 | MIT |
-| [marked](https://marked.js.org) | 12.0.2 | MIT |
-| [Tippy.js](https://atomiks.github.io/tippyjs/) | 6.3.7 | MIT |
-| [Popper](https://popper.js.org) (bundled by Tippy.js) | 2.11.8 | MIT |
+| Library                                               | Version | License |
+| ----------------------------------------------------- | ------- | ------- |
+| [D3.js](https://d3js.org)                             | 7.9.0   | ISC     |
+| [Pico.css](https://picocss.com)                       | 2.1.1   | MIT     |
+| [marked](https://marked.js.org)                       | 12.0.2  | MIT     |
+| [Tippy.js](https://atomiks.github.io/tippyjs/)        | 6.3.7   | MIT     |
+| [Popper](https://popper.js.org) (bundled by Tippy.js) | 2.11.8  | MIT     |
 
 To update a library, bump it in `web/package.json`, run `npm install` in
 `web/`, then rebuild (`npm run build`) and commit the refreshed
-`web/dist/index.html` and `web/package-lock.json`.
+`web/dist/report.html` and `web/package-lock.json`.
 
 ## Licenses
 

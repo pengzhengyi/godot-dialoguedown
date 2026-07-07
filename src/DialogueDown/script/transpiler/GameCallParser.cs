@@ -1,16 +1,15 @@
-using DialogueDown.Common;
-using DialogueDown.Script.Ast;
+using DialogueDown.Script.Transpiler.Parsed;
+using DialogueDown.Script.Transpiler.Parsing;
 using Superpower;
 using Superpower.Parsers;
-using GameCallFromSpan =
-    System.Func<DialogueDown.Common.SourceSpan, DialogueDown.Script.Ast.GameCall>;
 
 namespace DialogueDown.Script.Transpiler;
 
 /// <summary>
-/// Parses the inner text of a code span into a <see cref="GameCall"/>: a query, a
-/// default command, or a named command with arguments. Text that matches none of
-/// these is rejected with a <see cref="DialogueSyntaxError"/>.
+/// The grammar that recognizes the inner text of a code span as a game call and
+/// reports it as <see cref="GameCallData"/>: a query, a default command, or a named
+/// command with arguments. It only recognizes shape; a separate builder makes the
+/// AST node and reports text that is not a game call.
 /// </summary>
 internal static class GameCallParser
 {
@@ -22,46 +21,22 @@ internal static class GameCallParser
         from trailing in Character.WhiteSpace.Many()
         select comma;
 
-    private static readonly TextParser<GameCallFromSpan> _queryParser =
-        ParserPrimitives.QuotedString.Select(
-            key => (GameCallFromSpan)(span => new Query(key, span)));
+    private static readonly TextParser<GameCallData> _query =
+        ParserPrimitives.QuotedString.Select(key => (GameCallData)new QueryData(key));
 
-    private static readonly TextParser<GameCallFromSpan> _defaultCommandParser =
+    private static readonly TextParser<GameCallData> _defaultCommand =
         from action in ParserPrimitives.QuotedString.EnclosedInParentheses()
-        select (GameCallFromSpan)(span => new DefaultCommand(action, span));
+        select (GameCallData)new DefaultCommandData(action);
 
-    private static readonly TextParser<GameCallFromSpan> _customCommandParser =
+    private static readonly TextParser<GameCallData> _customCommand =
         from name in Identifier.CStyle
         from args in ParserPrimitives.QuotedString
             .ManyDelimitedBy(_argumentSeparator)
             .EnclosedInParentheses()
-        select (GameCallFromSpan)(span => new CustomCommand(name.ToStringValue(), args, span));
+        select (GameCallData)new CustomCommandData(name.ToStringValue(), args);
 
-    private static readonly TextParser<GameCallFromSpan> _grammar =
-        _queryParser.Try()
-            .Or(_defaultCommandParser.Try())
-            .Or(_customCommandParser)
-            .AtEnd();
-
-    public static GameCall Parse(string content, SourceSpan span)
-    {
-        try
-        {
-            return _grammar.Parse(content)(span);
-        }
-        catch (ParseException error)
-        {
-            // Keep Superpower's precise message as the inner exception while the
-            // author sees our own, friendlier explanation.
-            throw new DialogueSyntaxError(BuildMessage(content), span, error);
-        }
-    }
-
-    private static string BuildMessage(string content) =>
-        $"""
-        "{content}" is not a game call. Acceptable forms are:
-          - a query that reads a value: "key"
-          - a default command: ("do something")
-          - a named command: Name("arg", ...)
-        """;
+    public static IParser<GameCallData> Grammar { get; } = SuperpowerParser.Wrap(
+        _query.Try()
+            .Or(_defaultCommand.Try())
+            .Or(_customCommand));
 }

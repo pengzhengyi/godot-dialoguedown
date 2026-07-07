@@ -99,8 +99,9 @@ One concept, one name — used here, in code, and in tests.
 - [x] An **HTML renderer** emits an interactive, collapsible view with a detail
       panel: clicking a node (a generous hit area, not just the dot) shows its
       attributes and the source snippet it was produced from, with a rendered
-      Markdown preview. Arrow keys navigate; the panel is resizable. Assets load
-      from a CDN with a bundled copy for offline use.
+      Markdown preview. Arrow keys navigate; on-screen zoom controls (+/−, click
+      the ratio to reset) and a resizable panel round it out. Assets load from a
+      CDN with a bundled copy for offline use.
 - [x] A **semantic colour scheme**: each node carries a cross-stage category that
       the renderer maps to a colour, shown on nodes, a legend, and the panel.
 - [x] A **report** facade compiles a source string and assembles one **tab per

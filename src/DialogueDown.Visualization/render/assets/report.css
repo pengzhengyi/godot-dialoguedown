@@ -178,6 +178,41 @@ svg.tree {
   flex: none;
 }
 
+.zoom-controls {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  background: var(--pico-card-background-color);
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  font-size: 0.85rem;
+}
+
+.zoom-controls button {
+  width: auto;
+  margin: 0;
+  padding: 0.25rem 0.65rem;
+  color: var(--pico-color);
+  background: var(--pico-card-background-color);
+  border: none;
+  border-radius: 0;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.zoom-controls button:hover {
+  background: var(--pico-muted-border-color);
+}
+
+.zoom-controls .zoom-ratio {
+  min-width: 3.6rem;
+  border-inline: 1px solid var(--pico-muted-border-color);
+  font-variant-numeric: tabular-nums;
+}
+
 .dot {
   display: inline-block;
   width: 0.7rem;

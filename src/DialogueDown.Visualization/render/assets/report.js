@@ -42,6 +42,9 @@
   };
   var DEFAULT_COLOR = "#94a3b8";
 
+  // Factor each zoom-in/out button press multiplies (or divides) the scale by.
+  var ZOOM_STEP = 1.3;
+
   /** The colour for a category, falling back to a neutral colour for unknowns. */
   function colorOf(category) {
     return (category && CATEGORY_COLORS[category]) || DEFAULT_COLOR;
@@ -214,13 +217,24 @@
     var gReferences = viewport.append("g");
     var gNodes = viewport.append("g");
 
+    var ratioLabel = null; // the middle button; assigned when controls are built
+
     var zoom = d3
       .zoom()
       .scaleExtent([0.1, 3])
+      // Use the container size as the zoom extent. This also avoids d3's default,
+      // which reads the SVG's intrinsic width/height and centres zoom correctly.
+      .extent(function () {
+        var size = viewportSize();
+        return [[0, 0], [size.width, size.height]];
+      })
       .on("zoom", function (event) {
         viewport.attr("transform", event.transform);
+        updateRatio(event.transform.k);
       });
     svg.call(zoom);
+
+    var controls = buildZoomControls();
 
     var layout = d3.tree().nodeSize([46, 220]);
     var diagonal = d3
@@ -238,6 +252,7 @@
     return {
       svg: svg.node(),
       legend: buildLegend(stage),
+      controls: controls,
       handleKey: handleKey,
       clearSelection: function () {
         selected = null;
@@ -474,25 +489,35 @@
     /** Fit the whole tree into the viewport on first render. */
     function fitToViewport() {
       requestAnimationFrame(function () {
-        // Never let an environment quirk (an SVG engine without getBBox or zoom
-        // support) break an otherwise-good tree — auto-fit is only a nicety.
-        try {
-          var bounds = viewport.node().getBBox();
-          if (!bounds.width || !bounds.height) {
-            return;
-          }
-          var size = viewportSize();
-          var scale = Math.min(
-            1,
-            0.9 / Math.max(bounds.width / size.width, bounds.height / size.height)
-          );
-          var tx = size.width / 2 - scale * (bounds.x + bounds.width / 2);
-          var ty = size.height / 2 - scale * (bounds.y + bounds.height / 2);
-          svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
-        } catch (err) {
-          /* leave the tree at its default position */
-        }
+        applyFit();
       });
+    }
+
+    /** Reset the view to the fitted default (used by the zoom-reset button). */
+    function resetView() {
+      applyFit();
+    }
+
+    /** Compute and apply the fit-to-viewport transform. */
+    function applyFit() {
+      // Never let an environment quirk (an SVG engine without getBBox or zoom
+      // support) break an otherwise-good tree — auto-fit is only a nicety.
+      try {
+        var bounds = viewport.node().getBBox();
+        if (!bounds.width || !bounds.height) {
+          return;
+        }
+        var size = viewportSize();
+        var scale = Math.min(
+          1,
+          0.9 / Math.max(bounds.width / size.width, bounds.height / size.height)
+        );
+        var tx = size.width / 2 - scale * (bounds.x + bounds.width / 2);
+        var ty = size.height / 2 - scale * (bounds.y + bounds.height / 2);
+        svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+      } catch (err) {
+        /* leave the tree at its default position */
+      }
     }
 
     /** Pan (keeping the current zoom) so a node sits at the viewport centre. */
@@ -502,10 +527,7 @@
         var transform = d3.zoomTransform(svg.node());
         var tx = size.width / 2 - node.y * transform.k;
         var ty = size.height / 2 - node.x * transform.k;
-        svg
-          .transition()
-          .duration(200)
-          .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(transform.k));
+        svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(transform.k));
       } catch (err) {
         /* centring is optional */
       }
@@ -517,6 +539,53 @@
         width: (parent && parent.clientWidth) || 800,
         height: (parent && parent.clientHeight) || 600,
       };
+    }
+
+    /* --- zoom controls --- */
+
+    /** Multiply the current zoom by a factor, around the viewport centre. */
+    function zoomBy(factor) {
+      svg.call(zoom.scaleBy, factor);
+    }
+
+    /** Reflect the current scale in the middle button (0.85 -> "85%"). */
+    function updateRatio(scale) {
+      if (ratioLabel) {
+        ratioLabel.textContent = Math.round(scale * 100) + "%";
+      }
+    }
+
+    /** Build the "− [ratio] +" zoom widget wired to this view's zoom. */
+    function buildZoomControls() {
+      var container = document.createElement("div");
+      container.className = "zoom-controls";
+
+      container.appendChild(
+        controlButton("−", "Zoom out", function () {
+          zoomBy(1 / ZOOM_STEP);
+        })
+      );
+
+      ratioLabel = controlButton("100%", "Reset zoom to fit", resetView);
+      ratioLabel.classList.add("zoom-ratio");
+      container.appendChild(ratioLabel);
+
+      container.appendChild(
+        controlButton("+", "Zoom in", function () {
+          zoomBy(ZOOM_STEP);
+        })
+      );
+      return container;
+    }
+
+    function controlButton(text, ariaLabel, onClick) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = text;
+      button.title = ariaLabel;
+      button.setAttribute("aria-label", ariaLabel);
+      button.addEventListener("click", onClick);
+      return button;
     }
   }
 
@@ -574,6 +643,7 @@
         var view = createTreeView(stage, panel.show);
         section.appendChild(view.svg);
         section.appendChild(view.legend);
+        section.appendChild(view.controls);
         views.push(view);
       } catch (err) {
         section.classList.add("error");

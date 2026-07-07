@@ -10,6 +10,7 @@
     },
     {
       "label": "build",
+      "detail": ".NET: build the solution (Release).",
       "type": "shell",
       "command": "dotnet build DialogueDown.sln --configuration Release --no-restore",
       "group": {
@@ -21,6 +22,7 @@
     },
     {
       "label": "test",
+      "detail": ".NET: run the test suite.",
       "type": "shell",
       "command": "dotnet test DialogueDown.sln --configuration Release --no-build",
       "group": {
@@ -32,10 +34,71 @@
     },
     {
       "label": "coverage",
+      "detail": ".NET: run tests with coverage and generate a report.",
       "type": "shell",
       "command": "dotnet tool restore && dotnet test DialogueDown.sln --settings coverage.runsettings --collect:\"XPlat Code Coverage\" && dotnet reportgenerator \"-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml\" \"-targetdir:coverage-report\" \"-reporttypes:Html;MarkdownSummary;Cobertura\"",
       "group": "test",
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "web: install",
+      "detail": "Frontend: install pinned dependencies (npm ci).",
+      "type": "shell",
+      "command": "npm ci",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "web: build",
+      "detail": "Frontend: build the single-file report (dist/report.html).",
+      "type": "shell",
+      "command": "npm run build",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "web: check",
+      "detail": "Frontend: typecheck, lint, style, format, and unit tests (Vitest).",
+      "type": "shell",
+      "command": "npm run check",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "group": "test",
+      "problemMatcher": ["$tsc", "$eslint-stylish"]
+    },
+    {
+      "label": "web: e2e",
+      "detail": "Frontend: Playwright end-to-end + accessibility tests (builds first).",
+      "type": "shell",
+      "command": "npm run e2e",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "dependsOn": "web: build",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "build: all",
+      "detail": "Build both the .NET solution and the web report.",
+      "dependsOn": ["build", "web: build"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "verify: all",
+      "detail": "Run every check: .NET tests, web check, and web e2e.",
+      "dependsOn": ["test", "web: check", "web: e2e"],
+      "dependsOrder": "sequence",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "clean",
+      "detail": "Remove build/test artifacts (keeps node_modules and the committed report).",
+      "type": "shell",
+      "command": "dotnet clean DialogueDown.sln --nologo && rm -rf coverage-report TestResults src/DialogueDown.Visualization/web/playwright-report src/DialogueDown.Visualization/web/test-results src/DialogueDown.Visualization/web/coverage src/DialogueDown.Visualization/web/.vite",
+      "group": "build",
+      "problemMatcher": []
     },
     {
       "label": "docs: lint oss markdown",

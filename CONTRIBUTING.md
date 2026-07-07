@@ -72,6 +72,13 @@ If you change anything under `web/src`, **rebuild and commit
 `web/dist/report.html`** — CI fails if the committed report is out of sync with its
 sources.
 
+### Editor tasks (VS Code)
+
+Common tasks are wired up in `.vscode/tasks.json` (**Terminal → Run Task**), so
+you can build, test, and clean without memorising commands: `build` / `test`
+(.NET), `web: build` / `web: check` / `web: e2e` (frontend), `build: all` and
+`verify: all` (both stacks), and `clean` (remove build/test artifacts).
+
 ## Commit style
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):

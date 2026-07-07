@@ -1,10 +1,10 @@
 # Compilation Visualization
 
 > [!NOTE]
-> **Proposed design — not yet implemented.** This note defines a diagnostic
-> visualization component that renders each compiler stage's intermediate
-> representation as a human-readable tree or graph. It is developed in parallel
-> with the main compiler work and syncs from `main` as new stages land.
+> Status: **implemented**. This note defines a diagnostic visualization component
+> that renders each compiler stage's intermediate representation as a
+> human-readable tree or graph. It is developed in parallel with the main compiler
+> work and syncs from `main` as new stages land.
 
 Full-process transparency is a goal of DialogueDown: a reader should be able to
 *see* what the compiler produced at each step. This component renders those
@@ -79,30 +79,30 @@ One concept, one name — used here, in code, and in tests.
 
 ## Functionality checklist
 
-- [ ] A unified `INodeProjection<TNode>` seam describes any IR node (label,
+- [x] A unified `INodeProjection<TNode>` seam describes any IR node (label,
       attributes, out-neighbours), with extension-method ergonomics
       (`ir.ToDisplayGraph()`).
-- [ ] A graph-aware **walk** builds a display graph from any IR root and its
+- [x] A graph-aware **walk** builds a display graph from any IR root and its
       projection, using a **visited set** so cycles terminate — a revisited node
       becomes a **reference edge** rather than infinite recursion.
-- [ ] A **Markdown AST** projection maps every node type (`MarkdownDocument`,
+- [x] A **Markdown AST** projection maps every node type (`MarkdownDocument`,
       `Heading`, `Paragraph`, `ListBlock`, `ListItem`, `TextInline`, `LinkInline`,
       `ImageInline`, `CodeSpanInline`, `EmphasisInline`, `LineBreak`) to a
       labelled display node with useful attributes (span, kind, target, etc.).
-- [ ] An **HTML renderer** emits an interactive, collapsible view with the JS
+- [x] An **HTML renderer** emits an interactive, collapsible view with the JS
       bundled for offline use.
-- [ ] A **report** facade compiles a source string and assembles one **tab per
+- [x] A **report** facade compiles a source string and assembles one **tab per
       stage** into a single self-contained HTML page.
-- [ ] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
+- [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
       the same display graph.
 - [ ] A **Dialogue AST** projection seam (planned; lands with the transpiler).
-- [ ] Handles empty input, deep nesting, cycles, and special characters safely
+- [x] Handles empty input, deep nesting, cycles, and special characters safely
       (escaping).
 
 ## Component plan
 
-The work is split into three components, each on its own dev branch and
-Design→Review→Implement→Crosscheck-style pass. This note is the shared design
+The work is split into three components, delivered in sequence as separate,
+atomic commits on the `feat/visualization` branch. This note is the shared design
 record; the components are sequenced by dependency:
 
 1. **Display model and walk** — `DisplayNode`, `DisplayEdge`, `DisplayGraph`, the
@@ -174,8 +174,9 @@ out-edges) for its IR family; the walk supplies the graph-aware mechanics.
 | `DisplayNode` | Immutable display node: `Id`, `Label`, `Attributes`. | built by the walk |
 | `DisplayEdge` | Directed edge with a `Kind` (child or reference). | built by the walk |
 | `DisplayGraph` | Titled diagram: `Title` + display nodes + display edges. A tree is the acyclic case. | produced by the walk |
-| `INodeProjection<TNode>` | The unified seam: `Describe(node)` and `Neighbours(node)` for one IR family. | `Walk` |
-| `Walk` | Generic graph-aware projection: `(root, projection) → DisplayGraph`, with cycle-safe visited tracking. | every projection |
+| `NodeDescription` | What a projection reports for one node: its `Label` and `Attributes`. | `INodeProjection`, walk |
+| `INodeProjection<TNode>` | The unified seam: `Title`, `Describe(node)`, and `Neighbours(node)` for one IR family. | `GraphWalk` |
+| `GraphWalk` | Generic graph-aware traversal: `Walk(root, projection) → DisplayGraph`, with cycle-safe visited tracking. | every projection |
 | `MarkdownAstProjection` | `INodeProjection` over `MarkdownDocument` and its node types; titled "Markdown AST". | `IMarkdownParser` |
 | `IDisplayRenderer` | Turns a `DisplayGraph` into one output format (string). | `DisplayGraph` |
 | `HtmlRenderer` / `MermaidRenderer` / `DotRenderer` | Concrete renderers per format. | `DisplayGraph` |
@@ -196,9 +197,10 @@ references the core via `ProjectReference`. Rendering concerns and any
 visualization dependencies stay out of the shipped core package.
 
 Because the AST types are `internal`, the core grants
-`InternalsVisibleTo("DialogueDown.Visualization")` — the same mechanism the test
-project already uses. This is the only change to the core, and it adds no runtime
-dependency.
+`InternalsVisibleTo` to both `DialogueDown.Visualization` and its test project
+`DialogueDown.Visualization.Tests` (which reads the internal AST to build test
+fixtures) — the same mechanism the core test project already uses. These grants
+are the only change to the core, and they add no runtime dependency.
 
 ### D2 — The visualization layer owns traversal via a unified projection
 
@@ -215,10 +217,13 @@ pure — traversal is not their responsibility, and the core is never modified.
 
 The display model is a **graph** (nodes + directed edges), not strictly a tree,
 because a later IR (the runtime dialogue graph) has cycles and shared nodes. The
-walk carries a **visited set** keyed by node identity: the first visit creates a
-display node; a revisit emits a **reference edge** back to it instead of recursing.
-This keeps traversal finite and the diagram readable for graphs, while a tree —
-which never revisits — falls out as the simple acyclic case with only child edges.
+walk carries a **visited set** keyed by **reference identity**: the first visit
+creates a display node; a revisit emits a **reference edge** back to it instead of
+recursing. Reference identity (not value equality) is essential — the AST nodes are
+records with value-based equality, so two distinct nodes that happen to hold equal
+content must still appear as separate nodes. This keeps traversal finite and the
+diagram readable for graphs, while a tree — which never revisits — falls out as the
+simple acyclic case with only child edges.
 
 ### D4 — One display model, pluggable renderers (Strategy)
 
@@ -237,7 +242,9 @@ interaction, so the .NET code never hand-rolls rendering.
 
 The **JavaScript is bundled** into the page, so the report works fully offline —
 one self-contained HTML file that opens in any browser without a network or a
-server.
+server. D3 v7 (pinned; ISC license) is vendored verbatim as an embedded asset with
+an attribution `NOTICE`; the stylesheet and client script are embedded the same
+way, so a report is a single file with no external references.
 
 ### D6 — Mermaid and DOT as fast-follow text formats
 
@@ -260,7 +267,8 @@ no server, and reads well for non-developers.
 | Deeply nested inlines (nested emphasis, nested lists) | The walk recurses; renderers must not assume shallow depth. |
 | Cyclic or shared-node graph IR (future runtime graph) | The visited set stops re-expansion; a revisited node becomes a **reference edge** to its first occurrence, so traversal terminates and the diagram stays finite. |
 | Special characters in labels (`<`, `>`, `&`, quotes, newlines) | Each renderer escapes for its format (HTML entities, Mermaid/DOT quoting) so output stays valid and safe. |
-| A stage that fails to compile | The report shows the stages that did compile and surfaces the error for the failing stage rather than aborting the whole page. |
+| A stage that fails to compile | Planned for when more than one stage exists: the report will show the stages that compiled and surface the error for the failing one. With today's single Markdown stage, a compile failure has nothing else to show, so it propagates as an exception. |
+| A stage that fails to render in the browser | The client guards each tab independently: a render error shows an inline message for that stage instead of blanking the whole page. |
 | A stage not present on `main` yet (Dialogue AST) | Its tab is simply absent until the stage exists; no dead UI. |
 
 Visualization is **read-only diagnostics**: it must never mutate the IR and should
@@ -282,8 +290,8 @@ error model.
   parser's external API is not public yet, so there is no CLI or public entry.
   When the parser exposes a public surface, a CLI or `dotnet run` sample can wrap
   the same `CompilationVisualizer` facade.
-- **README.** The project README gains a short "full-process transparency" section
-  linking here, integrated when the component ships.
+- **README.** The project README carries a short "full-process transparency"
+  section linking here, and lists the visualization project in its layout.
 
 ## Testability
 

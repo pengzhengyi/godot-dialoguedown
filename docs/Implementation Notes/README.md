@@ -28,6 +28,7 @@ that every component shares — starting with the error model.
 | --- | --- | --- |
 | [Markdown Front-End](./Markdown%20Front-End.md) | Source text → Markdown AST (Markdig adapter) | Implemented |
 | [Unmodeled Markdown Handling](./Unmodeled%20Markdown%20Handling.md) | How unmodeled Markdown nodes are ignored vs kept as raw text | Implemented |
+| [Compilation Visualization](./Compilation%20Visualization.md) | Compiler-stage IRs → interactive diagrams (Markdown AST today) | Implemented |
 | [Transpiler Design](./Transpiler%20Design.md) | Markdown AST → Dialogue AST | Draft |
 
 ## Error model

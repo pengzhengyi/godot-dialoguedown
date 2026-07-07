@@ -21,4 +21,13 @@
     <ProjectReference Include="..\DialogueDown\DialogueDown.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Client assets inlined into generated HTML reports so they work offline.
+         d3.v7.min.js is vendored verbatim (ISC); see render/assets/NOTICE.md. -->
+    <EmbeddedResource Include="render\assets\d3.v7.min.js" />
+    <EmbeddedResource Include="render\assets\report.css" />
+    <EmbeddedResource Include="render\assets\report.js" />
+    <EmbeddedResource Include="render\assets\report.html" />
+  </ItemGroup>
+
 </Project>

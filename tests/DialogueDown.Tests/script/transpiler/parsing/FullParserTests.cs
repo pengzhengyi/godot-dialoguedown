@@ -4,7 +4,7 @@ using DialogueDown.Tests.Support;
 
 namespace DialogueDown.Tests.Script.Transpiler.Parsing;
 
-public sealed class ParserTests
+public sealed class FullParserTests
 {
     [Fact]
     public void ParseAll_WholeInput_ReturnsTheValue() =>
@@ -72,7 +72,7 @@ public sealed class ParserTests
         Assert.Equal("leftover in abc def", error.Message);
     }
 
-    private class IdentifierParser : Parser<string>
+    private class IdentifierParser : FullParser<string>
     {
         public override ParseResult<string> Consume(ParseInput input) =>
             TestParsers.Identifier.Consume(input);
@@ -80,7 +80,7 @@ public sealed class ParserTests
         protected override string DescribeFailure(string text) => $"\"{text}\" is not valid here.";
     }
 
-    private class LabelledParser : Parser<string>
+    private class LabelledParser : FullParser<string>
     {
         public override ParseResult<string> Consume(ParseInput input) =>
             ParseResult<string>.Fail(new ParseError("nope"));
@@ -96,7 +96,7 @@ public sealed class ParserTests
             $"{text} -- {reason}";
     }
 
-    private sealed class CustomIncompleteParser : Parser<string>
+    private sealed class CustomIncompleteParser : FullParser<string>
     {
         // Matches only the leading "abc", leaving the rest unconsumed.
         public override ParseResult<string> Consume(ParseInput input) =>

@@ -176,14 +176,16 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                         | Collaborators                |
-| --------------------------------- | ---------------------------------------------------------------------- | ---------------------------- |
-| `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)`       | Markdown AST, `Script`       |
-| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                   | AST nodes, parsers           |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                       | `SourceSpan`                 |
-| `IParser<T>` / `Parser<T>`        | composable `Consume` core; entry-point `ParseAll` + errors (D12)       | `ParseInput`, `ParseResult`  |
-| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser` | `IParser<T>`                 |
-| game-call / tag / speaker parsers | leaf `Parser<T>`s for the code-facing grammars                         | `GameCall`, `Tag`, `Speaker` |
+| Type                               | Responsibility                                                         | Collaborators                |
+| ---------------------------------- | ---------------------------------------------------------------------- | ---------------------------- |
+| `IScriptTranspiler`                | public seam: `Script Transpile(MarkdownDocument, string source)`       | Markdown AST, `Script`       |
+| `MarkdownToScriptConverter`        | block-layer tree walk → Dialogue AST                                   | AST nodes, parsers           |
+| `ScriptNode`                       | base for every Dialogue AST node; carries `Span`                       | `SourceSpan`                 |
+| `IParser<T>`                       | composable, non-throwing `Consume` prefix core (D12)                   | `ParseInput`, `ParseResult`  |
+| `IFullParser<T>` / `FullParser<T>` | consumes a whole input via `ParseAll`, with author-facing errors       | `IParser<T>`                 |
+| `IPrefixParser<T>`                 | consumes a leading portion; `Fail` = no prefix, throws if malformed    | `ParseResult<T>`             |
+| composites + Superpower adapter    | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser` | `IParser<T>`                 |
+| game-call / tag / speaker parsers  | full parsers for code spans; a prefix parser for speakers              | `GameCall`, `Tag`, `Speaker` |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -405,22 +407,29 @@ parser also serves image alt text), and keeps source-span tracking in one place
 instead of each parser re-deriving it.
 
 The contract is split by responsibility. The **composable core** is a single
-method every leaf and composite implements:
+method every leaf and composite implements — it consumes a *prefix* and is
+non-throwing:
 
 ```csharp
 interface IParser<T> { ParseResult<T> Consume(ParseInput input); }
 ```
 
-The **entry point** adds whole-string parsing and author-facing errors, and only
-the outermost domain parsers extend it:
+Two **entry points** sit on top, matching how the converter uses a parser:
 
 ```csharp
-abstract class Parser<T> : IParser<T> { T ParseAll(ParseInput input); /* + messages */ }
+// consumes the WHOLE input; throws on failure or leftover (a code span's game call / tag)
+interface IFullParser<T> { T ParseAll(ParseInput input); }
+abstract class FullParser<T> : IParser<T>, IFullParser<T> { /* ParseAll + messages */ }
+
+// consumes a LEADING portion, leaving the rest (a line's speaker prefix)
+interface IPrefixParser<T> { ParseResult<T> ParsePrefix(ParseInput input); }
 ```
 
-Keeping `Consume` in an interface means composites never inherit entry-point
-concerns they don't need (no throwaway error-message hooks), while `ParseAll`'s
-messaging stays enforced on the parsers that actually surface errors.
+A full parser owns an entire span and reports rich errors; a prefix parser reads
+the head of a line and returns how much it consumed (`Fail` = "no such prefix"),
+throwing only when a prefix is *present but malformed*. Keeping `Consume` in an
+interface means composites never inherit entry-point concerns they don't need,
+while error messaging stays enforced on the parsers that surface it.
 
 - **`ParseInput(string Text, int Position)`** — the text to read and the
   absolute `Position` its first character occupies in the source. Parsing always

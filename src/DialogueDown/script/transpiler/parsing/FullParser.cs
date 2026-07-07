@@ -3,13 +3,13 @@ using DialogueDown.Common;
 namespace DialogueDown.Script.Transpiler.Parsing;
 
 /// <summary>
-/// The entry-point layer over <see cref="IParser{T}"/>: a parser meant to consume a
-/// whole string via <see cref="ParseAll"/>, reporting author-facing errors when the
-/// input is not a complete, valid value. Domain parsers extend this and describe
-/// their grammar through <see cref="DescribeFailure"/>; composites and leaves stay
-/// plain <see cref="IParser{T}"/>.
+/// The full-parse entry point over <see cref="IParser{T}"/>: consumes a whole string
+/// via <see cref="ParseAll"/>, reporting author-facing errors when the input is not a
+/// complete, valid value. Domain parsers that own an entire code span (a game call, a
+/// tag) extend this and describe their grammar through <see cref="DescribeFailure"/>;
+/// composites and leaves stay plain <see cref="IParser{T}"/>.
 /// </summary>
-internal abstract class Parser<T> : IParser<T>
+internal abstract class FullParser<T> : IParser<T>, IFullParser<T>
 {
     public abstract ParseResult<T> Consume(ParseInput input);
 

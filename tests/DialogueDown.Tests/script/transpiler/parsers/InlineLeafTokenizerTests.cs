@@ -1,110 +1,114 @@
 using DialogueDown.Script.Transpiler.Parsed;
 using DialogueDown.Script.Transpiler.Parsers;
+using DialogueDown.Script.Transpiler.Parsing;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.InlineLeafAssert;
 
 namespace DialogueDown.Tests.Script.Transpiler.Parsers;
 
 public sealed class InlineLeafTokenizerTests
 {
     [Fact]
-    public void Scan_PlainText_IsOneTextLeafSpanningItAll()
+    public void Tokenize_PlainText_IsOneTextLeafSpanningItAll()
     {
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("Hello there"), allowJumps: true);
+        var leaves = Tokenize("Hello there");
 
         var leaf = Assert.Single(leaves);
-        Assert.Equal("Hello there", Assert.IsType<TextLeaf>(leaf.Value).Content);
-        Assert.Equal(0, leaf.Range.Start);
-        Assert.Equal(11, leaf.Range.Length);
+        AssertTextLeaf(leaf, "Hello there");
+        AssertRange(leaf, start: 0, length: 11);
     }
 
     [Fact]
-    public void Scan_TextIsAnchoredAtTheInputPosition()
+    public void Tokenize_AnchorsRangesAtTheInputPosition()
     {
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("hi", position: 5), allowJumps: true);
+        var leaves = InlineLeafTokenizer.Tokenize(
+            ParseInputFactory.Input("hi", position: 5), allowJumps: true);
 
         Assert.Equal(5, Assert.Single(leaves).Range.Start);
     }
 
     [Fact]
-    public void Scan_JumpArrow_SplitsTextAroundAJumpLeaf()
+    public void Tokenize_JumpArrow_SplitsTextAroundAJumpLeaf()
     {
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("go => there"), allowJumps: true);
+        var leaves = Tokenize("go => there");
 
         Assert.Collection(
             leaves,
-            leaf => Assert.Equal("go ", Assert.IsType<TextLeaf>(leaf.Value).Content),
+            leaf => AssertTextLeaf(leaf, "go "),
             leaf =>
             {
-                Assert.IsType<JumpLeaf>(leaf.Value);
-                Assert.Equal(3, leaf.Range.Start);
-                Assert.Equal(2, leaf.Range.Length);
+                AssertJumpLeaf(leaf);
+                AssertRange(leaf, start: 3, length: 2);
             },
-            leaf => Assert.Equal(" there", Assert.IsType<TextLeaf>(leaf.Value).Content));
+            leaf => AssertTextLeaf(leaf, " there"));
     }
 
     [Fact]
-    public void Scan_WhenJumpsDisallowed_TheArrowStaysText()
+    public void Tokenize_WhenJumpsDisallowed_TheArrowStaysText()
     {
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("go => there"), allowJumps: false);
+        var leaves = InlineLeafTokenizer.Tokenize(
+            ParseInputFactory.Input("go => there"), allowJumps: false);
 
-        Assert.Equal("go => there", Assert.IsType<TextLeaf>(Assert.Single(leaves).Value).Content);
+        AssertTextLeaf(Assert.Single(leaves), "go => there");
     }
 
     [Fact]
-    public void Scan_StrayHashOrEquals_StaysText()
+    public void Tokenize_StrayHashOrEquals_StaysText()
     {
         // A '#' that starts no tag and an '=' that starts no jump are plain text.
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("a # b = c"), allowJumps: true);
+        var leaves = Tokenize("a # b = c");
 
-        Assert.Equal("a # b = c", Assert.IsType<TextLeaf>(Assert.Single(leaves).Value).Content);
+        AssertTextLeaf(Assert.Single(leaves), "a # b = c");
     }
 
     [Fact]
-    public void Scan_Tag_SplitsTextAroundATagLeaf()
+    public void Tokenize_Tag_SplitsTextAroundATagLeaf()
     {
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("mood #happy"), allowJumps: true);
+        var leaves = Tokenize("mood #happy");
 
         Assert.Collection(
             leaves,
-            leaf => Assert.Equal("mood ", Assert.IsType<TextLeaf>(leaf.Value).Content),
+            leaf => AssertTextLeaf(leaf, "mood "),
             leaf =>
             {
-                var tag = Assert.IsType<TagLeaf>(leaf.Value).Tag;
+                var tag = AssertTagLeaf(leaf);
                 Assert.Equal("happy", tag.Name);
                 Assert.False(tag.IsReserved);
-                Assert.Equal(5, leaf.Range.Start);
-                Assert.Equal(6, leaf.Range.Length);
+                AssertRange(leaf, start: 5, length: 6);
             });
     }
 
     [Fact]
-    public void Scan_ReservedAndGroupTags_AreRecognized()
+    public void Tokenize_ReservedAndGroupTags_AreRecognized()
     {
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("##npc #mood=happy"), allowJumps: false);
+        var leaves = Tokenize("##npc #mood=happy");
 
         Assert.Collection(
             leaves,
-            leaf => Assert.True(Assert.IsType<TagLeaf>(leaf.Value).Tag.IsReserved),
-            leaf => Assert.Equal(" ", Assert.IsType<TextLeaf>(leaf.Value).Content),
+            leaf => Assert.True(AssertTagLeaf(leaf).IsReserved),
+            leaf => AssertTextLeaf(leaf, " "),
             leaf =>
             {
-                var tag = Assert.IsType<TagLeaf>(leaf.Value).Tag;
+                var tag = AssertTagLeaf(leaf);
                 Assert.Equal("mood", tag.Name);
                 Assert.Equal("happy", tag.Value);
             });
     }
 
     [Fact]
-    public void Scan_TagsAndJumpsMix_InOneString()
+    public void Tokenize_TagsAndJumpsMix_InOneString()
     {
-        var leaves = InlineLeafTokenizer.Tokenize(ParseInputFactory.Input("see #here => go"), allowJumps: true);
+        var leaves = Tokenize("see #here => go");
 
         Assert.Collection(
             leaves,
-            leaf => Assert.Equal("see ", Assert.IsType<TextLeaf>(leaf.Value).Content),
-            leaf => Assert.Equal("here", Assert.IsType<TagLeaf>(leaf.Value).Tag.Name),
-            leaf => Assert.Equal(" ", Assert.IsType<TextLeaf>(leaf.Value).Content),
-            leaf => Assert.IsType<JumpLeaf>(leaf.Value),
-            leaf => Assert.Equal(" go", Assert.IsType<TextLeaf>(leaf.Value).Content));
+            leaf => AssertTextLeaf(leaf, "see "),
+            leaf => Assert.Equal("here", AssertTagLeaf(leaf).Name),
+            leaf => AssertTextLeaf(leaf, " "),
+            AssertJumpLeaf,
+            leaf => AssertTextLeaf(leaf, " go"));
     }
+
+    private static IReadOnlyList<Spanned<InlineLeaf>> Tokenize(string text) =>
+        InlineLeafTokenizer.Tokenize(ParseInputFactory.Input(text), allowJumps: true);
 }

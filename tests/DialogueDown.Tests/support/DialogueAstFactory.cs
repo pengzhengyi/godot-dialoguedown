@@ -16,6 +16,8 @@ internal static class DialogueAstFactory
 
     public static IReadOnlyList<Tag> Tags(params Tag[] tags) => tags;
 
+    public static Text Text(string content) => new(content, SourceSpanFactory.Span());
+
     public static SpeakerDeclaration SpeakerDeclaration(
         string name, string? id = null, params Tag[] tags) =>
         new(name, id, tags, SourceSpanFactory.Span());

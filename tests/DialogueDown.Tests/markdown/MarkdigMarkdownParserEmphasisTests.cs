@@ -92,7 +92,7 @@ public sealed class MarkdigMarkdownParserEmphasisTests : MarkdigMarkdownParserTe
             {
                 var link = Assert.IsType<LinkInline>(inline);
                 Assert.Equal("#x", link.Target);
-                Assert.Equal("here", link.Label);
+                AssertSingleText(link.Label, "here");
             });
     }
 

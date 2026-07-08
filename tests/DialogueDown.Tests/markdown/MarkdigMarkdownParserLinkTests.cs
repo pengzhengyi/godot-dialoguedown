@@ -14,19 +14,27 @@ public sealed class MarkdigMarkdownParserLinkTests : MarkdigMarkdownParserTestBa
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var link = AssertSingleInline<LinkInline>(paragraph.Inlines);
         Assert.Equal("#play-tennis", link.Target);
-        Assert.Equal("Play tennis", link.Label);
+        AssertSingleText(link.Label, "Play tennis");
     }
 
     [Fact]
-    public void Parse_LinkLabelWithEmphasisMarkers_FlattensToRawText()
+    public void Parse_LinkLabelWithEmphasis_PreservesStructure()
     {
-        // Emphasis is disabled, so markers in a label stay literal in the flattened text.
+        // A label is inline content, so its emphasis is kept as structure, not flattened.
         var document = Parser.Parse("[Play *tennis*](#x)");
 
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var link = AssertSingleInline<LinkInline>(paragraph.Inlines);
         Assert.Equal("#x", link.Target);
-        Assert.Equal("Play *tennis*", link.Label);
+        Assert.Collection(
+            link.Label,
+            inline => AssertText(inline, "Play "),
+            inline =>
+            {
+                var emphasis = Assert.IsType<EmphasisInline>(inline);
+                Assert.Equal(EmphasisKind.Italic, emphasis.Kind);
+                AssertSingleText(emphasis.Children, "tennis");
+            });
     }
 
     [Fact]
@@ -38,7 +46,7 @@ public sealed class MarkdigMarkdownParserLinkTests : MarkdigMarkdownParserTestBa
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var link = AssertSingleInline<LinkInline>(paragraph.Inlines);
         Assert.Empty(link.Target);
-        Assert.Equal("label", link.Label);
+        AssertSingleText(link.Label, "label");
     }
 
     [Fact]
@@ -55,15 +63,18 @@ public sealed class MarkdigMarkdownParserLinkTests : MarkdigMarkdownParserTestBa
     }
 
     [Fact]
-    public void Parse_LinkLabelWithCodeSpan_FlattensToRawText()
+    public void Parse_LinkLabelWithCodeSpan_PreservesStructure()
     {
-        // A formatted label (here a code span inside it) is flattened to raw text,
-        // not rejected; the label is never treated as dialogue structure.
+        // A code span inside a label is kept as a CodeSpanInline, not flattened to text.
         var document = Parser.Parse("[a `b` c](#x)");
 
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var link = AssertSingleInline<LinkInline>(paragraph.Inlines);
         Assert.Equal("#x", link.Target);
-        Assert.Equal("a `b` c", link.Label);
+        Assert.Collection(
+            link.Label,
+            inline => AssertText(inline, "a "),
+            inline => Assert.Equal("b", Assert.IsType<CodeSpanInline>(inline).Content),
+            inline => AssertText(inline, " c"));
     }
 }

@@ -178,27 +178,15 @@ internal sealed class MarkdigToMarkdownAstConverter
 
     private LinkInline ConvertLink(MarkdigLinkInline link) =>
         // A parsed inline link always has a URL (empty string when omitted), never null.
-        new(link.Url!, FlattenLabel(link), ConvertSpan(link.Span));
+        new(link.Url!, ConvertInlines(link), ConvertSpan(link.Span));
 
     private EmphasisInline ConvertEmphasis(MarkdigEmphasisInline emphasis) =>
         new(EmphasisKindFor(emphasis), ConvertInlines(emphasis), ConvertSpan(emphasis.Span));
 
     private ImageInline ConvertImage(MarkdigLinkInline image) =>
-        // Same shape as a link: the URL is the source and the bracket text is the alt.
-        new(image.Url!, FlattenLabel(image), ConvertSpan(image.Span));
-
-    private string FlattenLabel(MarkdigLinkInline link)
-    {
-        // Keep the label as its raw source text; inner formatting is not treated as
-        // dialogue structure.
-        var first = link.FirstChild;
-        if (first is null)
-        {
-            return string.Empty;
-        }
-
-        return Slice(new MarkdigSpan(first.Span.Start, link.LastChild!.Span.End));
-    }
+        // Same shape as a link: the URL is the source and the bracket content is the alt,
+        // kept as inline nodes so it can carry styling.
+        new(image.Url!, ConvertInlines(image), ConvertSpan(image.Span));
 
     private string Slice(MarkdigSpan span) => _source.Substring(span.Start, span.Length);
 }

@@ -105,13 +105,13 @@ Grouping headings into sections, splitting `Speaker: Speech`, and interpreting
 
 ## Interfaces and abstractions
 
-| Type | Kind | Responsibility | Collaborators |
-| --- | --- | --- | --- |
-| `IMarkdownParser` | `internal interface` | Port: `MarkdownDocument Parse(string source)`. The stable seam the rest of the compiler depends on. | consumed by the transpiler |
-| `MarkdigMarkdownParser` | `internal sealed class` | Adapter: configures a narrowed Markdig pipeline and converts Markdig's tree to our AST. | Markdig, `MarkdigToMarkdownAstConverter` |
-| `MarkdigToMarkdownAstConverter` | `internal sealed class` | Pure translation of Markdig nodes into our AST (no I/O). Holds the source per parse so unmodeled constructs flatten to raw text (D6). Isolated so it is unit-testable and the Markdig dependency is contained. | Markdig types → our AST |
-| `MarkdownDocument` + node types | `internal record` | Our minimal, immutable Markdown AST (see next section). | produced here, consumed downstream |
-| `SourceSpan` | `internal readonly record struct` | Start-offset + length range into the source for diagnostics. | every node |
+| Type                            | Kind                              | Responsibility                                                                                                                                                                                                 | Collaborators                            |
+| ------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `IMarkdownParser`               | `internal interface`              | Port: `MarkdownDocument Parse(string source)`. The stable seam the rest of the compiler depends on.                                                                                                            | consumed by the transpiler               |
+| `MarkdigMarkdownParser`         | `internal sealed class`           | Adapter: configures a narrowed Markdig pipeline and converts Markdig's tree to our AST.                                                                                                                        | Markdig, `MarkdigToMarkdownAstConverter` |
+| `MarkdigToMarkdownAstConverter` | `internal sealed class`           | Pure translation of Markdig nodes into our AST (no I/O). Holds the source per parse so unmodeled constructs flatten to raw text (D6). Isolated so it is unit-testable and the Markdig dependency is contained. | Markdig types → our AST                  |
+| `MarkdownDocument` + node types | `internal record`                 | Our minimal, immutable Markdown AST (see next section).                                                                                                                                                        | produced here, consumed downstream       |
+| `SourceSpan`                    | `internal readonly record struct` | Start-offset + length range into the source for diagnostics.                                                                                                                                                   | every node                               |
 
 All types are `internal`; tests reach them via `InternalsVisibleTo` (see
 [Testability](#testability)). The public surface of the library is unchanged by
@@ -172,9 +172,10 @@ Notes:
   below); recognized HTML comments are discarded (D5). A `LineBreak` records an
   in-paragraph break and its `IsHard` flag, with no speech meaning attached here
   (D7).
-- `LinkInline` keeps the **target** and its label as raw text; the label is not
-  a place we expect dialogue structure. `ImageInline` mirrors it — a **source**
-  plus raw alt text — so a presentation layer can render an image inline in a chat.
+- `LinkInline` keeps the **target** and its label as **inline nodes**, so a label
+  can carry styling and other inlines. `ImageInline` mirrors it — a **source**
+  plus an **inline alt** — so a presentation layer can render an image inline in a
+  chat.
 
 ## Key design decisions
 
@@ -330,23 +331,23 @@ content is an ordinary thematic break (handled per the policy — D8).
 
 ## Markdig to AST mapping
 
-| Markdig node | Our node | Notes |
-| --- | --- | --- |
-| `MarkdownDocument` | `MarkdownDocument` | root; map child blocks in order |
-| `HeadingBlock` | `Heading` | copy `Level`; map inline content |
-| `ParagraphBlock` | `Paragraph` | map inline content |
-| `ListBlock` | `ListBlock` | copy `IsOrdered`; map items |
-| `ListItemBlock` | `ListItem` | map child blocks (enables nesting) |
-| `LiteralInline` | `TextInline` | text with escapes resolved by Markdig |
-| `EmphasisInline` | `EmphasisInline` | `Kind` = `Italic`/`Bold`/`Strikethrough` from delimiter char + count; **recurse** children |
-| `LinkInline` (link) | `LinkInline` | keep `Url` as target; label sliced to its raw source text |
-| `LinkInline` (image) | `ImageInline` | `IsImage` is set; keep `Url` as source and the alt text sliced to its raw source |
-| `CodeInline` | `CodeSpanInline` | keep raw inner content; inner grammar parsed later |
-| `LineBreakInline` | `LineBreak` | keep the `IsHard` flag; no speech meaning here (D7) |
-| `HtmlInline`/`HtmlBlock` comment | *(discarded)* | recognized and dropped so it never enters speech (D5) |
-| `YamlFrontMatterBlock` | *(discarded)* | leading `---` metadata block, firmly dropped (D9) |
-| unmodeled **inline** (autolink, other HTML) | `TextInline` (raw source) | flatten via source span; never dropped |
-| unmodeled **block** (blockquote, thematic break, fenced code, other HTML) | `Paragraph` of one raw `TextInline` | flatten via source span; never dropped |
+| Markdig node                                                              | Our node                            | Notes                                                                                      |
+| ------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `MarkdownDocument`                                                        | `MarkdownDocument`                  | root; map child blocks in order                                                            |
+| `HeadingBlock`                                                            | `Heading`                           | copy `Level`; map inline content                                                           |
+| `ParagraphBlock`                                                          | `Paragraph`                         | map inline content                                                                         |
+| `ListBlock`                                                               | `ListBlock`                         | copy `IsOrdered`; map items                                                                |
+| `ListItemBlock`                                                           | `ListItem`                          | map child blocks (enables nesting)                                                         |
+| `LiteralInline`                                                           | `TextInline`                        | text with escapes resolved by Markdig                                                      |
+| `EmphasisInline`                                                          | `EmphasisInline`                    | `Kind` = `Italic`/`Bold`/`Strikethrough` from delimiter char + count; **recurse** children |
+| `LinkInline` (link)                                                       | `LinkInline`                        | keep `Url` as target; **recurse** the label into inline nodes                              |
+| `LinkInline` (image)                                                      | `ImageInline`                       | `IsImage` is set; keep `Url` as source and **recurse** the alt into inline nodes           |
+| `CodeInline`                                                              | `CodeSpanInline`                    | keep raw inner content; inner grammar parsed later                                         |
+| `LineBreakInline`                                                         | `LineBreak`                         | keep the `IsHard` flag; no speech meaning here (D7)                                        |
+| `HtmlInline`/`HtmlBlock` comment                                          | *(discarded)*                       | recognized and dropped so it never enters speech (D5)                                      |
+| `YamlFrontMatterBlock`                                                    | *(discarded)*                       | leading `---` metadata block, firmly dropped (D9)                                          |
+| unmodeled **inline** (autolink, other HTML)                               | `TextInline` (raw source)           | flatten via source span; never dropped                                                     |
+| unmodeled **block** (blockquote, thematic break, fenced code, other HTML) | `Paragraph` of one raw `TextInline` | flatten via source span; never dropped                                                     |
 
 Conversion is a straightforward recursive walk; unmodeled nodes flatten to their
 raw source slice (D6):
@@ -360,8 +361,8 @@ convertBlock(other)    -> Paragraph([TextInline(sourceSlice(span), span)])
 convertItem(item)      -> ListItem(item.children.map(convertBlock))
 convertInline(literal) -> TextInline(rawText, span)
 convertInline(emph)    -> EmphasisInline(kind, children.map(convertInline), span)
-convertInline(link)    -> LinkInline(target, sourceSlice(labelSpan), span)
-convertInline(image)   -> ImageInline(source, sourceSlice(altSpan), span)
+convertInline(link)    -> LinkInline(target, children.map(convertInline), span)
+convertInline(image)   -> ImageInline(source, children.map(convertInline), span)
 convertInline(code)    -> CodeSpanInline(content, span)
 convertInline(break)   -> LineBreak(isHard, span)
 convertInline(other)   -> TextInline(sourceSlice(span), span)
@@ -370,25 +371,25 @@ convertInline(comment) -> (discarded; excluded from surrounding text)
 
 ## Error and boundary cases
 
-| Input / situation | Intended behavior |
-| --- | --- |
-| Empty string | `MarkdownDocument` with zero blocks; never null, never throws. |
-| Whitespace-only | Empty document (Markdig produces no blocks). |
-| Ordinary prose (no Markdown) | One `Paragraph` of `TextInline`; no errors. |
-| `null` source | Throw `ArgumentNullException` at the port boundary (meaningful message). |
-| Mixed line endings (`\n`, `\r\n`) | Normalized by Markdig; spans still valid. |
-| Unterminated code span `` `foo `` | Follows CommonMark: treated as literal text. Not an error here. |
-| Deeply nested lists | Represented faithfully; no artificial depth limit at this layer. |
-| Emphasis `*italic*` / `**bold**` / `~~struck~~` | Modeled as `EmphasisInline` (Kind + parsed children); a literal `*` or `~` needs escaping (`\*`, `\~`) (D2). |
-| Escaped `\*` or intraword `keep_the_underscores` | Stays literal `TextInline` — no emphasis (standard CommonMark). |
-| Unbalanced or single tilde (`~x~`, `~~x~`) | Stays literal — only balanced `~~...~~` is strikethrough. |
-| `~~~...~~~` at line start | A tilde-fenced **code block** (like ```` ``` ````), not strikethrough — handled per the unmodeled-node policy (dropped by default). |
-| Image `![alt](src)` | Modeled as `ImageInline` (source + raw alt text), like a link; the transpiler decides inline rendering. |
-| Bracketed text that is not a link | Follows CommonMark link rules; a valid link becomes `LinkInline`. Downstream decides relevance. |
-| Task lists / other GFM (autolinks, sub/superscript) | These extensions are **not** enabled (D6); they remain literal text. |
-| Pipe tables (GFM) | Recognized via the pipe-table extension (D6), then handled per the unmodeled-node policy — dropped by default (D8). |
-| Leading `---`-fenced front matter | Recognized and discarded (D9); a `---` after content is a thematic break. |
-| Multiple lines in one paragraph | Each in-paragraph break becomes a `LineBreak` node carrying its `IsHard` flag. No speech meaning is assigned here; the transpiler maps hard→new speech, soft→space (D7). |
+| Input / situation                                   | Intended behavior                                                                                                                                                        |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Empty string                                        | `MarkdownDocument` with zero blocks; never null, never throws.                                                                                                           |
+| Whitespace-only                                     | Empty document (Markdig produces no blocks).                                                                                                                             |
+| Ordinary prose (no Markdown)                        | One `Paragraph` of `TextInline`; no errors.                                                                                                                              |
+| `null` source                                       | Throw `ArgumentNullException` at the port boundary (meaningful message).                                                                                                 |
+| Mixed line endings (`\n`, `\r\n`)                   | Normalized by Markdig; spans still valid.                                                                                                                                |
+| Unterminated code span `` `foo ``                   | Follows CommonMark: treated as literal text. Not an error here.                                                                                                          |
+| Deeply nested lists                                 | Represented faithfully; no artificial depth limit at this layer.                                                                                                         |
+| Emphasis `*italic*` / `**bold**` / `~~struck~~`     | Modeled as `EmphasisInline` (Kind + parsed children); a literal `*` or `~` needs escaping (`\*`, `\~`) (D2).                                                             |
+| Escaped `\*` or intraword `keep_the_underscores`    | Stays literal `TextInline` — no emphasis (standard CommonMark).                                                                                                          |
+| Unbalanced or single tilde (`~x~`, `~~x~`)          | Stays literal — only balanced `~~...~~` is strikethrough.                                                                                                                |
+| `~~~...~~~` at line start                           | A tilde-fenced **code block** (like ```` ``` ````), not strikethrough — handled per the unmodeled-node policy (dropped by default).                                      |
+| Image `![alt](src)`                                 | Modeled as `ImageInline` (source + inline alt), like a link; the transpiler decides inline rendering.                                                                    |
+| Bracketed text that is not a link                   | Follows CommonMark link rules; a valid link becomes `LinkInline`. Downstream decides relevance.                                                                          |
+| Task lists / other GFM (autolinks, sub/superscript) | These extensions are **not** enabled (D6); they remain literal text.                                                                                                     |
+| Pipe tables (GFM)                                   | Recognized via the pipe-table extension (D6), then handled per the unmodeled-node policy — dropped by default (D8).                                                      |
+| Leading `---`-fenced front matter                   | Recognized and discarded (D9); a `---` after content is a thematic break.                                                                                                |
+| Multiple lines in one paragraph                     | Each in-paragraph break becomes a `LineBreak` node carrying its `IsHard` flag. No speech meaning is assigned here; the transpiler maps hard→new speech, soft→space (D7). |
 
 This component raises **no DSL diagnostics** (no "unknown speaker", no "dangling
 jump") — those belong downstream. Its only thrown error is the null-argument
@@ -443,10 +444,10 @@ guard.
 - **Line-break preservation (D7):** map each in-paragraph break to a `LineBreak`
   node with a hard/soft `IsHard` flag; the transpiler decides speech boundaries
   (hard = new speech, soft = space, blank line = new paragraph/speech).
-- **Link label fidelity:** flatten a link's label to a single string. The DSL
-  never nests structure inside a jump label.
+- **Link label fidelity:** keep a link's label as **inline nodes**, so styling and
+  other inlines inside a label are preserved for the transpiler to re-tokenize.
 - **Images modeled, not flattened:** expose `![alt](src)` as an `ImageInline`
-  (source + raw alt), mirroring links, so the transpiler can render images inline
+  (source + inline alt), mirroring links, so the transpiler can render images inline
   in a chat.
 - **Markdig dependency:** adopt **Markdig** (BSD-2-Clause) as the backing parser.
 - **Unknown-node policy:** flatten unmodeled constructs to raw text (D6); do not

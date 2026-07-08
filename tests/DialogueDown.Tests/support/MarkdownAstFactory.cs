@@ -24,8 +24,11 @@ internal static class MarkdownAstFactory
     public static TextInline Text(string? text = null) =>
         new(text ?? Faker.Lorem.Sentence(), Span());
 
-    public static LinkInline Link(string? target = null, string? label = null) =>
-        new(target ?? $"#{Faker.Lorem.Slug()}", label ?? Faker.Lorem.Word(), Span());
+    public static LinkInline Link(string? target = null, params MarkdownInline[] label) =>
+        new(target ?? $"#{Faker.Lorem.Slug()}", label.Length == 0 ? [Text()] : label, Span());
+
+    public static ImageInline Image(string? source = null, params MarkdownInline[] alt) =>
+        new(source ?? $"{Faker.Lorem.Slug()}.png", alt.Length == 0 ? [Text()] : alt, Span());
 
     public static CodeSpanInline CodeSpan(string? content = null) =>
         new(content ?? Faker.Lorem.Word(), Span());

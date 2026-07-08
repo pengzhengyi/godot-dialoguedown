@@ -36,6 +36,25 @@ internal readonly record struct TextRange
     public int End => Start + Length;
 
     /// <summary>
+    /// Joins two contiguous ranges into one covering both — from <paramref name="left"/>'s
+    /// start to <paramref name="right"/>'s end. They must meet end-to-start
+    /// (<c>left.End == right.Start</c>) with no gap or overlap, so joining them cannot
+    /// silently swallow a gap; a non-contiguous pair throws. This makes the "adjacent"
+    /// assumption explicit wherever ranges are merged.
+    /// </summary>
+    public static TextRange operator +(TextRange left, TextRange right)
+    {
+        if (left.End != right.Start)
+        {
+            throw new ArgumentException(
+                $"Cannot join non-contiguous ranges [{left.Start}, {left.End}) and " +
+                $"[{right.Start}, {right.End}); they must meet end-to-start.");
+        }
+
+        return new TextRange(left.Start, left.Length + right.Length);
+    }
+
+    /// <summary>
     /// Converts this range to a strict <see cref="SourceSpan"/> for an AST node. An
     /// empty range throws, because a node always covers at least one character.
     /// </summary>

@@ -49,9 +49,10 @@ internal static class InlineLeafTokenizer
                 && merged.Count > 0
                 && merged[^1].Value is TextLeaf previous)
             {
-                var start = merged[^1].Range.Start;
-                var range = new TextRange(start, leaf.Range.End - start);
-                merged[^1] = new Spanned<InlineLeaf>(new TextLeaf(previous.Content + text.Content), range);
+                // The tokenizer emits contiguous ranges, so joining them is safe; the
+                // '+' operator enforces that contiguity.
+                var joined = merged[^1].Range + leaf.Range;
+                merged[^1] = new Spanned<InlineLeaf>(new TextLeaf(previous.Content + text.Content), joined);
             }
             else
             {

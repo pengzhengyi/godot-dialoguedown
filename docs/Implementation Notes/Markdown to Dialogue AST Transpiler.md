@@ -32,7 +32,7 @@
     - [D11 — Speaker: declaration vs reference](#d11--speaker-declaration-vs-reference)
     - [D12 — A uniform, span-aware parser abstraction](#d12--a-uniform-span-aware-parser-abstraction)
     - [D13 — Parsing yields data; a builder constructs the AST](#d13--parsing-yields-data-a-builder-constructs-the-ast)
-    - [D14 — Inline speech: one walk, a configurable element set, a leaf scanner](#d14--inline-speech-one-walk-a-configurable-element-set-a-leaf-scanner)
+    - [D14 — Inline speech: one walk, a configurable element set, a leaf tokenizer](#d14--inline-speech-one-walk-a-configurable-element-set-a-leaf-tokenizer)
   - [Leaf grammars](#leaf-grammars)
   - [Transpiling in pseudocode](#transpiling-in-pseudocode)
   - [Markdown AST to Dialogue AST mapping](#markdown-ast-to-dialogue-ast-mapping)
@@ -184,18 +184,18 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                                                                     | Collaborators                  |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                           | Markdown AST, `ScriptDocument` |
-| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                                                               | builders, parsers              |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                   | `SourceSpan`                   |
-| `Block`                           | base for a script/scene body item: `Line`, `Choices`, `Scene`                                                      | `ScriptNode`                   |
-| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                  | `ParseInput`, `ParseResult`    |
-| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                             | `IParser<T>`                   |
-| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                             | `…Data` records                |
-| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder` | `…Data`, AST nodes             |
-| `SpeechBuilder`                   | inline walk → Speech fragments, per an `InlineElements` set (D14)                                                  | leaf scanner, builders         |
-| `InlineElements`                  | fragment kinds allowed in a context: `All`, `StylingOnly` (D14)                                                    | `SpeechBuilder`, leaf scanner  |
+| Type                              | Responsibility                                                                                                     | Collaborators                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                           | Markdown AST, `ScriptDocument`  |
+| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                                                               | builders, parsers               |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                   | `SourceSpan`                    |
+| `Block`                           | base for a script/scene body item: `Line`, `Choices`, `Scene`                                                      | `ScriptNode`                    |
+| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                  | `ParseInput`, `ParseResult`     |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                             | `IParser<T>`                    |
+| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                             | `…Data` records                 |
+| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder` | `…Data`, AST nodes              |
+| `SpeechBuilder`                   | inline walk → Speech fragments, per an `InlineElements` set (D14)                                                  | leaf tokenizer, builders        |
+| `InlineElements`                  | fragment kinds allowed in a context: `All`, `StylingOnly` (D14)                                                    | `SpeechBuilder`, leaf tokenizer |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -523,7 +523,7 @@ IParser<SpeakerPrefixData> speakerPrefix =
 Speaker speaker = builder.BuildSpeaker(speakerPrefix, prefixSpan);
 ```
 
-### D14 — Inline speech: one walk, a configurable element set, a leaf scanner
+### D14 — Inline speech: one walk, a configurable element set, a leaf tokenizer
 
 Speech, emphasis children, and — now that the front-end keeps them as inline
 nodes — image alt and link labels are all the **same shape**: a `MarkdownInline`
@@ -545,22 +545,24 @@ is silent.)
 
 Parsing and building stay split (D13). The only genuine *parsing* left inside a
 line is (a) **re-tokenizing a `TextInline`'s string**, since Markdown treats
-`#tag` and `=>` as plain text, and (b) a **code span into a game call**. A **leaf
-scanner** owns (a): a consume-all parser **built dynamically from the allowed leaf
-elements** — `Repeated(Or(textRun, tag, jump)).ConsumeAll()` — dropping `jump`
-when the context forbids it. `GameCallParser` owns (b).
+`#tag` and `=>` as plain text, and (b) a **code span into a game call**. An
+**`InlineLeafTokenizer`** owns (a): a consume-all parser **built dynamically from
+the allowed leaf elements** — `Repeated(Or(text, tag, jump)).ConsumeAll()` —
+dropping `jump` when the context forbids it. It yields `InlineLeaf`s (`TextLeaf`,
+`TagLeaf`, `JumpLeaf`), the terminal inlines that hold no nested children.
+`GameCallParser` owns (b).
 
 The **`SpeechBuilder`** does the structural walk and construction: it maps each
-inline to a fragment, calls the leaf scanner for text and
+inline to a fragment, calls the tokenizer for text and
 `GameCallParser`/`GameCallBuilder` for a code span, **recurses** into emphasis,
 label, and alt with the context's element set, and stamps spans. It *builds* nodes
 and never re-parses the structure the front-end already parsed — so no parallel
 data mirror of the fragment tree is introduced.
 
 ```csharp
-// the leaf scanner is composed from the context's allowed leaf elements
-IParser<IReadOnlyList<LeafData>> scanner =
-    Repeated(Or(textRun, tag, jump /* omitted when the context forbids it */))
+// the leaf tokenizer is composed from the context's allowed leaf elements
+IParser<IReadOnlyList<Spanned<InlineLeaf>>> tokenizer =
+    Repeated(Or(text, tag, jump /* omitted when the context forbids it */))
         .ConsumeAll();
 
 // the builder walks the inline tree, delegating the real parsing and recursing
@@ -627,7 +629,7 @@ convertLine(inlines):
 buildSpeech(inlines, allowed):        # SpeechBuilder, gated by the element set
     speech = []
     for each inline in inlines:
-        Text      -> speech += leafScan(text, allowed)   # Text / Tag / Jump runs (D14)
+        Text      -> speech += tokenize(text, allowed)  # Text / Tag / Jump leaves (D14)
         Emphasis  -> speech += StyledText(style, buildSpeech(children, allowed))
         Image     -> speech += Image(source, buildSpeech(alt, StylingOnly))
         Link      -> speech += Link(target, buildSpeech(label, StylingOnly))

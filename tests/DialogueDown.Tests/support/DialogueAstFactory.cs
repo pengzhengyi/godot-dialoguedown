@@ -18,6 +18,15 @@ internal static class DialogueAstFactory
 
     public static Text Text(string content) => new(content, SourceSpanFactory.Span());
 
+    public static Line Line(params SpeechFragment[] speech) =>
+        new(null, speech, SourceSpanFactory.Span());
+
+    public static Choice Choice(params Block[] body) =>
+        new(body, SourceSpanFactory.Span());
+
+    public static Scene Scene(params Block[] body) =>
+        new([Text("Scene")], 1, body, SourceSpanFactory.Span());
+
     public static SpeakerDeclaration SpeakerDeclaration(
         string name, string? id = null, params Tag[] tags) =>
         new(name, id, tags, SourceSpanFactory.Span());

@@ -88,33 +88,33 @@ The Dialogue AST speaks three small, coherent sub-vocabularies. Every type, test
 and doc uses **exactly** these words. The whole tree is the **Dialogue AST**; its
 root node type is **Script**.
 
-| Term                     | Meaning                                                 | Bounded context     |
-| ------------------------ | ------------------------------------------------------- | ------------------- |
-| **Script**               | the whole compiled file (the AST root)                  | theatre             |
-| **Scene**                | a section of the script; a Jump's destination           | theatre             |
-| **Line**                 | one utterance: an optional **Speaker** plus **Speech**  | theatre             |
-| **Speaker**              | who speaks (abstract; unresolved — see below)           | theatre             |
-| **SpeakerDeclaration**   | a prefix that binds metadata: name + optional id + tags | theatre             |
-| **SpeakerReference**     | a prefix that only points at a speaker (abstract)       | theatre             |
-| **SpeakerNameReference** | points at a speaker by bare name                        | theatre             |
-| **SpeakerIdReference**   | points at a speaker by bare `@id`                       | theatre             |
-| **Speech**               | the words of a Line: an ordered list of fragments       | theatre             |
-| **SpeechFragment**       | one piece of Speech (see below)                         | theatre             |
-| **Text**                 | a plain-words fragment                                  | theatre             |
-| **StyledText**           | italic / bold / strikethrough (nests fragments)         | theatre             |
-| **Image**                | an inline image fragment                                | theatre             |
-| **LineBreak**            | a **soft** break kept as a display-wrap hint            | theatre             |
-| **Choices**              | the group of options offered at a branch                | interactive fiction |
-| **Choice**               | one selectable option                                   | interactive fiction |
-| **JumpIndicator**        | the `=>` token that marks a jump                        | interactive fiction |
-| **Link**                 | a Markdown link: label + **unresolved** target          | interactive fiction |
-| **GameCall**             | a game-state hook; a kind of SpeechFragment             | engine              |
-| **Query**                | a GameCall that *reads* state and inserts text          | engine              |
-| **DefaultCommand**       | a `( "…" )` command                                     | engine              |
-| **CustomCommand**        | a `Name(args)` command                                  | engine              |
-| **Tag**                  | metadata attached to content (abstract; see below)      | metadata            |
-| **CustomTag**            | a project-defined tag; open, opaque metadata            | metadata            |
-| **ReservedTag**          | a built-in tag owned by DialogueDown (a known set)      | metadata            |
+| Term                     | Meaning                                                       | Bounded context     |
+| ------------------------ | ------------------------------------------------------------- | ------------------- |
+| **Script**               | the whole compiled file (the AST root)                        | theatre             |
+| **Scene**                | a section of the script; a Jump's destination                 | theatre             |
+| **Line**                 | one utterance: an optional **Speaker** plus **Speech**        | theatre             |
+| **Speaker**              | who speaks (abstract; unresolved — see below)                 | theatre             |
+| **SpeakerDeclaration**   | a prefix that binds metadata: name + optional id + tags       | theatre             |
+| **SpeakerReference**     | a prefix that only points at a speaker (abstract)             | theatre             |
+| **SpeakerNameReference** | points at a speaker by bare name                              | theatre             |
+| **SpeakerIdReference**   | points at a speaker by bare `@id`                             | theatre             |
+| **Speech**               | the words of a Line: an ordered list of fragments             | theatre             |
+| **SpeechFragment**       | one piece of Speech (see below)                               | theatre             |
+| **Text**                 | a plain-words fragment                                        | theatre             |
+| **StyledText**           | italic / bold / strikethrough (nests fragments)               | theatre             |
+| **Image**                | an inline image; its **alt is a fragment sequence**           | theatre             |
+| **LineBreak**            | a **soft** break kept as a display-wrap hint                  | theatre             |
+| **Choices**              | the group of options offered at a branch                      | interactive fiction |
+| **Choice**               | one selectable option                                         | interactive fiction |
+| **JumpIndicator**        | the `=>` token that marks a jump                              | interactive fiction |
+| **Link**                 | a Markdown link: a **fragment label** + **unresolved** target | interactive fiction |
+| **GameCall**             | a game-state hook; a kind of SpeechFragment                   | engine              |
+| **Query**                | a GameCall that *reads* state and inserts text                | engine              |
+| **DefaultCommand**       | a `( "…" )` command                                           | engine              |
+| **CustomCommand**        | a `Name(args)` command                                        | engine              |
+| **Tag**                  | metadata attached to content (abstract; see below)            | metadata            |
+| **CustomTag**            | a project-defined tag; open, opaque metadata                  | metadata            |
+| **ReservedTag**          | a built-in tag owned by DialogueDown (a known set)            | metadata            |
 
 **Downstream terms.** A **Jump** (composed from `JumpIndicator + Link`) is a
 **Desugar** concept, not produced here. A **default speaker** is likewise filled
@@ -237,6 +237,8 @@ classDiagram
     Scene o-- Scene : nested
     Line o-- Speaker : optional
     Line o-- SpeechFragment : speech
+    Image o-- SpeechFragment : alt
+    Link o-- SpeechFragment : label
     Choices o-- Choice
     Choice o-- Line
     Choice o-- Choices : nested
@@ -265,6 +267,11 @@ front-end's AST. `StyledText` is itself a `SpeechFragment` and **nests
 `SpeechFragment` children** (so a bold run can itself contain, say, a query). It
 holds a `SpeechStyle` (Italic / Bold / Strikethrough) — a Dialogue-side enum,
 **not** the Markdown `EmphasisKind`, to keep the AST Markdown-agnostic (D1).
+
+`Image` and `Link` likewise hold a **fragment sequence** for their alt/label, not
+a raw string: a label is inline content, so it can carry `Text` and `Tag`s just
+like speech does (D9). The target of a `Link` and the source of an `Image` stay
+plain, unresolved strings.
 
 ## Key design decisions
 
@@ -343,8 +350,8 @@ is a Desugar concern.
 ### D8 — Jump tokenized as JumpIndicator + Link
 
 A jump is written `=> [label](target)`. Per D2 the transpiler does **not** compose
-it: it emits a **`JumpIndicator`** for `=>` and a **`Link`** (label + unresolved
-target) for the Markdown link, as adjacent fragments. **Desugar** later recognizes
+it: it emits a **`JumpIndicator`** for `=>` and a **`Link`** (a fragment-sequence
+label + unresolved target) for the Markdown link, as adjacent fragments. **Desugar** later recognizes
 the `JumpIndicator + Link` pattern and assembles the composed `Jump`. Keeping the
 two as separate tokens honors the re-tokenizing boundary and lets `Link` also
 model an ordinary inline link. A **bare `Link`** (with no preceding `=>`) is kept
@@ -558,34 +565,35 @@ convertLine(inlines):
     for each inline in rest:
         Text        -> speech += Text(...)
         Emphasis    -> speech += StyledText(style, convert(children))
-        Image       -> speech += Image(..., tags = TagParser.parse(alt))
+        Image       -> speech += Image(source, alt = convert(altInlines))
         SoftBreak   -> speech += LineBreak()          # hard breaks already split
         CodeSpan    -> speech += GameCallParser.parse(content)   # Query/Command
         "=>"  text  -> speech += JumpIndicator()
-        Link        -> speech += Link(label, target) # label may carry Tags
+        Link        -> speech += Link(target, label = convert(labelInlines))
+        "#…" text   -> speech += TagParser.parse(...)
         "#…" text   -> speech += TagParser.parse(...)
     return Line(speaker, speech)
 ```
 
 ## Markdown AST to Dialogue AST mapping
 
-| Markdown AST            | Dialogue AST                                 | Notes                            |
-| ----------------------- | -------------------------------------------- | -------------------------------- |
-| `MarkdownDocument`      | `Script`                                     | root                             |
-| `Heading`               | `Scene`                                      | nests by level (D5)              |
-| `Paragraph`             | one or more `Line`                           | split at hard breaks (D4/D7)     |
-| leading text of a Line  | `SpeakerDeclaration` / `SpeakerReference`    | try-parse prefix (D3, D11)       |
-| `TextInline`            | `Text`                                       | plain words                      |
-| `EmphasisInline`        | `StyledText`                                 | style + nested fragments         |
-| `ImageInline`           | `Image`                                      | alt text may carry tags (D9)     |
-| `LineBreak` (soft)      | `LineBreak`                                  | kept as display hint (D4)        |
-| `LineBreak` (hard)      | —                                            | consumed as a Line boundary (D4) |
-| `CodeSpanInline`        | `Query` / `DefaultCommand` / `CustomCommand` | via `GameCallParser` (D7)        |
-| `TextInline` `=>`       | `JumpIndicator`                              | jump assembled in Desugar (D8)   |
-| `LinkInline`            | `Link`                                       | unresolved target (D8)           |
-| tag text (any position) | `Tag`                                        | via `TagParser` (D9)             |
-| `ListBlock`             | `Choices`                                    | `IsOrdered` kept (D6)            |
-| `ListItem`              | `Choice`                                     | keeps nested content             |
+| Markdown AST            | Dialogue AST                                 | Notes                                  |
+| ----------------------- | -------------------------------------------- | -------------------------------------- |
+| `MarkdownDocument`      | `Script`                                     | root                                   |
+| `Heading`               | `Scene`                                      | nests by level (D5)                    |
+| `Paragraph`             | one or more `Line`                           | split at hard breaks (D4/D7)           |
+| leading text of a Line  | `SpeakerDeclaration` / `SpeakerReference`    | try-parse prefix (D3, D11)             |
+| `TextInline`            | `Text`                                       | plain words                            |
+| `EmphasisInline`        | `StyledText`                                 | style + nested fragments               |
+| `ImageInline`           | `Image`                                      | alt is a fragment sequence (D9)        |
+| `LineBreak` (soft)      | `LineBreak`                                  | kept as display hint (D4)              |
+| `LineBreak` (hard)      | —                                            | consumed as a Line boundary (D4)       |
+| `CodeSpanInline`        | `Query` / `DefaultCommand` / `CustomCommand` | via `GameCallParser` (D7)              |
+| `TextInline` `=>`       | `JumpIndicator`                              | jump assembled in Desugar (D8)         |
+| `LinkInline`            | `Link`                                       | fragment label, unresolved target (D8) |
+| tag text (any position) | `Tag`                                        | via `TagParser` (D9)                   |
+| `ListBlock`             | `Choices`                                    | `IsOrdered` kept (D6)                  |
+| `ListItem`              | `Choice`                                     | keeps nested content                   |
 
 ## Error and boundary cases
 

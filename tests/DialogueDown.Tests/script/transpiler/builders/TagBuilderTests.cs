@@ -7,7 +7,7 @@ namespace DialogueDown.Tests.Script.Transpiler.Builders;
 
 public sealed class TagBuilderTests
 {
-    private static readonly TagBuilder _builder = new();
+    private static readonly TagBuilder _builder = TranspilerBuilderFactory.TagBuilder();
 
     [Fact]
     public void CustomData_BecomesACustomTag_WithTheGivenSpan()

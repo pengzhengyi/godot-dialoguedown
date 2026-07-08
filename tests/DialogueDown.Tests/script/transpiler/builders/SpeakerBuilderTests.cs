@@ -1,7 +1,6 @@
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Script.Transpiler.Errors;
-using DialogueDown.Script.Transpiler.Parsers;
 using DialogueDown.Script.Transpiler.Parsing;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
@@ -11,7 +10,8 @@ namespace DialogueDown.Tests.Script.Transpiler.Builders;
 
 public sealed class SpeakerBuilderTests
 {
-    private static readonly SpeakerBuilder _builder = new(SpeakerPrefixParser.Prefix, new TagBuilder());
+    private static readonly SpeakerBuilder _builder =
+        TranspilerBuilderFactory.SpeakerBuilder();
 
     [Fact]
     public void NameWithIdAndTags_IsADeclaration() =>

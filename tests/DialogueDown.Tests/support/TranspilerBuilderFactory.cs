@@ -1,0 +1,23 @@
+using DialogueDown.Script.Transpiler.Builders;
+using DialogueDown.Script.Transpiler.Parsers;
+
+namespace DialogueDown.Tests.Support;
+
+/// <summary>
+/// Builds transpiler builders for tests with their standard parser and builder
+/// dependencies wired in one place.
+/// </summary>
+internal static class TranspilerBuilderFactory
+{
+    public static TagBuilder TagBuilder() => new();
+
+    public static GameCallBuilder GameCallBuilder() => new(GameCallParser.Grammar);
+
+    public static SpeakerBuilder SpeakerBuilder() =>
+        new(SpeakerPrefixParser.Prefix, TagBuilder());
+
+    public static InlineLeafBuilder InlineLeafBuilder() => new(TagBuilder());
+
+    public static InlineBuilder InlineBuilder() =>
+        new(InlineLeafBuilder(), GameCallBuilder());
+}

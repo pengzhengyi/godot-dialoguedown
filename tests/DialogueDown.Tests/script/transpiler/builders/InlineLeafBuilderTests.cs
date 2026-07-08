@@ -2,19 +2,21 @@ using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Script.Transpiler.Parsed;
 using DialogueDown.Script.Transpiler.Parsing;
+using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DialogueAstAssert;
 
 namespace DialogueDown.Tests.Script.Transpiler.Builders;
 
 public sealed class InlineLeafBuilderTests
 {
-    private static readonly InlineLeafBuilder _builder = new(new TagBuilder());
+    private static readonly InlineLeafBuilder _builder =
+        TranspilerBuilderFactory.InlineLeafBuilder();
 
     [Fact]
     public void Build_TextLeaf_BecomesTextWithTheRangeSpan()
     {
-        var text = AssertBuilds<Text>(new TextLeaf("hi"), new TextRange(2, 2));
+        var text = AssertText(AssertBuilds(new TextLeaf("hi"), new TextRange(2, 2)), "hi");
 
-        Assert.Equal("hi", text.Content);
         Assert.Equal(2, text.Span.Start);
         Assert.Equal(2, text.Span.Length);
     }
@@ -22,27 +24,22 @@ public sealed class InlineLeafBuilderTests
     [Fact]
     public void Build_TagLeaf_BecomesATagNode()
     {
-        var tag = AssertBuilds<CustomTag>(
-            new TagLeaf(new TagData(false, "happy", null)), new TextRange(0, 6));
-
-        Assert.Equal("happy", tag.Name);
+        AssertCustomTag(
+            AssertBuilds(new TagLeaf(new TagData(false, "happy", null)), new TextRange(0, 6)),
+            "happy");
     }
 
     [Fact]
     public void Build_JumpLeaf_BecomesAJumpIndicator() =>
-        AssertBuilds<JumpIndicator>(new JumpLeaf(), new TextRange(0, 2));
+        AssertJumpIndicator(AssertBuilds(new JumpLeaf(), new TextRange(0, 2)));
 
     [Fact]
     public void Build_UnknownLeaf_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
             () => _builder.Build(new Spanned<InlineLeaf>(new UnknownLeaf(), new TextRange(0, 1))));
 
-    private static TFragment AssertBuilds<TFragment>(
-        InlineLeaf leaf,
-        TextRange? range = null)
-        where TFragment : SpeechFragment =>
-        Assert.IsType<TFragment>(
-            _builder.Build(new Spanned<InlineLeaf>(leaf, range ?? new TextRange(0, 1))));
+    private static SpeechFragment AssertBuilds(InlineLeaf leaf, TextRange? range = null) =>
+        _builder.Build(new Spanned<InlineLeaf>(leaf, range ?? new TextRange(0, 1)));
 
     private sealed record UnknownLeaf : InlineLeaf;
 }

@@ -1,7 +1,7 @@
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
-using DialogueDown.Script.Transpiler.Parsers;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DialogueAstAssert;
 using Md = DialogueDown.Tests.Support.MarkdownAstFactory;
 using MdInline = DialogueDown.Markdown.MarkdownInline;
 
@@ -10,7 +10,7 @@ namespace DialogueDown.Tests.Script.Transpiler.Builders;
 public sealed class InlineBuilderTests
 {
     private static readonly InlineBuilder _builder =
-        new(new InlineLeafBuilder(new TagBuilder()), new GameCallBuilder(GameCallParser.Grammar));
+        TranspilerBuilderFactory.InlineBuilder();
 
     [Fact]
     public void Build_Text_IsTokenizedIntoTextAndTagFragments()
@@ -19,8 +19,8 @@ public sealed class InlineBuilderTests
 
         Assert.Collection(
             speech,
-            fragment => Assert.Equal("mood ", Assert.IsType<Text>(fragment).Content),
-            fragment => Assert.Equal("happy", Assert.IsType<CustomTag>(fragment).Name));
+            fragment => AssertText(fragment, "mood "),
+            fragment => AssertCustomTag(fragment, "happy"));
     }
 
     [Fact]
@@ -28,9 +28,8 @@ public sealed class InlineBuilderTests
     {
         var speech = Build(Md.Emphasis(DialogueDown.Markdown.EmphasisKind.Bold, Md.Text("very")));
 
-        var styled = Assert.IsType<StyledText>(Assert.Single(speech));
-        Assert.Equal(SpeechStyle.Bold, styled.Style);
-        Assert.Equal("very", Assert.IsType<Text>(Assert.Single(styled.Children)).Content);
+        var styled = AssertStyledText(Assert.Single(speech), SpeechStyle.Bold);
+        AssertText(Assert.Single(styled.Children), "very");
     }
 
     [Fact]
@@ -38,9 +37,8 @@ public sealed class InlineBuilderTests
     {
         var speech = Build(Md.Image("cat.png", Md.Text("a cat")));
 
-        var image = Assert.IsType<Image>(Assert.Single(speech));
-        Assert.Equal("cat.png", image.Source);
-        Assert.Equal("a cat", Assert.IsType<Text>(Assert.Single(image.Alt)).Content);
+        var image = AssertImage(Assert.Single(speech), "cat.png");
+        AssertText(Assert.Single(image.Alt), "a cat");
     }
 
     [Fact]
@@ -48,9 +46,8 @@ public sealed class InlineBuilderTests
     {
         var speech = Build(Md.Link("#scene", Md.Text("go there")));
 
-        var link = Assert.IsType<Link>(Assert.Single(speech));
-        Assert.Equal("#scene", link.Target);
-        Assert.Equal("go there", Assert.IsType<Text>(Assert.Single(link.Label)).Content);
+        var link = AssertLink(Assert.Single(speech), "#scene");
+        AssertText(Assert.Single(link.Label), "go there");
     }
 
     [Fact]
@@ -58,7 +55,7 @@ public sealed class InlineBuilderTests
     {
         var speech = Build(Md.CodeSpan("\"Alice.Mood\""));
 
-        Assert.Equal("Alice.Mood", Assert.IsType<Query>(Assert.Single(speech)).Key);
+        AssertQuery(Assert.Single(speech), "Alice.Mood");
     }
 
     [Fact]
@@ -66,7 +63,7 @@ public sealed class InlineBuilderTests
     {
         var speech = Build(Md.LineBreak(hard: false));
 
-        Assert.IsType<LineBreak>(Assert.Single(speech));
+        AssertLineBreak(Assert.Single(speech));
     }
 
     [Fact]
@@ -76,9 +73,9 @@ public sealed class InlineBuilderTests
 
         Assert.Collection(
             speech,
-            fragment => Assert.Equal("go ", Assert.IsType<Text>(fragment).Content),
-            fragment => Assert.IsType<JumpIndicator>(fragment),
-            fragment => Assert.Equal(" there", Assert.IsType<Text>(fragment).Content));
+            fragment => AssertText(fragment, "go "),
+            fragment => AssertJumpIndicator(fragment),
+            fragment => AssertText(fragment, " there"));
     }
 
     [Fact]
@@ -86,7 +83,7 @@ public sealed class InlineBuilderTests
     {
         var speech = _builder.Build([Md.Text("go => there")], InlineElements.StylingOnly);
 
-        Assert.Equal("go => there", Assert.IsType<Text>(Assert.Single(speech)).Content);
+        AssertText(Assert.Single(speech), "go => there");
     }
 
     [Fact]
@@ -105,7 +102,7 @@ public sealed class InlineBuilderTests
 
         var speech = _builder.Build([text], InlineElements.All);
 
-        Assert.Equal(4, Assert.IsType<Text>(Assert.Single(speech)).Span.Start);
+        Assert.Equal(4, AssertText(Assert.Single(speech), "hi").Span.Start);
     }
 
     [Fact(Skip = "TODO: escape span drift — a stripped backslash shifts a literal's sub-token "
@@ -118,7 +115,7 @@ public sealed class InlineBuilderTests
         var speech = _builder.Build([text], InlineElements.All);
 
         // After the fix the text should start past the stripped backslash, at 3, not 2.
-        Assert.Equal(3, Assert.IsType<Text>(Assert.Single(speech)).Span.Start);
+        Assert.Equal(3, AssertText(Assert.Single(speech), "* b").Span.Start);
     }
 
     [Fact]
@@ -132,8 +129,7 @@ public sealed class InlineBuilderTests
             () => Build(new UnknownInline(SourceSpanFactory.Span())));
 
     private static SpeechStyle StyleOf(DialogueDown.Markdown.EmphasisKind kind) =>
-        Assert.IsType<StyledText>(
-            Assert.Single(Build(Md.Emphasis(kind, Md.Text("x"))))).Style;
+        AssertStyledText(Assert.Single(Build(Md.Emphasis(kind, Md.Text("x"))))).Style;
 
     private static IReadOnlyList<SpeechFragment> Build(params MdInline[] inlines) =>
         _builder.Build(inlines, InlineElements.All);

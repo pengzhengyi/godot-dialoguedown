@@ -1,7 +1,10 @@
 # Implementation note: Markdown to Dialogue AST transpiler
 
-> [!NOTE]
-> Status: **proposed**.
+> [!IMPORTANT]
+> Status: **in progress**. Landed: the parser core/combinators, the tag, speaker,
+> and game-call parsers and builders (parse-to-data model, D13), and the full
+> Dialogue AST node set. Pending: the inline Speech walker, the block transpiler,
+> and the `IScriptTranspiler` seam.
 > Component 2 of the DialogueDown script compiler.
 
 ## Table of contents
@@ -86,11 +89,12 @@ filling the default speaker, and rewriting silent commands happen in **Desugar**
 
 The Dialogue AST speaks three small, coherent sub-vocabularies. Every type, test,
 and doc uses **exactly** these words. The whole tree is the **Dialogue AST**; its
-root node type is **Script**.
+root node type is **ScriptDocument**.
 
 | Term                     | Meaning                                                       | Bounded context     |
 | ------------------------ | ------------------------------------------------------------- | ------------------- |
-| **Script**               | the whole compiled file (the AST root)                        | theatre             |
+| **ScriptDocument**       | the whole compiled file (the AST root)                        | theatre             |
+| **Block**                | one piece of a script or scene body (Line, Choices, or Scene) | theatre             |
 | **Scene**                | a section of the script; a Jump's destination                 | theatre             |
 | **Line**                 | one utterance: an optional **Speaker** plus **Speech**        | theatre             |
 | **Speaker**              | who speaks (abstract; unresolved — see below)                 | theatre             |
@@ -120,7 +124,9 @@ root node type is **Script**.
 **Desugar** concept, not produced here. A **default speaker** is likewise filled
 in Desugar.
 
-**Naming guards.** The root is **Script**, never `Dialogue` — the runtime owns
+**Naming guards.** The root type is **ScriptDocument**, not `Script` — a bare
+`Script` type would clash with the `Script` namespace, so the root mirrors the
+front-end's `MarkdownDocument`. It is never named `Dialogue` — the runtime owns
 `IDialogue`. `INode` / `IEdge` are the *runtime graph*, never this AST.
 **Speaker** and **Speech** are the **unresolved, syntactic** forms that the
 semantic analyzer later consumes — the same domain words as `ISpeaker` / `ISpeech`,
@@ -132,7 +138,7 @@ This component has two cleanly separated layers, mirroring the pipeline's
 *Transpiler* and *Inline line parser* stages as internal seams:
 
 1. **Block transpiler** — walks the Markdown block tree and builds the Dialogue
-   AST skeleton: `Script`, `Scene` (nested by heading level), `Line` (split at
+   AST skeleton: `ScriptDocument`, `Scene` (nested by heading level), `Line` (split at
    hard breaks), `Choices` / `Choice`.
 2. **Inline mini-parsers** — for each Line, re-tokenize its inline content into
    a `Speech` of fragments. Small, pure, single-purpose parsers, each **built and
@@ -152,7 +158,7 @@ through narrow interfaces, so each can be swapped or tested alone.
 
 ## Functionality checklist
 
-- [ ] **Script** root wraps the document's top-level content.
+- [ ] **ScriptDocument** root wraps the document's top-level content.
 - [ ] **Scene** from a heading; owns the content beneath it; **nests by level**.
 - [ ] **Line** from a paragraph; a paragraph **splits into Lines at hard breaks**.
 - [ ] **Speaker split**: try-parse a `Name @id #tags:` prefix into a
@@ -177,15 +183,16 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                         | Collaborators               |
-| --------------------------------- | ---------------------------------------------------------------------- | --------------------------- |
-| `IScriptTranspiler`               | public seam: `Script Transpile(MarkdownDocument, string source)`       | Markdown AST, `Script`      |
-| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                   | builder, parsers            |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                       | `SourceSpan`                |
-| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)      | `ParseInput`, `ParseResult` |
-| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser` | `IParser<T>`                |
-| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                 | `…Data` records             |
-| `DialogueAstBuilder`              | parsed data → AST nodes; classifies, validates, raises errors (D13)    | `…Data`, AST nodes          |
+| Type                              | Responsibility                                                           | Collaborators                  |
+| --------------------------------- | ------------------------------------------------------------------------ | ------------------------------ |
+| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)` | Markdown AST, `ScriptDocument` |
+| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                     | builders, parsers              |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                         | `SourceSpan`                   |
+| `Block`                           | base for a script/scene body item: `Line`, `Choices`, `Scene`            | `ScriptNode`                   |
+| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)        | `ParseInput`, `ParseResult`    |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`   | `IParser<T>`                   |
+| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                   | `…Data` records                |
+| `DialogueAstBuilder`              | parsed data → AST nodes; classifies, validates, raises errors (D13)      | `…Data`, AST nodes             |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -195,7 +202,10 @@ contract (D12).
 
 ```mermaid
 classDiagram
-    class Script
+    class ScriptDocument
+    class Block {
+        <<abstract>>
+    }
     class Scene
     class Line
     class Speaker {
@@ -231,17 +241,17 @@ classDiagram
     class DefaultCommand
     class CustomCommand
 
-    Script o-- Scene
-    Scene o-- Line
-    Scene o-- Choices
-    Scene o-- Scene : nested
+    ScriptDocument o-- Block : body
+    Block <|-- Line
+    Block <|-- Choices
+    Block <|-- Scene
+    Scene o-- Block : body
     Line o-- Speaker : optional
     Line o-- SpeechFragment : speech
     Image o-- SpeechFragment : alt
     Link o-- SpeechFragment : label
     Choices o-- Choice
-    Choice o-- Line
-    Choice o-- Choices : nested
+    Choice o-- Block : body
     SpeakerDeclaration o-- Tag
     Speaker <|-- SpeakerDeclaration
     Speaker <|-- SpeakerReference
@@ -263,10 +273,14 @@ classDiagram
 ```
 
 Every node is an immutable `record` carrying a `SourceSpan`, mirroring the
-front-end's AST. `StyledText` is itself a `SpeechFragment` and **nests
-`SpeechFragment` children** (so a bold run can itself contain, say, a query). It
-holds a `SpeechStyle` (Italic / Bold / Strikethrough) — a Dialogue-side enum,
-**not** the Markdown `EmphasisKind`, to keep the AST Markdown-agnostic (D1).
+front-end's AST. A **`Block`** is any item of a script or scene body — a `Line`, a
+`Choices`, or a nested `Scene` — kept in source order, mirroring the front-end's
+`MarkdownBlock`. `StyledText` is itself a `SpeechFragment` and **nests
+`SpeechFragment` children** (so bold text can itself contain, say, a query); it
+always wraps at least one fragment, since the source degrades empty styling (like
+`****`) to plain text. It holds a `SpeechStyle` (Italic / Bold / Strikethrough) — a
+Dialogue-side enum, **not** the Markdown `EmphasisKind`, to keep the AST
+Markdown-agnostic (D1).
 
 `Image` and `Link` likewise hold a **fragment sequence** for their alt/label, not
 a raw string: a label is inline content, so it can carry `Text` and `Tag`s just
@@ -321,7 +335,7 @@ by kind (the front-end already flags each as hard or soft):
 A heading opens a `Scene`; the blocks after it, up to the next heading of the
 **same or higher** level, are its content. A **deeper** heading opens a **nested**
 `Scene`. This preserves the author's outline and lets a Jump target a heading at
-any level. Content before the first heading attaches to the `Script` root.
+any level. Content before the first heading attaches to the `ScriptDocument` root.
 
 Heading levels are read **relatively**, so irregular outlines are handled without
 error: a lower level later (an `H1` after an `H2`) closes the deeper scene and
@@ -549,9 +563,9 @@ TagName     = Identifier | String ;
 
 ```text
 transpile(markdownDocument, source):
-    return Script(scenes = buildScenes(markdownDocument.blocks))
+    return ScriptDocument(body = buildBody(markdownDocument.blocks))
 
-buildScenes(blocks):
+buildBody(blocks):
     # group blocks under headings; deeper heading → nested Scene (D5)
     for each block:
         Heading      -> open a Scene at its level
@@ -579,7 +593,7 @@ convertLine(inlines):
 
 | Markdown AST            | Dialogue AST                                 | Notes                                  |
 | ----------------------- | -------------------------------------------- | -------------------------------------- |
-| `MarkdownDocument`      | `Script`                                     | root                                   |
+| `MarkdownDocument`      | `ScriptDocument`                             | root                                   |
 | `Heading`               | `Scene`                                      | nests by level (D5)                    |
 | `Paragraph`             | one or more `Line`                           | split at hard breaks (D4/D7)           |
 | leading text of a Line  | `SpeakerDeclaration` / `SpeakerReference`    | try-parse prefix (D3, D11)             |
@@ -604,10 +618,11 @@ convertLine(inlines):
 | Code span that is neither query nor command                         | **`DialogueSyntaxError`** — "code spans are only for game calls…"                                                     |
 | Malformed tag (e.g. `#` with no name)                               | **`DialogueSyntaxError`** with the expected form                                                                      |
 | Literal `=>` intended as text                                       | authors write it in speech (`Alice: =>`); a bare `=>` is a `JumpIndicator`, and a dangling one is reported in Desugar |
-| Empty document                                                      | a `Script` with no scenes                                                                                             |
-| Content before the first heading                                    | attaches to the `Script` root                                                                                         |
+| Empty document                                                      | a `ScriptDocument` with an empty body                                                                                 |
+| Content before the first heading                                    | attaches to the `ScriptDocument` root                                                                                 |
 | Irregular heading order (an `H1` after an `H2`, or a skipped level) | handled without error by relative nesting (D5); a dedicated test covers `H2` then `H1`                                |
 | Deeply nested choices                                               | represented faithfully; no depth cap                                                                                  |
+| Empty emphasis (`****`)                                             | the source degrades it to plain text, so `StyledText` never has empty children                                        |
 | A node dropped by the front-end policy                              | never reaches the transpiler                                                                                          |
 
 ## Integration

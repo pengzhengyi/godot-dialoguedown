@@ -63,7 +63,8 @@ constructs with **local**, syntax-directed recognition.
 **Deferred downstream** — anything requiring composition across nodes or the
 whole document:
 
-- **Desugar** (next stage): assemble a **Jump** from `JumpIndicator + Link`; fill
+- **Desugar** (next stage): assemble a **Jump** from `JumpIndicator + Link`
+  (degrading a dangling `JumpIndicator` back to plain text); fill
   the **default speaker** on a Line with none; rewrite a lone **silent command**
   into a default-speaker Line.
 - **Semantic analysis** (later): resolve/validate jump targets, bind speaker ids,
@@ -367,13 +368,19 @@ is a Desugar concern.
 ### D8 — Jump tokenized as JumpIndicator + Link
 
 A jump is written `=> [label](target)`. Per D2 the transpiler does **not** compose
-it: it emits a **`JumpIndicator`** for `=>` and a **`Link`** (a fragment-sequence
-label + unresolved target) for the Markdown link, as adjacent fragments. **Desugar** later recognizes
-the `JumpIndicator + Link` pattern and assembles the composed `Jump`. Keeping the
-two as separate tokens honors the re-tokenizing boundary and lets `Link` also
-model an ordinary inline link. A **bare `Link`** (with no preceding `=>`) is kept
-as a meaningful inline link; whether it carries any special dialogue meaning is
-left to the semantic analyzer.
+it: it emits a **`JumpIndicator`** for every `=>` and a **`Link`** (a
+fragment-sequence label + unresolved target) for the Markdown link. Composing and
+validating the jump is a later stage's job — this keeps the transpiler a faithful
+tokenizer and lets `Link` also model an ordinary inline link.
+
+A later stage pairs the pattern `JumpIndicator` · *(optional whitespace)* · `Link`
+into a `Jump`. The whitespace an author writes between `=>` and the link is kept
+as plain text here and **folded into the `Jump`** during pairing — a boundary case
+handled downstream, not special-cased in the transpiler. A **dangling
+`JumpIndicator`** — a `=>` with no link after it — **degrades to plain text**, so a
+prose arrow like `the => arrow` reads literally with no escaping needed and the
+neighbouring text coalesces back around it. A **bare `Link`** (no preceding `=>`)
+stays a meaningful inline link, its dialogue meaning left to the semantic analyzer.
 
 ### D9 — Tags: a dedicated pluggable parser
 
@@ -661,20 +668,23 @@ buildSpeech(inlines, allowed):        # SpeechBuilder, gated by the element set
 
 ## Error and boundary cases
 
-| Case                                                                | Behavior                                                                                                              |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Text with no valid speaker prefix                                   | Line has **no speaker**; not an error (default filled in Desugar)                                                     |
-| Colon inside speech (`The time is 3:00`)                            | prefix parse fails → no speaker; colon stays in Speech                                                                |
-| Code span that is neither query nor command                         | **`DialogueSyntaxError`** — "code spans are only for game calls…"                                                     |
-| Malformed tag (e.g. `#` with no name)                               | **`DialogueSyntaxError`** with the expected form                                                                      |
-| Literal `=>` intended as text                                       | authors write it in speech (`Alice: =>`); a bare `=>` is a `JumpIndicator`, and a dangling one is reported in Desugar |
-| Empty document                                                      | a `ScriptDocument` with an empty body                                                                                 |
-| Content before the first heading                                    | attaches to the `ScriptDocument` root                                                                                 |
-| Irregular heading order (an `H1` after an `H2`, or a skipped level) | handled without error by relative nesting (D5); a dedicated test covers `H2` then `H1`                                |
-| Deeply nested choices                                               | represented faithfully; no depth cap                                                                                  |
-| Empty emphasis (`****`)                                             | the source degrades it to plain text, so `StyledText` never has empty children                                        |
-| A game call / nested link inside a label or alt                     | not allowed there (`StylingOnly`); flattened to its literal text, not an error (D14)                                  |
-| A node dropped by the front-end policy                              | never reaches the transpiler                                                                                          |
+| Case                                                                | Behavior                                                                                                                                                                              |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text with no valid speaker prefix                                   | Line has **no speaker**; not an error (default filled in Desugar)                                                                                                                     |
+| Colon inside speech (`The time is 3:00`)                            | prefix parse fails → no speaker; colon stays in Speech                                                                                                                                |
+| Code span that is neither query nor command                         | **`DialogueSyntaxError`** — "code spans are only for game calls…"                                                                                                                     |
+| Malformed tag (e.g. `#` with no name)                               | **`DialogueSyntaxError`** with the expected form                                                                                                                                      |
+| Prose `=>` not before a link (`the => arrow`)                       | emitted as a `JumpIndicator`; downstream degrades the dangling one back to plain text, so it reads literally (D8)                                                                     |
+| Whitespace between `=>` and its link                                | kept as plain text here; folded into the `Jump` when a later stage pairs `JumpIndicator` + `Link` (D8)                                                                                |
+| Literal `#word` in speech                                           | recognized as a `Tag` (D9); a literal `#word` is not yet expressible — planned: a `` `#` `` symbol-escape at desugar                                                                  |
+| Empty document                                                      | a `ScriptDocument` with an empty body                                                                                                                                                 |
+| Content before the first heading                                    | attaches to the `ScriptDocument` root                                                                                                                                                 |
+| Irregular heading order (an `H1` after an `H2`, or a skipped level) | handled without error by relative nesting (D5); a dedicated test covers `H2` then `H1`                                                                                                |
+| Deeply nested choices                                               | represented faithfully; no depth cap                                                                                                                                                  |
+| Empty emphasis (`****`)                                             | the source degrades it to plain text, so `StyledText` never has empty children                                                                                                        |
+| A game call / nested link inside a label or alt                     | not allowed there (`StylingOnly`); flattened to its literal text, not an error (D14)                                                                                                  |
+| A backslash escape Markdig strips (`\*`, `\#`)                      | a sub-token's span may drift ≤1 char **within** that literal; it does not accumulate across the document (each literal is re-anchored). Accepted for now; skipped tests track the fix |
+| A node dropped by the front-end policy                              | never reaches the transpiler                                                                                                                                                          |
 
 ## Integration
 

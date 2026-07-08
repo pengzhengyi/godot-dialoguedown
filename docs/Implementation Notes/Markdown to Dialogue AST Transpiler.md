@@ -105,7 +105,7 @@ root node type is **ScriptDocument**.
 | **SpeakerNameReference** | points at a speaker by bare name                              | theatre             |
 | **SpeakerIdReference**   | points at a speaker by bare `@id`                             | theatre             |
 | **Speech**               | the words of a Line: an ordered list of fragments             | theatre             |
-| **SpeechFragment**       | one piece of Speech (see below)                               | theatre             |
+| **InlineFragment**       | one piece of inline content: in Speech, alt, or label         | theatre             |
 | **Text**                 | a plain-words fragment                                        | theatre             |
 | **StyledText**           | italic / bold / strikethrough (nests fragments)               | theatre             |
 | **Image**                | an inline image; its **alt is a fragment sequence**           | theatre             |
@@ -114,7 +114,7 @@ root node type is **ScriptDocument**.
 | **Choice**               | one selectable option                                         | interactive fiction |
 | **JumpIndicator**        | the `=>` token that marks a jump                              | interactive fiction |
 | **Link**                 | a Markdown link: a **fragment label** + **unresolved** target | interactive fiction |
-| **GameCall**             | a game-state hook; a kind of SpeechFragment                   | engine              |
+| **GameCall**             | a game-state hook; a kind of InlineFragment                   | engine              |
 | **Query**                | a GameCall that *reads* state and inserts text                | engine              |
 | **DefaultCommand**       | a `( "…" )` command                                           | engine              |
 | **CustomCommand**        | a `Name(args)` command                                        | engine              |
@@ -166,7 +166,7 @@ through narrow interfaces, so each can be swapped or tested alone.
 - [ ] **Speaker split**: try-parse a `Name @id #tags:` prefix into a
       **`SpeakerDeclaration`** / **`SpeakerNameReference`** / **`SpeakerIdReference`**
       (D11); on no match the Line has **no speaker** (default filled in Desugar).
-- [ ] **Speech** as ordered **SpeechFragment**s: Text, StyledText, Image, soft
+- [ ] **Speech** as ordered **InlineFragment**s: Text, StyledText, Image, soft
       LineBreak, GameCall, JumpIndicator, Link, Tag.
 - [ ] **Soft breaks kept** as `LineBreak` (display-wrap hints); **hard breaks
       consumed** as Line boundaries.
@@ -195,8 +195,9 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 | composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                             | `IParser<T>`                    |
 | game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                             | `…Data` records                 |
 | per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder` | `…Data`, AST nodes              |
-| `SpeechBuilder`                   | inline walk → Speech fragments, per an `InlineElements` set (D14)                                                  | leaf tokenizer, builders        |
-| `InlineElements`                  | fragment kinds allowed in a context: `All`, `StylingOnly` (D14)                                                    | `SpeechBuilder`, leaf tokenizer |
+| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), per an `InlineElements` set (D14)                   | leaf tokenizer, builders        |
+| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                 | `TagBuilder`                    |
+| `InlineElements`                  | fragment kinds allowed in a context: `All`, `StylingOnly` (D14)                                                    | `InlineBuilder`, leaf tokenizer |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -229,7 +230,7 @@ classDiagram
     class CustomTag
     class ReservedTag
 
-    class SpeechFragment {
+    class InlineFragment {
         <<abstract>>
     }
     class Text
@@ -251,9 +252,9 @@ classDiagram
     Block <|-- Scene
     Scene o-- Block : body
     Line o-- Speaker : optional
-    Line o-- SpeechFragment : speech
-    Image o-- SpeechFragment : alt
-    Link o-- SpeechFragment : label
+    Line o-- InlineFragment : speech
+    Image o-- InlineFragment : alt
+    Link o-- InlineFragment : label
     Choices o-- Choice
     Choice o-- Block : body
     SpeakerDeclaration o-- Tag
@@ -261,14 +262,14 @@ classDiagram
     Speaker <|-- SpeakerReference
     SpeakerReference <|-- SpeakerNameReference
     SpeakerReference <|-- SpeakerIdReference
-    SpeechFragment <|-- Text
-    SpeechFragment <|-- StyledText
-    SpeechFragment <|-- Image
-    SpeechFragment <|-- LineBreak
-    SpeechFragment <|-- JumpIndicator
-    SpeechFragment <|-- Link
-    SpeechFragment <|-- Tag
-    SpeechFragment <|-- GameCall
+    InlineFragment <|-- Text
+    InlineFragment <|-- StyledText
+    InlineFragment <|-- Image
+    InlineFragment <|-- LineBreak
+    InlineFragment <|-- JumpIndicator
+    InlineFragment <|-- Link
+    InlineFragment <|-- Tag
+    InlineFragment <|-- GameCall
     GameCall <|-- Query
     GameCall <|-- DefaultCommand
     GameCall <|-- CustomCommand
@@ -279,8 +280,8 @@ classDiagram
 Every node is an immutable `record` carrying a `SourceSpan`, mirroring the
 front-end's AST. A **`Block`** is any item of a script or scene body — a `Line`, a
 `Choices`, or a nested `Scene` — kept in source order, mirroring the front-end's
-`MarkdownBlock`. `StyledText` is itself a `SpeechFragment` and **nests
-`SpeechFragment` children** (so bold text can itself contain, say, a query); it
+`MarkdownBlock`. `StyledText` is itself an `InlineFragment` and **nests
+`InlineFragment` children** (so bold text can itself contain, say, a query); it
 always wraps at least one fragment, since the source degrades empty styling (like
 `****`) to plain text. It holds a `SpeechStyle` (Italic / Bold / Strikethrough) — a
 Dialogue-side enum, **not** the Markdown `EmphasisKind`, to keep the AST
@@ -324,7 +325,7 @@ out of the tree walk and independently verifiable.
 
 ### D4 — Speech is a fragment sequence; hard breaks consumed, soft kept
 
-A `Line`'s `Speech` is an **ordered list of `SpeechFragment`s**, kept granular;
+A `Line`'s `Speech` is an **ordered list of `InlineFragment`s**, kept granular;
 coalescing them into a rendered speech is **downstream** work. Line breaks split
 by kind (the front-end already flags each as hard or soft):
 
@@ -361,7 +362,7 @@ records — **`Query`** (`"key"`, reads state and inserts text), **`DefaultComma
 (`( "…" )`), or **`CustomCommand`** (`Name(args)`) — instantiated with its parsed
 parts here. They are distinct records because a `CustomCommand` carries a name and
 argument list that downstream stages scaffold differently from a `DefaultCommand`.
-Each `GameCall` **is a** `SpeechFragment`, so it can sit inline in speech. A lone
+Each `GameCall` **is an** `InlineFragment`, so it can sit inline in speech. A lone
 **silent command** on its own line is **not** rewritten here; that normalization
 is a Desugar concern.
 
@@ -559,9 +560,9 @@ dropping `jump` when the context forbids it. It yields `InlineLeaf`s (`TextLeaf`
 `TagLeaf`, `JumpLeaf`), the terminal inlines that hold no nested children.
 `GameCallParser` owns (b).
 
-The **`SpeechBuilder`** does the structural walk and construction: it maps each
-inline to a fragment, calls the tokenizer for text and
-`GameCallParser`/`GameCallBuilder` for a code span, **recurses** into emphasis,
+The **`InlineBuilder`** does the structural walk and construction: it maps each
+inline to a fragment, calls the tokenizer for text (building each leaf via `InlineLeafBuilder`) and
+`GameCallBuilder` for a code span, **recurses** into emphasis,
 label, and alt with the context's element set, and stamps spans. It *builds* nodes
 and never re-parses the structure the front-end already parsed — so no parallel
 data mirror of the fragment tree is introduced.
@@ -573,7 +574,7 @@ IParser<IReadOnlyList<Spanned<InlineLeaf>>> tokenizer =
         .ConsumeAll();
 
 // the builder walks the inline tree, delegating the real parsing and recursing
-IReadOnlyList<SpeechFragment> speech = speechBuilder.Build(inlines, InlineElements.All);
+IReadOnlyList<InlineFragment> speech = inlineBuilder.Build(inlines, InlineElements.All);
 ```
 
 ## Leaf grammars
@@ -633,7 +634,7 @@ convertLine(inlines):
     speaker, rest = SpeakerPrefixParser.tryParse(leadingText(inlines))  # layer 2
     return Line(speaker, buildSpeech(rest, InlineElements.All))          # D14
 
-buildSpeech(inlines, allowed):        # SpeechBuilder, gated by the element set
+buildSpeech(inlines, allowed):        # InlineBuilder, gated by the element set
     speech = []
     for each inline in inlines:
         Text      -> speech += tokenize(text, allowed)  # Text / Tag / Jump leaves (D14)

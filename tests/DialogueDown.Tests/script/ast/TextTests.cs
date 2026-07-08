@@ -6,7 +6,7 @@ namespace DialogueDown.Tests.Script.Ast;
 public sealed class TextTests
 {
     [Fact]
-    public void Constructor_ExposesContentAndSpan_AndIsASpeechFragment()
+    public void Constructor_ExposesContentAndSpan_AndIsAInlineFragment()
     {
         var span = SourceSpanFactory.Span();
 
@@ -14,7 +14,7 @@ public sealed class TextTests
 
         Assert.Equal("Hello there", text.Content);
         Assert.Equal(span, text.Span);
-        Assert.IsAssignableFrom<SpeechFragment>(text);
+        Assert.IsAssignableFrom<InlineFragment>(text);
         Assert.IsAssignableFrom<ScriptNode>(text);
     }
 

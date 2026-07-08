@@ -8,54 +8,54 @@ namespace DialogueDown.Tests.Support;
 /// </summary>
 internal static class DialogueAstAssert
 {
-    public static Text AssertText(SpeechFragment actual, string content)
+    public static Text AssertText(InlineFragment actual, string content)
     {
         var text = Assert.IsType<Text>(actual);
         Assert.Equal(content, text.Content);
         return text;
     }
 
-    public static StyledText AssertStyledText(SpeechFragment actual, SpeechStyle style)
+    public static StyledText AssertStyledText(InlineFragment actual, SpeechStyle style)
     {
         var styled = AssertStyledText(actual);
         Assert.Equal(style, styled.Style);
         return styled;
     }
 
-    public static StyledText AssertStyledText(SpeechFragment actual) =>
+    public static StyledText AssertStyledText(InlineFragment actual) =>
         Assert.IsType<StyledText>(actual);
 
-    public static Image AssertImage(SpeechFragment actual, string source)
+    public static Image AssertImage(InlineFragment actual, string source)
     {
         var image = Assert.IsType<Image>(actual);
         Assert.Equal(source, image.Source);
         return image;
     }
 
-    public static Link AssertLink(SpeechFragment actual, string target)
+    public static Link AssertLink(InlineFragment actual, string target)
     {
         var link = Assert.IsType<Link>(actual);
         Assert.Equal(target, link.Target);
         return link;
     }
 
-    public static Query AssertQuery(SpeechFragment actual, string key)
+    public static Query AssertQuery(InlineFragment actual, string key)
     {
         var query = Assert.IsType<Query>(actual);
         Assert.Equal(key, query.Key);
         return query;
     }
 
-    public static JumpIndicator AssertJumpIndicator(SpeechFragment actual) =>
+    public static JumpIndicator AssertJumpIndicator(InlineFragment actual) =>
         Assert.IsType<JumpIndicator>(actual);
 
-    public static LineBreak AssertLineBreak(SpeechFragment actual) =>
+    public static LineBreak AssertLineBreak(InlineFragment actual) =>
         Assert.IsType<LineBreak>(actual);
 
-    public static CustomTag AssertCustomTag(SpeechFragment actual, string name, string? value = null) =>
+    public static CustomTag AssertCustomTag(InlineFragment actual, string name, string? value = null) =>
         AssertCustomTag(Assert.IsAssignableFrom<Tag>(actual), name, value);
 
-    public static ReservedTag AssertReservedTag(SpeechFragment actual, string name, string? value = null) =>
+    public static ReservedTag AssertReservedTag(InlineFragment actual, string name, string? value = null) =>
         AssertReservedTag(Assert.IsAssignableFrom<Tag>(actual), name, value);
 
     public static CustomTag AssertCustomTag(Tag actual, string name, string? value = null) =>

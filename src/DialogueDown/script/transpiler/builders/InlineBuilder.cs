@@ -9,17 +9,17 @@ namespace DialogueDown.Script.Transpiler.Builders;
 
 /// <summary>
 /// Walks a line's inline content into a Speech — an ordered list of
-/// <see cref="SpeechFragment"/>s. A piece of text is re-tokenized for embedded tags
+/// <see cref="InlineFragment"/>s. A piece of text is re-tokenized for embedded tags
 /// and jumps and built via the leaf builder; emphasis, image alt, and link labels
 /// recurse; a code span becomes a game call; a soft break becomes a line break. The
 /// <see cref="InlineElements"/> set says which kinds a context allows.
 /// </summary>
 internal sealed class InlineBuilder(InlineLeafBuilder leafBuilder, GameCallBuilder gameCallBuilder)
 {
-    public IReadOnlyList<SpeechFragment> Build(
+    public IReadOnlyList<InlineFragment> Build(
         IReadOnlyList<MarkdownInline> inlines, InlineElements allowed)
     {
-        var speech = new List<SpeechFragment>();
+        var speech = new List<InlineFragment>();
         foreach (var inline in inlines)
         {
             Append(inline, allowed, speech);
@@ -37,7 +37,7 @@ internal sealed class InlineBuilder(InlineLeafBuilder leafBuilder, GameCallBuild
             nameof(kind), kind, "Unknown emphasis kind."),
     };
 
-    private void Append(MarkdownInline inline, InlineElements allowed, List<SpeechFragment> speech)
+    private void Append(MarkdownInline inline, InlineElements allowed, List<InlineFragment> speech)
     {
         switch (inline)
         {
@@ -67,7 +67,7 @@ internal sealed class InlineBuilder(InlineLeafBuilder leafBuilder, GameCallBuild
         }
     }
 
-    private void AppendText(TextInline text, InlineElements allowed, List<SpeechFragment> speech)
+    private void AppendText(TextInline text, InlineElements allowed, List<InlineFragment> speech)
     {
         var input = new ParseInput(text.Text, text.Span.Start);
         var leaves = InlineLeafTokenizer.Tokenize(input, allowJumps: allowed.HasFlag(InlineElements.Jump));

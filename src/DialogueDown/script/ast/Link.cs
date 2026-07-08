@@ -8,9 +8,9 @@ namespace DialogueDown.Script.Ast;
 /// <see cref="Label"/> is the shown text as an ordered fragment sequence, so it can
 /// carry <see cref="Tag"/>s and styling like any other speech.
 /// </summary>
-internal sealed record Link : SpeechFragment
+internal sealed record Link : InlineFragment
 {
-    public Link(string target, IReadOnlyList<SpeechFragment> label, SourceSpan span)
+    public Link(string target, IReadOnlyList<InlineFragment> label, SourceSpan span)
         : base(span)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -20,5 +20,5 @@ internal sealed record Link : SpeechFragment
 
     public string Target { get; }
 
-    public IReadOnlyList<SpeechFragment> Label { get; }
+    public IReadOnlyList<InlineFragment> Label { get; }
 }

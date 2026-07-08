@@ -11,7 +11,7 @@ namespace DialogueDown.Script.Ast;
 internal sealed record Scene : Block
 {
     public Scene(
-        IReadOnlyList<SpeechFragment> title, int level, IReadOnlyList<Block> body, SourceSpan span)
+        IReadOnlyList<InlineFragment> title, int level, IReadOnlyList<Block> body, SourceSpan span)
         : base(span)
     {
         AssertValidLevel(level);
@@ -20,7 +20,7 @@ internal sealed record Scene : Block
         Body = body;
     }
 
-    public IReadOnlyList<SpeechFragment> Title { get; }
+    public IReadOnlyList<InlineFragment> Title { get; }
 
     public int Level { get; }
 

@@ -7,4 +7,4 @@ namespace DialogueDown.Script.Ast;
 /// group, a <see cref="Value"/>. A <see cref="CustomTag"/> is project-defined; a
 /// <see cref="ReservedTag"/> is built in and owned by DialogueDown.
 /// </summary>
-internal abstract record Tag(string Name, string? Value, SourceSpan Span) : SpeechFragment(Span);
+internal abstract record Tag(string Name, string? Value, SourceSpan Span) : InlineFragment(Span);

@@ -12,7 +12,7 @@ namespace DialogueDown.Script.Transpiler.Builders;
 /// </summary>
 internal sealed class InlineLeafBuilder(TagBuilder tagBuilder)
 {
-    public SpeechFragment Build(Spanned<InlineLeaf> leaf)
+    public InlineFragment Build(Spanned<InlineLeaf> leaf)
     {
         var span = leaf.Range.ToSourceSpan();
         return leaf.Value switch

@@ -7,14 +7,14 @@ namespace DialogueDown.Tests.Script.Ast;
 public sealed class CustomTagTests
 {
     [Fact]
-    public void Constructor_PlainTag_ExposesNameNoValueSpan_AndIsASpeechFragment()
+    public void Constructor_PlainTag_ExposesNameNoValueSpan_AndIsAInlineFragment()
     {
         var span = SourceSpanFactory.Span();
 
         var tag = AssertCustomTag(new CustomTag("main", Value: null, span), "main");
 
         Assert.Equal(span, tag.Span);
-        Assert.IsAssignableFrom<SpeechFragment>(tag);
+        Assert.IsAssignableFrom<InlineFragment>(tag);
     }
 
     [Fact]

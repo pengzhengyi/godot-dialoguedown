@@ -15,7 +15,7 @@ public sealed class QueryTests
         Assert.Equal("Alice.FavoriteColor", query.Key);
         Assert.Equal(span, query.Span);
         Assert.IsAssignableFrom<GameCall>(query);
-        Assert.IsAssignableFrom<SpeechFragment>(query);
+        Assert.IsAssignableFrom<InlineFragment>(query);
         Assert.IsAssignableFrom<ScriptNode>(query);
     }
 }

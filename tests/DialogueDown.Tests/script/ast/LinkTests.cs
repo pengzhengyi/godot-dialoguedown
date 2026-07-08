@@ -7,17 +7,17 @@ namespace DialogueDown.Tests.Script.Ast;
 public sealed class LinkTests
 {
     [Fact]
-    public void Constructor_ExposesTargetLabelAndSpan_AndIsASpeechFragment()
+    public void Constructor_ExposesTargetLabelAndSpan_AndIsAInlineFragment()
     {
         var span = SourceSpanFactory.Span();
-        var label = new SpeechFragment[] { Text("the old well"), CustomTag("ominous") };
+        var label = new InlineFragment[] { Text("the old well"), CustomTag("ominous") };
 
         var link = new Link("#well", label, span);
 
         Assert.Equal("#well", link.Target);
         Assert.Equal(label, link.Label);
         Assert.Equal(span, link.Span);
-        Assert.IsAssignableFrom<SpeechFragment>(link);
+        Assert.IsAssignableFrom<InlineFragment>(link);
         Assert.IsAssignableFrom<ScriptNode>(link);
     }
 

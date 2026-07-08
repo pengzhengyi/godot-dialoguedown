@@ -10,9 +10,9 @@ namespace DialogueDown.Script.Ast;
 /// one fragment: empty styling (like <c>****</c>) is never produced — the source keeps
 /// it as plain text.
 /// </summary>
-internal sealed record StyledText : SpeechFragment
+internal sealed record StyledText : InlineFragment
 {
-    public StyledText(SpeechStyle style, IReadOnlyList<SpeechFragment> children, SourceSpan span)
+    public StyledText(SpeechStyle style, IReadOnlyList<InlineFragment> children, SourceSpan span)
         : base(span)
     {
         AssertHasContent(children);
@@ -22,9 +22,9 @@ internal sealed record StyledText : SpeechFragment
 
     public SpeechStyle Style { get; }
 
-    public IReadOnlyList<SpeechFragment> Children { get; }
+    public IReadOnlyList<InlineFragment> Children { get; }
 
-    private static void AssertHasContent(IReadOnlyList<SpeechFragment> children)
+    private static void AssertHasContent(IReadOnlyList<InlineFragment> children)
     {
         ArgumentNullException.ThrowIfNull(children);
         if (children.Count == 0)

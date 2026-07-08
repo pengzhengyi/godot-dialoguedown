@@ -6,7 +6,7 @@ namespace DialogueDown.Script.Ast;
 /// Plain words in a line's speech, kept exactly as the author wrote them. It always
 /// has at least one character.
 /// </summary>
-internal sealed record Text : SpeechFragment
+internal sealed record Text : InlineFragment
 {
     public Text(string content, SourceSpan span)
         : base(span)

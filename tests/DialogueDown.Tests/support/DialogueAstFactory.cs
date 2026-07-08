@@ -18,7 +18,7 @@ internal static class DialogueAstFactory
 
     public static Text Text(string content) => new(content, SourceSpanFactory.Span());
 
-    public static Line Line(params SpeechFragment[] speech) =>
+    public static Line Line(params InlineFragment[] speech) =>
         new(null, speech, SourceSpanFactory.Span());
 
     public static Choice Choice(params Block[] body) =>

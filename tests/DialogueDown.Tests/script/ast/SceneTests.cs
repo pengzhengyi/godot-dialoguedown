@@ -10,7 +10,7 @@ public sealed class SceneTests
     public void Constructor_ExposesTitleLevelBodyAndSpan_AndIsABlock()
     {
         var span = SourceSpanFactory.Span();
-        var title = new SpeechFragment[] { Text("Greetings") };
+        var title = new InlineFragment[] { Text("Greetings") };
         var body = new Block[] { Line(Text("Hello, Bob!")) };
 
         var scene = new Scene(title, 2, body, span);

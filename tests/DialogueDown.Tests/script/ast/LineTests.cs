@@ -11,7 +11,7 @@ public sealed class LineTests
     {
         var span = SourceSpanFactory.Span();
         var speaker = SpeakerNameReference("Alice");
-        var speech = new SpeechFragment[] { Text("Hello, Bob!") };
+        var speech = new InlineFragment[] { Text("Hello, Bob!") };
 
         var line = new Line(speaker, speech, span);
 

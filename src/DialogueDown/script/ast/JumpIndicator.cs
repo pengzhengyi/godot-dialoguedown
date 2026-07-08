@@ -7,4 +7,4 @@ namespace DialogueDown.Script.Ast;
 /// pairs it with the Link that follows to assemble the composed jump, so keeping
 /// them separate honors the tokenizing boundary.
 /// </summary>
-internal sealed record JumpIndicator(SourceSpan Span) : SpeechFragment(Span);
+internal sealed record JumpIndicator(SourceSpan Span) : InlineFragment(Span);

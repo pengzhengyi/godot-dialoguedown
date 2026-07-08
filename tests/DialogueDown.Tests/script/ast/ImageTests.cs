@@ -7,17 +7,17 @@ namespace DialogueDown.Tests.Script.Ast;
 public sealed class ImageTests
 {
     [Fact]
-    public void Constructor_ExposesSourceAltAndSpan_AndIsASpeechFragment()
+    public void Constructor_ExposesSourceAltAndSpan_AndIsAInlineFragment()
     {
         var span = SourceSpanFactory.Span();
-        var alt = new SpeechFragment[] { Text("a curious cat"), CustomTag("cute") };
+        var alt = new InlineFragment[] { Text("a curious cat"), CustomTag("cute") };
 
         var image = new Image("cat.png", alt, span);
 
         Assert.Equal("cat.png", image.Source);
         Assert.Equal(alt, image.Alt);
         Assert.Equal(span, image.Span);
-        Assert.IsAssignableFrom<SpeechFragment>(image);
+        Assert.IsAssignableFrom<InlineFragment>(image);
         Assert.IsAssignableFrom<ScriptNode>(image);
     }
 

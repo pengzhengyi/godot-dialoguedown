@@ -7,17 +7,17 @@ namespace DialogueDown.Tests.Script.Ast;
 public sealed class StyledTextTests
 {
     [Fact]
-    public void Constructor_ExposesStyleChildrenAndSpan_AndIsASpeechFragment()
+    public void Constructor_ExposesStyleChildrenAndSpan_AndIsAInlineFragment()
     {
         var span = SourceSpanFactory.Span();
-        var children = new SpeechFragment[] { Text("very") };
+        var children = new InlineFragment[] { Text("very") };
 
         var styled = new StyledText(SpeechStyle.Bold, children, span);
 
         Assert.Equal(SpeechStyle.Bold, styled.Style);
         Assert.Equal(children, styled.Children);
         Assert.Equal(span, styled.Span);
-        Assert.IsAssignableFrom<SpeechFragment>(styled);
+        Assert.IsAssignableFrom<InlineFragment>(styled);
         Assert.IsAssignableFrom<ScriptNode>(styled);
     }
 

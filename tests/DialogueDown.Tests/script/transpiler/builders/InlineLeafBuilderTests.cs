@@ -38,7 +38,7 @@ public sealed class InlineLeafBuilderTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => _builder.Build(new Spanned<InlineLeaf>(new UnknownLeaf(), new TextRange(0, 1))));
 
-    private static SpeechFragment AssertBuilds(InlineLeaf leaf, TextRange? range = null) =>
+    private static InlineFragment AssertBuilds(InlineLeaf leaf, TextRange? range = null) =>
         _builder.Build(new Spanned<InlineLeaf>(leaf, range ?? new TextRange(0, 1)));
 
     private sealed record UnknownLeaf : InlineLeaf;

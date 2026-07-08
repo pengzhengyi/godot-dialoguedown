@@ -131,7 +131,7 @@ public sealed class InlineBuilderTests
     private static SpeechStyle StyleOf(DialogueDown.Markdown.EmphasisKind kind) =>
         AssertStyledText(Assert.Single(Build(Md.Emphasis(kind, Md.Text("x"))))).Style;
 
-    private static IReadOnlyList<SpeechFragment> Build(params MdInline[] inlines) =>
+    private static IReadOnlyList<InlineFragment> Build(params MdInline[] inlines) =>
         _builder.Build(inlines, InlineElements.All);
 
     private sealed record UnknownInline(DialogueDown.Common.SourceSpan Span) : MdInline(Span);

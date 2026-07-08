@@ -9,9 +9,9 @@ namespace DialogueDown.Script.Ast;
 /// sequence, so the label can carry <see cref="Tag"/>s and styling like any other
 /// speech.
 /// </summary>
-internal sealed record Image : SpeechFragment
+internal sealed record Image : InlineFragment
 {
-    public Image(string source, IReadOnlyList<SpeechFragment> alt, SourceSpan span)
+    public Image(string source, IReadOnlyList<InlineFragment> alt, SourceSpan span)
         : base(span)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -21,5 +21,5 @@ internal sealed record Image : SpeechFragment
 
     public string Source { get; }
 
-    public IReadOnlyList<SpeechFragment> Alt { get; }
+    public IReadOnlyList<InlineFragment> Alt { get; }
 }

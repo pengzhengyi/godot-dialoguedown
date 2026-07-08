@@ -33,6 +33,11 @@ internal static class MarkdownAstFactory
     public static CodeSpanInline CodeSpan(string? content = null) =>
         new(content ?? Faker.Lorem.Word(), Span());
 
+    public static EmphasisInline Emphasis(EmphasisKind kind, params MarkdownInline[] children) =>
+        new(kind, children.Length == 0 ? [Text()] : children, Span());
+
+    public static LineBreak LineBreak(bool hard = false) => new(hard, Span());
+
     public static Heading Heading(int level = 1, params MarkdownInline[] inlines) =>
         new(level, inlines.Length == 0 ? [Text()] : inlines, Span());
 

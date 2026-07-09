@@ -1,9 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
-import { LIVE_PORT } from "./e2e-live/fixture.mjs";
+import { LIVE_PORT, RENDER_ROOT_PORT } from "./e2e-live/fixture.mjs";
 
 // Live e2e: exercises the real .NET live server end-to-end in a browser — hot
-// reload and the missing-document banner. Kept separate from the fast static
-// `file://` suite (playwright.config.ts) because it starts a server.
+// reload, the missing-document banner, and consent-gated asset hosting. Kept
+// separate from the fast static `file://` suite (playwright.config.ts) because it
+// starts servers.
 const baseURL = `http://127.0.0.1:${LIVE_PORT}`;
 
 export default defineConfig({
@@ -15,10 +16,18 @@ export default defineConfig({
     reporter: "list",
     use: { baseURL },
     projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-    webServer: {
-        command: "node ./e2e-live/serve.mjs",
-        url: baseURL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 180_000,
-    },
+    webServer: [
+        {
+            command: "node ./e2e-live/serve.mjs",
+            url: baseURL,
+            reuseExistingServer: !process.env.CI,
+            timeout: 180_000,
+        },
+        {
+            command: "node ./e2e-live/serve-renderroot.mjs",
+            url: `http://127.0.0.1:${RENDER_ROOT_PORT}`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 180_000,
+        },
+    ],
 });

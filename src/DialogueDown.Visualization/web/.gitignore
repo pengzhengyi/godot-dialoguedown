@@ -11,3 +11,6 @@ dist/*
 
 # Live e2e temp document
 e2e-live/.live-doc.dialogue.md
+
+# Live e2e --render-root temp tree
+e2e-live/.render-root/

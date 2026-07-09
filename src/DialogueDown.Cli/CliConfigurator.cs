@@ -22,6 +22,8 @@ internal static class CliConfigurator
 
         config.AddCommand<CompileCommand>("compile")
             .WithDescription("Compile a DialogueDown script.");
+        config.AddCommand<VisualizeCommand>("visualize")
+            .WithDescription("Visualize a DialogueDown script's compilation.");
     }
 
     // Turn framework and command exceptions into a clean message and a meaningful

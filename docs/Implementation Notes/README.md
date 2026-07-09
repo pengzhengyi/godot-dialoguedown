@@ -31,6 +31,7 @@ that every component shares — starting with the error model.
 | [Compilation Visualization](./Compilation%20Visualization.md) | Compiler-stage IRs → interactive diagrams (Markdown AST today) | Implemented |
 | [Transpiler Design](./Transpiler%20Design.md) | Markdown AST → Dialogue AST | Draft |
 | [Command-Line Interface](./Command-Line%20Interface.md) | The `dialoguedown` CLI: `compile` + `visualize` (Spectre.Console.Cli) | Implemented |
+| [Visualize on the CLI](./Visualize%20on%20the%20CLI.md) | Wire `dialoguedown visualize` to the engine; retire the hand-rolled CLI | Proposed |
 
 ## Error model
 

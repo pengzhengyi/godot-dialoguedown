@@ -1,0 +1,26 @@
+namespace DialogueDown.Visualization.Live;
+
+/// <summary>
+/// Drives the visualization run modes for the <c>dialoguedown visualize</c> command:
+/// a one-shot static render, or a watch session that serves the live report until
+/// cancelled. Injected so the command is testable with a substitute.
+/// </summary>
+public interface IVisualizeRunner
+{
+    /// <summary>
+    /// Renders <paramref name="file"/> to a self-contained report and opens it (unless
+    /// <paramref name="noOpen"/>), or writes it to <paramref name="output"/>. Returns a
+    /// process exit code.
+    /// </summary>
+    int RunStatic(string file, string? output, bool noOpen);
+
+    /// <summary>
+    /// Serves the live report for <paramref name="file"/> on a loopback port and
+    /// hot-reloads it until <paramref name="cancellationToken"/> is cancelled.
+    /// <paramref name="renderRoot"/> pins the static-asset root (otherwise it is
+    /// resolved, with consent, from the document's referenced images). Returns a
+    /// process exit code.
+    /// </summary>
+    Task<int> RunWatchAsync(
+        string file, int? port, bool noOpen, string? renderRoot, CancellationToken cancellationToken);
+}

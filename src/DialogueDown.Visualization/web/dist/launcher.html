@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DialogueDown — Open a script</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 44rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      h1 { font-size: 1.25rem; }
+      .root { font-family: ui-monospace, monospace; opacity: 0.75; font-size: 0.85rem; }
+      ul { list-style: none; padding: 0; border: 1px solid #8884; border-radius: 6px; }
+      li { padding: 0.35rem 0.7rem; cursor: pointer; border-bottom: 1px solid #8882; }
+      li:last-child { border-bottom: 0; }
+      li:hover { background: #8882; }
+      li.selected { background: #3b82f6; color: #fff; }
+      .dir::before { content: "📁 "; }
+      .src::before { content: "📄 "; }
+      .controls { margin-top: 1rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+      button { padding: 0.4rem 1rem; }
+      .empty { opacity: 0.6; font-style: italic; }
+    </style>
+  </head>
+  <body>
+    <h1>Open a script</h1>
+    <p class="root" id="root"></p>
+    <ul id="listing"></ul>
+    <div class="controls">
+      <label><input type="radio" name="mode" value="static" checked /> Static</label>
+      <label><input type="radio" name="mode" value="watch" /> Watch</label>
+      <label title="Live editing arrives in a later version"
+        ><input type="radio" name="mode" value="live" disabled /> Live Edit (soon)</label
+      >
+      <button type="button" id="open" disabled>Open</button>
+    </div>
+
+    <script>
+      window.__LAUNCHER__ = "__LAUNCHER__";
+    </script>
+    <script>
+      const initial = window.__LAUNCHER__ || { root: "", source: null, mode: "static" };
+      const listingEl = document.getElementById("listing");
+      const rootEl = document.getElementById("root");
+      const openEl = document.getElementById("open");
+      let path = initial.source ? initial.source.split("/").slice(0, -1).join("/") : "";
+      let selected = initial.source ?? null;
+
+      rootEl.textContent = "Root: " + (initial.root || ".");
+      if (initial.mode) {
+        const radio = document.querySelector(`input[name=mode][value="${initial.mode}"]`);
+        if (radio && !radio.disabled) radio.checked = true;
+      }
+
+      function leaf(p) {
+        return p.split("/").filter(Boolean).pop() || p;
+      }
+
+      async function browse(next) {
+        const response = await fetch("/api/browse?path=" + encodeURIComponent(next));
+        if (!response.ok) return;
+        const listing = await response.json();
+        path = listing.path;
+        render(listing);
+      }
+
+      function render(listing) {
+        listingEl.replaceChildren();
+        if (listing.parent !== null) {
+          add("..", "dir", () => browse(listing.parent));
+        }
+        for (const dir of listing.directories) {
+          add(leaf(dir), "dir", () => browse(dir));
+        }
+        for (const src of listing.sources) {
+          const item = add(leaf(src), "src", () => select(src, item));
+          if (src === selected) select(src, item);
+        }
+        if (listing.parent === null && !listing.directories.length && !listing.sources.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty";
+          empty.textContent = "No scripts or folders here.";
+          listingEl.append(empty);
+        }
+      }
+
+      function add(label, kind, onClick) {
+        const item = document.createElement("li");
+        item.className = kind;
+        item.textContent = label;
+        item.addEventListener("click", onClick);
+        listingEl.append(item);
+        return item;
+      }
+
+      function select(src, item) {
+        selected = src;
+        openEl.disabled = false;
+        for (const el of listingEl.querySelectorAll("li.selected")) el.classList.remove("selected");
+        item.classList.add("selected");
+      }
+
+      openEl.addEventListener("click", async () => {
+        if (!selected) return;
+        const mode = document.querySelector("input[name=mode]:checked").value;
+        const response = await fetch("/api/open", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ source: selected, mode }),
+        });
+        if (response.ok || response.redirected) window.location.assign(response.url);
+      });
+
+      browse(path);
+    </script>
+  </body>
+</html>

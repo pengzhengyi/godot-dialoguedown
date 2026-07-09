@@ -43,7 +43,10 @@ keeps the report live against a file on disk.
     file, serve the live report, and **hot-reload** the browser on every on-disk
     change.
 - A local **live server** (loopback only) that compiles the document, serves the
-  report, watches the file, and **pushes** recompiled stages to the browser.
+  report, watches the file, and **pushes** recompiled stages to the browser. It
+  hosts a **consent-gated serve root** for the report's images: the document's own
+  folder by default, a broader folder only with consent or an explicit
+  `--render-root`.
 - A small **live client** in the existing frontend that, when served live,
   subscribes to server pushes and rebuilds the tabs in place (keeping your active
   tab), with an inline banner for compile or file errors.
@@ -72,6 +75,9 @@ the note, code, tests, and CLI help.
 | **Live client** | The browser-side code (active only when served live) that subscribes to pushes and updates the report. |
 | **Mode** | How a report is shown — `static`, `watch`, or `live` — carried in the payload and surfaced by the status-bar badge. |
 | **Status bar** | The footer's left area: the mode badge and the document path. |
+| **Serve root** | The folder the live server hosts as static files (the document's own folder, or a broader one it was allowed to host), and the URL sub-path the report is served at under it. |
+| **Hosting consent** | The user's opt-in to host a folder above the document's own so images outside the document's folder can load. |
+| **Render root** | An explicit serve root named on the CLI (`--render-root`); an up-front hosting consent that skips the prompt. |
 
 Terms introduced by later components — **buffer**, **dirty**, **save**, **live
 mode** (Component 2) and **launcher** (Component 3) — are noted where this design
@@ -93,8 +99,10 @@ leaves a seam for them, but are not built here.
       document path (middle-truncated, full path on hover, click to copy).
 - [x] The footer help is **contextual** — the Source tab explains the source and
       preview panes; a graph tab explains graph navigation.
-- [x] Relative image and resource links in the report resolve (the server serves
-      files alongside the document).
+- [x] Relative image links in the report resolve: images inside the document's
+      folder load with no prompt; images outside it load only after hosting consent
+      or an explicit `--render-root`, and never expose files above the folder
+      silently.
 
 The design also called for a distinct inline banner on a **compile error** after a
 change. On `main` today the single Markdown stage always parses (any text is valid
@@ -140,9 +148,9 @@ flowchart LR
 ```
 
 The render library gains a **public** seam for the operations the server needs:
-compile a source to stages, render the report HTML with a **live marker**, and
-serialize the current document payload. `CompilationVisualizer` (previously
-`internal`) is public for this.
+compile a source to stages, render the report HTML in a given **mode**, list the
+document's local image references, and serialize the current document payload.
+`CompilationVisualizer` (previously `internal`) is public for this.
 
 ## Hot-reload flow
 
@@ -154,7 +162,7 @@ sequenceDiagram
     participant Browser
 
     Browser->>Server: GET / (live report)
-    Server-->>Browser: HTML + initial {path, source, stages} + live marker
+    Server-->>Browser: HTML + initial {mode, path, source, stages}
     Browser->>Server: GET /api/events (SSE, stays open)
     Editor->>Disk: save changes
     Disk-->>Server: FileSystemWatcher event (debounced)
@@ -173,14 +181,15 @@ sequenceDiagram
 | Type | Responsibility | Collaborators |
 | --- | --- | --- |
 | `VisualizeCli` | Build the `visualize` command (arguments and options); dispatch to static or watch mode. | `System.CommandLine`, `StaticMode`, `WatchMode` |
-| `StaticMode` / `WatchMode` | The two run paths: render-to-file-and-open, and run a live session until cancelled. | `CompilationVisualizer`, `LiveVisualizationServer`, `DocumentWatcher` |
+| `StaticMode` / `WatchMode` | The two run paths: render-to-file-and-open, and run a live session until cancelled. Watch mode also resolves the serve root before starting. | `CompilationVisualizer`, `LiveVisualizationServer`, `ServeRootResolver`, `DocumentWatcher` |
 | `DocumentValidation` | Reject a missing file or wrong extension with a clear message. | — |
-| `LiveVisualizationServer` | Build and run the loopback web app; map the endpoints; stream SSE. | ASP.NET, `LiveSession`, `SseBroadcaster` |
+| `ServeRootResolver` / `IHostConsent` / `ConsoleHostConsent` | Decide the serve root: the document's folder by default, the longest common ancestor of the document and any outside images with consent, or an explicit `--render-root`. `ConsoleHostConsent` is the opt-in prompt (auto-declines off a terminal). | `CompilationVisualizer.LocalImageReferences`, `ServeRoot` |
+| `LiveVisualizationServer` | Build and run the loopback web app; host the serve root's static files, serve the report at its sub-path, map the endpoints, and stream SSE. | ASP.NET, `LiveSession`, `ServeRoot`, `SseBroadcaster` |
 | `LiveSession` | Own one document: render its live HTML, serialize its payload, and broadcast a `reload`/`problem` on refresh. | `CompilationVisualizer`, `SseBroadcaster` |
 | `DocumentWatcher` | Wrap `FileSystemWatcher`; **debounce** editor write bursts (via `Debouncer`) into one callback. | `FileSystemWatcher`, `Debouncer` |
 | `SseBroadcaster` | Track connected SSE clients (one channel each); fan out an event to all; drop closed ones. | ASP.NET response streams |
 | `LiveEvent` | A tagged push: an event name (`reload`/`problem`) and its JSON data. Payloads are serialized by `CompilationVisualizer.SerializeDocument` (reusing `DisplayGraph`). | `DisplayGraph` |
-| `resolveReport` + `startLiveClient` (frontend) | `main.ts` reads the injected payload; when it is marked live, `startLiveClient` subscribes and drives updates — otherwise the static path is unchanged. | `EventSource`, `runApp` |
+| `resolveReport` + `startLiveClient` (frontend) | `main.ts` reads the injected payload; when its mode is `watch`/`live`, `startLiveClient` subscribes and drives updates — otherwise the static path is unchanged. | `EventSource`, `runApp` |
 | `live-client.ts` (frontend) | Subscribe to `/api/events`; on `reload`, rebuild the report preserving the active tab; on `problem`, show the banner. | `AppController` (`runApp`) |
 | `mode-badge.ts` / `path-display.ts` / `help.ts` (frontend) | The status bar and contextual help: the mode badge with its tooltip, the click-to-copy document path, and per-tab help content. | Tippy.js, `runApp`'s activate |
 
@@ -190,10 +199,10 @@ Loopback only. This component is **read-only**; Component 2 adds the write route
 
 | Route | Purpose |
 | --- | --- |
-| `GET /` | The live report HTML: the embedded report with the initial `{ path, source, stages }` injected and the **live marker** set (so the client goes live). |
-| `GET /api/document` | Current `{ path, source, stages }` — used by the client to re-sync on reconnect. |
+| `GET /` (or the document sub-path) | The report HTML: the embedded report with the initial `{ mode, path, source, stages }` injected so the client goes live. When the serve root is broadened, the report is served at the document's sub-path and `/` redirects there. |
+| `GET /api/document` | Current `{ mode, path, source, stages }` — used by the client to re-sync on reconnect. |
 | `GET /api/events` | **SSE** stream. Emits `reload { path, source, stages }` after a successful recompile and `problem { message }` when the document cannot be read. |
-| `GET /<sibling>` | Static files alongside the document (e.g. `/assets/painting.jpg`), so the report's relative resource links resolve. |
+| `GET /<asset>` | Static files under the **serve root** (the document's folder, or a broader folder allowed via consent / `--render-root`), so the report's relative image links — including `../` links when the root is broadened — resolve. |
 
 ## Key design decisions
 
@@ -257,7 +266,8 @@ testable, apart from the filesystem.
 common case), with `-o <path>` to write somewhere instead and `--no-open` to
 suppress launching. This makes the everyday "just show me" path a single word
 while keeping scripting options. In watch mode, `--port` pins the loopback port
-(otherwise an ephemeral port is chosen and its URL printed).
+(otherwise an ephemeral port is chosen and its URL printed), and `--render-root`
+names the folder to host for assets (see D9).
 
 ### D8 — A status bar surfaces the mode and the document; help is contextual
 
@@ -270,15 +280,31 @@ whole distinction. The "How to use" help is **contextual**: it shows source/prev
 guidance on the Source tab and graph navigation on a stage tab, so the help
 matches what the reader is looking at.
 
-### D9 — The server serves files alongside the document
+### D9 — Host the smallest folder that covers the document and its images, with consent
 
 A report's Markdown can reference relative resources (`![](assets/painting.jpg)`).
 In watch mode the report is served over HTTP, so those links resolve only if the
-server serves the files. It exposes the **document's own directory** as static
-content, rooted there so only the document's siblings are reachable; path
-traversal outside the root is blocked by the static-files middleware. This is a
-loopback, dev-only tool, so serving the working directory's files is acceptable
-(see Security).
+server serves the files — but a document must not be able to make files **above**
+its own folder readable without the user knowing. Hosting is therefore minimal and
+opt-in:
+
+- **Default:** host the document's **own folder**. Images inside it (the common
+  case) resolve with no prompt. The report is served at `/`.
+- **Images outside the folder:** compute the **longest common ancestor** of the
+  document and those images — the smallest folder that covers them — and **ask for
+  consent** before hosting it. A refusal (or no interactive terminal) falls back to
+  the document's folder, so those images simply do not load; nothing above the
+  folder is exposed silently.
+- **`--render-root <dir>`:** name the folder to host explicitly (must contain the
+  document). This is an up-front consent that skips the prompt — useful for scripts
+  and CI.
+
+When the hosted folder is broader than the document's own, the report is served at
+the **sub-path** mirroring the document's location under the root (e.g. `/proj/`),
+and `/` redirects there. The browser then resolves the report's relative image
+links — including `../` links that climb above the document's folder — against the
+right place; API routes stay absolute (`/api/...`) and are unaffected. Traversal
+outside the hosted root is blocked by the static-files middleware (see Security).
 
 ## Error and boundary cases
 
@@ -289,6 +315,9 @@ loopback, dev-only tool, so serving the working directory's files is acceptable
 | Document deleted | Push a `problem` event; the browser shows a banner; the session stays alive and a later save pushes a fresh `reload`. |
 | Rapid successive saves | Debounce; always compile the most recent content. |
 | Multiple browser tabs / reconnect | Broadcast to all SSE clients; a reconnecting client re-syncs via `GET /api/document`. |
+| Image outside the document's folder | Prompt to host the smallest covering folder; on consent serve it (report at the document sub-path), on refusal serve only the document's folder so that image does not load. |
+| No interactive terminal (piped / CI) | The hosting prompt is skipped and declined; a message points at `--render-root` to allow it up front. |
+| `--render-root` missing or not containing the document | CLI exits with a clear message before starting a session. |
 | Port in use (`--port`) | Kestrel fails to bind and the process reports the error; omit `--port` to take an ephemeral port. |
 | Compile error after a change (future) | Deferred: today's single Markdown stage always parses, so there is no failure to surface. The `problem` event and banner are wired and will carry compile errors once a rejecting stage (Dialogue AST) lands. |
 
@@ -298,25 +327,34 @@ This is a **development tool**, and the note says so plainly:
 
 - The server binds **loopback (`127.0.0.1`) only**, on an ephemeral port — never a
   public interface.
-- No authentication; it reads one document, serves its report, and serves files
-  **from that document's directory** (so relative image links resolve). There are
-  **no write routes** in this component (Component 2 adds writes and will tighten
-  this: confining writes to the one document path).
-- File serving is scoped to the document's own directory; the static-files
-  middleware blocks traversal above that root. Because this is a loopback,
-  dev-only tool, exposing the working directory's sibling files is acceptable.
+- No authentication; it reads one document and serves its report. It also serves
+  static files, but only from a **consent-gated root**: the document's own folder by
+  default, and a broader folder only when the user allows it (an interactive prompt)
+  or names it with `--render-root`. A document cannot silently make files above its
+  own folder readable. There are **no write routes** in this component (Component 2
+  adds writes and will tighten this: confining writes to the one document path).
+- File serving is scoped to the hosted root; the static-files middleware blocks
+  traversal above it. Because this is a loopback, dev-only tool, hosting the chosen
+  folder's files over `127.0.0.1` is acceptable once the user has consented to it.
 
 ## Integration
 
 - **Render library:** `CompilationVisualizer` becomes **public**; the library
   exposes a public seam to (a) compile a source to `IReadOnlyList<DisplayGraph>`,
-  (b) render the report HTML in a given **mode** (static/watch/live), and (c)
-  serialize the current document payload (`{ mode, path, source, stages }`) for the
-  API and push events. `VisualizationMode` (public) names the valid modes. The
-  existing static `RenderHtmlReport(source)` still works (mode `static`), and the
-  JSON/HTML plumbing stays internal. The **mode rides in the injected report
-  payload** (with the document path when known); a `static` payload behaves exactly
-  as the offline artifact — no separate template slot.
+  (b) render the report HTML in a given **mode** (static/watch/live), (c) serialize
+  the current document payload (`{ mode, path, source, stages }`) for the API and
+  push events, and (d) list the document's **local image references**
+  (`LocalImageReferences`) so the server can decide which folder to host.
+  `VisualizationMode` (public) names the valid modes. The existing static
+  `RenderHtmlReport(source)` still works (mode `static`), and the JSON/HTML plumbing
+  stays internal. The **mode rides in the injected report payload** (with the
+  document path when known); a `static` payload behaves exactly as the offline
+  artifact — no separate template slot.
+- **Serve root:** watch mode reads the document's local image references and, via
+  `ServeRootResolver`, picks the folder to host — the document's folder, the common
+  ancestor of the document and any outside images (with consent), or an explicit
+  `--render-root`. The server hosts that folder and serves the report at the
+  document's sub-path under it.
 - **Frontend:** `main.ts` branches on the payload's `mode` — a `watch`/`live` mode
   starts the live client, `static` leaves the current path (`window.__DD_REPORT__`)
   untouched. `runApp` returns an `AppController` so both the initial render and a
@@ -353,4 +391,7 @@ exits normally).
 - **Frontend (Playwright e2e):** a separate config starts the **real** `dotnet`
   live server against a temp document (`webServer`); the browser loads the page,
   the test modifies the file, and the report updates in place; deleting the file
-  shows the banner. This is the project's first server-backed e2e.
+  shows the banner. A second `webServer` started with `--render-root` covers the
+  broadened-root path: its document links an image outside its folder, and the test
+  asserts `/` redirects to the document sub-path and the outside image loads. This
+  is the project's first server-backed e2e.

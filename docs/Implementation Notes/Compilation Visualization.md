@@ -317,11 +317,12 @@ a kind occurs at a glance.
 
 ### D9 — A Source tab pairs the raw document with a live preview
 
-The first tab shows the **input** itself: the whole source document as raw
-Markdown on the left, beside a **live rendered preview** on the right, split like
-an editor's side-by-side preview (a draggable divider re-proportions the two).
-This grounds the stage graphs in the text a writer actually authored — you read
-the document, then see what each compiler stage made of it.
+The first tab shows the **input** itself: the whole source document as
+syntax-highlighted Markdown on the left (highlight.js, GitHub light/dark themes),
+beside a **live rendered preview** on the right, split like an editor's
+side-by-side preview (a draggable divider re-proportions the two). This grounds
+the stage graphs in the text a writer actually authored — you read the document,
+then see what each compiler stage made of it.
 
 Preview **anchor links work**: headings carry GitHub-style ids (via marked's
 `gfm-heading-id` extension), so a `[…](#slug)` link scrolls to its heading within
@@ -398,8 +399,8 @@ test pyramid and quality gates run locally (`npm run check`) and in CI (the
 - **ESLint** (`typescript-eslint`) and **Stylelint** (`stylelint-config-standard`)
   lint the sources and stylesheet; **Prettier** enforces formatting.
 - **Unit (Vitest + jsdom)** — the pure and DOM-light modules (text, palette,
-  legend, detail panel, zoom controls, resizer, source view) are unit-tested at
-  100% coverage. This is the broad base of the pyramid.
+  legend, detail panel, zoom controls, resizer, source view, highlighter) are
+  unit-tested at 100% coverage. This is the broad base of the pyramid.
 - **End-to-end (Playwright + Chromium)** — the actual built report is loaded in a
   real browser and driven: the Source tab renders and its preview anchor links
   scroll to their headings, tabs switch, nodes render, clicking shows source and

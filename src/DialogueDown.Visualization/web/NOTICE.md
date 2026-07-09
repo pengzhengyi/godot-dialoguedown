@@ -8,13 +8,15 @@ pinned by `web/package-lock.json`; **none** of them is a NuGet or runtime
 dependency of the DialogueDown packages — they ship only inside generated
 report HTML.
 
-| Library                                               | Version | License |
-| ----------------------------------------------------- | ------- | ------- |
-| [D3.js](https://d3js.org)                             | 7.9.0   | ISC     |
-| [Pico.css](https://picocss.com)                       | 2.1.1   | MIT     |
-| [marked](https://marked.js.org)                       | 12.0.2  | MIT     |
-| [Tippy.js](https://atomiks.github.io/tippyjs/)        | 6.3.7   | MIT     |
-| [Popper](https://popper.js.org) (bundled by Tippy.js) | 2.11.8  | MIT     |
+| Library                                                                    | Version | License      |
+| -------------------------------------------------------------------------- | ------- | ------------ |
+| [D3.js](https://d3js.org)                                                  | 7.9.0   | ISC          |
+| [Pico.css](https://picocss.com)                                            | 2.1.1   | MIT          |
+| [marked](https://marked.js.org)                                            | 12.0.2  | MIT          |
+| [marked-gfm-heading-id](https://github.com/markedjs/marked-gfm-heading-id) | 3.2.0   | MIT          |
+| [highlight.js](https://highlightjs.org)                                    | 11.11.1 | BSD-3-Clause |
+| [Tippy.js](https://atomiks.github.io/tippyjs/)                             | 6.3.7   | MIT          |
+| [Popper](https://popper.js.org) (bundled by Tippy.js)                      | 2.11.8  | MIT          |
 
 To update a library, bump it in `web/package.json`, run `npm install` in
 `web/`, then rebuild (`npm run build`) and commit the refreshed
@@ -40,11 +42,20 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### Pico.css, marked, Tippy.js, and Popper — MIT
+### Pico.css, marked, marked-gfm-heading-id, Tippy.js, and Popper — MIT
 
 These are distributed under the MIT License (Copyright, respectively: 2019-2024
-Pico.css contributors; 2011-2024 Christopher Jeffrey; 2017-2021 atomiks
-(Tippy.js); 2019 Federico Zivolo (Popper)). The MIT License permits use, copy,
-modification, and distribution provided the copyright and permission notice are
-retained; the full notice is preserved in each package's distribution and at the
-projects' repositories.
+Pico.css contributors; 2011-2024 Christopher Jeffrey; 2023 marked contributors
+(marked-gfm-heading-id); 2017-2021 atomiks (Tippy.js); 2019 Federico Zivolo
+(Popper)). The MIT License permits use, copy, modification, and distribution
+provided the copyright and permission notice are retained; the full notice is
+preserved in each package's distribution and at the projects' repositories.
+
+### highlight.js — BSD-3-Clause
+
+Copyright (c) 2006, Ivan Sagalaev. Redistribution and use in source and binary
+forms, with or without modification, are permitted provided that the copyright
+notice, the list of conditions, and the disclaimer are retained, and the name of
+the author may not be used to endorse products derived from this software without
+specific prior written permission. The full license text ships in the package
+(`highlight.js/LICENSE`) and at the project's repository.

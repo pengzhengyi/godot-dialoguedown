@@ -37,7 +37,7 @@ const server = spawn(
         "--watch",
         "--port",
         String(RENDER_ROOT_PORT),
-        "--render-root",
+        "--root",
         RENDER_ROOT_TREE,
         "--no-open",
     ],

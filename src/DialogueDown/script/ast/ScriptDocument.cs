@@ -9,4 +9,4 @@ namespace DialogueDown.Script.Ast;
 /// <c>Script</c>) so the root type does not collide with the <c>Script</c> namespace,
 /// mirroring how the front-end names its root <c>MarkdownDocument</c>.
 /// </summary>
-internal sealed record ScriptDocument(IReadOnlyList<Block> Body, SourceSpan Span) : ScriptNode(Span);
+internal sealed record ScriptDocument(IReadOnlyList<ScriptBlock> Body, SourceSpan Span) : ScriptNode(Span);

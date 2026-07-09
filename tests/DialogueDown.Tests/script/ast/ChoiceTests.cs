@@ -10,14 +10,14 @@ public sealed class ChoiceTests
     public void Constructor_ExposesBodyAndSpan_AndIsAScriptNodeNotABlock()
     {
         var span = SourceSpanFactory.Span();
-        var body = new Block[] { Line(Text("Is it really?")) };
+        var body = new ScriptBlock[] { Line(Text("Is it really?")) };
 
         var choice = new Choice(body, span);
 
         Assert.Equal(body, choice.Body);
         Assert.Equal(span, choice.Span);
         Assert.IsAssignableFrom<ScriptNode>(choice);
-        Assert.IsNotAssignableFrom<Block>(choice);
+        Assert.IsNotAssignableFrom<ScriptBlock>(choice);
     }
 
     [Fact]

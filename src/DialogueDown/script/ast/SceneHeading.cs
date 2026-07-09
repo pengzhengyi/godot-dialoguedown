@@ -9,7 +9,7 @@ namespace DialogueDown.Script.Ast;
 /// blocks that follow into a nested scene, and resolving a jump to a heading, are left
 /// to a later stage.
 /// </summary>
-internal sealed record SceneHeading : Block
+internal sealed record SceneHeading : ScriptBlock
 {
     public SceneHeading(IReadOnlyList<InlineFragment> title, int level, SourceSpan span)
         : base(span)

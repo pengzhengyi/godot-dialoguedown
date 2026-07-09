@@ -9,4 +9,4 @@ namespace DialogueDown.Script.Ast;
 /// when the line only declares a speaker.
 /// </summary>
 internal sealed record Line(
-    Speaker? Speaker, IReadOnlyList<InlineFragment> Speech, SourceSpan Span) : Block(Span);
+    Speaker? Speaker, IReadOnlyList<InlineFragment> Speech, SourceSpan Span) : ScriptBlock(Span);

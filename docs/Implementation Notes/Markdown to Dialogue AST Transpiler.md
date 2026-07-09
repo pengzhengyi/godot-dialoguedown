@@ -98,7 +98,7 @@ root node type is **ScriptDocument**.
 | Term                     | Meaning                                                            | Bounded context     |
 | ------------------------ | ------------------------------------------------------------------ | ------------------- |
 | **ScriptDocument**       | the whole compiled file (the AST root)                             | theatre             |
-| **Block**                | one piece of the script body (Line, Choices, or SceneHeading)      | theatre             |
+| **ScriptBlock**          | one piece of the script body (Line, Choices, or SceneHeading)      | theatre             |
 | **SceneHeading**         | a heading token; a Scene and a Jump target are built from it later | theatre             |
 | **Line**                 | one utterance: an optional **Speaker** plus **Speech**             | theatre             |
 | **Speaker**              | who speaks (abstract; unresolved — see below)                      | theatre             |
@@ -141,7 +141,7 @@ separated by namespace.
 This component has two cleanly separated layers, mirroring the pipeline's
 *Transpiler* and *Inline line parser* stages as internal seams:
 
-1. **Block transpiler** (`BlockBuilder`) — walks the Markdown block tree and
+1. **ScriptBlock transpiler** (`BlockBuilder`) — walks the Markdown block tree and
    builds the Dialogue AST skeleton: `ScriptDocument`, `SceneHeading` (a flat
    marker), `Line` (split at hard breaks), `Choices` / `Choice`. One shared,
    recursive `Build(blocks)` serves both the document body and each choice body
@@ -194,7 +194,7 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 | `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                                    | Markdown AST, `ScriptDocument`     |
 | `BlockBuilder`                    | block-layer tree walk → Dialogue AST; one shared, recursive `Build(blocks)` for the document body and each choice body (D4) | builders, parsers                  |
 | `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                            | `SourceSpan`                       |
-| `Block`                           | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                              | `ScriptNode`                       |
+| `ScriptBlock`                     | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                              | `ScriptNode`                       |
 | `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                           | `ParseInput`, `ParseResult`        |
 | composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                                      | `IParser<T>`                       |
 | game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                                      | `…Data` records                    |
@@ -212,7 +212,7 @@ contract (D12).
 ```mermaid
 classDiagram
     class ScriptDocument
-    class Block {
+    class ScriptBlock {
         <<abstract>>
     }
     class SceneHeading
@@ -250,17 +250,17 @@ classDiagram
     class DefaultCommand
     class CustomCommand
 
-    ScriptDocument o-- Block : body
-    Block <|-- Line
-    Block <|-- Choices
-    Block <|-- SceneHeading
+    ScriptDocument o-- ScriptBlock : body
+    ScriptBlock <|-- Line
+    ScriptBlock <|-- Choices
+    ScriptBlock <|-- SceneHeading
     SceneHeading o-- InlineFragment : title
     Line o-- Speaker : optional
     Line o-- InlineFragment : speech
     Image o-- InlineFragment : alt
     Link o-- InlineFragment : label
     Choices o-- Choice
-    Choice o-- Block : body
+    Choice o-- ScriptBlock : body
     SpeakerDeclaration o-- Tag
     Speaker <|-- SpeakerDeclaration
     Speaker <|-- SpeakerReference
@@ -282,7 +282,7 @@ classDiagram
 ```
 
 Every node is an immutable `record` carrying a `SourceSpan`, mirroring the
-front-end's AST. A **`Block`** is any item of a script or scene body — a `Line`, a
+front-end's AST. A **`ScriptBlock`** is any item of a script or scene body — a `Line`, a
 `Choices`, or a `SceneHeading` — kept in source order, mirroring the front-end's
 `MarkdownBlock`. `StyledText` is itself an `InlineFragment` and **nests
 `InlineFragment` children** (so bold text can itself contain, say, a query); it

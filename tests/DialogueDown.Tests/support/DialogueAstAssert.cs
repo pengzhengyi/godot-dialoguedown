@@ -105,7 +105,7 @@ internal static class DialogueAstAssert
         return reference;
     }
 
-    public static SceneHeading AssertSceneHeading(Block actual, string title, int level)
+    public static SceneHeading AssertSceneHeading(ScriptBlock actual, string title, int level)
     {
         var scene = Assert.IsType<SceneHeading>(actual);
         Assert.Equal(level, scene.Level);

@@ -17,7 +17,7 @@ public sealed class SceneHeadingTests
         Assert.Equal(title, heading.Title);
         Assert.Equal(2, heading.Level);
         Assert.Equal(span, heading.Span);
-        Assert.IsAssignableFrom<Block>(heading);
+        Assert.IsAssignableFrom<ScriptBlock>(heading);
         Assert.IsAssignableFrom<ScriptNode>(heading);
     }
 

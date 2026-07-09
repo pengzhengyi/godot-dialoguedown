@@ -17,7 +17,7 @@ public sealed class ChoicesTests
         Assert.True(choices.IsOrdered);
         Assert.Equal(options, choices.Options);
         Assert.Equal(span, choices.Span);
-        Assert.IsAssignableFrom<Block>(choices);
+        Assert.IsAssignableFrom<ScriptBlock>(choices);
         Assert.IsAssignableFrom<ScriptNode>(choices);
     }
 

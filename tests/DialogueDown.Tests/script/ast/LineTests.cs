@@ -18,7 +18,7 @@ public sealed class LineTests
         Assert.Same(speaker, line.Speaker);
         Assert.Equal(speech, line.Speech);
         Assert.Equal(span, line.Span);
-        Assert.IsAssignableFrom<Block>(line);
+        Assert.IsAssignableFrom<ScriptBlock>(line);
         Assert.IsAssignableFrom<ScriptNode>(line);
     }
 

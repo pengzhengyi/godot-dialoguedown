@@ -21,7 +21,7 @@ internal static class DialogueAstFactory
     public static Line Line(params InlineFragment[] speech) =>
         new(null, speech, SourceSpanFactory.Span());
 
-    public static Choice Choice(params Block[] body) =>
+    public static Choice Choice(params ScriptBlock[] body) =>
         new(body, SourceSpanFactory.Span());
 
     public static SceneHeading SceneHeading(string title = "Scene", int level = 1) =>

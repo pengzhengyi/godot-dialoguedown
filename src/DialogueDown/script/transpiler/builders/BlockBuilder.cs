@@ -13,9 +13,9 @@ namespace DialogueDown.Script.Transpiler.Builders;
 /// </summary>
 internal sealed class BlockBuilder(InlineBuilder inlineBuilder)
 {
-    public IReadOnlyList<Block> Build(IReadOnlyList<MarkdownBlock> blocks)
+    public IReadOnlyList<ScriptBlock> Build(IReadOnlyList<MarkdownBlock> blocks)
     {
-        var result = new List<Block>();
+        var result = new List<ScriptBlock>();
         foreach (var block in blocks)
         {
             Append(block, result);
@@ -24,7 +24,7 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder)
         return result;
     }
 
-    private void Append(MarkdownBlock block, List<Block> blocks)
+    private void Append(MarkdownBlock block, List<ScriptBlock> blocks)
     {
         switch (block)
         {

@@ -10,7 +10,7 @@ public sealed class ScriptDocumentTests
     public void Constructor_ExposesBodyAndSpan_AndIsAScriptNode()
     {
         var span = SourceSpanFactory.Span();
-        var body = new Block[] { Line(Text("Welcome.")), SceneHeading("Greetings") };
+        var body = new ScriptBlock[] { Line(Text("Welcome.")), SceneHeading("Greetings") };
 
         var document = new ScriptDocument(body, span);
 

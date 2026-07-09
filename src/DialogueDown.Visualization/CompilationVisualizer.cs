@@ -39,6 +39,41 @@ public sealed class CompilationVisualizer
     }
 
     /// <summary>
+    /// Returns the local image references in the document, in document order — the
+    /// sources of <c>![alt](src)</c> images that name a file rather than a web
+    /// resource. Web and data URLs (<c>http:</c>, <c>https:</c>, <c>//</c>,
+    /// <c>data:</c>) are excluded. The live server uses these to decide which folder
+    /// it must serve so the report's images resolve.
+    /// </summary>
+    public IReadOnlyList<string> LocalImageReferences(string source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var projection = new MarkdownAstProjection(source);
+        var references = new List<string>();
+        CollectLocalImages(_parser.Parse(source), projection, references);
+        return references;
+    }
+
+    private static void CollectLocalImages(
+        object node, MarkdownAstProjection projection, List<string> references)
+    {
+        if (node is ImageInline image && IsLocalReference(image.Source))
+        {
+            references.Add(image.Source);
+        }
+
+        foreach (var child in projection.Neighbours(node))
+        {
+            CollectLocalImages(child, projection, references);
+        }
+    }
+
+    private static bool IsLocalReference(string source) =>
+        !source.StartsWith("//", StringComparison.Ordinal)
+        && !(Uri.TryCreate(source, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https" or "data" or "ftp" or "mailto");
+
+    /// <summary>
     /// Compiles the source and renders the static, multi-tab HTML report. When
     /// <paramref name="documentPath"/> is given it is shown in the report (the file
     /// being visualized); it does not make the report live.

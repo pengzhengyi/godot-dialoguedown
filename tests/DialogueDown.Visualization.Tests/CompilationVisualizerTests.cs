@@ -119,4 +119,55 @@ public sealed class CompilationVisualizerTests
         Assert.Throws<ArgumentNullException>(
             () => new CompilationVisualizer().SerializeDocument(null!, "# Hello", "watch"));
     }
+
+    [Fact]
+    public void LocalImageReferences_NullSource_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => new CompilationVisualizer().LocalImageReferences(null!));
+    }
+
+    [Fact]
+    public void LocalImageReferences_ReturnsImageSourcesInDocumentOrder()
+    {
+        var references = new CompilationVisualizer().LocalImageReferences(
+            """
+            Alice: This is *your* photo. ![Bob's photo](assets/bob.jpg)
+
+            - Bob: And a painting. ![Painting](../shared/painting.png)
+            """);
+
+        Assert.Equal(["assets/bob.jpg", "../shared/painting.png"], references);
+    }
+
+    [Fact]
+    public void LocalImageReferences_SkipsWebAndDataUrls()
+    {
+        var references = new CompilationVisualizer().LocalImageReferences(
+            """
+            ![remote](https://example.com/a.png)
+            ![protocol](//example.com/b.png)
+            ![data](data:image/png;base64,AAAA)
+            ![local](assets/c.png)
+            """);
+
+        Assert.Equal(["assets/c.png"], references);
+    }
+
+    [Fact]
+    public void LocalImageReferences_IncludesAbsoluteFilesystemPaths()
+    {
+        var references = new CompilationVisualizer().LocalImageReferences(
+            "![outside](/var/gallery/painting.jpg)");
+
+        Assert.Equal(["/var/gallery/painting.jpg"], references);
+    }
+
+    [Fact]
+    public void LocalImageReferences_NoImages_ReturnsEmpty()
+    {
+        var references = new CompilationVisualizer().LocalImageReferences("# Just a heading\n\nAlice: Hi.");
+
+        Assert.Empty(references);
+    }
 }

@@ -1,7 +1,7 @@
 # Implementation note: visualize on the CLI
 
 > [!NOTE]
-> Status: **proposed**.
+> Status: **implemented**.
 > Make `dialoguedown visualize` render for real by delegating to the visualization
 > engine, and retire the hand-rolled `System.CommandLine` entry point — one CLI.
 >
@@ -38,7 +38,7 @@ later components; the transpiler stays stubbed (see D3).
 ```mermaid
 flowchart LR
     User(["dialoguedown visualize &lt;script&gt; [--watch …]"]) --> Cmd["VisualizeCommand<br/>(DialogueDown.Cli)"]
-    Cmd --> Runner["VisualizeRunner<br/>(public facade)"]
+    Cmd --> Runner["IVisualizeRunner<br/>(injected seam)"]
     Runner --> Static["StaticMode"]
     Runner --> Watch["WatchMode + live server"]
     Static --> Engine["CompilationVisualizer<br/>(compile stages + render)"]
@@ -46,26 +46,28 @@ flowchart LR
 ```
 
 `DialogueDown.Cli` gains a reference to `DialogueDown.Visualization.Live` and drives
-it through a small public facade. The render library stays web-free; the Live
+it through an injected runner seam. The render library stays web-free; the Live
 project keeps the web/server code but stops being its own executable.
 
 ## Key design decisions
 
 ### D1 — The CLI is the single entry point; the Live project becomes a library
 
-`DialogueDown.Visualization.Live` stops being a `Microsoft.NET.Sdk.Web`
-**executable** and becomes a **library** (`Microsoft.NET.Sdk` +
-`FrameworkReference Microsoft.AspNetCore.App`, so it can still host the loopback
-server). Its `Program.cs`, `VisualizeCli.cs`, and the `System.CommandLine` package
-are **removed**. `DialogueDown.Cli` references it and owns the process entry.
+`DialogueDown.Visualization.Live` stops being an **executable** and becomes a
+**library** — it keeps the `Microsoft.NET.Sdk.Web` SDK (so the ASP.NET types and
+implicit usings the server relies on stay available) with `<OutputType>Library</OutputType>`.
+Its `Program.cs`, `VisualizeCli.cs`, and the `System.CommandLine` package are
+**removed**. `DialogueDown.Cli` references it and owns the process entry.
 
-### D2 — A small public facade over the run modes
+### D2 — An injectable runner seam over the run modes
 
-The run logic already exists (`StaticMode`, `WatchMode`) but is `internal`. Expose
-a thin **`VisualizeRunner`** facade (public) with `RunStatic(...)` and
-`RunWatchAsync(...)` so the CLI drives it without leaking every internal type.
-`VisualizeCommand` becomes an **`AsyncCommand`** (watch is long-running) and maps
-its settings onto the facade.
+The run logic already exists (`StaticMode`, `WatchMode`) but is `internal`. Expose a
+public **`IVisualizeRunner`** seam (`RunStatic` / `RunWatchAsync`) with a default
+`VisualizeRunner` that takes an `IBrowserLauncher` and hides the server/consent
+wiring. `IBrowserLauncher`/`BrowserLauncher` become public so the CLI can register
+and substitute them. `VisualizeCommand` is an **`AsyncCommand`** (watch is
+long-running) that injects `IVisualizeRunner` and maps its settings onto it — which
+also makes the command fully unit-testable with a substitute.
 
 ### D3 — Visualize compiles via the engine, not the stubbed seam
 
@@ -80,11 +82,11 @@ depends on `IScriptCompiler`.
 
 | Area | Change |
 | --- | --- |
-| `DialogueDown.Visualization.Live.csproj` | Web-SDK exe → SDK **library** + `FrameworkReference` ASP.NET; drop `System.CommandLine`; grant internals to `DialogueDown.Cli`. |
-| Live project | **Delete** `Program.cs`, `VisualizeCli.cs`; add public `VisualizeRunner`. `StaticMode`/`WatchMode`/server stay. |
-| `DialogueDown.Cli` | Reference the Live project. `VisualizeSettings` gains `--watch`, `-o/--output`, `--port`, `--no-open`, `--render-root`. `VisualizeCommand` → `AsyncCommand`, drives `VisualizeRunner`; drop the not-implemented/`IScriptCompiler` path. |
-| Tests | Delete `VisualizeCliTests`; keep `StaticMode`/`WatchMode`/server tests; add `VisualizeCommand` tests (static writes + opens; watch starts the server). |
-| Live e2e | `serve.mjs`/`serve-renderroot.mjs` run `dialoguedown` (the Cli project) with `visualize … --watch` instead of the Live exe. |
+| `DialogueDown.Visualization.Live.csproj` | Keep the Web SDK but set `OutputType=Library`; drop `System.CommandLine`. |
+| Live project | **Delete** `Program.cs`, `VisualizeCli.cs`; add public `IVisualizeRunner`/`VisualizeRunner`; make `IBrowserLauncher`/`BrowserLauncher` public. `StaticMode`/`WatchMode`/server stay. |
+| `DialogueDown.Cli` | Reference the Live project. `VisualizeSettings` gains `--watch`, `-o/--output`, `--port`, `--no-open`, `--render-root`. `VisualizeCommand` → `AsyncCommand`, injects `IVisualizeRunner`; drop the not-implemented/`IScriptCompiler` path. Register `BrowserLauncher` + `VisualizeRunner` in DI. |
+| Tests | Delete `VisualizeCliTests`; keep `StaticMode`/`WatchMode`/server tests; add `VisualizeRunner` tests (real static/watch) and `VisualizeCommand` tests (a substituted runner). |
+| Live e2e | `serve.mjs`/`serve-renderroot.mjs` (and the CI pre-build step) run `dialoguedown` (the Cli project) with `visualize … --watch` instead of the Live exe. |
 
 ## Error and boundary cases
 
@@ -95,8 +97,11 @@ still reports a bind error. Static vs watch is chosen by `--watch`.
 
 ## Testability
 
-`CommandAppTester` drives `visualize` with a fake browser launcher: static mode
-writes a report and "opens" it; watch mode starts a loopback server (assert the URL
-and a reachable report). The engine's own unit tests (`StaticMode`, `WatchMode`,
-server, `CompilationVisualizer`) are unchanged. The existing browser e2e keeps
-working once its server scripts launch the CLI instead of the retired Live exe.
+Two layers keep it fast and deterministic. At the **command** layer,
+`CommandAppTester` drives `visualize` with a **substituted `IVisualizeRunner`**, so
+tests assert the dispatch and option mapping (static vs `--watch`, `-o`, `--port`,
+`--render-root`) and the missing-file usage error without spawning a server. At the
+**engine** layer, `VisualizeRunner` is tested against a fake browser launcher: static
+writes a report and "opens" it; watch starts a loopback server and opens a URL, then
+stops on cancel. `StaticMode`/`WatchMode`/server/`CompilationVisualizer` unit tests
+are unchanged, and the browser e2e runs against the CLI-launched server.

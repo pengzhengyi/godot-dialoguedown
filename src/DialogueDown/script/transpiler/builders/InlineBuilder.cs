@@ -8,25 +8,18 @@ using MarkdownLineBreak = DialogueDown.Markdown.LineBreak;
 namespace DialogueDown.Script.Transpiler.Builders;
 
 /// <summary>
-/// Walks a line's inline content into a Speech — an ordered list of
-/// <see cref="InlineFragment"/>s. A piece of text is re-tokenized for embedded tags
-/// and jumps and built via the leaf builder; emphasis, image alt, and link labels
-/// recurse; a code span becomes a game call; a soft break becomes a line break. The
-/// <see cref="InlineElements"/> set says which kinds a context allows.
+/// Walks inline content into fragments: a line's Speech, or the alt of an image and the
+/// label of a link. A piece of text is re-tokenized for embedded tags and jumps and
+/// built via the leaf builder; emphasis recurses in the same context; an image alt or a
+/// link label recurses under the label policy; a code span becomes a game call; a soft
+/// break becomes a line break. Speech admits everything; the injected label policy says
+/// what a label admits and what an inadmissible element becomes.
 /// </summary>
-internal sealed class InlineBuilder(InlineLeafBuilder leafBuilder, GameCallBuilder gameCallBuilder)
+internal sealed class InlineBuilder(
+    InlineLeafBuilder leafBuilder, GameCallBuilder gameCallBuilder, IInlinePolicy labelPolicy)
 {
-    public IReadOnlyList<InlineFragment> Build(
-        IReadOnlyList<MarkdownInline> inlines, InlineElements allowed)
-    {
-        var speech = new List<InlineFragment>();
-        foreach (var inline in inlines)
-        {
-            Append(inline, allowed, speech);
-        }
-
-        return speech;
-    }
+    public IReadOnlyList<InlineFragment> Build(IReadOnlyList<MarkdownInline> inlines) =>
+        Build(inlines, AllowAllInlinePolicy.Instance);
 
     private static SpeechStyle ToStyle(EmphasisKind kind) => kind switch
     {
@@ -37,29 +30,47 @@ internal sealed class InlineBuilder(InlineLeafBuilder leafBuilder, GameCallBuild
             nameof(kind), kind, "Unknown emphasis kind."),
     };
 
-    private void Append(MarkdownInline inline, InlineElements allowed, List<InlineFragment> speech)
+    private IReadOnlyList<InlineFragment> Build(
+        IReadOnlyList<MarkdownInline> inlines, IInlinePolicy policy)
     {
+        var fragments = new List<InlineFragment>();
+        foreach (var inline in inlines)
+        {
+            Append(inline, policy, fragments);
+        }
+
+        return fragments;
+    }
+
+    private void Append(MarkdownInline inline, IInlinePolicy policy, List<InlineFragment> fragments)
+    {
+        if (!policy.Supports(inline))
+        {
+            fragments.AddRange(policy.Resolve(inline));
+            return;
+        }
+
         switch (inline)
         {
             case TextInline text:
-                AppendText(text, allowed, speech);
+                AppendText(text, policy, fragments);
                 break;
             case EmphasisInline emphasis:
-                speech.Add(new StyledText(
-                    ToStyle(emphasis.Kind), Build(emphasis.Children, allowed), emphasis.Span));
+                fragments.Add(new StyledText(
+                    ToStyle(emphasis.Kind), Build(emphasis.Children, policy), emphasis.Span));
                 break;
             case ImageInline image:
-                speech.Add(new Image(image.Source, Build(image.Alt, allowed), image.Span));
+                fragments.Add(new Image(image.Source, Build(image.Alt, labelPolicy), image.Span));
                 break;
             case LinkInline link:
-                speech.Add(new Link(link.Target, Build(link.Label, allowed), link.Span));
+                fragments.Add(new Link(link.Target, Build(link.Label, labelPolicy), link.Span));
                 break;
             case CodeSpanInline code:
-                speech.Add(gameCallBuilder.Build(new ParseInput(code.Content, code.Span.Start), code.Span));
+                fragments.Add(gameCallBuilder.Build(new ParseInput(code.Content, code.Span.Start), code.Span));
                 break;
             case MarkdownLineBreak:
                 // A soft break is kept as a display hint; hard breaks are split off earlier.
-                speech.Add(new AstLineBreak(inline.Span));
+                fragments.Add(new AstLineBreak(inline.Span));
                 break;
             default:
                 throw new ArgumentOutOfRangeException(
@@ -67,13 +78,13 @@ internal sealed class InlineBuilder(InlineLeafBuilder leafBuilder, GameCallBuild
         }
     }
 
-    private void AppendText(TextInline text, InlineElements allowed, List<InlineFragment> speech)
+    private void AppendText(TextInline text, IInlinePolicy policy, List<InlineFragment> fragments)
     {
         var input = new ParseInput(text.Text, text.Span.Start);
-        var leaves = InlineLeafTokenizer.Tokenize(input, allowJumps: allowed.HasFlag(InlineElements.Jump));
+        var leaves = InlineLeafTokenizer.Tokenize(input, allowJumps: policy.SupportsJumps);
         foreach (var leaf in leaves)
         {
-            speech.Add(leafBuilder.Build(leaf));
+            fragments.Add(leafBuilder.Build(leaf));
         }
     }
 }

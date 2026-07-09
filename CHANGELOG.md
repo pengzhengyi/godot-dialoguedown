@@ -10,4 +10,8 @@ changes easy to categorize.
 
 ### Added
 
+- Dialogue AST and the Markdown-to-Dialogue transpiler that turns the parsed
+  Markdown into dialogue nodes — speaker/speech lines, flat scene-heading
+  markers, choices, inline styling, game calls, tags, and jump indicators —
+  behind the `IScriptTranspiler` seam.
 - Initial OSS community files and CI configuration.

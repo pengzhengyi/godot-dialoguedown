@@ -2,9 +2,9 @@
 
 > [!IMPORTANT]
 > Status: **in progress**. Landed: the parser core/combinators, the tag, speaker,
-> and game-call parsers and builders (parse-to-data model, D13), and the full
-> Dialogue AST node set. Pending: the inline Speech walker, the block transpiler,
-> and the `IScriptTranspiler` seam.
+> and game-call parsers and builders (parse-to-data model, D13), the full
+> Dialogue AST node set, and the inline Speech walker with its policy seam (D14).
+> Pending: the block transpiler (`BlockBuilder`) and the `IScriptTranspiler` seam.
 > Component 2 of the DialogueDown script compiler.
 
 ## Table of contents
@@ -141,9 +141,11 @@ separated by namespace.
 This component has two cleanly separated layers, mirroring the pipeline's
 *Transpiler* and *Inline line parser* stages as internal seams:
 
-1. **Block transpiler** — walks the Markdown block tree and builds the Dialogue
-   AST skeleton: `ScriptDocument`, `SceneHeading` (a flat marker), `Line` (split at
-   hard breaks), `Choices` / `Choice`.
+1. **Block transpiler** (`BlockBuilder`) — walks the Markdown block tree and
+   builds the Dialogue AST skeleton: `ScriptDocument`, `SceneHeading` (a flat
+   marker), `Line` (split at hard breaks), `Choices` / `Choice`. One shared,
+   recursive `Build(blocks)` serves both the document body and each choice body
+   (D4).
 2. **Inline mini-parsers** — for each Line, re-tokenize its inline content into
    a `Speech` of fragments. Small, pure, single-purpose parsers, each **built and
    tested in isolation**, then composed by the block transpiler:
@@ -187,19 +189,19 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                                                                     | Collaborators                      |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
-| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                           | Markdown AST, `ScriptDocument`     |
-| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                                                               | builders, parsers                  |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                   | `SourceSpan`                       |
-| `Block`                           | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                     | `ScriptNode`                       |
-| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                  | `ParseInput`, `ParseResult`        |
-| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                             | `IParser<T>`                       |
-| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                             | `…Data` records                    |
-| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder` | `…Data`, AST nodes                 |
-| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), under an `IInlinePolicy` (D14)                      | leaf tokenizer, builders, policy   |
-| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                 | `TagBuilder`                       |
-| `IInlinePolicy`                   | what a context admits and what an unsupported inline becomes: reconstruct-as-text or reject (D14)                  | `MarkdownInline`, `InlineFragment` |
+| Type                              | Responsibility                                                                                                              | Collaborators                      |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                                    | Markdown AST, `ScriptDocument`     |
+| `BlockBuilder`                    | block-layer tree walk → Dialogue AST; one shared, recursive `Build(blocks)` for the document body and each choice body (D4) | builders, parsers                  |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                            | `SourceSpan`                       |
+| `Block`                           | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                              | `ScriptNode`                       |
+| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                           | `ParseInput`, `ParseResult`        |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                                      | `IParser<T>`                       |
+| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                                      | `…Data` records                    |
+| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder`          | `…Data`, AST nodes                 |
+| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), under an `IInlinePolicy` (D14)                               | leaf tokenizer, builders, policy   |
+| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                          | `TagBuilder`                       |
+| `IInlinePolicy`                   | what a context admits and what an unsupported inline becomes: reconstruct-as-text or reject (D14)                           | `MarkdownInline`, `InlineFragment` |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -337,6 +339,11 @@ by kind (the front-end already flags each as hard or soft):
 - a **soft** break (a manual wrap inside one speech) is **kept** as a `LineBreak`
   fragment, because it can hint downstream display ("wrap here").
 
+Splitting at hard breaks can leave an **empty group** (for example, back-to-back
+hard breaks). An empty group carries no speech and no speaker, so it is
+**dropped** rather than emitting a phantom empty `Line` — an author who wants a
+blank must express it explicitly, keeping the mapping explicit over implicit.
+
 ### D5 — Headings are flat tokens; scene nesting is deferred
 
 A heading becomes a flat **`SceneHeading`** token carrying its title fragments and
@@ -353,9 +360,12 @@ target; no level restriction is imposed here.
 
 A Markdown list becomes **`Choices`**; each item becomes a **`Choice`**, whose
 content is whatever the item holds — a `Line`, a nested `Choices` — so nesting is
-preserved. The list's **`IsOrdered`** flag is **kept**: an ordered list means the
-choices must appear in textual order, while an unordered list leaves later stages
-free to shuffle display order. (The DSL spec documents this authoring rule.)
+preserved. A choice body is built by the **same** recursive `Build` (D4), so a
+choice item may itself carry a speaker prefix (`- Alice: Hi`): a choice can be
+attributed dialogue, or fall back to the default speaker when omitted. The list's
+**`IsOrdered`** flag is **kept**: an ordered list means the choices must appear in
+textual order, while an unordered list leaves later stages free to shuffle display
+order. (The DSL spec documents this authoring rule.)
 
 ### D7 — GameCall: Query, DefaultCommand, CustomCommand
 
@@ -638,14 +648,17 @@ TagName     = Identifier | String ;
 
 ```text
 transpile(markdownDocument, source):
-    return ScriptDocument(body = buildBody(markdownDocument.blocks))
+    return ScriptDocument(body = Build(markdownDocument.blocks))
 
-buildBody(blocks):        # flat: headings are tokens, not containers (D5)
+# One shared, recursive walk — used for the document body and each choice body (D4).
+Build(blocks):            # flat: headings are tokens, not containers (D5)
     for each block:
         Heading      -> emit SceneHeading(InlineBuilder.build(inlines), level)
-        Paragraph    -> for each line in splitAtHardBreaks(paragraph):  # D4/D7
-                            emit convertLine(line)
-        List         -> emit Choices(IsOrdered, items -> Choice(...))    # D6
+        Paragraph    -> for each group in splitAtHardBreaks(paragraph):  # D4/D7
+                            if group is empty: skip           # drop phantom lines (D4)
+                            else:              emit convertLine(group)
+        List         -> emit Choices(IsOrdered,
+                                     items -> Choice(Build(item.blocks)))   # recurse (D6)
 
 convertLine(inlines):
     speaker, rest = SpeakerPrefixParser.tryParse(leadingText(inlines))  # layer 2
@@ -700,7 +713,9 @@ buildSpeech(inlines, policy):         # InlineBuilder, gated by the context poli
 | Empty document                                                      | a `ScriptDocument` with an empty body                                                                                                                                                 |
 | Content before the first heading                                    | attaches to the `ScriptDocument` root                                                                                                                                                 |
 | Irregular heading order (an `H1` after an `H2`, or a skipped level) | handled without error by relative nesting (D5); a dedicated test covers `H2` then `H1`                                                                                                |
+| Empty group between hard breaks (back-to-back hard breaks)          | dropped — no phantom empty `Line`; an author writes an intentional blank explicitly (D4)                                                                                              |
 | Deeply nested choices                                               | represented faithfully; no depth cap                                                                                                                                                  |
+| Speaker prefix on a choice item (`- Alice: Hi`)                     | honored — the choice body runs the same `Build`, so it becomes `Choice([Line(Alice, "Hi")])`; omitting the prefix defaults the speaker (D6)                                           |
 | Empty emphasis (`****`)                                             | the source degrades it to plain text, so `StyledText` never has empty children                                                                                                        |
 | A game call / nested link inside a label or alt                     | not admitted there; the default policy restores it to literal text, a strict policy raises a `DialogueSyntaxError` (D14)                                                              |
 | A backslash escape Markdig strips (`\*`, `\#`)                      | a sub-token's span may drift ≤1 char **within** that literal; it does not accumulate across the document (each literal is re-anchored). Accepted for now; skipped tests track the fix |
@@ -724,7 +739,7 @@ buildSpeech(inlines, policy):         # InlineBuilder, gated by the context poli
   game-call, and tag grammars directly, including the malformed cases that must
   raise `DialogueSyntaxError`. Sub-parsers (quoted string, identifier) test in
   isolation.
-- **Converter** is tested by feeding small Markdown ASTs (built through the
+- **BlockBuilder** is tested by feeding small Markdown ASTs (built through the
   front-end parser, or via a shared **Object Mother** factory) and asserting the
   Dialogue AST — a new `DialogueAstAssert` mirrors the front-end's
   `MarkdownAstAssert`.

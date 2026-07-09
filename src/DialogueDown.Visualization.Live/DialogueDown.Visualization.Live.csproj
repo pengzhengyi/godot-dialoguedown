@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DialogueDown.Visualization.Live</RootNamespace>
+    <AssemblyName>DialogueDown.Visualization.Live</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <!-- A local development tool (a loopback server + CLI), not a shipped library.
+         It hosts the live report; the render library it references stays web-free. -->
+    <Description>Local live-visualization server and CLI for DialogueDown scripts.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DialogueDown.Visualization.Live.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DialogueDown.Visualization\DialogueDown.Visualization.csproj" />
+  </ItemGroup>
+
+</Project>

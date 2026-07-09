@@ -16,6 +16,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DialogueDown.Cli.Tests" />
+    <!-- Let NSubstitute (Castle DynamicProxy) mock the CLI's internal interfaces. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>

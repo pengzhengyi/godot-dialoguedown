@@ -1,4 +1,3 @@
-using DialogueDown.Cli;
 using Spectre.Console.Cli.Testing;
 
 namespace DialogueDown.Cli.Tests;

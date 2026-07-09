@@ -10,7 +10,7 @@ public sealed class ScriptDocumentTests
     public void Constructor_ExposesBodyAndSpan_AndIsAScriptNode()
     {
         var span = SourceSpanFactory.Span();
-        var body = new Block[] { Line(Text("Welcome.")), Scene(Line(Text("Hello, Bob!"))) };
+        var body = new Block[] { Line(Text("Welcome.")), SceneHeading("Greetings") };
 
         var document = new ScriptDocument(body, span);
 
@@ -20,14 +20,14 @@ public sealed class ScriptDocumentTests
     }
 
     [Fact]
-    public void Constructor_HoldsPreHeadingContentThenScenes_InOrder()
+    public void Constructor_HoldsContentAndHeadings_InOrder()
     {
         var intro = Line(Text("Before any heading."));
-        var scene = Scene(Line(Text("Under a heading.")));
+        var heading = SceneHeading("Under a heading");
 
-        var document = new ScriptDocument([intro, scene], SourceSpanFactory.Span());
+        var document = new ScriptDocument([intro, heading], SourceSpanFactory.Span());
 
         Assert.Same(intro, document.Body[0]);
-        Assert.Same(scene, document.Body[1]);
+        Assert.Same(heading, document.Body[1]);
     }
 }

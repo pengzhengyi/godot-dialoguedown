@@ -23,7 +23,7 @@
     - [D2 — Re-tokenize into the dialogue dialect](#d2--re-tokenize-into-the-dialogue-dialect)
     - [D3 — Two layers; pluggable inline mini-parsers](#d3--two-layers-pluggable-inline-mini-parsers)
     - [D4 — Speech is a fragment sequence; hard breaks consumed, soft kept](#d4--speech-is-a-fragment-sequence-hard-breaks-consumed-soft-kept)
-    - [D5 — Scenes nest by heading level](#d5--scenes-nest-by-heading-level)
+    - [D5 — Headings are flat tokens; scene nesting is deferred](#d5--headings-are-flat-tokens-scene-nesting-is-deferred)
     - [D6 — Choices keep their ordering](#d6--choices-keep-their-ordering)
     - [D7 — GameCall: Query, DefaultCommand, CustomCommand](#d7--gamecall-query-defaultcommand-customcommand)
     - [D8 — Jump tokenized as JumpIndicator + Link](#d8--jump-tokenized-as-jumpindicator--link)
@@ -52,7 +52,7 @@ constructs with **local**, syntax-directed recognition.
 
 **In scope** — recognizing dialogue *shapes* from Markdown structure:
 
-- headings into **Scenes** (nested by level); paragraphs into **Lines**.
+- headings into flat **SceneHeading** tokens; paragraphs into **Lines**.
 - split `Speaker: Speech`; parse the `Name @id #tags:` prefix (unresolved).
 - build a Line's **Speech** from inline content as ordered fragments.
 - code spans into **Query** / **DefaultCommand** / **CustomCommand**.
@@ -67,8 +67,9 @@ whole document:
   (degrading a dangling `JumpIndicator` back to plain text); fill
   the **default speaker** on a Line with none; rewrite a lone **silent command**
   into a default-speaker Line.
-- **Semantic analysis** (later): resolve/validate jump targets, bind speaker ids,
-  check reserved tags, detect unreachable scenes.
+- **Semantic analysis** (later): **nest `SceneHeading`s into scenes by level**,
+  resolve/validate jump targets, bind speaker ids, check reserved tags, detect
+  unreachable scenes.
 - **Graph compilation** and **runtime**: build and run the dialogue graph.
 
 ## Where it sits
@@ -83,9 +84,10 @@ flowchart LR
     style C fill:#2d6,stroke:#0a0,color:#000
 ```
 
-The front-end defers to this stage: splitting `Speaker: Speech`, grouping headings
-into scenes, and interpreting code spans all happen here. Composing a `Jump`,
-filling the default speaker, and rewriting silent commands happen in **Desugar**.
+The front-end defers to this stage: splitting `Speaker: Speech`, emitting a
+`SceneHeading` per heading, and interpreting code spans all happen here. Composing a
+`Jump`, nesting headings into scenes, filling the default speaker, and rewriting
+silent commands happen later (Desugar and semantic analysis).
 
 ## Ubiquitous language
 
@@ -93,34 +95,34 @@ The Dialogue AST speaks three small, coherent sub-vocabularies. Every type, test
 and doc uses **exactly** these words. The whole tree is the **Dialogue AST**; its
 root node type is **ScriptDocument**.
 
-| Term                     | Meaning                                                       | Bounded context     |
-| ------------------------ | ------------------------------------------------------------- | ------------------- |
-| **ScriptDocument**       | the whole compiled file (the AST root)                        | theatre             |
-| **Block**                | one piece of a script or scene body (Line, Choices, or Scene) | theatre             |
-| **Scene**                | a section of the script; a Jump's destination                 | theatre             |
-| **Line**                 | one utterance: an optional **Speaker** plus **Speech**        | theatre             |
-| **Speaker**              | who speaks (abstract; unresolved — see below)                 | theatre             |
-| **SpeakerDeclaration**   | a prefix that binds metadata: name + optional id + tags       | theatre             |
-| **SpeakerReference**     | a prefix that only points at a speaker (abstract)             | theatre             |
-| **SpeakerNameReference** | points at a speaker by bare name                              | theatre             |
-| **SpeakerIdReference**   | points at a speaker by bare `@id`                             | theatre             |
-| **Speech**               | the words of a Line: an ordered list of fragments             | theatre             |
-| **InlineFragment**       | one piece of inline content: in Speech, alt, or label         | theatre             |
-| **Text**                 | a plain-words fragment                                        | theatre             |
-| **StyledText**           | italic / bold / strikethrough (nests fragments)               | theatre             |
-| **Image**                | an inline image; its **alt is a fragment sequence**           | theatre             |
-| **LineBreak**            | a **soft** break kept as a display-wrap hint                  | theatre             |
-| **Choices**              | the group of options offered at a branch                      | interactive fiction |
-| **Choice**               | one selectable option                                         | interactive fiction |
-| **JumpIndicator**        | the `=>` token that marks a jump                              | interactive fiction |
-| **Link**                 | a Markdown link: a **fragment label** + **unresolved** target | interactive fiction |
-| **GameCall**             | a game-state hook; a kind of InlineFragment                   | engine              |
-| **Query**                | a GameCall that *reads* state and inserts text                | engine              |
-| **DefaultCommand**       | a `( "…" )` command                                           | engine              |
-| **CustomCommand**        | a `Name(args)` command                                        | engine              |
-| **Tag**                  | metadata attached to content (abstract; see below)            | metadata            |
-| **CustomTag**            | a project-defined tag; open, opaque metadata                  | metadata            |
-| **ReservedTag**          | a built-in tag owned by DialogueDown (a known set)            | metadata            |
+| Term                     | Meaning                                                            | Bounded context     |
+| ------------------------ | ------------------------------------------------------------------ | ------------------- |
+| **ScriptDocument**       | the whole compiled file (the AST root)                             | theatre             |
+| **Block**                | one piece of the script body (Line, Choices, or SceneHeading)      | theatre             |
+| **SceneHeading**         | a heading token; a Scene and a Jump target are built from it later | theatre             |
+| **Line**                 | one utterance: an optional **Speaker** plus **Speech**             | theatre             |
+| **Speaker**              | who speaks (abstract; unresolved — see below)                      | theatre             |
+| **SpeakerDeclaration**   | a prefix that binds metadata: name + optional id + tags            | theatre             |
+| **SpeakerReference**     | a prefix that only points at a speaker (abstract)                  | theatre             |
+| **SpeakerNameReference** | points at a speaker by bare name                                   | theatre             |
+| **SpeakerIdReference**   | points at a speaker by bare `@id`                                  | theatre             |
+| **Speech**               | the words of a Line: an ordered list of fragments                  | theatre             |
+| **InlineFragment**       | one piece of inline content: in Speech, alt, or label              | theatre             |
+| **Text**                 | a plain-words fragment                                             | theatre             |
+| **StyledText**           | italic / bold / strikethrough (nests fragments)                    | theatre             |
+| **Image**                | an inline image; its **alt is a fragment sequence**                | theatre             |
+| **LineBreak**            | a **soft** break kept as a display-wrap hint                       | theatre             |
+| **Choices**              | the group of options offered at a branch                           | interactive fiction |
+| **Choice**               | one selectable option                                              | interactive fiction |
+| **JumpIndicator**        | the `=>` token that marks a jump                                   | interactive fiction |
+| **Link**                 | a Markdown link: a **fragment label** + **unresolved** target      | interactive fiction |
+| **GameCall**             | a game-state hook; a kind of InlineFragment                        | engine              |
+| **Query**                | a GameCall that *reads* state and inserts text                     | engine              |
+| **DefaultCommand**       | a `( "…" )` command                                                | engine              |
+| **CustomCommand**        | a `Name(args)` command                                             | engine              |
+| **Tag**                  | metadata attached to content (abstract; see below)                 | metadata            |
+| **CustomTag**            | a project-defined tag; open, opaque metadata                       | metadata            |
+| **ReservedTag**          | a built-in tag owned by DialogueDown (a known set)                 | metadata            |
 
 **Downstream terms.** A **Jump** (composed from `JumpIndicator + Link`) is a
 **Desugar** concept, not produced here. A **default speaker** is likewise filled
@@ -140,7 +142,7 @@ This component has two cleanly separated layers, mirroring the pipeline's
 *Transpiler* and *Inline line parser* stages as internal seams:
 
 1. **Block transpiler** — walks the Markdown block tree and builds the Dialogue
-   AST skeleton: `ScriptDocument`, `Scene` (nested by heading level), `Line` (split at
+   AST skeleton: `ScriptDocument`, `SceneHeading` (a flat marker), `Line` (split at
    hard breaks), `Choices` / `Choice`.
 2. **Inline mini-parsers** — for each Line, re-tokenize its inline content into
    a `Speech` of fragments. Small, pure, single-purpose parsers, each **built and
@@ -161,7 +163,7 @@ through narrow interfaces, so each can be swapped or tested alone.
 ## Functionality checklist
 
 - [ ] **ScriptDocument** root wraps the document's top-level content.
-- [ ] **Scene** from a heading; owns the content beneath it; **nests by level**.
+- [ ] **SceneHeading** from a heading, as a flat marker; nesting into scenes is deferred.
 - [ ] **Line** from a paragraph; a paragraph **splits into Lines at hard breaks**.
 - [ ] **Speaker split**: try-parse a `Name @id #tags:` prefix into a
       **`SpeakerDeclaration`** / **`SpeakerNameReference`** / **`SpeakerIdReference`**
@@ -190,7 +192,7 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 | `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                           | Markdown AST, `ScriptDocument`     |
 | `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                                                               | builders, parsers                  |
 | `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                   | `SourceSpan`                       |
-| `Block`                           | base for a script/scene body item: `Line`, `Choices`, `Scene`                                                      | `ScriptNode`                       |
+| `Block`                           | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                     | `ScriptNode`                       |
 | `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                  | `ParseInput`, `ParseResult`        |
 | composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                             | `IParser<T>`                       |
 | game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                             | `…Data` records                    |
@@ -211,7 +213,7 @@ classDiagram
     class Block {
         <<abstract>>
     }
-    class Scene
+    class SceneHeading
     class Line
     class Speaker {
         <<abstract>>
@@ -249,8 +251,8 @@ classDiagram
     ScriptDocument o-- Block : body
     Block <|-- Line
     Block <|-- Choices
-    Block <|-- Scene
-    Scene o-- Block : body
+    Block <|-- SceneHeading
+    SceneHeading o-- InlineFragment : title
     Line o-- Speaker : optional
     Line o-- InlineFragment : speech
     Image o-- InlineFragment : alt
@@ -279,7 +281,7 @@ classDiagram
 
 Every node is an immutable `record` carrying a `SourceSpan`, mirroring the
 front-end's AST. A **`Block`** is any item of a script or scene body — a `Line`, a
-`Choices`, or a nested `Scene` — kept in source order, mirroring the front-end's
+`Choices`, or a `SceneHeading` — kept in source order, mirroring the front-end's
 `MarkdownBlock`. `StyledText` is itself an `InlineFragment` and **nests
 `InlineFragment` children** (so bold text can itself contain, say, a query); it
 always wraps at least one fragment, since the source degrades empty styling (like
@@ -335,17 +337,17 @@ by kind (the front-end already flags each as hard or soft):
 - a **soft** break (a manual wrap inside one speech) is **kept** as a `LineBreak`
   fragment, because it can hint downstream display ("wrap here").
 
-### D5 — Scenes nest by heading level
+### D5 — Headings are flat tokens; scene nesting is deferred
 
-A heading opens a `Scene`; the blocks after it, up to the next heading of the
-**same or higher** level, are its content. A **deeper** heading opens a **nested**
-`Scene`. This preserves the author's outline and lets a Jump target a heading at
-any level. Content before the first heading attaches to the `ScriptDocument` root.
-
-Heading levels are read **relatively**, so irregular outlines are handled without
-error: a lower level later (an `H1` after an `H2`) closes the deeper scene and
-opens a new top-level one, and a **skipped** level (an `H1` then an `H3`) simply
-nests the deeper heading under the nearest open scene.
+A heading becomes a flat **`SceneHeading`** token carrying its title fragments and
+level (1-6); it sits in the body alongside the `Line`s and `Choices` that follow,
+**not** as their container. Grouping blocks under a heading into a nested scene is a
+**document-wide** computation, and the transpiler stays a faithful, local
+tokenizer (D2) — so, like assembling a `Jump` or filling the default speaker,
+nesting is left to a later stage. That stage reads the levels to build the scene
+tree (handling irregular outlines such as an `H1` after an `H2`, or a skipped
+level) and resolves a jump to its target heading. Every heading is a valid jump
+target; no level restriction is imposed here.
 
 ### D6 — Choices keep their ordering
 
@@ -638,10 +640,9 @@ TagName     = Identifier | String ;
 transpile(markdownDocument, source):
     return ScriptDocument(body = buildBody(markdownDocument.blocks))
 
-buildBody(blocks):
-    # group blocks under headings; deeper heading → nested Scene (D5)
+buildBody(blocks):        # flat: headings are tokens, not containers (D5)
     for each block:
-        Heading      -> open a Scene at its level
+        Heading      -> emit SceneHeading(InlineBuilder.build(inlines), level)
         Paragraph    -> for each line in splitAtHardBreaks(paragraph):  # D4/D7
                             emit convertLine(line)
         List         -> emit Choices(IsOrdered, items -> Choice(...))    # D6
@@ -670,7 +671,7 @@ buildSpeech(inlines, policy):         # InlineBuilder, gated by the context poli
 | Markdown AST            | Dialogue AST                                 | Notes                                  |
 | ----------------------- | -------------------------------------------- | -------------------------------------- |
 | `MarkdownDocument`      | `ScriptDocument`                             | root                                   |
-| `Heading`               | `Scene`                                      | nests by level (D5)                    |
+| `Heading`               | `SceneHeading`                               | flat marker; nesting deferred (D5)     |
 | `Paragraph`             | one or more `Line`                           | split at hard breaks (D4/D7)           |
 | leading text of a Line  | `SpeakerDeclaration` / `SpeakerReference`    | try-parse prefix (D3, D11)             |
 | `TextInline`            | `Text`                                       | plain words                            |

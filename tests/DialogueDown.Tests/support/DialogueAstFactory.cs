@@ -24,8 +24,8 @@ internal static class DialogueAstFactory
     public static Choice Choice(params Block[] body) =>
         new(body, SourceSpanFactory.Span());
 
-    public static Scene Scene(params Block[] body) =>
-        new([Text("Scene")], 1, body, SourceSpanFactory.Span());
+    public static SceneHeading SceneHeading(string title = "Scene", int level = 1) =>
+        new([Text(title)], level, SourceSpanFactory.Span());
 
     public static SpeakerDeclaration SpeakerDeclaration(
         string name, string? id = null, params Tag[] tags) =>

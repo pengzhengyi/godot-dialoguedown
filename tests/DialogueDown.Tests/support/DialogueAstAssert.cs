@@ -105,6 +105,14 @@ internal static class DialogueAstAssert
         return reference;
     }
 
+    public static SceneHeading AssertSceneHeading(Block actual, string title, int level)
+    {
+        var scene = Assert.IsType<SceneHeading>(actual);
+        Assert.Equal(level, scene.Level);
+        AssertText(Assert.Single(scene.Title), title);
+        return scene;
+    }
+
     private static void AssertTags(IReadOnlyList<Tag> actual, Tag[] expected)
     {
         if (expected.Length == 0)

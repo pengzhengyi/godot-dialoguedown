@@ -1,10 +1,11 @@
 # Implementation note: Markdown to Dialogue AST transpiler
 
 > [!IMPORTANT]
-> Status: **in progress**. Landed: the parser core/combinators, the tag, speaker,
-> and game-call parsers and builders (parse-to-data model, D13), the full
-> Dialogue AST node set, and the inline Speech walker with its policy seam (D14).
-> Pending: the block transpiler (`BlockBuilder`) and the `IScriptTranspiler` seam.
+> Status: **implemented**. The full front-to-back path is in place: the parser
+> core/combinators, the tag, speaker, and game-call parsers and builders
+> (parse-to-data model, D13), the Dialogue AST node set, the inline Speech walker
+> with its policy seam (D14), the block transpiler (`BlockBuilder` + `LineBuilder`),
+> and the `IScriptTranspiler` seam (`ScriptTranspiler`).
 > Component 2 of the DialogueDown script compiler.
 
 ## Table of contents
@@ -190,20 +191,20 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                                                                                                                                            | Collaborators                      |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                                                                                                  | Markdown AST, `ScriptDocument`     |
-| `BlockBuilder`                    | block-layer tree walk → Dialogue AST; orchestrates dispatch, delegating each line to `LineBuilder`; one shared, recursive `Build(blocks)` for the document body and each choice body (D4) | `LineBuilder`, `InlineBuilder`     |
-| `LineBuilder`                     | one group of inlines → a `Line`: split an optional speaker off the leading text, build the remaining speech, span the group                                                               | `SpeakerBuilder`, `InlineBuilder`  |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                                                                                          | `SourceSpan`                       |
-| `ScriptBlock`                     | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                                                                                            | `ScriptNode`                       |
-| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                                                                                         | `ParseInput`, `ParseResult`        |
-| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                                                                                                    | `IParser<T>`                       |
-| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                                                                                                    | `…Data` records                    |
-| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder`                                                                        | `…Data`, AST nodes                 |
-| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), under an `IInlinePolicy` (D14)                                                                                             | leaf tokenizer, builders, policy   |
-| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                                                                                        | `TagBuilder`                       |
-| `IInlinePolicy`                   | what a context admits and what an unsupported inline becomes: reconstruct-as-text or reject (D14)                                                                                         | `MarkdownInline`, `InlineFragment` |
+| Type                              | Responsibility                                                                                                                                                                            | Collaborators                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`; `ScriptTranspiler` wraps `BlockBuilder`. `source` is validated and reserved for diagnostics, not read           | Markdown AST, `ScriptDocument`, `BlockBuilder` |
+| `BlockBuilder`                    | block-layer tree walk → Dialogue AST; orchestrates dispatch, delegating each line to `LineBuilder`; one shared, recursive `Build(blocks)` for the document body and each choice body (D4) | `LineBuilder`, `InlineBuilder`                 |
+| `LineBuilder`                     | one group of inlines → a `Line`: split an optional speaker off the leading text, build the remaining speech, span the group                                                               | `SpeakerBuilder`, `InlineBuilder`              |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                                                                                          | `SourceSpan`                                   |
+| `ScriptBlock`                     | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                                                                                            | `ScriptNode`                                   |
+| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                                                                                         | `ParseInput`, `ParseResult`                    |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                                                                                                    | `IParser<T>`                                   |
+| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                                                                                                    | `…Data` records                                |
+| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder`                                                                        | `…Data`, AST nodes                             |
+| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), under an `IInlinePolicy` (D14)                                                                                             | leaf tokenizer, builders, policy               |
+| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                                                                                        | `TagBuilder`                                   |
+| `IInlinePolicy`                   | what a context admits and what an unsupported inline becomes: reconstruct-as-text or reject (D14)                                                                                         | `MarkdownInline`, `InlineFragment`             |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -652,6 +653,7 @@ TagName     = Identifier | String ;
 
 ```text
 transpile(markdownDocument, source):
+    validate(source)                 # reserved for diagnostics; not read here
     return ScriptDocument(body = Build(markdownDocument.blocks))
 
 # One shared, recursive walk — used for the document body and each choice body (D4).
@@ -731,8 +733,10 @@ buildSpeech(inlines, policy):         # InlineBuilder, gated by the context poli
 
 ## Integration
 
-- **Upstream:** consumes the immutable `MarkdownDocument` plus the original source
-  string (for spans and leaf text).
+- **Upstream:** consumes the immutable `MarkdownDocument`. It also takes the
+  original source string, but only validates it and holds it as the anchor for
+  future diagnostics — the transpile reads text and spans from the Markdown AST,
+  not the raw source.
 - **Downstream — Desugar:** composes `JumpIndicator + Link` into a `Jump`, fills
   the default speaker, and rewrites silent commands, producing a normalized
   Dialogue AST.

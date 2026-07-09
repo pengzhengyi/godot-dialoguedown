@@ -1,3 +1,4 @@
+using DialogueDown.Script.Transpiler;
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Script.Transpiler.Parsers;
 
@@ -26,4 +27,6 @@ internal static class TranspilerBuilderFactory
     public static LineBuilder LineBuilder() => new(SpeakerBuilder(), InlineBuilder());
 
     public static BlockBuilder BlockBuilder() => new(InlineBuilder(), LineBuilder());
+
+    public static ScriptTranspiler ScriptTranspiler() => new(BlockBuilder());
 }

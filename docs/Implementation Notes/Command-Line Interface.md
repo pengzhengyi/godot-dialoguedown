@@ -1,7 +1,7 @@
 # Implementation note: command-line interface
 
 > [!NOTE]
-> Status: **proposed**.
+> Status: **implemented**.
 > The `dialoguedown` CLI: a Spectre.Console.Cli host with `compile` and
 > `visualize` subcommands. This first pass builds the **skeleton and
 > architecture** only — both commands are stubs behind a compilation seam that
@@ -18,7 +18,7 @@
 - [Error and boundary cases](#error-and-boundary-cases)
 - [Integration](#integration)
 - [Testability](#testability)
-- [Open questions](#open-questions)
+- [Resolved decisions](#resolved-decisions)
 
 ## Goal and scope
 
@@ -88,30 +88,33 @@ self-invoking it**.
 
 ## Functionality checklist
 
-- [ ] `dialoguedown` with no arguments prints help and exits non-zero.
-- [ ] `dialoguedown --help` lists the `compile` and `visualize` commands.
-- [ ] `dialoguedown --version` prints the tool version.
-- [ ] `dialoguedown compile --help` / `visualize --help` show each command's usage.
-- [ ] `compile <script>` validates the argument, then reports "not yet
+- [x] `dialoguedown` with no arguments prints help (exit `0`).
+- [x] `dialoguedown --help` lists the `compile` and `visualize` commands.
+- [x] `dialoguedown --version` prints the tool version.
+- [x] `dialoguedown compile --help` / `visualize --help` show each command's usage.
+- [x] `compile <script>` validates the argument, then reports "not yet
       implemented" with a distinct exit code.
-- [ ] `visualize <script>` behaves the same (validate → not-yet-implemented).
-- [ ] A missing file or a non-`.dialogue.md` argument fails with a clear message
+- [x] `visualize <script>` behaves the same (validate → not-yet-implemented).
+- [x] A missing file or a non-`.dialogue.md` argument fails with a clear message
       before any compilation is attempted.
-- [ ] An unknown command or option fails with Spectre's usage error.
-- [ ] Both commands resolve `IScriptCompiler` through DI (substitutable in tests).
+- [x] An unknown command or option fails with Spectre's usage error.
+- [x] Both commands resolve `IScriptCompiler` through DI (substitutable in tests).
 
 ## Interfaces and abstractions
 
 | Type | Responsibility | Collaborators |
 | --- | --- | --- |
-| `Program` | Composition root: build the DI container, register commands, configure the app name/version, run. | `CommandApp`, `TypeRegistrar` |
+| `Program` / `CliRunner` | Composition root: build the DI container, configure the app, and run it. Excluded from coverage (wiring exercised end-to-end). | `CommandApp`, `TypeRegistrar`, `CliServices`, `CliConfigurator` |
+| `CliConfigurator` | Configure the app: name, version, the subcommands, and the exception handler that maps exceptions to a clean message and an exit code. | `IConfigurator`, `ExitCodes` |
+| `CliServices` | Register the CLI's services (the `IScriptCompiler` seam) for injection. | `IServiceCollection` |
 | `TypeRegistrar` / `TypeResolver` | Adapt Spectre's `ITypeRegistrar`/`ITypeResolver` onto `Microsoft.Extensions.DependencyInjection`, so commands get constructor-injected services. | `IServiceCollection` |
-| `CompileCommand` + `CompileSettings` | The `compile` command shell: `<script>` argument (plus `-o` / `--output`), validate, then invoke the seam. | `IScriptCompiler`, `IAnsiConsole` |
-| `VisualizeCommand` + `VisualizeSettings` | The `visualize` command shell: `<script>` argument, validate, then invoke the seam. | `IScriptCompiler`, `IAnsiConsole` |
+| `CompileCommand` + `CompileSettings` | The `compile` command shell: `<script>` argument (plus `-o` / `--output`), validate, then invoke the seam. | `IScriptCompiler` |
+| `VisualizeCommand` + `VisualizeSettings` | The `visualize` command shell: `<script>` argument, validate, then invoke the seam. | `IScriptCompiler` |
 | `IScriptCompiler` | The seam: `Compile(source) → CompilationResult`. The single place compilation happens. | `CompilationResult` |
 | `CompilationResult` | The compiled form of a script (placeholder; enriched by the transpiler). | — |
-| `PendingScriptCompiler` | The skeleton stub: throws a "not yet implemented" signal so commands report it cleanly. Replaced by the real compiler. | — |
+| `PendingScriptCompiler` | The skeleton stub: throws a "not yet implemented" signal so the handler reports it cleanly. Replaced by the real compiler. | — |
 | `ScriptArgument` (validation) | Reject a missing file or wrong extension with a clear message, shared by both commands. | — |
+| `ExitCodes` | The process exit codes in one place (`Success`, `Error`, `UsageError`, `NotImplemented`). | — |
 
 ## Key design decisions
 
@@ -148,9 +151,11 @@ commands depend on it: `compile` runs it and reports the outcome; `visualize` wi
 render its stages. Encoding this now means `visualize` **relies on compilation
 rather than self-invoking** it — the dependency direction the architecture wants.
 In the skeleton the seam is `PendingScriptCompiler`, which raises a clear "not yet
-implemented" signal; each command catches it and prints a friendly message with a
-distinct exit code. When the transpiler lands it registers the real
-`IScriptCompiler`, and the commands light up with **no change to their bodies**.
+implemented" signal; a **single app-level exception handler** (in `CliConfigurator`)
+turns that into a friendly message and a distinct exit code, so the commands stay
+trivial and the not-implemented UX lives in one place. When the transpiler lands it
+registers the real `IScriptCompiler`, and the commands light up with **no change to
+their bodies**.
 
 ### D5 — Skeleton commands still validate and route
 
@@ -169,10 +174,12 @@ is set on the `CommandApp` and the alias is documented intent.
 
 ### D7 — Exit codes are meaningful
 
-`0` on success; a **distinct non-zero code** for "not yet implemented" (so scripts
-and tests can tell a stub from a real failure) and for a bad argument; Spectre's
-own non-zero for parse/usage errors. The exact codes are small and documented in
-one place so they stay stable.
+A small, named set in one place (`ExitCodes`): `0` success, `64` usage error
+(a bad argument or an unknown command/option, following `EX_USAGE`), `70`
+not-implemented (`EX_SOFTWARE`, so scripts and tests can tell a stub from a real
+failure), and `1` for an unexpected error. The app-level exception handler maps
+framework and command exceptions onto these — a validation or parse failure to
+`64`, the not-implemented signal to `70` — rather than leaking a stack trace.
 
 ### D8 — Packaging as a `dotnet tool` is planned, not now
 
@@ -220,22 +227,29 @@ this `CommandApp`, contributing the real command body. One CLI, one parser.
 
 The whole point of the framework choice is testability without a real terminal.
 
-- **`CommandAppTester`** (from `Spectre.Console.Testing`) runs a command in-process
-  and returns the **exit code**, captured **output**, and the parsed **settings** —
-  so tests assert behavior end-to-end (help, version, validation, exit codes, the
-  not-implemented path) with no process spawn.
-- **`TestConsole`** is a fake `IAnsiConsole` for asserting rendered output.
+- **`CommandAppTester`** (from the `Spectre.Console.Cli.Testing` package — split
+  from `Spectre.Console.Cli`) runs a command in-process and returns the **exit
+  code**, captured **output**, and the parsed **settings** — so tests assert
+  behavior end-to-end (help, version, validation, exit codes, the not-implemented
+  path) with no process spawn. It captures the app's configured console, so the
+  exception handler writes to the resolver-provided `IAnsiConsole` for output to be
+  visible in tests.
 - **Substitutable seam.** Tests register a fake `IScriptCompiler` (returns a canned
   result, or throws) to drive command behavior independently of the stub — proving
   the DI wiring and the command's handling of success/failure ahead of the real
-  compiler.
-- **Stack.** xUnit + `Spectre.Console.Testing`, mirroring the repo's existing test
-  setup (one test file per source file, parallel-friendly).
+  compiler. Because the seam is `internal`, the CLI project also exposes internals
+  to `DynamicProxyGenAssembly2` so NSubstitute (Castle DynamicProxy) can mock it.
+- **Coverage.** The composition root (`Program`, `CliRunner`) is excluded as wiring
+  exercised end-to-end; everything else — commands, settings, validation, the
+  handler, the seam, and the DI bridge — reaches 100% line coverage.
+- **Stack.** xUnit + NSubstitute + `Spectre.Console.Cli.Testing` (matched Spectre
+  `0.55.0` set), mirroring the repo's existing test setup (one test file per source
+  file, parallel-friendly).
 
-## Open questions
+## Resolved decisions
 
-- **Exit-code values.** Confirm the small scheme (e.g. `0` success, `2` usage,
-  a `64`/`70`-style code for not-implemented) — I lean on a documented handful.
-- **Core reference now vs later.** Reference the `DialogueDown` core library from
-  the skeleton (natural, but unused until the seam is real) or defer it until the
-  transpiler wires in — I lean reference-now for a stable project graph.
+- **Exit-code values.** Adopted the sysexits-style set in `ExitCodes`: `0` success,
+  `64` usage, `70` not-implemented, `1` unexpected error (see D7).
+- **Core reference.** The CLI references the `DialogueDown` core library now, for a
+  stable project graph; the compilation seam is the boundary, and the transpiler
+  wires the real compiler through it later.

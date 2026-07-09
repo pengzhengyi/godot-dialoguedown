@@ -87,7 +87,13 @@ public sealed class WatchModeTests
     public async Task RunAsync_ImageOutsideFolder_WithRenderRoot_ServesReportAtSubPathWithoutPrompting()
     {
         using var tree = new TempTree();
-        var documentPath = tree.File("proj/scene.dialogue.md", "# Scene\n\n![p](../shared/pic.png)");
+        var documentPath = tree.File(
+            "proj/scene.dialogue.md",
+            """
+            # Scene
+
+            ![p](../shared/pic.png)
+            """);
         var pic = tree.File("shared/pic.png");
         await File.WriteAllBytesAsync(pic, new byte[] { 4, 2 });
         var browser = new FakeBrowserLauncher();
@@ -131,7 +137,13 @@ public sealed class WatchModeTests
     public async Task RunAsync_ImageOutsideFolder_Declined_ServesDocumentFolderOnly()
     {
         using var tree = new TempTree();
-        var documentPath = tree.File("proj/scene.dialogue.md", "# Scene\n\n![p](../shared/pic.png)");
+        var documentPath = tree.File(
+            "proj/scene.dialogue.md",
+            """
+            # Scene
+
+            ![p](../shared/pic.png)
+            """);
         tree.File("shared/pic.png");
         var consent = new FakeHostConsent(allow: false);
         var browser = new FakeBrowserLauncher();

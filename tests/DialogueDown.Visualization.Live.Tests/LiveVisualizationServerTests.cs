@@ -146,7 +146,13 @@ public sealed class LiveVisualizationServerTests
     public async Task BroadenedRoot_ServesFilesOutsideTheDocumentFolder()
     {
         using var tree = new TempTree();
-        var documentPath = tree.File("proj/scene.dialogue.md", "# Scene\n\n![p](../shared/pic.png)");
+        var documentPath = tree.File(
+            "proj/scene.dialogue.md",
+            """
+            # Scene
+
+            ![p](../shared/pic.png)
+            """);
         var pic = tree.File("shared/pic.png");
         var bytes = new byte[] { 9, 8, 7 };
         await File.WriteAllBytesAsync(pic, bytes);

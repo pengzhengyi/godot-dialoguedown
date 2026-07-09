@@ -95,6 +95,16 @@ through the same seams the tests use and never touches the shipped core package,
 so the core stays dependency-light. The Markdown AST view ships today; the
 Dialogue AST view lands with the transpiler.
 
+Render a script from the command line with the `visualize` tool:
+
+```bash
+# Render a self-contained report and open it in the browser
+dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md
+
+# Watch the file and hot-reload the report in the browser as you edit it
+dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md --watch
+```
+
 > [!NOTE]
 > The visualizer is a diagnostics helper, built quickly with lighter review than
 > the core library; its API and abstractions may still change.

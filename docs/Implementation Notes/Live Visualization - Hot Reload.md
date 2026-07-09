@@ -1,13 +1,12 @@
 # Live Visualization — Hot Reload
 
-> [!IMPORTANT]
-> Status: **approved — implementation in progress**. This is the first of three
-> components that turn the static compilation report into a live, server-backed
-> experience. This component adds a command-line entry point and a **watch mode**
-> that serves the report from a local server and refreshes the browser whenever
-> the source file changes on disk. **Live editing** (an in-browser editor, Save,
-> dirty tracking) and a **file launcher** (in-app document picker) follow as
-> separate components and reuse the foundation laid here.
+> [!NOTE]
+> Status: **implemented** (Component 1 of live visualization). This component adds
+> a `visualize` command-line entry point and a **watch mode** that serves the
+> report from a local server and refreshes the browser whenever the source file
+> changes on disk. **Live editing** (an in-browser editor, Save, dirty tracking)
+> and a **file launcher** (in-app document picker) follow as separate components
+> and reuse the foundation laid here.
 
 The compilation report is transparent but **frozen**: you run it once and get a
 snapshot. When you are iterating on a `.dialogue.md` script, you want the report
@@ -78,18 +77,22 @@ leaves a seam for them, but are not built here.
 
 ## Functionality checklist
 
-- [ ] `visualize <file>` renders a document and opens the self-contained report.
-- [ ] `visualize <file> -o <path>` writes the report to a path instead of opening.
-- [ ] `visualize <file> --watch` starts a loopback live session and opens the browser.
-- [ ] `--watch` prints the URL and keeps running until interrupted (Ctrl+C).
-- [ ] Saving the document in an external editor updates the browser within ~1s.
-- [ ] The report rebuilds in place on reload, preserving the active tab.
-- [ ] A compile error after a change shows an inline banner, not a blank page; the
-      session recovers on the next good save.
-- [ ] Deleting/renaming the document shows a "document missing" banner and recovers
-      when it reappears.
-- [ ] Multiple open browser tabs all receive updates.
-- [ ] Missing file / not `.dialogue.md` / bad arguments fail with a clear message.
+- [x] `visualize <file>` renders a document and opens the self-contained report.
+- [x] `visualize <file> -o <path>` writes the report to a path instead of opening.
+- [x] `visualize <file> --watch` starts a loopback live session and opens the browser.
+- [x] `--watch` prints the URL and keeps running until interrupted (Ctrl+C).
+- [x] Saving the document in an external editor updates the browser within ~1s.
+- [x] The report rebuilds in place on reload, preserving the active tab.
+- [x] Deleting the document shows a banner, not a blank page; the session recovers
+      when the file reappears (a later good save pushes a fresh `reload`).
+- [x] Multiple open browser tabs all receive updates.
+- [x] Missing file / not `.dialogue.md` / bad arguments fail with a clear message.
+
+The design also called for a distinct inline banner on a **compile error** after a
+change. On `main` today the single Markdown stage always parses (any text is valid
+Markdown), so there is no compile-failure path to surface yet; the banner is wired
+for document-read failures (missing file) and will cover compile errors unchanged
+once a stage that can reject input (the Dialogue AST) lands.
 
 ## Architecture
 
@@ -106,8 +109,10 @@ flowchart LR
     end
 
     subgraph Live["DialogueDown.Visualization.Live"]
+        cli["VisualizeCli<br/>(StaticMode / WatchMode)"]
         server["LiveVisualizationServer<br/>(ASP.NET minimal API, loopback)"]
-        watcher["DocumentWatcher<br/>(FileSystemWatcher + debounce)"]
+        session["LiveSession<br/>(compile + serialize + broadcast)"]
+        watcher["DocumentWatcher<br/>(FileSystemWatcher + Debouncer)"]
         broadcaster["SseBroadcaster<br/>(fan-out to clients)"]
     end
 
@@ -126,9 +131,10 @@ flowchart LR
     Browser -->|GET /, /api/*| server
 ```
 
-The render library gains a **public** seam for two operations the server needs:
-compile a source to stages, and render the report HTML with an optional **live
-marker**. `CompilationVisualizer` (today `internal`) becomes public for this.
+The render library gains a **public** seam for the operations the server needs:
+compile a source to stages, render the report HTML with a **live marker**, and
+serialize the current document payload. `CompilationVisualizer` (previously
+`internal`) is public for this.
 
 ## Hot-reload flow
 
@@ -140,16 +146,16 @@ sequenceDiagram
     participant Browser
 
     Browser->>Server: GET / (live report)
-    Server-->>Browser: HTML + initial {source, stages} + live marker
+    Server-->>Browser: HTML + initial {path, source, stages} + live marker
     Browser->>Server: GET /api/events (SSE, stays open)
     Editor->>Disk: save changes
     Disk-->>Server: FileSystemWatcher event (debounced)
     Server->>Server: recompile (CompilationVisualizer)
-    alt compile succeeds
-        Server-->>Browser: SSE reload {source, stages}
+    alt document readable
+        Server-->>Browser: SSE reload {path, source, stages}
         Browser->>Browser: rebuild tabs, keep active tab
-    else compile fails
-        Server-->>Browser: SSE error {message}
+    else document missing/unreadable
+        Server-->>Browser: SSE problem {message}
         Browser->>Browser: show inline banner
     end
 ```
@@ -158,14 +164,16 @@ sequenceDiagram
 
 | Type | Responsibility | Collaborators |
 | --- | --- | --- |
-| `Program` (CLI) | Parse arguments; dispatch to static render or a live session. | `System.CommandLine`, `CompilationVisualizer`, `LiveVisualizationServer` |
-| `LiveVisualizationServer` | Build and run the loopback web app; wire endpoints, watcher, and broadcaster; own the compile-and-broadcast cycle. | ASP.NET, `CompilationVisualizer`, `DocumentWatcher`, `SseBroadcaster` |
-| `DocumentWatcher` | Wrap `FileSystemWatcher`; **debounce** editor write bursts; raise one "changed"/"removed" event with fresh text. | `FileSystemWatcher` |
-| `SseBroadcaster` | Track connected SSE clients; fan out an event to all; drop closed ones. | ASP.NET response streams |
-| `ReportPayload` | DTO for `{ path, source, stages }` (reuses `DisplayGraph`). | `DisplayGraph` |
-| `LiveEvent` | Tagged push payload: `reload { source, stages }`, `error { message }`. | — |
-| `resolveMode` (frontend) | Detect the live marker and start the live client; otherwise render static as today. | `EventSource`, existing `runApp` |
-| `live-client.ts` (frontend) | Subscribe to `/api/events`; on push, rebuild the report preserving the active tab; render error banners. | `runApp`, `renderReport` |
+| `VisualizeCli` | Build the `visualize` command (arguments and options); dispatch to static or watch mode. | `System.CommandLine`, `StaticMode`, `WatchMode` |
+| `StaticMode` / `WatchMode` | The two run paths: render-to-file-and-open, and run a live session until cancelled. | `CompilationVisualizer`, `LiveVisualizationServer`, `DocumentWatcher` |
+| `DocumentValidation` | Reject a missing file or wrong extension with a clear message. | — |
+| `LiveVisualizationServer` | Build and run the loopback web app; map the endpoints; stream SSE. | ASP.NET, `LiveSession`, `SseBroadcaster` |
+| `LiveSession` | Own one document: render its live HTML, serialize its payload, and broadcast a `reload`/`problem` on refresh. | `CompilationVisualizer`, `SseBroadcaster` |
+| `DocumentWatcher` | Wrap `FileSystemWatcher`; **debounce** editor write bursts (via `Debouncer`) into one callback. | `FileSystemWatcher`, `Debouncer` |
+| `SseBroadcaster` | Track connected SSE clients (one channel each); fan out an event to all; drop closed ones. | ASP.NET response streams |
+| `LiveEvent` | A tagged push: an event name (`reload`/`problem`) and its JSON data. Payloads are serialized by `CompilationVisualizer.SerializeDocument` (reusing `DisplayGraph`). | `DisplayGraph` |
+| `resolveReport` + `startLiveClient` (frontend) | `main.ts` reads the injected payload; when it is marked live, `startLiveClient` subscribes and drives updates — otherwise the static path is unchanged. | `EventSource`, `runApp` |
+| `live-client.ts` (frontend) | Subscribe to `/api/events`; on `reload`, rebuild the report preserving the active tab; on `problem`, show the banner. | `AppController` (`runApp`) |
 
 ## HTTP surface
 
@@ -173,9 +181,9 @@ Loopback only. This component is **read-only**; Component 2 adds the write route
 
 | Route | Purpose |
 | --- | --- |
-| `GET /` | The live report HTML: the embedded report with the initial `{ source, stages }` injected and the **live marker** set (so the client goes live). |
+| `GET /` | The live report HTML: the embedded report with the initial `{ path, source, stages }` injected and the **live marker** set (so the client goes live). |
 | `GET /api/document` | Current `{ path, source, stages }` — used by the client to re-sync on reconnect. |
-| `GET /api/events` | **SSE** stream. Emits `reload { source, stages }` after a successful recompile and `error { message }` on failure. |
+| `GET /api/events` | **SSE** stream. Emits `reload { path, source, stages }` after a successful recompile and `problem { message }` when the document cannot be read. |
 
 ## Key design decisions
 
@@ -190,10 +198,9 @@ public seam (compile, render-with-live-marker); it never learns about HTTP.
 ### D2 — ASP.NET Core minimal API over a hand-rolled listener
 
 A minimal API gives JSON, static content, and streaming responses idiomatically,
-and — crucially — is **testable in memory** via `WebApplicationFactory`, so the
-endpoints get real unit tests without binding a socket. A hand-rolled
-`HttpListener` would add no dependency but cost boilerplate and testability. We
-prefer the mature, well-understood host.
+and hosts cleanly on an ephemeral loopback port so the endpoints get real
+integration tests over HTTP. A hand-rolled `HttpListener` would add no dependency
+but cost boilerplate and testability. We prefer the mature, well-understood host.
 
 ### D3 — Server-Sent Events over WebSocket
 
@@ -224,33 +231,35 @@ nodes are expanded — resets on reload; preserving it is deferred (a possible
 Component 2 refinement). A full reload remains the fallback if a rebuild ever
 throws.
 
-### D6 — Debounce the watcher and carry the fresh text in the event
+### D6 — Debounce the watcher; the session re-reads on each change
 
-Editors save by writing several times or writing a temp file and renaming, so
-`FileSystemWatcher` fires bursts. `DocumentWatcher` **debounces** (~150 ms) and
-coalesces to a single event, reads the file once, and hands the text to the
-server — so the compile step is decoupled from raw filesystem noise and always
-sees the latest content.
+Editors save by writing several times, or writing a temp file and renaming, so
+`FileSystemWatcher` fires bursts. `DocumentWatcher` **debounces** (~150 ms, via a
+small `Debouncer`) and coalesces the burst into a single callback. The callback is
+the session's refresh: it re-reads and recompiles the current file once, so the
+compile step is decoupled from raw filesystem noise and always sees the latest
+content. Splitting the timing into `Debouncer` keeps it deterministically
+testable, apart from the filesystem.
 
 ### D7 — Static mode opens a temp report by default
 
 `visualize <file>` with no flag renders to a temp file and opens the browser (the
 common case), with `-o <path>` to write somewhere instead and `--no-open` to
 suppress launching. This makes the everyday "just show me" path a single word
-while keeping scripting options.
+while keeping scripting options. In watch mode, `--port` pins the loopback port
+(otherwise an ephemeral port is chosen and its URL printed).
 
 ## Error and boundary cases
 
 | Case | Intended behavior |
 | --- | --- |
 | File does not exist / wrong extension | CLI exits with a clear message before starting a session. |
-| Compile error on first render (`--watch`) | Server still starts and serves a report whose banner shows the error; a later good save clears it. |
-| Compile error after a change | Push an `error` event; the browser shows an inline banner and keeps the last good graph; recovers on the next good save. |
 | Editor save burst (temp-write + rename) | Debounced and coalesced into one recompile of the final content. |
-| Document deleted or renamed away | Push a "document missing" banner; keep the session alive; resume when the path reappears. |
+| Document deleted | Push a `problem` event; the browser shows a banner; the session stays alive and a later save pushes a fresh `reload`. |
 | Rapid successive saves | Debounce; always compile the most recent content. |
 | Multiple browser tabs / reconnect | Broadcast to all SSE clients; a reconnecting client re-syncs via `GET /api/document`. |
-| Port in use | Bind an ephemeral loopback port by default; print the chosen URL. |
+| Port in use (`--port`) | Kestrel fails to bind and the process reports the error; omit `--port` to take an ephemeral port. |
+| Compile error after a change (future) | Deferred: today's single Markdown stage always parses, so there is no failure to surface. The `problem` event and banner are wired and will carry compile errors once a rejecting stage (Dialogue AST) lands. |
 
 ## Security
 
@@ -276,30 +285,38 @@ This is a **development tool**, and the note says so plainly:
   static artifact — no separate template slot.
 - **Frontend:** `main.ts` gains a branch — live marker present ⇒ start the live
   client; otherwise the current static path (`window.__DD_REPORT__`) is untouched.
-  The report-building code is factored so both the initial render and a hot reload
-  call the same `renderReport(report)`.
+  `runApp` returns an `AppController` so both the initial render and a hot reload
+  drive the same in-place rebuild.
 - **Existing tests:** unchanged. The static renderer and its embedding keep their
   current behavior and assertions.
-- **CI:** a new job builds and tests the `.Live` project; the frontend live e2e
-  (below) launches the real server via Playwright's `webServer`.
+- **CI:** the .NET job already builds and tests the whole solution, so it now
+  covers the `.Live` project; the Frontend job additionally builds the live server
+  and runs the live e2e, which launches it via Playwright's `webServer`.
 
 ## Testability
 
-Following the test pyramid, with the existing 100%-coverage bar as the target.
+Following the test pyramid, with the existing 100%-coverage bar as the target
+(the Live project's own sources reach it; one async SSE-handler continuation line
+is a coverage artifact — the tests disconnect mid-stream, so the read loop never
+exits normally).
 
-- **Server (.NET, in-memory):** `WebApplicationFactory<Program>` drives the
-  endpoints without a socket — `GET /` serves a live-marked report; `GET
-  /api/document` returns the payload; `GET /api/events` emits a `reload` after a
-  simulated change. New test project `DialogueDown.Visualization.Live.Tests`.
-- **`DocumentWatcher`:** point it at a temp file; write, and assert a single
-  debounced event with the fresh text; delete, and assert a "removed" event.
-- **`SseBroadcaster`:** connect fake clients; assert fan-out and that closed
-  clients are dropped.
+- **Server (.NET, real loopback):** each test starts a `LiveVisualizationServer`
+  on an ephemeral `127.0.0.1` port and drives it with `HttpClient` — `GET /` serves
+  a live-marked report; `GET /api/document` returns the payload; `GET /api/events`
+  streams a `reload` after the session refreshes. New test project
+  `DialogueDown.Visualization.Live.Tests`.
+- **`Debouncer`:** trigger rapidly and assert one fire; trigger again after the
+  delay and assert a second — timing tested apart from the filesystem.
+- **`DocumentWatcher`:** point it at a temp file; write, and assert the debounced
+  callback fires; write rapidly, and assert the callback is coalesced.
+- **`SseBroadcaster`:** connect fake clients; assert fan-out and that a disposed
+  subscriber is dropped and its channel completed.
 - **CLI:** `System.CommandLine` parsing is unit-tested (static vs watch, `-o`,
-  bad input); a smoke test covers the static render path.
-- **Frontend (Vitest):** the live client with a mocked `EventSource` — a `reload`
-  rebuilds and preserves the active tab; an `error` shows a banner.
-- **Frontend (Playwright e2e):** spawn the **real** `dotnet` live server against a
-  temp document (`webServer` in the Playwright config); load the page, modify the
-  file from the test, and assert the report updates; delete the file and assert the
-  banner. This is the project's first server-backed e2e.
+  bad input); `StaticMode` and a watch-invoke test cover both run paths with an
+  injected fake browser launcher.
+- **Frontend (Vitest):** the live client with an injected fake `EventSource` — a
+  `reload` rebuilds and preserves the active tab; a `problem` shows a banner.
+- **Frontend (Playwright e2e):** a separate config starts the **real** `dotnet`
+  live server against a temp document (`webServer`); the browser loads the page,
+  the test modifies the file, and the report updates in place; deleting the file
+  shows the banner. This is the project's first server-backed e2e.

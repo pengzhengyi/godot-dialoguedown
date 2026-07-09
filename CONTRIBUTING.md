@@ -72,6 +72,23 @@ If you change anything under `web/src`, **rebuild and commit
 `web/dist/report.html`** — CI fails if the committed report is out of sync with its
 sources.
 
+### The `visualize` CLI and live server
+
+`src/DialogueDown.Visualization.Live` is a small console app (and loopback server)
+for viewing a script's compilation:
+
+```bash
+cd src/DialogueDown.Visualization.Live
+dotnet run -- path/to/scene.dialogue.md            # render + open a static report
+dotnet run -- path/to/scene.dialogue.md --watch    # serve + hot-reload on file changes
+dotnet run -- path/to/scene.dialogue.md -o out.html --no-open   # write, don't open
+```
+
+Watch mode starts a `127.0.0.1`-only server that pushes recompiled stages to the
+browser over Server-Sent Events; it is a development tool, not a hosted service.
+The live end-to-end tests run with `npm run e2e:live` in `web/` (they build and
+launch this server automatically).
+
 ### Editor tasks (VS Code)
 
 Common tasks are wired up in `.vscode/tasks.json` (**Terminal → Run Task**), so

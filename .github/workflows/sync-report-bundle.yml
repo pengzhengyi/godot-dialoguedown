@@ -1,0 +1,63 @@
+name: Sync report bundle
+
+# The built single-file report (src/DialogueDown.Visualization/web/dist/report.html)
+# is committed so the .NET build can embed it without needing Node. When a pull
+# request changes the web sources or the build tooling (for example a Dependabot bump
+# of vite/esbuild), the committed bundle drifts from a fresh build and the CI check
+# "Verify the committed report is in sync with web/ sources" fails. This job rebuilds
+# the bundle and commits the result back to the PR branch, so those PRs self-heal
+# instead of needing a manual rebuild.
+#
+# It uses `pull_request_target` so the job gets a write token — needed to push back to
+# the PR branch, including Dependabot PRs (whose `pull_request` token is read-only).
+# For safety it runs ONLY for branches in this repository (never forks), and it only
+# installs deps, builds, and commits the one generated file, so the elevated token is
+# never exposed to untrusted fork code.
+
+on:
+  pull_request_target:
+    paths:
+      - "src/DialogueDown.Visualization/web/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-report-bundle-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Rebuild committed report
+    # Same-repo branches only (collaborators and Dependabot); skip forks, which cannot
+    # be pushed to and must not run with a write token.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/DialogueDown.Visualization/web
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/DialogueDown.Visualization/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build single-file report
+        run: npm run build
+
+      - name: Commit the rebuilt report if it changed
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "build: rebuild the committed report bundle"
+          file_pattern: src/DialogueDown.Visualization/web/dist/report.html

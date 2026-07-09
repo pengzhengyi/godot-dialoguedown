@@ -1,5 +1,6 @@
 import "@picocss/pico/css/pico.min.css";
 import "tippy.js/dist/tippy.css";
+import "./highlight.css";
 import "./styles.css";
 
 import { runApp } from "./app";

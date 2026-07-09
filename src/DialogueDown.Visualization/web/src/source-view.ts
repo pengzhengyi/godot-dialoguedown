@@ -1,4 +1,5 @@
 import { renderDocument } from "./text";
+import { highlightMarkdown } from "./highlight";
 
 /** Bounds for the draggable split, as a fraction of the container width. */
 const MIN_RATIO = 0.2;
@@ -23,7 +24,9 @@ export function createSourceView(source: string): HTMLElement {
     sourcePane.setAttribute("aria-label", "Markdown source");
     const pre = document.createElement("pre");
     const code = document.createElement("code");
-    code.textContent = source;
+    code.className = "hljs language-markdown";
+    // highlight.js escapes the source, so assigning its HTML is safe.
+    code.innerHTML = highlightMarkdown(source);
     pre.appendChild(code);
     sourcePane.appendChild(pre);
 

@@ -30,6 +30,12 @@ describe("createSourceView", () => {
         expect(view.querySelector(".source-pane pre code")?.textContent).toBe(SOURCE);
     });
 
+    it("syntax-highlights the source", () => {
+        const code = view.querySelector(".source-pane pre code")!;
+        expect(code.classList.contains("hljs")).toBe(true);
+        expect(code.querySelector(".hljs-section")).not.toBeNull(); // the "# Scene" heading
+    });
+
     it("renders the preview with heading ids that match in-document anchor links", () => {
         const preview = view.querySelector(".source-preview")!;
         expect(preview.querySelector("#market")).not.toBeNull();

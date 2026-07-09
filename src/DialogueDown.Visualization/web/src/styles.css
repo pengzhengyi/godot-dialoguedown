@@ -126,6 +126,13 @@ section.stage.error {
     font-size: 0.82rem;
 }
 
+/* Use highlight.js only for token colours; let the code blend with the pane
+   background rather than carry the theme's own block background. */
+.source-pane .hljs {
+    background: transparent;
+    padding: 0;
+}
+
 .source-divider {
     flex: 0 0 7px;
     cursor: col-resize;

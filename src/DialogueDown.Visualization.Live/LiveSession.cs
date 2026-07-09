@@ -41,19 +41,16 @@ internal sealed class LiveSession
     /// </summary>
     public void Refresh()
     {
-        if (!File.Exists(DocumentPath))
-        {
-            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson($"Document not found: {DocumentPath}")));
-            return;
-        }
-
         try
         {
             Broadcaster.Broadcast(new LiveEvent("reload", CurrentDocumentJson()));
         }
         catch (IOException ex)
         {
-            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(ex.Message)));
+            var message = ex is FileNotFoundException or DirectoryNotFoundException
+                ? $"Document not found: {DocumentPath}"
+                : ex.Message;
+            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message)));
         }
     }
 

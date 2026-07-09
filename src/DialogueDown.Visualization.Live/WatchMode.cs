@@ -42,14 +42,11 @@ internal static class WatchMode
             browser.Open(url);
         }
 
-        try
-        {
-            await Task.Delay(Timeout.Infinite, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            // Ctrl+C: a clean stop.
-        }
+        // Keep serving until cancelled (Ctrl+C). Complete normally on cancellation
+        // rather than throwing, so shutdown is not an exceptional path.
+        var stopped = new TaskCompletionSource();
+        await using var registration = cancellationToken.Register(() => stopped.TrySetResult());
+        await stopped.Task;
 
         return 0;
     }

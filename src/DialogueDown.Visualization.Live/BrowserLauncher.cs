@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace DialogueDown.Visualization.Live;
@@ -7,6 +8,7 @@ namespace DialogueDown.Visualization.Live;
 /// Opens targets with the operating system's default handler — <c>open</c> on
 /// macOS, the shell on Windows, and <c>xdg-open</c> on Linux.
 /// </summary>
+[ExcludeFromCodeCoverage] // A thin OS process shim; launching a real browser is not unit-testable.
 internal sealed class BrowserLauncher : IBrowserLauncher
 {
     public void Open(string target)

@@ -45,4 +45,36 @@ public sealed class VisualizeCliTests
 
         Assert.NotEqual(0, code);
     }
+
+    [Fact]
+    public async Task Invoke_Watch_StartsAServerAndStopsWhenCancelled()
+    {
+        using var doc = new TempDocument();
+        var browser = new FakeBrowserLauncher();
+        var cli = VisualizeCli.Create(browser);
+        using var stop = new CancellationTokenSource();
+
+        var task = cli.Parse([doc.Path, "--watch"]).InvokeAsync(cancellationToken: stop.Token);
+        // The watch branch opens the browser once the server is up.
+        await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
+
+        Assert.StartsWith("http://127.0.0.1:", browser.Opened[0]);
+
+        stop.Cancel();
+        Assert.Equal(0, await task);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50);
+        }
+
+        if (!condition())
+        {
+            throw new TimeoutException("Condition was not met in time.");
+        }
+    }
 }

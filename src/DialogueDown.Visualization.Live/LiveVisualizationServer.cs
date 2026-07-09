@@ -57,18 +57,14 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         using var subscription = _session.Broadcaster.Subscribe(out var reader);
         await context.Response.Body.FlushAsync(cancellationToken);
 
-        try
+        // `cancellationToken` is the request's RequestAborted token. When the client
+        // disconnects it cancels ReadAllAsync; ASP.NET treats that as a normal
+        // disconnect, and the `using` above cleans up the subscription.
+        await foreach (var liveEvent in reader.ReadAllAsync(cancellationToken))
         {
-            await foreach (var liveEvent in reader.ReadAllAsync(cancellationToken))
-            {
-                await context.Response.WriteAsync($"event: {liveEvent.Event}\n", cancellationToken);
-                await context.Response.WriteAsync($"data: {liveEvent.Data}\n\n", cancellationToken);
-                await context.Response.Body.FlushAsync(cancellationToken);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // The client disconnected; the subscription is cleaned up by `using`.
+            await context.Response.WriteAsync($"event: {liveEvent.Event}\n", cancellationToken);
+            await context.Response.WriteAsync($"data: {liveEvent.Data}\n\n", cancellationToken);
+            await context.Response.Body.FlushAsync(cancellationToken);
         }
     }
 }

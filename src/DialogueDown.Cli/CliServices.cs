@@ -1,3 +1,4 @@
+using DialogueDown.Cli.Compilation;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console;
 
@@ -11,6 +12,7 @@ internal static class CliServices
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton(AnsiConsole.Console);
+        services.AddSingleton<IScriptCompiler, PendingScriptCompiler>();
         return services;
     }
 }

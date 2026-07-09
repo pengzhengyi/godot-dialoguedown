@@ -221,7 +221,9 @@ This line is also spoken by Narrator.
 
 ### Whitespace around the colon
 
-Whitespace around the colon is flexible for author comfort:
+Whitespace around the colon is flexible for author comfort. Whitespace before
+the colon and *all* whitespace immediately after it is insignificant, so every
+line below means the same thing — Alice saying `Hello, Bob!`:
 
 ```markdown
 Alice:Hello, Bob!
@@ -230,11 +232,15 @@ Alice :Hello, Bob!
 
 Alice: Hello, Bob!
 
-Alice : Hello, Bob!
+Alice :   Hello, Bob!
 ```
 
-If speech must start with a literal leading space, quote the speech instead of
-depending on ambiguous whitespace:
+The amount of spacing never changes the speech. This matters because rendered
+Markdown collapses consecutive spaces visually, so relying on extra spaces would
+be an invisible trap — the author could not see the difference in a preview.
+
+If speech must start with a literal leading space, quote it. Quoting is the
+single, explicit way to preserve leading whitespace:
 
 ```markdown
 Alice: " Hello, Bob!"

@@ -61,7 +61,10 @@ documentMarked.use(gfmHeadingId());
 
 /** Render Markdown to HTML, handling a leading YAML front matter block. */
 export function renderMarkdown(source: string): string {
-    return renderFrontMatterAnd(source, (body) => marked.parse(body, { async: false }) as string);
+    return renderFrontMatterAnd(
+        source,
+        (body) => marked.parse(body, { async: false, breaks: true }) as string,
+    );
 }
 
 /**
@@ -71,7 +74,7 @@ export function renderMarkdown(source: string): string {
 export function renderDocument(source: string): string {
     return renderFrontMatterAnd(
         source,
-        (body) => documentMarked.parse(body, { async: false }) as string,
+        (body) => documentMarked.parse(body, { async: false, breaks: true }) as string,
     );
 }
 

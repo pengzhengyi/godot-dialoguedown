@@ -141,4 +141,9 @@ describe("renderDocument", () => {
     it("leaves renderMarkdown id-free, so snippet previews cannot collide", () => {
         expect(renderMarkdown("## Heading")).not.toContain("id=");
     });
+
+    it("renders single newlines as hard breaks (dialogue is line-oriented)", () => {
+        expect(renderDocument("Alice: hi.\n=> [Go](#go)")).toContain("<br>");
+        expect(renderMarkdown("first line\nsecond line")).toContain("<br>");
+    });
 });

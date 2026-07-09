@@ -44,6 +44,13 @@ test("switching from Source to the Markdown AST tab shows the graph and detail p
     await expect(page.locator("#detail")).toBeVisible();
 });
 
+test("the tabs sit together at the start, not spread across the header", async ({ page }) => {
+    const first = await page.locator(".tab").nth(0).boundingBox();
+    const second = await page.locator(".tab").nth(1).boundingBox();
+    // Adjacent (grouped), not pushed to opposite ends by Pico's nav space-between.
+    expect(second!.x - (first!.x + first!.width)).toBeLessThan(20);
+});
+
 // --- Markdown AST graph (second tab) ---
 
 test("renders every node with a coloured circle and a legend of counts", async ({ page }) => {

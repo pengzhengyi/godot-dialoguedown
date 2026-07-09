@@ -1,26 +1,9 @@
-namespace DialogueDown.Visualization.Live.Tests;
-
 using DialogueDown.Visualization.Live.Tests.Support;
+
+namespace DialogueDown.Visualization.Live.Tests;
 
 public sealed class ServeRootResolverTests
 {
-    private sealed class StubConsent(bool allow) : IHostConsent
-    {
-        public HostConsentRequest? Received { get; private set; }
-
-        public bool AllowHosting(HostConsentRequest request)
-        {
-            Received = request;
-            return allow;
-        }
-    }
-
-    private sealed class ThrowingConsent : IHostConsent
-    {
-        public bool AllowHosting(HostConsentRequest request) =>
-            throw new InvalidOperationException("consent must not be requested");
-    }
-
     [Fact]
     public void Resolve_ImagesInsideFolder_HostsDocumentFolderWithoutPrompting()
     {
@@ -158,5 +141,22 @@ public sealed class ServeRootResolverTests
             [Path.GetFullPath("/foo/abc"), Path.GetFullPath("/bar/efg")]);
 
         Assert.Equal(Path.GetFullPath("/"), ancestor);
+    }
+
+    private sealed class StubConsent(bool allow) : IHostConsent
+    {
+        public HostConsentRequest? Received { get; private set; }
+
+        public bool AllowHosting(HostConsentRequest request)
+        {
+            Received = request;
+            return allow;
+        }
+    }
+
+    private sealed class ThrowingConsent : IHostConsent
+    {
+        public bool AllowHosting(HostConsentRequest request) =>
+            throw new InvalidOperationException("consent must not be requested");
     }
 }

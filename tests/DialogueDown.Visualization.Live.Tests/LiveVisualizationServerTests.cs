@@ -1,5 +1,5 @@
-using DialogueDown.Visualization.Live.Tests.Support;
 using System.Net;
+using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
 

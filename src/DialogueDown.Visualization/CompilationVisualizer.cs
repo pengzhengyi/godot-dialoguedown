@@ -54,25 +54,6 @@ public sealed class CompilationVisualizer
         return references;
     }
 
-    private static void CollectLocalImages(
-        object node, MarkdownAstProjection projection, List<string> references)
-    {
-        if (node is ImageInline image && IsLocalReference(image.Source))
-        {
-            references.Add(image.Source);
-        }
-
-        foreach (var child in projection.Neighbours(node))
-        {
-            CollectLocalImages(child, projection, references);
-        }
-    }
-
-    private static bool IsLocalReference(string source) =>
-        !source.StartsWith("//", StringComparison.Ordinal)
-        && !(Uri.TryCreate(source, UriKind.Absolute, out var uri)
-            && uri.Scheme is "http" or "https" or "data" or "ftp" or "mailto");
-
     /// <summary>
     /// Compiles the source and renders the static, multi-tab HTML report. When
     /// <paramref name="documentPath"/> is given it is shown in the report (the file
@@ -105,4 +86,23 @@ public sealed class CompilationVisualizer
         ArgumentNullException.ThrowIfNull(mode);
         return DisplayGraphJson.SerializeDocument(mode, documentPath, source, BuildStages(source));
     }
+
+    private static void CollectLocalImages(
+        object node, MarkdownAstProjection projection, List<string> references)
+    {
+        if (node is ImageInline image && IsLocalReference(image.Source))
+        {
+            references.Add(image.Source);
+        }
+
+        foreach (var child in projection.Neighbours(node))
+        {
+            CollectLocalImages(child, projection, references);
+        }
+    }
+
+    private static bool IsLocalReference(string source) =>
+        !source.StartsWith("//", StringComparison.Ordinal)
+        && !(Uri.TryCreate(source, UriKind.Absolute, out var uri)
+            && uri.Scheme is "http" or "https" or "data" or "ftp" or "mailto");
 }

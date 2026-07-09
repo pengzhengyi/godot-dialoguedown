@@ -31,6 +31,12 @@ internal static class VisualizeCli
         {
             Description = "Do not open the report in the browser.",
         };
+        var renderRootOption = new Option<string?>("--render-root")
+        {
+            Description =
+                "Serve static files from this folder (must contain the document) so images "
+                + "outside the document's folder resolve. Skips the hosting-consent prompt.",
+        };
 
         var root = new RootCommand("Visualize a DialogueDown script's compilation.")
         {
@@ -39,6 +45,7 @@ internal static class VisualizeCli
             outputOption,
             portOption,
             noOpenOption,
+            renderRootOption,
         };
 
         root.SetAction((parseResult, cancellationToken) =>
@@ -47,11 +54,14 @@ internal static class VisualizeCli
             var noOpen = parseResult.GetValue(noOpenOption);
             if (parseResult.GetValue(watchOption))
             {
+                var consent = new ConsoleHostConsent(!Console.IsInputRedirected, Console.In, Console.Out);
                 return WatchMode.RunAsync(
                     file,
                     parseResult.GetValue(portOption),
                     noOpen,
+                    parseResult.GetValue(renderRootOption),
                     browser,
+                    consent,
                     Console.Out,
                     Console.Error,
                     cancellationToken);

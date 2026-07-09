@@ -1,6 +1,6 @@
-namespace DialogueDown.Visualization.Live.Tests;
-
 using DialogueDown.Visualization.Live.Tests.Support;
+
+namespace DialogueDown.Visualization.Live.Tests;
 
 public sealed class ServeRootTests
 {

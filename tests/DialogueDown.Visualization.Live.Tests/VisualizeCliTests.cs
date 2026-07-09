@@ -15,6 +15,16 @@ public sealed class VisualizeCliTests
     }
 
     [Fact]
+    public void Parse_WatchWithRenderRoot_HasNoErrors()
+    {
+        var cli = VisualizeCli.Create(new FakeBrowserLauncher());
+
+        var result = cli.Parse(["scene.dialogue.md", "--watch", "--render-root", "/tmp/gallery"]);
+
+        Assert.Empty(result.Errors);
+    }
+
+    [Fact]
     public void Invoke_ValidDocument_RendersReportAndReturnsZero()
     {
         using var doc = new TempDocument();

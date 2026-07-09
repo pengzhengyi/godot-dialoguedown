@@ -55,6 +55,39 @@ internal static class ServeRootResolver
             : ServeRoot.For(documentDirectory, documentDirectory);
     }
 
+    /// <summary>
+    /// The deepest folder that contains every one of the given absolute
+    /// <paramref name="directories"/> (their common path prefix, at a folder
+    /// boundary). Falls back to the filesystem root when they share only that.
+    /// </summary>
+    internal static string LongestCommonAncestor(IReadOnlyList<string> directories)
+    {
+        var root = Path.GetPathRoot(Path.GetFullPath(directories[0]));
+        root = string.IsNullOrEmpty(root) ? Path.DirectorySeparatorChar.ToString() : root;
+
+        var segmentLists = directories
+            .Select(directory => Path.GetFullPath(directory)[root.Length..]
+                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+            .ToList();
+
+        var common = new List<string>();
+        var shortest = segmentLists.Min(segments => segments.Length);
+        for (var i = 0; i < shortest; i++)
+        {
+            var segment = segmentLists[0][i];
+            if (segmentLists.Any(segments => !string.Equals(segments[i], segment, StringComparison.Ordinal)))
+            {
+                break;
+            }
+
+            common.Add(segment);
+        }
+
+        return common.Count == 0
+            ? root
+            : Path.Combine(root, string.Join(Path.DirectorySeparatorChar, common));
+    }
+
     private static ServeRoot? ResolveExplicit(
         string renderRoot, string documentFullPath, string documentDirectory, TextWriter error)
     {
@@ -96,38 +129,5 @@ internal static class ServeRootResolver
         return relative != ".."
             && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
             && !Path.IsPathRooted(relative);
-    }
-
-    /// <summary>
-    /// The deepest folder that contains every one of the given absolute
-    /// <paramref name="directories"/> (their common path prefix, at a folder
-    /// boundary). Falls back to the filesystem root when they share only that.
-    /// </summary>
-    internal static string LongestCommonAncestor(IReadOnlyList<string> directories)
-    {
-        var root = Path.GetPathRoot(Path.GetFullPath(directories[0]));
-        root = string.IsNullOrEmpty(root) ? Path.DirectorySeparatorChar.ToString() : root;
-
-        var segmentLists = directories
-            .Select(directory => Path.GetFullPath(directory)[root.Length..]
-                .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
-            .ToList();
-
-        var common = new List<string>();
-        var shortest = segmentLists.Min(segments => segments.Length);
-        for (var i = 0; i < shortest; i++)
-        {
-            var segment = segmentLists[0][i];
-            if (segmentLists.Any(segments => !string.Equals(segments[i], segment, StringComparison.Ordinal)))
-            {
-                break;
-            }
-
-            common.Add(segment);
-        }
-
-        return common.Count == 0
-            ? root
-            : Path.Combine(root, string.Join(Path.DirectorySeparatorChar, common));
     }
 }

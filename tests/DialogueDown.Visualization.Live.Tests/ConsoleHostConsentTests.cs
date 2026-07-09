@@ -2,9 +2,6 @@ namespace DialogueDown.Visualization.Live.Tests;
 
 public sealed class ConsoleHostConsentTests
 {
-    private static HostConsentRequest Request() =>
-        new("/proj/scene.dialogue.md", "/proj-root", ["/shared/a.png"]);
-
     [Theory]
     [InlineData("y")]
     [InlineData("Y")]
@@ -64,4 +61,7 @@ public sealed class ConsoleHostConsentTests
     public void Constructor_NullOutput_Throws() =>
         Assert.Throws<ArgumentNullException>(
             () => new ConsoleHostConsent(interactive: true, new StringReader(string.Empty), null!));
+
+    private static HostConsentRequest Request() =>
+        new("/proj/scene.dialogue.md", "/proj-root", ["/shared/a.png"]);
 }

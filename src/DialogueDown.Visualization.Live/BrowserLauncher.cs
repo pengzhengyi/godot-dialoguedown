@@ -9,7 +9,7 @@ namespace DialogueDown.Visualization.Live;
 /// macOS, the shell on Windows, and <c>xdg-open</c> on Linux.
 /// </summary>
 [ExcludeFromCodeCoverage] // A thin OS process shim; launching a real browser is not unit-testable.
-internal sealed class BrowserLauncher : IBrowserLauncher
+public sealed class BrowserLauncher : IBrowserLauncher
 {
     public void Open(string target)
     {

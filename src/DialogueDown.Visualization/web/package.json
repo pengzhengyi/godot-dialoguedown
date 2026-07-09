@@ -15,7 +15,8 @@
     "lint:js": "eslint .",
     "lint:css": "stylelint \"src/**/*.css\"",
     "format": "prettier --check .",
-    "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format && npm run test"
+    "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format && npm run test",
+    "e2e:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "@picocss/pico": "^2.0.6",

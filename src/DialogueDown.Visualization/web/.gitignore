@@ -8,3 +8,6 @@ test-results/
 # verified in CI); ignore everything else Vite may emit under dist/.
 dist/*
 !dist/report.html
+
+# Live e2e temp document
+e2e-live/.live-doc.dialogue.md

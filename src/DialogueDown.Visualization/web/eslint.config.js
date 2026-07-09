@@ -9,12 +9,19 @@ export default tseslint.config(
     js.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        files: ["src/**/*.ts", "e2e/**/*.ts", "*.config.ts"],
+        files: ["src/**/*.ts", "e2e/**/*.ts", "e2e-live/**/*.ts", "*.config.ts"],
         languageOptions: {
             globals: {
                 ...globals.browser,
                 ...globals.node,
             },
+        },
+    },
+    {
+        // Node scripts (the live e2e webServer launcher).
+        files: ["e2e-live/**/*.mjs"],
+        languageOptions: {
+            globals: { ...globals.node },
         },
     },
 );

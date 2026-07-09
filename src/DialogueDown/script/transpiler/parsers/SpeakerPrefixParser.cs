@@ -64,11 +64,15 @@ internal static class SpeakerPrefixParser
     private static readonly IParser<SpeakerPrefixData> _body =
         _nameFirst.Or(_idFirst).Or(_tagsFirst).OptionalOrDefault(_empty);
 
+    // The match extends past the colon and consumes all whitespace after it, so
+    // MatchedLength lands at the speech start. Post-colon whitespace is insignificant
+    // regardless of amount; a leading space in speech must be quoted (see the DSL spec).
     public static IParser<SpeakerPrefixData> Prefix { get; } =
         from _lead in _optionalWhitespace
         from data in _body
         from _trail in _optionalWhitespace
         from _colonChar in _colon
+        from _afterColon in _optionalWhitespace
         select data;
 
     private static IReadOnlyList<Spanned<TagData>> Prepend(

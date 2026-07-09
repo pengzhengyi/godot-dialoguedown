@@ -53,15 +53,15 @@ public sealed class SpeakerBuilderTests
         Assert.Equal(10 + text.IndexOf('#'), tag.Span.Start);
     }
 
-    [Fact]
-    public void SpeechStart_IsTheConsumedLength_JustAfterTheColon()
+    [Theory]
+    [InlineData("Alice: Hello")]
+    [InlineData("Alice:   Hello")]
+    public void SpeechStart_LandsAfterAllPostColonWhitespace(string text)
     {
-        var text = "Alice: Hello";
-
         var result = _builder.Build(ParseInputFactory.Input(text));
 
         Assert.True(result.Success);
-        Assert.Equal(text.IndexOf(':') + 1, result.MatchedLength);
+        Assert.Equal(text.IndexOf("Hello", StringComparison.Ordinal), result.MatchedLength);
     }
 
     [Fact]

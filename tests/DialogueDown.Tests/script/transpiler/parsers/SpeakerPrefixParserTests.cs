@@ -110,15 +110,28 @@ public sealed class SpeakerPrefixParserTests
         Assert.Equal(10 + text.IndexOf('#'), tag.Range.Start);
     }
 
-    [Fact]
-    public void ConsumedLength_IsJustAfterTheColon()
+    [Theory]
+    [InlineData("Alice:Hello")]
+    [InlineData("Alice: Hello")]
+    [InlineData("Alice:   Hello")]
+    [InlineData("Alice :  Hello")]
+    public void ConsumedLength_LandsAtSpeechStart_ConsumingAllPostColonWhitespace(string text)
     {
-        var text = "Alice: Hello";
-
         var result = Parse(text);
 
         Assert.True(result.Success);
-        Assert.Equal(text.IndexOf(':') + 1, result.MatchedLength);
+        Assert.Equal(text.IndexOf("Hello", StringComparison.Ordinal), result.MatchedLength);
+    }
+
+    [Theory]
+    [InlineData("Alice:")]
+    [InlineData("Alice:   ")]
+    public void ConsumedLength_ReachesEnd_WhenOnlyWhitespaceFollowsTheColon(string text)
+    {
+        var result = Parse(text);
+
+        Assert.True(result.Success);
+        Assert.Equal(text.Length, result.MatchedLength);
     }
 
     [Fact]

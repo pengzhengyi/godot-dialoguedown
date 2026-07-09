@@ -70,6 +70,8 @@ the note, code, tests, and CLI help.
 | **Watch mode** | A live session that reflects **on-disk** changes; the report is read-only. |
 | **Hot reload** | The cycle triggered by a document change: recompile, then push the fresh stages to the browser. |
 | **Live client** | The browser-side code (active only when served live) that subscribes to pushes and updates the report. |
+| **Mode** | How a report is shown — `static`, `watch`, or `live` — carried in the payload and surfaced by the status-bar badge. |
+| **Status bar** | The footer's left area: the mode badge and the document path. |
 
 Terms introduced by later components — **buffer**, **dirty**, **save**, **live
 mode** (Component 2) and **launcher** (Component 3) — are noted where this design
@@ -87,6 +89,12 @@ leaves a seam for them, but are not built here.
       when the file reappears (a later good save pushes a fresh `reload`).
 - [x] Multiple open browser tabs all receive updates.
 - [x] Missing file / not `.dialogue.md` / bad arguments fail with a clear message.
+- [x] A **status bar** shows the mode badge (with a hover description) and the
+      document path (middle-truncated, full path on hover, click to copy).
+- [x] The footer help is **contextual** — the Source tab explains the source and
+      preview panes; a graph tab explains graph navigation.
+- [x] Relative image and resource links in the report resolve (the server serves
+      files alongside the document).
 
 The design also called for a distinct inline banner on a **compile error** after a
 change. On `main` today the single Markdown stage always parses (any text is valid
@@ -174,6 +182,7 @@ sequenceDiagram
 | `LiveEvent` | A tagged push: an event name (`reload`/`problem`) and its JSON data. Payloads are serialized by `CompilationVisualizer.SerializeDocument` (reusing `DisplayGraph`). | `DisplayGraph` |
 | `resolveReport` + `startLiveClient` (frontend) | `main.ts` reads the injected payload; when it is marked live, `startLiveClient` subscribes and drives updates — otherwise the static path is unchanged. | `EventSource`, `runApp` |
 | `live-client.ts` (frontend) | Subscribe to `/api/events`; on `reload`, rebuild the report preserving the active tab; on `problem`, show the banner. | `AppController` (`runApp`) |
+| `mode-badge.ts` / `path-display.ts` / `help.ts` (frontend) | The status bar and contextual help: the mode badge with its tooltip, the click-to-copy document path, and per-tab help content. | Tippy.js, `runApp`'s activate |
 
 ## HTTP surface
 
@@ -184,6 +193,7 @@ Loopback only. This component is **read-only**; Component 2 adds the write route
 | `GET /` | The live report HTML: the embedded report with the initial `{ path, source, stages }` injected and the **live marker** set (so the client goes live). |
 | `GET /api/document` | Current `{ path, source, stages }` — used by the client to re-sync on reconnect. |
 | `GET /api/events` | **SSE** stream. Emits `reload { path, source, stages }` after a successful recompile and `problem { message }` when the document cannot be read. |
+| `GET /<sibling>` | Static files alongside the document (e.g. `/assets/painting.jpg`), so the report's relative resource links resolve. |
 
 ## Key design decisions
 
@@ -211,15 +221,15 @@ is exactly one-way server→client over plain HTTP, with a built-in browser
 unused complexity. If Component 2 or 3 later needs rich bidirectional messaging,
 this decision can be revisited in isolation.
 
-### D4 — One build; the live client is dormant until marked live
+### D4 — One build; the live client is dormant unless the mode is live
 
-The frontend stays a **single bundle**. The static report leaves the live marker
-unset and behaves exactly as today; the live server sets it, and the small live
-client (an `EventSource` subscription plus an in-place rebuild) activates. The
-live client is a few kilobytes, so carrying it in the offline artifact is
-negligible — and it keeps one build and one code path to test. (Component 2's
-editor, CodeMirror, is large, so **that** component introduces lazy-loading; this
-one does not need it.)
+The frontend stays a **single bundle**. A `static` payload leaves the live client
+dormant and behaves exactly as today; a `watch`/`live` payload activates the small
+live client (an `EventSource` subscription plus an in-place rebuild). The live
+client is a few kilobytes, so carrying it in the offline artifact is negligible —
+and it keeps one build and one code path to test. (Component 2's editor,
+CodeMirror, is large, so **that** component introduces lazy-loading; this one does
+not need it.)
 
 ### D5 — Reload rebuilds in place, preserving the active tab
 
@@ -249,6 +259,27 @@ suppress launching. This makes the everyday "just show me" path a single word
 while keeping scripting options. In watch mode, `--port` pins the loopback port
 (otherwise an ephemeral port is chosen and its URL printed).
 
+### D8 — A status bar surfaces the mode and the document; help is contextual
+
+The footer's left side is a **status bar**: a **mode badge** (Static / Hot Reload
+/ Live) with a hover tooltip explaining the mode, and the **document path**
+(middle-truncated so the filename always shows, full path on hover, click to
+copy). The client reads a single `mode` field from the payload — driving the
+badge and deciding whether to open a live connection — so one value carries the
+whole distinction. The "How to use" help is **contextual**: it shows source/preview
+guidance on the Source tab and graph navigation on a stage tab, so the help
+matches what the reader is looking at.
+
+### D9 — The server serves files alongside the document
+
+A report's Markdown can reference relative resources (`![](assets/painting.jpg)`).
+In watch mode the report is served over HTTP, so those links resolve only if the
+server serves the files. It exposes the **document's own directory** as static
+content, rooted there so only the document's siblings are reachable; path
+traversal outside the root is blocked by the static-files middleware. This is a
+loopback, dev-only tool, so serving the working directory's files is acceptable
+(see Security).
+
 ## Error and boundary cases
 
 | Case | Intended behavior |
@@ -267,26 +298,29 @@ This is a **development tool**, and the note says so plainly:
 
 - The server binds **loopback (`127.0.0.1`) only**, on an ephemeral port — never a
   public interface.
-- No authentication; it reads exactly one document and serves its report. There
-  are **no write routes** in this component (Component 2 adds writes and will
-  tighten this: confining writes to the one document path).
-- No arbitrary file serving: the frontend assets are the embedded bundle, and the
-  only file read is the document the CLI was pointed at.
+- No authentication; it reads one document, serves its report, and serves files
+  **from that document's directory** (so relative image links resolve). There are
+  **no write routes** in this component (Component 2 adds writes and will tighten
+  this: confining writes to the one document path).
+- File serving is scoped to the document's own directory; the static-files
+  middleware blocks traversal above that root. Because this is a loopback,
+  dev-only tool, exposing the working directory's sibling files is acceptable.
 
 ## Integration
 
 - **Render library:** `CompilationVisualizer` becomes **public**; the library
   exposes a public seam to (a) compile a source to `IReadOnlyList<DisplayGraph>`,
-  (b) render the **live** report HTML, and (c) serialize the current document
-  payload (`{ path, source, stages }`) for the API and push events. The existing
-  static `RenderHtmlReport(source)` is unchanged, and the JSON/HTML plumbing stays
-  internal. The **live marker rides in the injected report payload** (`report.live`
-  with the document path); when it is absent the report behaves exactly as the
-  static artifact — no separate template slot.
-- **Frontend:** `main.ts` gains a branch — live marker present ⇒ start the live
-  client; otherwise the current static path (`window.__DD_REPORT__`) is untouched.
-  `runApp` returns an `AppController` so both the initial render and a hot reload
-  drive the same in-place rebuild.
+  (b) render the report HTML in a given **mode** (static/watch/live), and (c)
+  serialize the current document payload (`{ mode, path, source, stages }`) for the
+  API and push events. `VisualizationMode` (public) names the valid modes. The
+  existing static `RenderHtmlReport(source)` still works (mode `static`), and the
+  JSON/HTML plumbing stays internal. The **mode rides in the injected report
+  payload** (with the document path when known); a `static` payload behaves exactly
+  as the offline artifact — no separate template slot.
+- **Frontend:** `main.ts` branches on the payload's `mode` — a `watch`/`live` mode
+  starts the live client, `static` leaves the current path (`window.__DD_REPORT__`)
+  untouched. `runApp` returns an `AppController` so both the initial render and a
+  hot reload drive the same in-place rebuild.
 - **Existing tests:** unchanged. The static renderer and its embedding keep their
   current behavior and assertions.
 - **CI:** the .NET job already builds and tests the whole solution, so it now

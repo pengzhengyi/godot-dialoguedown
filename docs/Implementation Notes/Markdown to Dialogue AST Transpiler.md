@@ -32,7 +32,7 @@
     - [D11 — Speaker: declaration vs reference](#d11--speaker-declaration-vs-reference)
     - [D12 — A uniform, span-aware parser abstraction](#d12--a-uniform-span-aware-parser-abstraction)
     - [D13 — Parsing yields data; a builder constructs the AST](#d13--parsing-yields-data-a-builder-constructs-the-ast)
-    - [D14 — Inline speech: one walk, a configurable element set, a leaf tokenizer](#d14--inline-speech-one-walk-a-configurable-element-set-a-leaf-tokenizer)
+    - [D14 — Inline speech: one walk, a per-context policy, a leaf tokenizer](#d14--inline-speech-one-walk-a-per-context-policy-a-leaf-tokenizer)
   - [Leaf grammars](#leaf-grammars)
   - [Transpiling in pseudocode](#transpiling-in-pseudocode)
   - [Markdown AST to Dialogue AST mapping](#markdown-ast-to-dialogue-ast-mapping)
@@ -185,19 +185,19 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                                                                     | Collaborators                   |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                           | Markdown AST, `ScriptDocument`  |
-| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                                                               | builders, parsers               |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                   | `SourceSpan`                    |
-| `Block`                           | base for a script/scene body item: `Line`, `Choices`, `Scene`                                                      | `ScriptNode`                    |
-| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                  | `ParseInput`, `ParseResult`     |
-| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                             | `IParser<T>`                    |
-| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                             | `…Data` records                 |
-| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder` | `…Data`, AST nodes              |
-| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), per an `InlineElements` set (D14)                   | leaf tokenizer, builders        |
-| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                 | `TagBuilder`                    |
-| `InlineElements`                  | fragment kinds allowed in a context: `All`, `StylingOnly` (D14)                                                    | `InlineBuilder`, leaf tokenizer |
+| Type                              | Responsibility                                                                                                     | Collaborators                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                           | Markdown AST, `ScriptDocument`     |
+| `MarkdownToScriptConverter`       | block-layer tree walk → Dialogue AST                                                                               | builders, parsers                  |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                   | `SourceSpan`                       |
+| `Block`                           | base for a script/scene body item: `Line`, `Choices`, `Scene`                                                      | `ScriptNode`                       |
+| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                  | `ParseInput`, `ParseResult`        |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                             | `IParser<T>`                       |
+| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                             | `…Data` records                    |
+| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder` | `…Data`, AST nodes                 |
+| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), under an `IInlinePolicy` (D14)                      | leaf tokenizer, builders, policy   |
+| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                 | `TagBuilder`                       |
+| `IInlinePolicy`                   | what a context admits and what an unsupported inline becomes: reconstruct-as-text or reject (D14)                  | `MarkdownInline`, `InlineFragment` |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -531,25 +531,33 @@ IParser<SpeakerPrefixData> speakerPrefix =
 Speaker speaker = builder.BuildSpeaker(speakerPrefix, prefixSpan);
 ```
 
-### D14 — Inline speech: one walk, a configurable element set, a leaf tokenizer
+### D14 — Inline speech: one walk, a per-context policy, a leaf tokenizer
 
 Speech, emphasis children, and — now that the front-end keeps them as inline
 nodes — image alt and link labels are all the **same shape**: a `MarkdownInline`
 sequence. One inline walk serves them all.
 
-What each context *allows* differs, so the walk is parameterized by an
-**`InlineElements`** set — the fragment kinds it may produce. Two presets:
+What each context *admits* differs, so the walk is parameterized by an
+**`IInlinePolicy`**. The decision is made on the Markdown input **before** it is
+converted, so the policy inspects the `MarkdownInline` directly (`Supports`) rather
+than a dialogue kind — asking "is this code span supported here?", not "is the game
+call it would become allowed?". It also gates the one in-text construct, a `=>`
+jump, through `SupportsJumps`, since a jump lives inside a text piece rather than as
+its own inline. Three policies:
 
-- **`All`** (speech): text, tag, styling, image, link, game call, jump, line break.
-- **`StylingOnly`** (label / alt): text, tag, styling — the *functional* image,
-  link, jump, and game call are excluded, because they carry no meaning inside a
-  label.
+- **`AllowAllInlinePolicy`** (speech): admits every inline and treats `=>` as a jump.
+- **`LiteralInlinePolicy`** (label / alt, default): admits only text, tags, and
+  styling; an unsupported element (code span, link, image, break) is **restored to
+  its plain-text form** via `Resolve` — a code span keeps its backticks, a nested
+  link its brackets — recursing so deep nesting flattens too. This is approximate:
+  a doubled fence `` ``a`` `` comes back as `` `a` ``.
+- **`RejectingInlinePolicy`** (label / alt, strict): same admits, but an unsupported
+  element is a **`DialogueSyntaxError`** rather than text.
 
-A **disallowed element is flattened to its literal text**, never rejected: a
-writer may type a backtick or bracket inside a label for their own reasons, so the
-transpiler keeps it as plain words rather than failing. (Author-facing *warnings*
-for such cases wait for a dedicated **Diagnostics** component; for now the flatten
-is silent.)
+Restoring-to-text vs rejecting is the pluggable point: a writer may type a backtick
+or bracket in a label for their own reasons, and the default keeps it as words
+rather than failing. (Author-facing *warnings* are a future middle ground, for a
+dedicated **Diagnostics** component; the default is silent.)
 
 Parsing and building stay split (D13). The only genuine *parsing* left inside a
 line is (a) **re-tokenizing a `TextInline`'s string**, since Markdown treats
@@ -561,20 +569,28 @@ dropping `jump` when the context forbids it. It yields `InlineLeaf`s (`TextLeaf`
 `GameCallParser` owns (b).
 
 The **`InlineBuilder`** does the structural walk and construction: it maps each
-inline to a fragment, calls the tokenizer for text (building each leaf via `InlineLeafBuilder`) and
-`GameCallBuilder` for a code span, **recurses** into emphasis,
-label, and alt with the context's element set, and stamps spans. It *builds* nodes
-and never re-parses the structure the front-end already parsed — so no parallel
-data mirror of the fragment tree is introduced.
+inline to a fragment, calls the tokenizer for text (building each leaf via
+`InlineLeafBuilder`) and `GameCallBuilder` for a code span, **recurses** — emphasis
+in the same context, an image alt or a link label under the label policy — and
+stamps spans. It *builds* nodes and never re-parses the structure the front-end
+already parsed, so no parallel data mirror of the fragment tree is introduced.
 
 ```csharp
-// the leaf tokenizer is composed from the context's allowed leaf elements
+// the leaf tokenizer is composed from the allowed leaf elements
 IParser<IReadOnlyList<Spanned<InlineLeaf>>> tokenizer =
-    Repeated(Or(text, tag, jump /* omitted when the context forbids it */))
+    Repeated(Or(text, tag, jump /* dropped when the context forbids jumps */))
         .ConsumeAll();
 
-// the builder walks the inline tree, delegating the real parsing and recursing
-IReadOnlyList<InlineFragment> speech = inlineBuilder.Build(inlines, InlineElements.All);
+// a label admits only text and styling; here it restores an unsupported element
+class LiteralInlinePolicy : IInlinePolicy
+{
+    public bool Supports(MarkdownInline i) => i is TextInline or EmphasisInline;
+    public bool SupportsJumps => false;
+    public IReadOnlyList<InlineFragment> Resolve(MarkdownInline u) => [new Text(Reconstruct(u), u.Span)];
+}
+
+// speech admits everything; the builder is wired with the label policy for recursion
+IReadOnlyList<InlineFragment> speech = inlineBuilder.Build(inlines);
 ```
 
 ## Leaf grammars
@@ -632,18 +648,20 @@ buildBody(blocks):
 
 convertLine(inlines):
     speaker, rest = SpeakerPrefixParser.tryParse(leadingText(inlines))  # layer 2
-    return Line(speaker, buildSpeech(rest, InlineElements.All))          # D14
+    return Line(speaker, buildSpeech(rest, speechPolicy))                # D14
 
-buildSpeech(inlines, allowed):        # InlineBuilder, gated by the element set
+buildSpeech(inlines, policy):         # InlineBuilder, gated by the context policy
     speech = []
     for each inline in inlines:
-        Text      -> speech += tokenize(text, allowed)  # Text / Tag / Jump leaves (D14)
-        Emphasis  -> speech += StyledText(style, buildSpeech(children, allowed))
-        Image     -> speech += Image(source, buildSpeech(alt, StylingOnly))
-        Link      -> speech += Link(target, buildSpeech(label, StylingOnly))
+        if not policy.Supports(inline):
+            speech += policy.Resolve(inline)             # restore-as-text or reject (D14)
+            continue
+        Text      -> speech += tokenize(text, policy.SupportsJumps)  # Text / Tag / Jump
+        Emphasis  -> speech += StyledText(style, buildSpeech(children, policy))
+        Image     -> speech += Image(source, buildSpeech(alt, labelPolicy))
+        Link      -> speech += Link(target, buildSpeech(label, labelPolicy))
         CodeSpan  -> speech += GameCallParser.parse(content)     # Query/Command
         SoftBreak -> speech += LineBreak()               # hard breaks already split
-        # an element not in `allowed` is flattened to its literal text (D14)
     return speech
 ```
 
@@ -683,7 +701,7 @@ buildSpeech(inlines, allowed):        # InlineBuilder, gated by the element set
 | Irregular heading order (an `H1` after an `H2`, or a skipped level) | handled without error by relative nesting (D5); a dedicated test covers `H2` then `H1`                                                                                                |
 | Deeply nested choices                                               | represented faithfully; no depth cap                                                                                                                                                  |
 | Empty emphasis (`****`)                                             | the source degrades it to plain text, so `StyledText` never has empty children                                                                                                        |
-| A game call / nested link inside a label or alt                     | not allowed there (`StylingOnly`); flattened to its literal text, not an error (D14)                                                                                                  |
+| A game call / nested link inside a label or alt                     | not admitted there; the default policy restores it to literal text, a strict policy raises a `DialogueSyntaxError` (D14)                                                              |
 | A backslash escape Markdig strips (`\*`, `\#`)                      | a sub-token's span may drift ≤1 char **within** that literal; it does not accumulate across the document (each literal is re-anchored). Accepted for now; skipped tests track the fix |
 | A node dropped by the front-end policy                              | never reaches the transpiler                                                                                                                                                          |
 

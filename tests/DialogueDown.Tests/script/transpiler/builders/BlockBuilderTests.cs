@@ -35,6 +35,58 @@ public sealed class BlockBuilderTests
     }
 
     [Fact]
+    public void Paragraph_HardBreak_SplitsIntoOneLinePerSlice()
+    {
+        var body = _builder.Build(
+            [Paragraph(Text("Alice: Hi"), LineBreak(hard: true), Text("Bob: Yo"))]);
+
+        Assert.Equal(2, body.Count);
+        var first = AssertLine(body[0]);
+        AssertSpeakerNameReference(first.Speaker!, "Alice");
+        AssertSpeechText(first, "Hi");
+        var second = AssertLine(body[1]);
+        AssertSpeakerNameReference(second.Speaker!, "Bob");
+        AssertSpeechText(second, "Yo");
+    }
+
+    [Fact]
+    public void Paragraph_SoftBreak_StaysWithinOneLine()
+    {
+        var body = _builder.Build(
+            [Paragraph(Text("Alice: Hi"), LineBreak(hard: false), Text("there"))]);
+
+        var line = AssertLine(Assert.Single(body));
+        AssertSpeakerNameReference(line.Speaker!, "Alice");
+        Assert.Equal(3, line.Speech.Count);
+        AssertText(line.Speech[0], "Hi");
+        AssertLineBreak(line.Speech[1]);
+        AssertText(line.Speech[2], "there");
+    }
+
+    [Fact]
+    public void Paragraph_EmptyGroupsAroundHardBreaks_AreDropped()
+    {
+        var body = _builder.Build(
+        [
+            Paragraph(
+                LineBreak(hard: true),                        // leading break -> empty group
+                Text("Alice: Hi"),
+                LineBreak(hard: true),
+                LineBreak(hard: true),                        // doubled break -> empty group
+                Text("Bob: Yo"),
+                LineBreak(hard: true)),                       // trailing break -> empty group
+        ]);
+
+        Assert.Equal(2, body.Count);
+        AssertSpeakerNameReference(AssertLine(body[0]).Speaker!, "Alice");
+        AssertSpeakerNameReference(AssertLine(body[1]).Speaker!, "Bob");
+    }
+
+    [Fact]
+    public void Paragraph_OnlyHardBreaks_EmitsNoLine() =>
+        Assert.Empty(_builder.Build([Paragraph(LineBreak(hard: true))]));
+
+    [Fact]
     public void UnknownBlockKind_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
             () => _builder.Build([new UnknownMarkdownBlock(Span())]));

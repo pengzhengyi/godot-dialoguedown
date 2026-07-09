@@ -1,5 +1,6 @@
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
+using MarkdownLineBreak = DialogueDown.Markdown.LineBreak;
 
 namespace DialogueDown.Script.Transpiler.Builders;
 
@@ -24,6 +25,36 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder line
         return result;
     }
 
+    // Split a paragraph's inlines at hard breaks into line groups; soft breaks stay inside
+    // a group as a display hint. An empty group (a leading, trailing, or doubled hard break)
+    // is dropped, so no phantom empty line is emitted.
+    private static IEnumerable<IReadOnlyList<MarkdownInline>> SplitAtHardBreaks(
+        IReadOnlyList<MarkdownInline> inlines)
+    {
+        var group = new List<MarkdownInline>();
+        foreach (var inline in inlines)
+        {
+            if (inline is MarkdownLineBreak { IsHard: true })
+            {
+                if (group.Count > 0)
+                {
+                    yield return group;
+                }
+
+                group = [];
+            }
+            else
+            {
+                group.Add(inline);
+            }
+        }
+
+        if (group.Count > 0)
+        {
+            yield return group;
+        }
+    }
+
     private void Append(MarkdownBlock block, List<ScriptBlock> blocks)
     {
         switch (block)
@@ -33,7 +64,11 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder line
                     inlineBuilder.Build(heading.Inlines), heading.Level, heading.Span));
                 break;
             case Paragraph paragraph:
-                blocks.Add(lineBuilder.Build(paragraph.Inlines));
+                foreach (var group in SplitAtHardBreaks(paragraph.Inlines))
+                {
+                    blocks.Add(lineBuilder.Build(group));
+                }
+
                 break;
             default:
                 throw new ArgumentOutOfRangeException(

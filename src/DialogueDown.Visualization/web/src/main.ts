@@ -5,6 +5,8 @@ import "./styles.css";
 
 import { runApp } from "./app";
 import { startLiveClient } from "./live-client";
+import { initModeBadge } from "./mode-badge";
+import { initPathDisplay } from "./path-display";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
 import type { Report } from "./model";
 
@@ -24,5 +26,7 @@ function resolveReport(): Report {
 
 const report = resolveReport();
 const app = runApp(report);
-// When served by the live server, subscribe for hot-reload pushes.
-if (report.live) startLiveClient(app);
+initModeBadge(report.mode ?? "static");
+initPathDisplay(report.path);
+// When served by the live server (watch or live mode), subscribe for pushes.
+if (report.mode === "watch" || report.mode === "live") startLiveClient(app);

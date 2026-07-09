@@ -4,6 +4,7 @@ import { createTreeView, type TreeView } from "./tree-view";
 import { createSourceView } from "./source-view";
 import { initResizer } from "./resizer";
 import { initTooltips } from "./tooltips";
+import { setHelp } from "./help";
 
 /** Controls a running report: swap in fresh data, or show/clear a status banner. */
 export interface AppController {
@@ -104,7 +105,9 @@ export function runApp(report: Report): AppController {
         );
         // The Source tab (no tree view) has no node-detail panel; hide it so the
         // split source/preview takes the full width.
-        appEl.classList.toggle("no-detail", views[index] === null);
+        const isSource = views[index] === null;
+        appEl.classList.toggle("no-detail", isSource);
+        setHelp(isSource ? "source" : "graph");
         // Re-fit now that the section is visible: a tree built while its tab was
         // hidden had a zero-size container, so its first fit was a no-op.
         views[index]?.fit();

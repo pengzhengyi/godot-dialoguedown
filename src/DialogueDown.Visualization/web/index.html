@@ -33,40 +33,15 @@
             </aside>
         </main>
         <footer class="app-footer">
-            <details>
-                <summary>How to use</summary>
-                <div class="shortcuts">
-                    <p>
-                        <strong>Source tab</strong> shows the whole document beside a live preview;
-                        preview links jump to their headings, and you can drag the divider to
-                        re-proportion the two panes.
-                    </p>
-                    <p>
-                        <strong>Click a node</strong> (its label or details) to inspect the source
-                        it was produced from and a rendered preview.
-                    </p>
-                    <p>
-                        <strong>Click a node's circle</strong> to collapse or expand its children.
-                    </p>
-                    <p>
-                        <strong>Drag</strong> to pan, <strong>scroll</strong> to zoom, and
-                        <strong>drag the divider</strong> to resize this panel.
-                    </p>
-                    <p>
-                        <strong>Zoom controls</strong> (bottom-right of the graph): <kbd>+</kbd> /
-                        <kbd>−</kbd> to zoom, and click the percentage to reset the view.
-                    </p>
-                    <p>
-                        <strong>Hover a legend entry</strong> (top-right) to highlight its nodes;
-                        <strong>click</strong> it to dim or show that type. The count shows how many
-                        are present.
-                    </p>
-                    <p>
-                        <strong>Arrow keys</strong> move the selection: <kbd>→</kbd> first child,
-                        <kbd>←</kbd> parent, <kbd>↑</kbd>/<kbd>↓</kbd> siblings; <kbd>Enter</kbd> or
-                        <kbd>Space</kbd> collapses or expands.
-                    </p>
-                </div>
+            <div class="status-bar">
+                <span id="mode-badge" class="mode-badge"></span>
+                <button id="doc-path" class="doc-path" type="button" hidden>
+                    <span class="path-head"></span><span class="path-tail"></span>
+                </button>
+            </div>
+            <details class="help">
+                <summary id="help-summary">How to use</summary>
+                <div id="help-content" class="shortcuts"></div>
             </details>
         </footer>
         <script>

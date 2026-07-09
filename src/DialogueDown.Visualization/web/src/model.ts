@@ -40,8 +40,11 @@ export interface Report {
      */
     source?: string;
     stages: Stage[];
-    /** The document's path — present when served by the live server. */
+    /** The document's path — present when the CLI or server knows the file. */
     path?: string;
-    /** True when served live: the client subscribes for hot-reload pushes. */
-    live?: boolean;
+    /** How the report is shown; drives the mode badge and whether to go live. */
+    mode?: VisualizationMode;
 }
+
+/** The mode a report is shown in (mirrors the .NET `VisualizationMode`). */
+export type VisualizationMode = "static" | "watch" | "live";

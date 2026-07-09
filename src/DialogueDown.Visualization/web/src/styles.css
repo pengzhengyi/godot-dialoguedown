@@ -447,9 +447,86 @@ svg.tree {
 
 .app-footer {
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     padding: 0.4rem 1.25rem;
     border-top: 1px solid var(--pico-muted-border-color);
     font-size: 0.8rem;
+}
+
+/* Left status bar: the mode badge and the document path. */
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0; /* allow the path to shrink and ellipsise */
+    flex: 1 1 auto;
+}
+
+.mode-badge {
+    flex: 0 0 auto;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #fff;
+    cursor: help;
+    white-space: nowrap;
+}
+
+.mode-badge.mode-static {
+    background: var(--pico-muted-color);
+}
+
+.mode-badge.mode-watch {
+    background: #0ea5e9;
+}
+
+.mode-badge.mode-live {
+    background: #22c55e;
+}
+
+/* The document path: filename always visible, the directory middle ellipsised. */
+.doc-path {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    width: auto;
+    margin: 0;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid transparent;
+    border-radius: var(--pico-border-radius);
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.74rem;
+    cursor: pointer;
+}
+
+.doc-path:hover {
+    border-color: var(--pico-muted-border-color);
+    color: var(--pico-color);
+    background: transparent;
+}
+
+.doc-path .path-head {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.doc-path .path-tail {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.app-footer .help {
+    flex: 0 0 auto;
+    margin-left: auto;
 }
 
 .app-footer summary {

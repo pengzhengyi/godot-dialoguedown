@@ -182,7 +182,8 @@ through narrow interfaces, so each can be swapped or tested alone.
 - [ ] **Tag** recognition via the pluggable `TagParser`, wherever tags appear.
 - [ ] Malformed dialogue grammar raises a **`DialogueSyntaxError`** with a
       located, friendly, actionable message.
-- [ ] Every node carries a **`SourceSpan`**.
+- [ ] Every node carries a **`SourceSpan`**; the `ScriptDocument` root is a plain
+  container and does not.
 
 Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 **default speaker**, rewriting a **silent command** into a Line.
@@ -283,7 +284,9 @@ classDiagram
 ```
 
 Every node is an immutable `record` carrying a `SourceSpan`, mirroring the
-front-end's AST. A **`ScriptBlock`** is any item of a script or scene body — a `Line`, a
+front-end's AST — except the **`ScriptDocument`** root, which is a plain container
+(no span), mirroring the span-less `MarkdownDocument`. A **`ScriptBlock`** is any
+item of a script or scene body — a `Line`, a
 `Choices`, or a `SceneHeading` — kept in source order, mirroring the front-end's
 `MarkdownBlock`. `StyledText` is itself an `InlineFragment` and **nests
 `InlineFragment` children** (so bold text can itself contain, say, a query); it

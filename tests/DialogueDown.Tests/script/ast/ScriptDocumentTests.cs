@@ -1,5 +1,4 @@
 using DialogueDown.Script.Ast;
-using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 
 namespace DialogueDown.Tests.Script.Ast;
@@ -7,16 +6,14 @@ namespace DialogueDown.Tests.Script.Ast;
 public sealed class ScriptDocumentTests
 {
     [Fact]
-    public void Constructor_ExposesBodyAndSpan_AndIsAScriptNode()
+    public void Constructor_ExposesBody_AndIsNotASpannedNode()
     {
-        var span = SourceSpanFactory.Span();
         var body = new ScriptBlock[] { Line(Text("Welcome.")), SceneHeading("Greetings") };
 
-        var document = new ScriptDocument(body, span);
+        var document = new ScriptDocument(body);
 
         Assert.Equal(body, document.Body);
-        Assert.Equal(span, document.Span);
-        Assert.IsAssignableFrom<ScriptNode>(document);
+        Assert.IsNotAssignableFrom<ScriptNode>(document);
     }
 
     [Fact]
@@ -25,7 +22,7 @@ public sealed class ScriptDocumentTests
         var intro = Line(Text("Before any heading."));
         var heading = SceneHeading("Under a heading");
 
-        var document = new ScriptDocument([intro, heading], SourceSpanFactory.Span());
+        var document = new ScriptDocument([intro, heading]);
 
         Assert.Same(intro, document.Body[0]);
         Assert.Same(heading, document.Body[1]);

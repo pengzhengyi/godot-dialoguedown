@@ -354,6 +354,10 @@ svg.tree {
 }
 
 .zoom-controls button:hover {
+    /* Re-assert the --pico-color reset: Pico's :hover rule otherwise flips it to
+       the primary-inverse and the glyphs go white-on-white (see .doc-path:hover). */
+    --pico-color: inherit;
+
     background: var(--pico-muted-border-color);
 }
 
@@ -449,7 +453,7 @@ svg.tree {
     flex: 0 0 auto;
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-start; /* status bar sticks to the top, not centred against the taller expanded help */
     gap: 0.4rem 1rem;
     padding: 0.4rem 1.25rem;
     border-top: 1px solid var(--pico-muted-border-color);
@@ -517,9 +521,16 @@ svg.tree {
 }
 
 .doc-path:hover {
+    /* On hover Pico's `button:is(:hover)` rule re-sets --pico-color to the
+       primary-inverse, out-specifying the base reset and flipping the text to an
+       unreadable colour (white-on-white). Re-assert the reset here so the text
+       stays the normal foreground, and give the chip a defined surface (not
+       transparent) so it reads as a clear hover affordance. */
+    --pico-color: inherit;
+
     border-color: var(--pico-muted-border-color);
     color: var(--pico-color);
-    background: transparent;
+    background: var(--pico-card-background-color);
 }
 
 .doc-path .path-head {

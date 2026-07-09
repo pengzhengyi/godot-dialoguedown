@@ -15,7 +15,7 @@ public sealed class MermaidRendererTests
     [Fact]
     public void Render_TreeGraph_EmitsFlowchartNodesAndChildEdge()
     {
-        var graph = Graph(
+        var graph = MakeGraph(
             "Markdown AST",
             [Node("n0", "Document"), Node("n1", "Paragraph")],
             [Child("n0", "n1")]);
@@ -36,7 +36,7 @@ public sealed class MermaidRendererTests
     [Fact]
     public void Render_ReferenceEdge_UsesDottedConnector()
     {
-        var graph = Graph("G", [Node("n0", "a"), Node("n1", "b")], [Reference("n0", "n1")]);
+        var graph = MakeGraph("G", [Node("n0", "a"), Node("n1", "b")], [Reference("n0", "n1")]);
 
         var output = _renderer.Render(graph);
 
@@ -47,7 +47,7 @@ public sealed class MermaidRendererTests
     [Fact]
     public void Render_IncludesAttributesAsExtraLines()
     {
-        var graph = Graph(
+        var graph = MakeGraph(
             "G",
             [Node("n0", "Heading", Attr("level", "2"), Attr("span", "[0, 8)"))],
             []);
@@ -60,7 +60,7 @@ public sealed class MermaidRendererTests
     [Fact]
     public void Render_EscapesHtmlSpecialCharactersInLabel()
     {
-        var graph = Graph("G", [Node("n0", "a <b> & \"c\"")], []);
+        var graph = MakeGraph("G", [Node("n0", "a <b> & \"c\"")], []);
 
         var output = _renderer.Render(graph);
 

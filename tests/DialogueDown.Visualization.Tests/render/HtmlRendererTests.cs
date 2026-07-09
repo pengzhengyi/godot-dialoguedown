@@ -15,7 +15,7 @@ public sealed class HtmlRendererTests
     [Fact]
     public void Render_ProducesSelfContainedOfflinePage()
     {
-        var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
+        var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);
 
         var html = _renderer.Render(graph);
 
@@ -33,7 +33,7 @@ public sealed class HtmlRendererTests
     [Fact]
     public void Render_EmbedsNodeSourceSnippet()
     {
-        var graph = Graph("Markdown AST", [new DisplayNode("n0", "Heading (H1)", [], "# Hello")], []);
+        var graph = MakeGraph("Markdown AST", [new DisplayNode("n0", "Heading (H1)", [], "# Hello")], []);
 
         var html = _renderer.Render(graph);
 
@@ -43,7 +43,7 @@ public sealed class HtmlRendererTests
     [Fact]
     public void Render_EmbedsStageTitleAndNodeLabels()
     {
-        var graph = Graph(
+        var graph = MakeGraph(
             "Markdown AST",
             [Node("n0", "Document"), Node("n1", "Paragraph")],
             [Child("n0", "n1")]);
@@ -57,7 +57,7 @@ public sealed class HtmlRendererTests
     [Fact]
     public void Render_EscapesScriptClosingTagFromData()
     {
-        var graph = Graph("G", [Node("n0", "</script>")], []);
+        var graph = MakeGraph("G", [Node("n0", "</script>")], []);
 
         var html = _renderer.Render(graph);
 

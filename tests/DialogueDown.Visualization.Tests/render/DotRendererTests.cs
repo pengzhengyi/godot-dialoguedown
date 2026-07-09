@@ -15,7 +15,7 @@ public sealed class DotRendererTests
     [Fact]
     public void Render_TreeGraph_EmitsDigraphWithTitleNodesAndEdge()
     {
-        var graph = Graph(
+        var graph = MakeGraph(
             "Markdown AST",
             [Node("n0", "Document"), Node("n1", "Paragraph")],
             [Child("n0", "n1")]);
@@ -37,7 +37,7 @@ public sealed class DotRendererTests
     [Fact]
     public void Render_ReferenceEdge_IsDashed()
     {
-        var graph = Graph("G", [Node("n0", "a"), Node("n1", "b")], [Reference("n0", "n1")]);
+        var graph = MakeGraph("G", [Node("n0", "a"), Node("n1", "b")], [Reference("n0", "n1")]);
 
         var output = _renderer.Render(graph);
 
@@ -47,7 +47,7 @@ public sealed class DotRendererTests
     [Fact]
     public void Render_IncludesAttributesOnSeparateLines()
     {
-        var graph = Graph(
+        var graph = MakeGraph(
             "G",
             [Node("n0", "Heading", Attr("level", "2"))],
             []);
@@ -60,7 +60,7 @@ public sealed class DotRendererTests
     [Fact]
     public void Render_EscapesQuotesAndBackslashesInLabel()
     {
-        var graph = Graph("G", [Node("n0", """a "b" \c""")], []);
+        var graph = MakeGraph("G", [Node("n0", """a "b" \c""")], []);
 
         var output = _renderer.Render(graph);
 

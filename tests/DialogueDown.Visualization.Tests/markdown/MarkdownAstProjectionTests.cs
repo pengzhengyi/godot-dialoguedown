@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using DialogueDown.Markdown;
 
 namespace DialogueDown.Visualization.Tests.Markdown;
@@ -89,8 +90,8 @@ public sealed class MarkdownAstProjectionTests
         Assert.Equal("choice", _projection.Describe(new ListBlock(false, [], span)).Category);
         Assert.Equal("choice", _projection.Describe(new ListItem([], span)).Category);
         Assert.Equal("text", _projection.Describe(new TextInline("x", span)).Category);
-        Assert.Equal("jump", _projection.Describe(new LinkInline("t", "l", span)).Category);
-        Assert.Equal("media", _projection.Describe(new ImageInline("s", "a", span)).Category);
+        Assert.Equal("jump", _projection.Describe(new LinkInline("t", [], span)).Category);
+        Assert.Equal("media", _projection.Describe(new ImageInline("s", [], span)).Category);
         Assert.Equal("call", _projection.Describe(new CodeSpanInline("c", span)).Category);
         Assert.Equal("styling", _projection.Describe(new EmphasisInline(EmphasisKind.Bold, [], span)).Category);
         Assert.Equal("break", _projection.Describe(new LineBreak(false, span)).Category);
@@ -146,7 +147,8 @@ public sealed class MarkdownAstProjectionTests
     [Fact]
     public void Describe_Link_IncludesTargetAndLabel()
     {
-        var description = _projection.Describe(new LinkInline("#scene", "Go", new SourceSpan(0, 12)));
+        var description = _projection.Describe(
+            new LinkInline("#scene", [new TextInline("Go", new SourceSpan(0, 2))], new SourceSpan(0, 12)));
 
         Assert.Equal("Link", description.Label);
         Assert.Equal("#scene", Attribute(description, "target"));
@@ -156,7 +158,8 @@ public sealed class MarkdownAstProjectionTests
     [Fact]
     public void Describe_Image_IncludesSourceAndAlt()
     {
-        var description = _projection.Describe(new ImageInline("hero.png", "Hero", new SourceSpan(0, 16)));
+        var description = _projection.Describe(
+            new ImageInline("hero.png", [new TextInline("Hero", new SourceSpan(0, 4))], new SourceSpan(0, 16)));
 
         Assert.Equal("Image", description.Label);
         Assert.Equal("hero.png", Attribute(description, "source"));

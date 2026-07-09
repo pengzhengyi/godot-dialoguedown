@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using DialogueDown.Markdown;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.MarkdownAstAssert;

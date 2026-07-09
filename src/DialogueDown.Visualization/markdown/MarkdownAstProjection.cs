@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using DialogueDown.Markdown;
 
 namespace DialogueDown.Visualization;
@@ -59,12 +60,12 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
                 "Text", [new("text", text.Text), SpanAttribute(text.Span)], Slice(text.Span), TextCategory),
             LinkInline link => new(
                 "Link",
-                [new("target", link.Target), new("label", link.Label), SpanAttribute(link.Span)],
+                [new("target", link.Target), new("label", InlineText(link.Label)), SpanAttribute(link.Span)],
                 Slice(link.Span),
                 JumpCategory),
             ImageInline image => new(
                 "Image",
-                [new("source", image.Source), new("alt", image.AltText), SpanAttribute(image.Span)],
+                [new("source", image.Source), new("alt", InlineText(image.Alt)), SpanAttribute(image.Span)],
                 Slice(image.Span),
                 MediaCategory),
             CodeSpanInline code => new(
@@ -101,6 +102,23 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
 
     private static DisplayAttribute SpanAttribute(SourceSpan span) =>
         new("span", $"[{span.Start}, {span.End})");
+
+    // A link label or image alt is a run of inline nodes; flatten it to plain text for
+    // the attribute display. Styling delimiters are dropped (the node's own span still
+    // points at the exact source), so `[**bold**](url)` shows its label as `bold`.
+    private static string InlineText(IReadOnlyList<MarkdownInline> inlines) =>
+        string.Concat(inlines.Select(InlineText));
+
+    private static string InlineText(MarkdownInline inline) => inline switch
+    {
+        TextInline text => text.Text,
+        CodeSpanInline code => code.Content,
+        EmphasisInline emphasis => InlineText(emphasis.Children),
+        LinkInline link => InlineText(link.Label),
+        ImageInline image => InlineText(image.Alt),
+        LineBreak => " ",
+        _ => string.Empty,
+    };
 
     // Markdig source locations can occasionally run past the end of the string;
     // clamp defensively so a diagnostics view never throws on a stray span.

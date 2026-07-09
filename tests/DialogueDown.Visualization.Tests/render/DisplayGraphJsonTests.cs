@@ -7,7 +7,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void Serialize_UsesCamelCaseKeysAndStringEnum()
     {
-        var graph = Graph(
+        var graph = MakeGraph(
             "Markdown AST",
             [Node("n0", "Document"), Node("n1", "Heading", Attr("level", "2"))],
             [Child("n0", "n1")]);
@@ -25,7 +25,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void Serialize_IncludesNodeSourceWhenPresentAndOmitsWhenNull()
     {
-        var graph = Graph(
+        var graph = MakeGraph(
             "G",
             [new DisplayNode("n0", "Text", [], "# Hi"), Node("n1", "Empty")],
             []);
@@ -40,7 +40,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void Serialize_IncludesNodeCategoryWhenPresent()
     {
-        var graph = Graph("G", [new DisplayNode("n0", "Code span", [], null, "call")], []);
+        var graph = MakeGraph("G", [new DisplayNode("n0", "Code span", [], null, "call")], []);
 
         var json = DisplayGraphJson.Serialize([graph]);
 
@@ -50,7 +50,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void Serialize_EscapesHtmlSensitiveCharacters_SoScriptCannotBreakOut()
     {
-        var graph = Graph("G", [Node("n0", "</script><b>&")], []);
+        var graph = MakeGraph("G", [Node("n0", "</script><b>&")], []);
 
         var json = DisplayGraphJson.Serialize([graph]);
 
@@ -61,7 +61,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void SerializeReport_WrapsModeSourceAndStages()
     {
-        var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
+        var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);
 
         var json = DisplayGraphJson.SerializeReport("static", null, "# Hello", [graph]);
 
@@ -74,7 +74,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void SerializeReport_OmitsSourceWhenNull()
     {
-        var graph = Graph("G", [Node("n0", "Document")], []);
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
 
         var json = DisplayGraphJson.SerializeReport("static", null, null, [graph]);
 
@@ -85,7 +85,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void SerializeReport_WithModeAndPath_AddsBoth()
     {
-        var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
+        var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);
 
         var json = DisplayGraphJson.SerializeReport("watch", "scene.dialogue.md", "# Hi", [graph]);
 
@@ -97,7 +97,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void SerializeReport_WithoutPath_OmitsPath()
     {
-        var graph = Graph("G", [Node("n0", "Document")], []);
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
 
         var json = DisplayGraphJson.SerializeReport("static", null, "# Hi", [graph]);
 
@@ -107,7 +107,7 @@ public sealed class DisplayGraphJsonTests
     [Fact]
     public void SerializeDocument_WrapsModePathSourceAndStages()
     {
-        var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
+        var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);
 
         var json = DisplayGraphJson.SerializeDocument("watch", "scene.dialogue.md", "# Hi", [graph]);
 

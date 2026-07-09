@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using DialogueDown.Markdown;
 
 namespace DialogueDown.Visualization.Tests.Markdown;

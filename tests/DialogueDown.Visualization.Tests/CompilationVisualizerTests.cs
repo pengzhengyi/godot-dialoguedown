@@ -58,53 +58,65 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
-    public void RenderLiveReport_MarksThePayloadLiveWithTheDocumentPath()
+    public void RenderLiveReport_MarksThePayloadWithTheModeAndDocumentPath()
     {
         var visualizer = new CompilationVisualizer();
 
-        var html = visualizer.RenderLiveReport("scene.dialogue.md", "# Hello");
+        var html = visualizer.RenderLiveReport("scene.dialogue.md", "# Hello", "watch");
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"live\":true", html);
+        Assert.Contains("\"mode\":\"watch\"", html);
         Assert.Contains("\"path\":\"scene.dialogue.md\"", html);
         Assert.Contains("\"title\":\"Markdown AST\"", html);
     }
 
     [Fact]
-    public void RenderHtmlReport_LeavesThePayloadStatic_NoLiveMarker()
+    public void RenderHtmlReport_MarksThePayloadStatic()
     {
         var visualizer = new CompilationVisualizer();
 
         var html = visualizer.RenderHtmlReport("# Hello");
 
-        Assert.DoesNotContain("\"live\":true", html);
+        Assert.Contains("\"mode\":\"static\"", html);
+        Assert.DoesNotContain("\"mode\":\"watch\"", html);
+    }
+
+    [Fact]
+    public void RenderHtmlReport_WithDocumentPath_IncludesThePathButStaysStatic()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var html = visualizer.RenderHtmlReport("# Hello", "scene.dialogue.md");
+
+        Assert.Contains("\"mode\":\"static\"", html);
+        Assert.Contains("\"path\":\"scene.dialogue.md\"", html);
     }
 
     [Fact]
     public void RenderLiveReport_NullDocumentPath_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => new CompilationVisualizer().RenderLiveReport(null!, "# Hello"));
+            () => new CompilationVisualizer().RenderLiveReport(null!, "# Hello", "watch"));
     }
 
     [Fact]
-    public void SerializeDocument_ReturnsPathSourceAndStages()
+    public void SerializeDocument_ReturnsModePathSourceAndStages()
     {
         var visualizer = new CompilationVisualizer();
 
-        var json = visualizer.SerializeDocument("scene.dialogue.md", "# Hello");
+        var json = visualizer.SerializeDocument("scene.dialogue.md", "# Hello", "watch");
 
+        Assert.Contains("\"mode\":\"watch\"", json);
         Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
         Assert.Contains("\"source\":\"# Hello\"", json);
         Assert.Contains("\"stages\":[", json);
         Assert.Contains("\"title\":\"Markdown AST\"", json);
-        Assert.DoesNotContain("\"live\":", json); // the document payload carries no live marker
     }
 
     [Fact]
     public void SerializeDocument_NullDocumentPath_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => new CompilationVisualizer().SerializeDocument(null!, "# Hello"));
+            () => new CompilationVisualizer().SerializeDocument(null!, "# Hello", "watch"));
     }
 }

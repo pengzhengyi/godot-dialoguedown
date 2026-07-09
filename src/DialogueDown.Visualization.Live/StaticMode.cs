@@ -27,7 +27,7 @@ internal static class StaticMode
             return 1;
         }
 
-        var html = new CompilationVisualizer().RenderHtmlReport(File.ReadAllText(file));
+        var html = new CompilationVisualizer().RenderHtmlReport(File.ReadAllText(file), file);
         var target = output ?? Path.Combine(Path.GetTempPath(), $"dd-report-{Guid.NewGuid():N}.html");
         File.WriteAllText(target, html);
 

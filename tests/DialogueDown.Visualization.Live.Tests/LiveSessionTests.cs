@@ -5,7 +5,7 @@ namespace DialogueDown.Visualization.Live.Tests;
 public sealed class LiveSessionTests
 {
     [Fact]
-    public void RenderInitialHtml_MarksThePayloadLive()
+    public void RenderInitialHtml_MarksThePayloadWithTheSessionMode()
     {
         using var doc = new TempDocument("# Scene");
         var session = new LiveSession(doc.Path);
@@ -13,7 +13,18 @@ public sealed class LiveSessionTests
         var html = session.RenderInitialHtml();
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"live\":true", html);
+        Assert.Contains("\"mode\":\"watch\"", html); // watch is the default session mode
+    }
+
+    [Fact]
+    public void Mode_DefaultsToWatch_AndIsCarriedIntoThePayload()
+    {
+        using var doc = new TempDocument("# Scene");
+
+        var session = new LiveSession(doc.Path, "live");
+
+        Assert.Equal("live", session.Mode);
+        Assert.Contains("\"mode\":\"live\"", session.CurrentDocumentJson());
     }
 
     [Fact]

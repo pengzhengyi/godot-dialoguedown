@@ -12,27 +12,35 @@ internal sealed class LiveSession
 {
     private readonly CompilationVisualizer _visualizer;
 
-    /// <summary>Creates a session for <paramref name="documentPath"/>.</summary>
-    public LiveSession(string documentPath, CompilationVisualizer? visualizer = null)
+    /// <summary>Creates a session for <paramref name="documentPath"/> in the given <paramref name="mode"/>.</summary>
+    public LiveSession(
+        string documentPath,
+        string mode = VisualizationMode.Watch,
+        CompilationVisualizer? visualizer = null)
     {
         ArgumentNullException.ThrowIfNull(documentPath);
+        ArgumentNullException.ThrowIfNull(mode);
         DocumentPath = documentPath;
+        Mode = mode;
         _visualizer = visualizer ?? new CompilationVisualizer();
     }
 
     /// <summary>The absolute path of the document this session serves.</summary>
     public string DocumentPath { get; }
 
+    /// <summary>The mode this session serves in (watch or live).</summary>
+    public string Mode { get; }
+
     /// <summary>The event stream shared by every connected client.</summary>
     public SseBroadcaster Broadcaster { get; } = new();
 
     /// <summary>Renders the initial live report HTML for the current file.</summary>
     public string RenderInitialHtml() =>
-        _visualizer.RenderLiveReport(DocumentPath, File.ReadAllText(DocumentPath));
+        _visualizer.RenderLiveReport(DocumentPath, File.ReadAllText(DocumentPath), Mode);
 
-    /// <summary>Serializes the current document payload (<c>{ path, source, stages }</c>).</summary>
+    /// <summary>Serializes the current document payload (<c>{ mode, path, source, stages }</c>).</summary>
     public string CurrentDocumentJson() =>
-        _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath));
+        _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
 
     /// <summary>
     /// Recompiles the current file and pushes a <c>reload</c> to every client, or a

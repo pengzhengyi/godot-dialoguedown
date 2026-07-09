@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.FileProviders;
 
 namespace DialogueDown.Visualization.Live;
 
@@ -21,7 +22,7 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.Logging.ClearProviders();
         _app = builder.Build();
-        MapEndpoints(_app);
+        Configure(_app);
     }
 
     /// <summary>The base URL the server is listening on (valid after <see cref="StartAsync"/>).</summary>
@@ -36,8 +37,22 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
     /// <inheritdoc />
     public ValueTask DisposeAsync() => _app.DisposeAsync();
 
-    private void MapEndpoints(WebApplication app)
+    private void Configure(WebApplication app)
     {
+        // Serve files alongside the document (e.g. `assets/painting.jpg`) so the
+        // report's relative image and resource links resolve. Rooted at the
+        // document's own directory, so only its siblings are exposed (loopback,
+        // dev-only); traversal outside the root is blocked by the middleware.
+        var documentDirectory = Path.GetDirectoryName(Path.GetFullPath(_session.DocumentPath));
+        if (documentDirectory is not null)
+        {
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(documentDirectory),
+                RequestPath = string.Empty,
+            });
+        }
+
         app.MapGet(
             "/",
             () => Results.Content(_session.RenderInitialHtml(), "text/html; charset=utf-8"));

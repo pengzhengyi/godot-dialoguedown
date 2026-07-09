@@ -15,7 +15,35 @@ public sealed class LiveVisualizationServerTests
         var html = await client.GetStringAsync("/");
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"live\":true", html);
+        Assert.Contains("\"mode\":\"watch\"", html);
+    }
+
+    [Fact]
+    public async Task ServesFilesAlongsideTheDocument_SoRelativeImagesResolve()
+    {
+        using var doc = new TempDocument("# Scene\n\n![pic](assets/pic.png)");
+        var assetsDir = Path.Combine(Path.GetDirectoryName(doc.Path)!, "assets");
+        Directory.CreateDirectory(assetsDir);
+        var pic = Path.Combine(assetsDir, "pic.png");
+        var bytes = new byte[] { 1, 2, 3, 4 };
+        await File.WriteAllBytesAsync(pic, bytes);
+
+        try
+        {
+            await using var server = new LiveVisualizationServer(new LiveSession(doc.Path));
+            await server.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+
+            var response = await client.GetAsync("/assets/pic.png");
+
+            Assert.True(response.IsSuccessStatusCode);
+            Assert.Equal(bytes, await response.Content.ReadAsByteArrayAsync());
+        }
+        finally
+        {
+            File.Delete(pic);
+            Directory.Delete(assetsDir);
+        }
     }
 
     [Fact]

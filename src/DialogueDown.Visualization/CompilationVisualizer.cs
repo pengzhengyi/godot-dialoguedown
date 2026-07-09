@@ -38,30 +38,36 @@ public sealed class CompilationVisualizer
         return [markdown.ToDisplayGraph(source)];
     }
 
-    /// <summary>Compiles the source and renders the static, multi-tab HTML report.</summary>
-    public string RenderHtmlReport(string source) =>
-        HtmlTemplate.RenderPage(BuildStages(source), source);
+    /// <summary>
+    /// Compiles the source and renders the static, multi-tab HTML report. When
+    /// <paramref name="documentPath"/> is given it is shown in the report (the file
+    /// being visualized); it does not make the report live.
+    /// </summary>
+    public string RenderHtmlReport(string source, string? documentPath = null) =>
+        HtmlTemplate.RenderPage(BuildStages(source), source, VisualizationMode.Static, documentPath);
 
     /// <summary>
     /// Compiles the source and renders the HTML report as a <b>live</b> report: the
-    /// injected payload carries a live marker with <paramref name="documentPath"/>,
-    /// so the client opens a live session (subscribes for hot-reload pushes) instead
-    /// of showing a static report.
+    /// injected payload carries the given <paramref name="mode"/> (watch or live) and
+    /// <paramref name="documentPath"/>, so the client opens a live session
+    /// (subscribes for hot-reload pushes) instead of showing a static report.
     /// </summary>
-    public string RenderLiveReport(string documentPath, string source)
+    public string RenderLiveReport(string documentPath, string source, string mode)
     {
         ArgumentNullException.ThrowIfNull(documentPath);
-        return HtmlTemplate.RenderPage(BuildStages(source), source, documentPath);
+        ArgumentNullException.ThrowIfNull(mode);
+        return HtmlTemplate.RenderPage(BuildStages(source), source, mode, documentPath);
     }
 
     /// <summary>
     /// Compiles the source and serializes the current document payload
-    /// (<c>{ path, source, stages }</c>) as JSON, for the live server's document
-    /// API and its hot-reload push events.
+    /// (<c>{ mode, path, source, stages }</c>) as JSON, for the live server's
+    /// document API and its hot-reload push events.
     /// </summary>
-    public string SerializeDocument(string documentPath, string source)
+    public string SerializeDocument(string documentPath, string source, string mode)
     {
         ArgumentNullException.ThrowIfNull(documentPath);
-        return DisplayGraphJson.SerializeDocument(documentPath, source, BuildStages(source));
+        ArgumentNullException.ThrowIfNull(mode);
+        return DisplayGraphJson.SerializeDocument(mode, documentPath, source, BuildStages(source));
     }
 }

@@ -19,9 +19,10 @@ internal static class HtmlTemplate
     public static string RenderPage(
         IReadOnlyList<DisplayGraph> stages,
         string? source = null,
-        string? livePath = null)
+        string mode = VisualizationMode.Static,
+        string? path = null)
     {
         return EmbeddedAsset.ReadText("report.html")
-            .Replace(ReportSlot, DisplayGraphJson.SerializeReport(source, stages, livePath));
+            .Replace(ReportSlot, DisplayGraphJson.SerializeReport(mode, path, source, stages));
     }
 }

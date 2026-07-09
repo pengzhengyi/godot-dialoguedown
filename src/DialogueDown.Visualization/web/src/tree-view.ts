@@ -29,6 +29,9 @@ export interface TreeView {
     controls: HTMLElement;
     handleKey(event: KeyboardEvent): void;
     clearSelection(): void;
+    /** Re-fit the tree to its container. Call after the tab becomes visible, so
+     *  the fit uses real (non-zero) dimensions. */
+    fit(): void;
 }
 
 const NAVIGATION_KEYS = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " "];
@@ -103,6 +106,7 @@ export function createTreeView(stage: Stage, onSelect: (node: DisplayNode) => vo
             selected = null;
             applySelection();
         },
+        fit: fitToViewport,
     };
 
     /* --- hierarchy --- */

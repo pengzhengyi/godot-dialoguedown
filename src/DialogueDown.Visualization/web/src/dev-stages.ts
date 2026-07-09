@@ -1,5 +1,15 @@
 import type { Stage } from "./model";
 
+/** A sample document shown in the dev server's Source tab. */
+export const DEV_SOURCE = `# Chapter 1
+
+Alice: Hello, **traveler**! Head to [the market](#market).
+
+## Market
+
+Bob: Welcome to my shop. \`OpenShop("Bob")\`
+`;
+
 /** A representative sample used by the dev server (never shipped in the build). */
 export const DEV_STAGES: Stage[] = [
     {

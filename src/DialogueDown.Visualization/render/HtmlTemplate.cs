@@ -1,22 +1,24 @@
 namespace DialogueDown.Visualization;
 
 /// <summary>
-/// Assembles a self-contained HTML report from one or more display graphs.
-/// The page itself — D3, marked, Pico.css, Tippy, the stylesheet, and the client
-/// script — is built ahead of time by the <c>web/</c> Vite project into a single
-/// file (<c>web/dist/report.html</c>) that is embedded in this assembly. All this
-/// step does is inject the per-report stage data into that file's data slot, so
-/// the report opens in any modern browser with no network and no files on disk.
-/// Each graph becomes a tab. Used for a single graph (<see cref="HtmlRenderer"/>)
-/// and for the multi-stage report.
+/// Assembles a self-contained HTML report from one or more display graphs and,
+/// optionally, the source they were compiled from. The page itself — D3, marked,
+/// Pico.css, Tippy, the stylesheet, and the client script — is built ahead of
+/// time by the <c>web/</c> Vite project into a single file
+/// (<c>web/dist/report.html</c>) that is embedded in this assembly. All this step
+/// does is inject the report data (the source and each stage) into that file's
+/// data slot, so the report opens in any modern browser with no network and no
+/// files on disk. The source becomes a "Source" tab and each graph becomes a
+/// stage tab. Used for a single graph (<see cref="HtmlRenderer"/>) and for the
+/// multi-stage report.
 /// </summary>
 internal static class HtmlTemplate
 {
-    private const string StagesSlot = "\"__STAGES__\"";
+    private const string ReportSlot = "\"__REPORT__\"";
 
-    public static string RenderPage(IReadOnlyList<DisplayGraph> stages)
+    public static string RenderPage(IReadOnlyList<DisplayGraph> stages, string? source = null)
     {
         return EmbeddedAsset.ReadText("report.html")
-            .Replace(StagesSlot, DisplayGraphJson.Serialize(stages));
+            .Replace(ReportSlot, DisplayGraphJson.SerializeReport(source, stages));
     }
 }

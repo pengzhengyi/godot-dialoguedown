@@ -27,7 +27,7 @@ public sealed class HtmlRendererTests
         Assert.Contains("--pico-", html);
         Assert.Contains(".tippy-box", html);
         // The stage-data slot was filled, not left as the raw placeholder.
-        Assert.DoesNotContain("\"__STAGES__\"", html);
+        Assert.DoesNotContain("\"__REPORT__\"", html);
     }
 
     [Fact]

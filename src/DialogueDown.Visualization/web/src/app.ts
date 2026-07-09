@@ -1,36 +1,33 @@
-import type { Stage } from "./model";
+import type { Report, Stage } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
+import { createSourceView } from "./source-view";
 import { initResizer } from "./resizer";
 import { initTooltips } from "./tooltips";
 
-/** Build the tabs and stages, and wire the shared interactions. */
-export function runApp(stages: Stage[]): void {
+/**
+ * Build the tabs — an optional Source tab followed by one per stage — and wire
+ * the shared interactions.
+ */
+export function runApp(report: Report): void {
     const tabsEl = document.getElementById("tabs")!;
     const stagesEl = document.getElementById("stages")!;
+    const appEl = document.getElementById("app")!;
     const panel = createDetailPanel();
+    // Per tab: its tree view (graph tabs) or null (the Source tab, which has no
+    // node-detail panel and no keyboard tree navigation).
     const views: (TreeView | null)[] = [];
     let activeIndex = 0;
 
-    stages.forEach((stage, index) => {
-        tabsEl.appendChild(createTab(stage, index));
-
+    if (report.source != null) {
         const section = document.createElement("section");
-        section.className = "stage";
-        stagesEl.appendChild(section);
-
-        try {
-            const view = createTreeView(stage, panel.show);
-            section.appendChild(view.svg);
-            section.appendChild(view.legend);
-            section.appendChild(view.controls);
-            views.push(view);
-        } catch (error) {
-            section.classList.add("error");
-            section.textContent = `Failed to render stage: ${(error as Error).message}`;
-            views.push(null);
-        }
-    });
+        section.className = "stage source-stage";
+        section.appendChild(createSourceView(report.source));
+        addTab("Source", section, null);
+    }
+    for (const stage of report.stages) {
+        addStageTab(stage);
+    }
 
     document.addEventListener("keydown", (event) => {
         const target = event.target as Element | null;
@@ -40,15 +37,34 @@ export function runApp(stages: Stage[]): void {
 
     initResizer();
     initTooltips(stagesEl);
-    if (stages.length > 0) activate(0);
+    if (views.length > 0) activate(0);
 
-    function createTab(stage: Stage, index: number): HTMLButtonElement {
+    function addStageTab(stage: Stage): void {
+        const section = document.createElement("section");
+        section.className = "stage";
+        let view: TreeView | null = null;
+        try {
+            view = createTreeView(stage, panel.show);
+            section.appendChild(view.svg);
+            section.appendChild(view.legend);
+            section.appendChild(view.controls);
+        } catch (error) {
+            section.classList.add("error");
+            section.textContent = `Failed to render stage: ${(error as Error).message}`;
+        }
+        addTab(stage.title, section, view);
+    }
+
+    function addTab(title: string, section: HTMLElement, view: TreeView | null): void {
+        const index = views.length;
         const tab = document.createElement("button");
         tab.className = "tab";
         tab.type = "button";
-        tab.textContent = stage.title;
+        tab.textContent = title;
         tab.addEventListener("click", () => activate(index));
-        return tab;
+        tabsEl.appendChild(tab);
+        stagesEl.appendChild(section);
+        views.push(view);
     }
 
     function activate(index: number): void {
@@ -57,6 +73,12 @@ export function runApp(stages: Stage[]): void {
         Array.from(stagesEl.children).forEach((el, i) =>
             el.classList.toggle("active", i === index),
         );
+        // The Source tab (no tree view) has no node-detail panel; hide it so the
+        // split source/preview takes the full width.
+        appEl.classList.toggle("no-detail", views[index] === null);
+        // Re-fit now that the section is visible: a tree built while its tab was
+        // hidden had a zero-size container, so its first fit was a no-op.
+        views[index]?.fit();
         for (const view of views) view?.clearSelection();
         panel.clear();
     }

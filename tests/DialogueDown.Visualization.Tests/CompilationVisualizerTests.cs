@@ -54,5 +54,6 @@ public sealed class CompilationVisualizerTests
         Assert.Contains("Heading (H1)", html);
         Assert.Contains("Paragraph", html);
         Assert.Contains("\"source\":\"# Hello\"", html);     // heading's source snippet
+        Assert.Contains("\"source\":\"# Hello\\n\\nWorld\"", html); // whole document for the Source tab
     }
 }

@@ -2,20 +2,20 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { Stage } from "../src/model";
+import type { Report, Stage } from "../src/model";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const distHtml = path.join(here, "..", "dist", "report.html");
 
 /**
- * Assemble the actual built report (dist/report.html) with sample stage data
- * injected into the __STAGES__ slot exactly as the .NET library does, write it to
+ * Assemble the actual built report (dist/report.html) with sample report data
+ * injected into the __REPORT__ slot exactly as the .NET library does, write it to
  * a temp file, and return a file:// URL Playwright can navigate to.
  */
-export function writeReport(stages: Stage[]): string {
+export function writeReport(report: Report): string {
     const template = fs.readFileSync(distHtml, "utf8");
     // Function replacement avoids `$` being treated specially in the JSON.
-    const html = template.replace('"__STAGES__"', () => JSON.stringify(stages));
+    const html = template.replace('"__REPORT__"', () => JSON.stringify(report));
     const out = path.join(os.tmpdir(), `dd-report-${process.pid}-${Date.now()}.html`);
     fs.writeFileSync(out, html);
     return pathToFileURL(out).href;
@@ -130,3 +130,30 @@ export const SAMPLE_STAGES: Stage[] = [
         ],
     },
 ];
+
+// Enough filler paragraphs that the "## The Market" heading sits below the
+// preview pane's initial fold, so clicking its anchor link is an observable scroll.
+const filler = Array.from(
+    { length: 14 },
+    (_, i) => `Paragraph ${i + 1}: the gallery is calm and quiet today.`,
+).join("\n\n");
+
+/** A sample source document with front matter, a heading, and an in-document
+ *  anchor link — exercises the Source tab preview and anchor navigation. */
+export const SAMPLE_SOURCE = `---
+title: Demo
+---
+
+# Scene
+
+Alice: Look at this painting. Jump to [the market](#the-market).
+
+${filler}
+
+## The Market
+
+Bob: Welcome to the market!
+`;
+
+/** The full sample report: the source document plus its Markdown AST stage. */
+export const SAMPLE_REPORT: Report = { source: SAMPLE_SOURCE, stages: SAMPLE_STAGES };

@@ -7,6 +7,7 @@ import {
     tooltipHtml,
     splitFrontMatter,
     renderMarkdown,
+    renderDocument,
 } from "./text";
 import type { DisplayNode } from "./model";
 
@@ -113,7 +114,7 @@ describe("renderMarkdown", () => {
 
     it("shows front matter as a labelled block rather than a heading", () => {
         const html = renderMarkdown("---\ntitle: Scene\n---\nBody text");
-        expect(html).toContain("<h4>Front matter</h4>");
+        expect(html).toContain('<p class="frontmatter-label">Front matter</p>');
         expect(html).toContain('<pre class="frontmatter"><code>title: Scene</code></pre>');
         expect(html).toContain("Body text");
         expect(html).not.toContain("<h1>");
@@ -122,5 +123,22 @@ describe("renderMarkdown", () => {
     it("escapes front matter content", () => {
         const html = renderMarkdown("---\nnote: a<b>\n---\n");
         expect(html).toContain("a&lt;b&gt;");
+    });
+});
+
+describe("renderDocument", () => {
+    it("adds GitHub-style heading ids so in-document anchor links resolve", () => {
+        const html = renderDocument("## Discuss Bob's photo");
+        expect(html).toContain('id="discuss-bobs-photo"');
+    });
+
+    it("handles front matter like renderMarkdown, but with heading ids", () => {
+        const html = renderDocument("---\ntitle: X\n---\n# Scene");
+        expect(html).toContain('<p class="frontmatter-label">Front matter</p>');
+        expect(html).toContain('id="scene"');
+    });
+
+    it("leaves renderMarkdown id-free, so snippet previews cannot collide", () => {
+        expect(renderMarkdown("## Heading")).not.toContain("id=");
     });
 });

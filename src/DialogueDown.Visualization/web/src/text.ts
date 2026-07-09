@@ -1,4 +1,5 @@
-import { marked } from "marked";
+import { marked, Marked } from "marked";
+import { gfmHeadingId } from "marked-gfm-heading-id";
 import type { DisplayNode } from "./model";
 
 /** Longest inline label/attribute drawn on a node before it is ellipsised. */
@@ -49,11 +50,35 @@ export function splitFrontMatter(source: string): FrontMatterSplit {
     return { frontMatter: null, body: source };
 }
 
+/**
+ * A dedicated marked instance that adds GitHub-style heading ids, so anchor
+ * links in the whole-document preview (`[text](#slug)`) resolve to their
+ * headings. Kept separate from the default instance so node-snippet previews
+ * (fragments) stay id-free and cannot collide with the document's ids.
+ */
+const documentMarked = new Marked();
+documentMarked.use(gfmHeadingId());
+
 /** Render Markdown to HTML, handling a leading YAML front matter block. */
 export function renderMarkdown(source: string): string {
+    return renderFrontMatterAnd(source, (body) => marked.parse(body, { async: false }) as string);
+}
+
+/**
+ * Like {@link renderMarkdown}, but adds GitHub-style heading ids so in-document
+ * anchor links work. Use for the whole-document Source preview.
+ */
+export function renderDocument(source: string): string {
+    return renderFrontMatterAnd(
+        source,
+        (body) => documentMarked.parse(body, { async: false }) as string,
+    );
+}
+
+function renderFrontMatterAnd(source: string, parseBody: (body: string) => string): string {
     const { frontMatter, body } = splitFrontMatter(source);
     const head = frontMatter
-        ? `<h4>Front matter</h4><pre class="frontmatter"><code>${escapeHtml(frontMatter)}</code></pre>`
+        ? `<p class="frontmatter-label">Front matter</p><pre class="frontmatter"><code>${escapeHtml(frontMatter)}</code></pre>`
         : "";
-    return head + (marked.parse(body, { async: false }) as string);
+    return head + parseBody(body);
 }

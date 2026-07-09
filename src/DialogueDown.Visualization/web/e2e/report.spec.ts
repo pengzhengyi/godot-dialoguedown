@@ -1,16 +1,53 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { SAMPLE_STAGES, writeReport } from "./report";
+import { SAMPLE_REPORT, writeReport } from "./report";
 
-const url = writeReport(SAMPLE_STAGES);
-const nodeCount = SAMPLE_STAGES[0].nodes.length;
+const url = writeReport(SAMPLE_REPORT);
+const nodeCount = SAMPLE_REPORT.stages[0].nodes.length;
 
 test.beforeEach(async ({ page }) => {
     await page.goto(url);
-    await expect(page.locator("section.stage.active g.node")).toHaveCount(nodeCount);
+    await expect(page.locator(".tab")).toHaveCount(2); // Source + Markdown AST
 });
 
+/** Switch to the Markdown AST tab and wait for its graph to render. */
+async function showAst(page: Page): Promise<void> {
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await expect(page.locator("section.stage.active g.node")).toHaveCount(nodeCount);
+}
+
+// --- Source tab (first) ---
+
+test("the Source tab is first and active, showing the document beside a preview", async ({
+    page,
+}) => {
+    await expect(page.locator(".tab").first()).toHaveText("Source");
+    const active = page.locator("section.stage.active");
+    await expect(active).toHaveClass(/source-stage/);
+    await expect(active.locator(".source-pane pre")).toContainText("# Scene");
+    await expect(active.locator(".source-preview")).toBeVisible();
+    // The node-detail panel is only for graph tabs; it is hidden here.
+    await expect(page.locator("#detail")).toBeHidden();
+});
+
+test("clicking a preview anchor link scrolls to its heading", async ({ page }) => {
+    await page.locator('.source-preview a[href="#the-market"]').click();
+    await expect(page).toHaveURL(/#the-market$/);
+    await expect(page.locator("#the-market")).toBeInViewport();
+});
+
+test("switching from Source to the Markdown AST tab shows the graph and detail panel", async ({
+    page,
+}) => {
+    await expect(page.locator("section.stage.active")).toHaveClass(/source-stage/);
+    await showAst(page);
+    await expect(page.locator("#detail")).toBeVisible();
+});
+
+// --- Markdown AST graph (second tab) ---
+
 test("renders every node with a coloured circle and a legend of counts", async ({ page }) => {
+    await showAst(page);
     await expect(page.locator("section.stage.active g.node circle")).toHaveCount(nodeCount);
     const legendItems = page.locator("section.stage.active .legend .legend-item");
     await expect(legendItems).toHaveCount(10); // one row per category present
@@ -18,12 +55,14 @@ test("renders every node with a coloured circle and a legend of counts", async (
 });
 
 test("clicking a node shows its source and a rendered preview", async ({ page }) => {
+    await showAst(page);
     await page.locator("g.node", { hasText: "Image" }).first().click();
     await expect(page.locator("#detail-title")).toContainText("Image");
     await expect(page.locator("#detail-body .preview img")).toHaveAttribute("src", "x.jpg");
 });
 
 test("the Document preview renders front matter as metadata, not a heading", async ({ page }) => {
+    await showAst(page);
     await page.locator("g.node", { hasText: "Document" }).first().click();
     await expect(page.locator("#detail-body pre.frontmatter")).toContainText("title: Demo");
     // The front matter must not be mis-rendered as a heading (the body's own
@@ -34,6 +73,7 @@ test("the Document preview renders front matter as metadata, not a heading", asy
 });
 
 test("hovering a node shows a Tippy tooltip with the full attribute text", async ({ page }) => {
+    await showAst(page);
     // The overlays (legend, zoom, detail panel) sit above the SVG and can cover a
     // node; disable their pointer-events so the hover reaches the node beneath.
     await page.addStyleTag({
@@ -48,11 +88,13 @@ test("hovering a node shows a Tippy tooltip with the full attribute text", async
 });
 
 test("clicking a legend entry dims that category's nodes", async ({ page }) => {
+    await showAst(page);
     await page.locator(".legend-item", { hasText: "Code span" }).click();
     await expect(page.locator("section.stage.active g.node.dimmed")).toHaveCount(1);
 });
 
 test("the zoom controls change and reset the ratio", async ({ page }) => {
+    await showAst(page);
     const ratio = page.locator("section.stage.active .zoom-ratio");
     const before = await ratio.textContent();
     await page.locator("section.stage.active .zoom-controls button", { hasText: "+" }).click();
@@ -60,13 +102,17 @@ test("the zoom controls change and reset the ratio", async ({ page }) => {
 });
 
 test("arrow keys move the selection", async ({ page }) => {
+    await showAst(page);
     await page.locator("g.node", { hasText: "Document" }).first().click();
     await expect(page.locator("#detail-title")).toContainText("Document");
     await page.keyboard.press("ArrowRight");
     await expect(page.locator("#detail-title")).not.toContainText("Document");
 });
 
-test("has no accessibility violations (real browser, incl. colour contrast)", async ({ page }) => {
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations).toEqual([]);
+test("has no accessibility violations (both tabs, real browser incl. colour contrast)", async ({
+    page,
+}) => {
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]); // Source tab
+    await showAst(page);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]); // Markdown AST tab
 });

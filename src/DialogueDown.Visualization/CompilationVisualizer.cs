@@ -37,5 +37,5 @@ internal sealed class CompilationVisualizer
 
     /// <summary>Compiles the source and renders the multi-tab HTML report.</summary>
     public string RenderHtmlReport(string source) =>
-        HtmlTemplate.RenderPage(BuildStages(source));
+        HtmlTemplate.RenderPage(BuildStages(source), source);
 }

@@ -28,3 +28,16 @@ export interface Stage {
     nodes: DisplayNode[];
     edges: DisplayEdge[];
 }
+
+/**
+ * The report payload the .NET library injects: the compiled source document and
+ * each stage's display graph.
+ */
+export interface Report {
+    /**
+     * The original source document, shown in the Source tab. Absent when a single
+     * graph is rendered on its own (no source to show).
+     */
+    source?: string;
+    stages: Stage[];
+}

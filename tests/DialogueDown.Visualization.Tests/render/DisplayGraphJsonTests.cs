@@ -57,4 +57,27 @@ public sealed class DisplayGraphJsonTests
         Assert.DoesNotContain("</script>", json);
         Assert.Contains("\\u003C", json); // '<' is unicode-escaped
     }
+
+    [Fact]
+    public void SerializeReport_WrapsSourceAndStages()
+    {
+        var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport("# Hello", [graph]);
+
+        Assert.Contains("\"source\":\"# Hello\"", json);
+        Assert.Contains("\"stages\":[", json);
+        Assert.Contains("\"title\":\"Markdown AST\"", json);
+    }
+
+    [Fact]
+    public void SerializeReport_OmitsSourceWhenNull()
+    {
+        var graph = Graph("G", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport(null, [graph]);
+
+        Assert.DoesNotContain("\"source\":", json);
+        Assert.Contains("\"stages\":[", json);
+    }
 }

@@ -9,7 +9,10 @@
         <header class="app-header">
             <hgroup>
                 <h1>DialogueDown — Compilation Visualization</h1>
-                <p>Each compiler stage appears as an interactive graph in its own tab.</p>
+                <p>
+                    The Source tab shows the document with a live preview; each compiler stage
+                    appears as an interactive graph in its own tab.
+                </p>
             </hgroup>
             <nav class="tabs" id="tabs" aria-label="Compiler stages"></nav>
         </header>
@@ -32,6 +35,11 @@
             <details>
                 <summary>How to use</summary>
                 <div class="shortcuts">
+                    <p>
+                        <strong>Source tab</strong> shows the whole document beside a live preview;
+                        preview links jump to their headings, and you can drag the divider to
+                        re-proportion the two panes.
+                    </p>
                     <p>
                         <strong>Click a node</strong> (its label or details) to inspect the source
                         it was produced from and a rendered preview.
@@ -61,7 +69,7 @@
             </details>
         </footer>
         <script>
-            window.__DD_STAGES__ = "__STAGES__";
+            window.__DD_REPORT__ = "__REPORT__";
         </script>
         <script type="module" src="/src/main.ts"></script>
     </body>

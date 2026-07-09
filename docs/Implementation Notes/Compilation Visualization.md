@@ -106,8 +106,11 @@ One concept, one name — used here, in code, and in tests.
       the renderer maps to a colour, shown on nodes, the panel, and an interactive
       legend that counts each type, highlights it on hover, and toggles it
       (dimming) on click.
-- [x] A **report** facade compiles a source string and assembles one **tab per
-      stage** into a single self-contained HTML page.
+- [x] A **Source tab** shows the whole document as raw Markdown beside a live
+      preview (split, editor-style), with working in-document anchor links.
+- [x] A **report** facade compiles a source string and assembles a **Source tab**
+      (the document with a live preview) and one **tab per stage** into a single
+      self-contained HTML page.
 - [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
       the same display graph.
 - [ ] A **Dialogue AST** projection seam (planned; lands with the transpiler).
@@ -268,7 +271,8 @@ works fully offline, even air-gapped. The libraries are npm dependencies pinned 
 `package-lock.json` and tree-shaken into the bundle: D3 v7.9.0 (ISC), Pico.css
 v2.1.1 (MIT), marked v12.0.2 (MIT), and Tippy.js v6.3.7 (MIT, which bundles
 Popper); `web/NOTICE.md` records versions and licenses. The .NET side embeds this
-built file and injects only the per-report **stage JSON** into its data slot.
+built file and injects only the per-report data — the source and each stage —
+into its data slot.
 
 The tradeoff is deliberate: the bundle pins specific, reviewed library versions
 (updated by bumping `package.json` and rebuilding) rather than floating to the
@@ -281,11 +285,12 @@ already used in these docs, renders on GitHub) and **DOT** (Graphviz) follow as
 extras. Both are pure string formatting over a graph and need no heavy dependency;
 if a fluent DOT builder is later wanted, `DotNetGraph` (MIT) is the vetted choice.
 
-### D7 — One self-contained page, one tab per stage
+### D7 — One self-contained page: a Source tab, then one tab per stage
 
-The report is a **single self-contained HTML page with a tab per stage**
-(Markdown AST, later Dialogue AST, …). One artifact opens in any browser, needs
-no server, and reads well for non-developers.
+The report is a **single self-contained HTML page**: a **Source** tab (the input
+document) first, then one tab **per stage** (Markdown AST, later Dialogue AST, …).
+One artifact opens in any browser, needs no server, and reads well for
+non-developers.
 
 ### D8 — Semantic categories drive a stable, cross-stage colour scheme
 
@@ -309,6 +314,23 @@ so a reader can focus on one kind at a time. A category is optional, so a node
 without one falls back to a neutral colour. Hovering a legend row highlights every
 node of that category (a gentle pop and a bold label), so a reader can spot where
 a kind occurs at a glance.
+
+### D9 — A Source tab pairs the raw document with a live preview
+
+The first tab shows the **input** itself: the whole source document as raw
+Markdown on the left, beside a **live rendered preview** on the right, split like
+an editor's side-by-side preview (a draggable divider re-proportions the two).
+This grounds the stage graphs in the text a writer actually authored — you read
+the document, then see what each compiler stage made of it.
+
+Preview **anchor links work**: headings carry GitHub-style ids (via marked's
+`gfm-heading-id` extension), so a `[…](#slug)` link scrolls to its heading within
+the preview. Front matter is shown as a labelled metadata block, not a heading,
+matching the node-snippet previews. The source is not a compiler stage, so it is
+modelled separately: the .NET side injects a `{ source, stages }` payload and the
+frontend prepends the Source tab only when a source is present (a bare
+single-graph render has none). The Source tab has no node-detail panel — that
+belongs to the graph tabs — so it takes the full width.
 
 ## Error and boundary cases
 
@@ -376,13 +398,15 @@ test pyramid and quality gates run locally (`npm run check`) and in CI (the
 - **ESLint** (`typescript-eslint`) and **Stylelint** (`stylelint-config-standard`)
   lint the sources and stylesheet; **Prettier** enforces formatting.
 - **Unit (Vitest + jsdom)** — the pure and DOM-light modules (text, palette,
-  legend, detail panel, zoom controls, resizer) are unit-tested at 100% coverage.
-  This is the broad base of the pyramid.
+  legend, detail panel, zoom controls, resizer, source view) are unit-tested at
+  100% coverage. This is the broad base of the pyramid.
 - **End-to-end (Playwright + Chromium)** — the actual built report is loaded in a
-  real browser and driven: nodes render, clicking shows source and preview,
-  hovering shows a tooltip, the legend dims, zoom works, and arrow keys navigate.
-  A **`@axe-core/playwright`** pass asserts no accessibility violations —
-  including **colour-contrast**, which a real browser can measure (jsdom cannot).
+  real browser and driven: the Source tab renders and its preview anchor links
+  scroll to their headings, tabs switch, nodes render, clicking shows source and
+  preview, hovering shows a tooltip, the legend dims, zoom works, and arrow keys
+  navigate. A **`@axe-core/playwright`** pass asserts no accessibility violations
+  on both tabs — including **colour-contrast**, which a real browser can measure
+  (jsdom cannot).
 - **Build freshness** — CI rebuilds the single-file report and fails if the
   committed `web/dist/report.html` is stale (`git diff --exit-code`), so the
   embedded UI can never drift from its sources.

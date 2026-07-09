@@ -82,8 +82,9 @@ CI fails if line coverage drops below 90% and emits a warning when it is below
 DialogueDown aims to be **transparent end to end**: you can *see* what the
 compiler produced at each stage. The optional
 [`DialogueDown.Visualization`](src/DialogueDown.Visualization/) project renders a
-stage's intermediate representation as an interactive HTML report — one tab per
-stage, pan and zoom, click a node to collapse or expand — plus Mermaid and DOT
+stage's intermediate representation as an interactive HTML report — a **Source**
+tab (the whole document beside a live preview, with working anchor links), then
+one tab per stage with pan and zoom and click-to-collapse — plus Mermaid and DOT
 text for quick embedding. Click a node to inspect **the source it was produced
 from**, with a rendered Markdown preview, in a resizable side panel. Nodes are
 **colour-coded by a cross-stage category** (a code span and the game call it

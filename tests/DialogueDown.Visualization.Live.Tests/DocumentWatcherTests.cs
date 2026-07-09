@@ -1,0 +1,43 @@
+using DialogueDown.Visualization.Live.Tests.Support;
+
+namespace DialogueDown.Visualization.Live.Tests;
+
+public sealed class DocumentWatcherTests
+{
+    [Fact]
+    public async Task WritingTheDocument_InvokesTheCallback()
+    {
+        using var doc = new TempDocument("# First");
+        using var fired = new SemaphoreSlim(0);
+        using var watcher = new DocumentWatcher(
+            doc.Path,
+            () => fired.Release(),
+            TimeSpan.FromMilliseconds(100));
+        await Task.Delay(200); // let the watcher settle before changing the file
+
+        File.WriteAllText(doc.Path, "# Second");
+
+        Assert.True(await fired.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
+    [Fact]
+    public async Task RapidWrites_AreDebouncedIntoFewerCallbacks()
+    {
+        using var doc = new TempDocument("# First");
+        var count = 0;
+        using var watcher = new DocumentWatcher(
+            doc.Path,
+            () => Interlocked.Increment(ref count),
+            TimeSpan.FromMilliseconds(250));
+        await Task.Delay(200);
+
+        for (var i = 0; i < 5; i++)
+        {
+            File.WriteAllText(doc.Path, $"# Write {i}");
+        }
+        await Task.Delay(1500);
+
+        // Five near-instant writes must not produce five recompiles.
+        Assert.InRange(count, 1, 2);
+    }
+}

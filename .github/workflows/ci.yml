@@ -43,7 +43,7 @@ jobs:
       - name: Generate coverage report
         run: >
           dotnet reportgenerator
-          "-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml"
+          "-reports:tests/**/TestResults/**/coverage.cobertura.xml"
           "-targetdir:coverage-report"
           "-reporttypes:Html;MarkdownSummaryGithub;Cobertura"
 
@@ -75,3 +75,51 @@ jobs:
         with:
           name: coverage-report
           path: coverage-report
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/DialogueDown.Visualization/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/DialogueDown.Visualization/web/package-lock.json
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Check (typecheck, lint, style, format, unit tests)
+        run: npm run check
+
+      - name: Build single-file report
+        run: npm run build
+
+      - name: Verify the committed report is in sync with web/ sources
+        run: git diff --exit-code -- dist/report.html
+
+      - name: End-to-end tests (Playwright, static)
+        run: npm run e2e
+
+      - name: Build the CLI (for the live e2e)
+        run: dotnet build ../../DialogueDown.Cli/DialogueDown.Cli.csproj -c Release
+
+      - name: End-to-end tests (Playwright, live server)
+        run: npm run e2e:live

@@ -1,33 +1,35 @@
-using DialogueDown.Cli.Compilation;
+using DialogueDown.Visualization.Live;
 using Spectre.Console.Cli;
 
 namespace DialogueDown.Cli.Commands;
 
 /// <summary>
-/// The <c>visualize</c> command: compile a script through the seam, then (later)
-/// render its stages. It <b>relies on the compilation seam</b> rather than compiling
-/// the script itself. The rendering arrives with the visualization component; until
-/// then this reports "not implemented".
+/// The <c>visualize</c> command: render a script's compilation. Static mode writes a
+/// self-contained report and opens it; <c>--watch</c> serves the report from a local
+/// server and hot-reloads it. The work is delegated to the visualization engine
+/// through <see cref="IVisualizeRunner"/>.
 /// </summary>
-internal sealed class VisualizeCommand : Command<VisualizeSettings>
+internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
 {
-    private readonly IScriptCompiler _compiler;
+    private readonly IVisualizeRunner _runner;
 
-    public VisualizeCommand(IScriptCompiler compiler)
+    public VisualizeCommand(IVisualizeRunner runner)
     {
-        ArgumentNullException.ThrowIfNull(compiler);
-        _compiler = compiler;
+        ArgumentNullException.ThrowIfNull(runner);
+        _runner = runner;
     }
 
     /// <inheritdoc />
-    protected override int Execute(
+    protected override Task<int> ExecuteAsync(
         CommandContext context, VisualizeSettings settings, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        var source = File.ReadAllText(settings.Script);
-        _compiler.Compile(source);
+        if (settings.Watch)
+        {
+            return _runner.RunWatchAsync(
+                settings.Script, settings.Port, settings.NoOpen, settings.RenderRoot, cancellationToken);
+        }
 
-        // TODO(visualization): render the compiled stages into a report.
-        return ExitCodes.Success;
+        return Task.FromResult(_runner.RunStatic(settings.Script, settings.Output, settings.NoOpen));
     }
 }

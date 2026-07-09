@@ -17,6 +17,7 @@ adapter over this library's interfaces.
 - [Layout](#layout)
 - [Build and test](#build-and-test)
 - [Documentation](#documentation)
+- [Compilation visualization](#compilation-visualization)
 - [Design intent](#design-intent)
 - [Contributing](#contributing)
 - [Security](#security)
@@ -34,7 +35,9 @@ adapter over this library's interfaces.
 | Path | Purpose |
 | --- | --- |
 | `src/DialogueDown/` | the reusable class library (net8.0, no engine refs) |
+| `src/DialogueDown.Visualization/` | diagnostics-only visualizer of compiler stages (not shipped in the core package) |
 | `tests/DialogueDown.Tests/` | xUnit tests for the pure logic |
+| `tests/DialogueDown.Visualization.Tests/` | xUnit tests for the visualizer |
 
 ## Build and test
 
@@ -54,15 +57,15 @@ dotnet test DialogueDown.sln \
   --settings coverage.runsettings \
   --collect:"XPlat Code Coverage"
 dotnet reportgenerator \
-  "-reports:tests/DialogueDown.Tests/TestResults/**/coverage.cobertura.xml" \
+  "-reports:tests/**/TestResults/**/coverage.cobertura.xml" \
   "-targetdir:coverage-report" \
   "-reporttypes:Html;MarkdownSummary;Cobertura"
 ```
 
-Coverage is verified against the `DialogueDown` source assembly and excludes
-test files. The collector writes Cobertura XML under `TestResults/`, and
-ReportGenerator writes an interactive HTML report to `coverage-report/index.html`.
-Both output folders are ignored by Git.
+Coverage is verified against the `DialogueDown` and `DialogueDown.Visualization`
+source assemblies and excludes test files. The collector writes Cobertura XML under
+`TestResults/`, and ReportGenerator writes an interactive HTML report to
+`coverage-report/index.html`. Both output folders are ignored by Git.
 
 CI fails if line coverage drops below 90% and emits a warning when it is below
 100%.
@@ -73,6 +76,41 @@ CI fails if line coverage drops below 90% and emits a warning when it is below
   implementation status.
 - [Script language specification](docs/Script%20Language/Script%20Language%20DSL%20Specification.md)
   for proposed writer-facing dialogue syntax.
+
+## Compilation visualization
+
+DialogueDown aims to be **transparent end to end**: you can *see* what the
+compiler produced at each stage. The optional
+[`DialogueDown.Visualization`](src/DialogueDown.Visualization/) project renders a
+stage's intermediate representation as an interactive HTML report — a **Source**
+tab (the whole document beside a live preview, with working anchor links), then
+one tab per stage with pan and zoom and click-to-collapse — plus Mermaid and DOT
+text for quick embedding. Click a node to inspect **the source it was produced
+from**, with a rendered Markdown preview, in a resizable side panel. Nodes are
+**colour-coded by a cross-stage category** (a code span and the game call it
+becomes share a colour), with a legend and arrow-key navigation. The report is a
+**single self-contained HTML file** — D3, Pico.css, marked, and Tippy.js are all
+bundled in, so it needs no server and works fully offline. It reads the compiler
+through the same seams the tests use and never touches the shipped core package,
+so the core stays dependency-light. The Markdown AST view ships today; the
+Dialogue AST view lands with the transpiler.
+
+Render a script from the command line with the `visualize` tool:
+
+```bash
+# Render a self-contained report and open it in the browser
+dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md
+
+# Watch the file and hot-reload the report in the browser as you edit it
+dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md --watch
+```
+
+> [!NOTE]
+> The visualizer is a diagnostics helper, built quickly with lighter review than
+> the core library; its API and abstractions may still change.
+
+See the
+[Compilation Visualization note](docs/Implementation%20Notes/Compilation%20Visualization.md).
 
 ## Design intent
 

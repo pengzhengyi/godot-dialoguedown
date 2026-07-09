@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>DialogueDown — Compilation Visualization</title>
+    </head>
+    <body>
+        <header class="app-header">
+            <hgroup>
+                <h1>DialogueDown — Compilation Visualization</h1>
+                <p>
+                    The Source tab shows the document with a live preview; each compiler stage
+                    appears as an interactive graph in its own tab.
+                </p>
+            </hgroup>
+            <nav class="tabs" id="tabs" aria-label="Compiler stages"></nav>
+        </header>
+        <div id="live-banner" role="alert" hidden></div>
+        <main id="app">
+            <section id="stages"></section>
+            <div id="resizer" title="Drag to resize the panel"></div>
+            <aside id="detail" aria-label="Node details">
+                <article>
+                    <header id="detail-title">Node details</header>
+                    <div id="detail-body">
+                        <p>
+                            Click any node in the graph to see the source it was produced from, and
+                            a rendered preview.
+                        </p>
+                    </div>
+                </article>
+            </aside>
+        </main>
+        <footer class="app-footer">
+            <div class="status-bar">
+                <span id="mode-badge" class="mode-badge"></span>
+                <button id="doc-path" class="doc-path" type="button" hidden>
+                    <span class="path-head"></span><span class="path-tail"></span>
+                </button>
+            </div>
+            <details class="help">
+                <summary id="help-summary">How to use</summary>
+                <div id="help-content" class="shortcuts"></div>
+            </details>
+        </footer>
+        <script>
+            window.__DD_REPORT__ = "__REPORT__";
+        </script>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>

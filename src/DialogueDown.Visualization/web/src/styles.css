@@ -1,0 +1,608 @@
+:root {
+    --dd-reference: #cf222e;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --dd-reference: #f85149;
+    }
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-header {
+    flex: 0 0 auto;
+    padding: 0.7rem 1.25rem 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+.app-header hgroup {
+    margin-bottom: 0.5rem;
+}
+
+.app-header h1 {
+    font-size: 1.15rem;
+    margin: 0;
+}
+
+.app-header hgroup p {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+}
+
+nav.tabs {
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+button.tab {
+    width: auto;
+    margin: 0;
+    padding: 0.4rem 0.9rem;
+    color: var(--pico-muted-color);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+}
+
+button.tab:hover {
+    color: var(--pico-primary);
+    background: transparent;
+}
+
+button.tab.active {
+    color: var(--pico-primary);
+    border-bottom-color: var(--pico-primary);
+    font-weight: 600;
+}
+
+/* Live status banner (compile error / missing document); hidden until needed. */
+#live-banner {
+    flex: 0 0 auto;
+    padding: 0.5rem 1.25rem;
+    background: var(--pico-del-color, #b3261e);
+    color: #fff;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+}
+
+#live-banner[hidden] {
+    display: none;
+}
+
+#app {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+#stages {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+section.stage {
+    position: absolute;
+    inset: 0;
+    display: none;
+}
+
+section.stage.active {
+    display: block;
+}
+
+section.stage.error {
+    padding: 1.5rem;
+    color: var(--dd-reference);
+    white-space: pre-wrap;
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.85rem;
+}
+
+/* The Source tab has no node-detail panel: hide it and let the split fill. */
+.no-detail #detail,
+.no-detail #resizer {
+    display: none;
+}
+
+/* Source tab: raw document (left) beside a live preview (right). */
+.source-view {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+}
+
+.source-pane {
+    flex: 0 0 50%;
+    min-width: 0;
+    overflow: auto;
+    padding: 0.75rem 1rem;
+}
+
+.source-pane pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.82rem;
+}
+
+/* Use highlight.js only for token colours; let the code blend with the pane
+   background rather than carry the theme's own block background. */
+.source-pane .hljs {
+    background: transparent;
+    padding: 0;
+}
+
+.source-divider {
+    flex: 0 0 7px;
+    cursor: col-resize;
+    border-left: 1px solid var(--pico-muted-border-color);
+    transition: border-color 0.15s ease;
+}
+
+.source-divider:hover {
+    border-left-color: var(--pico-primary);
+}
+
+.source-preview {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: auto;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-radius: 0;
+    scroll-behavior: smooth;
+}
+
+.source-preview :is(h1, h2, h3, h4, h5, h6) {
+    scroll-margin-top: 0.5rem;
+}
+
+/* Briefly highlight the heading an anchor link jumped to. */
+.source-preview :target {
+    animation: dd-target-flash 1.2s ease;
+}
+
+@keyframes dd-target-flash {
+    from {
+        background: var(--pico-primary-focus);
+    }
+
+    to {
+        background: transparent;
+    }
+}
+
+svg.tree {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.link {
+    fill: none;
+    stroke: var(--pico-muted-border-color);
+    stroke-width: 1.5px;
+}
+
+.link.reference {
+    stroke: var(--dd-reference);
+    stroke-dasharray: 4 3;
+}
+
+.node circle {
+    stroke: var(--pico-card-background-color);
+    stroke-width: 1.5px;
+    cursor: pointer;
+    transition: transform 0.12s ease;
+}
+
+.node.collapsed circle {
+    stroke: var(--pico-color);
+    stroke-width: 2px;
+}
+
+.node.selected circle {
+    stroke: var(--pico-color);
+    stroke-width: 3px;
+}
+
+.node text {
+    font-size: 12px;
+    fill: var(--pico-color);
+    pointer-events: none;
+}
+
+.node .attr {
+    fill: var(--pico-muted-color);
+    font-size: 10px;
+}
+
+.node .hit {
+    fill: transparent;
+    cursor: pointer;
+}
+
+.node.dimmed {
+    opacity: 0.15;
+}
+
+/* Hovering a legend row highlights its nodes — a gentle pop plus a bold label,
+   and a full-opacity preview even when the category is currently dimmed.
+   Placed after .dimmed so the highlight wins for a dimmed-and-hovered node. */
+.node.highlight {
+    opacity: 1;
+}
+
+.node.highlight circle {
+    transform: scale(1.45);
+    transform-box: fill-box;
+    transform-origin: center;
+    stroke: var(--pico-color);
+
+    /* Keep the ring thin: without this, the scale above also thickens the stroke. */
+    vector-effect: non-scaling-stroke;
+}
+
+.node.highlight text.label {
+    font-weight: 700;
+}
+
+.legend {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 9.5rem;
+    max-height: 90%;
+    overflow: auto;
+    padding: 0.4rem 0.5rem;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    font-size: 0.72rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.15rem 0.3rem;
+    color: var(--pico-muted-color);
+    background: transparent;
+    border: none;
+    border-radius: var(--pico-border-radius);
+    font-size: inherit;
+    line-height: 1.3;
+    text-align: left;
+    cursor: pointer;
+}
+
+.legend-item:hover {
+    background: var(--pico-muted-border-color);
+}
+
+.legend-item.muted {
+    opacity: 0.4;
+}
+
+.legend-item .legend-label {
+    white-space: nowrap;
+}
+
+.legend-item .count {
+    margin-left: auto;
+    padding-left: 0.75rem;
+    color: var(--pico-muted-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.legend .swatch {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    flex: none;
+}
+
+.zoom-controls {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    box-shadow: 0 1px 5px rgb(0 0 0 / 18%);
+    font-size: 0.85rem;
+}
+
+.zoom-controls button {
+    /* Pico redefines --pico-color to its inverse (white) on buttons; reset it so
+     the glyphs use the normal foreground instead of white-on-white. */
+    --pico-color: inherit;
+    --pico-background-color: transparent;
+
+    width: auto;
+    margin: 0;
+    padding: 0.25rem 0.7rem;
+    color: var(--pico-color);
+    background: var(--pico-card-background-color);
+    border: none;
+    border-radius: 0;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.zoom-controls button:hover {
+    /* Re-assert the --pico-color reset: Pico's :hover rule otherwise flips it to
+       the primary-inverse and the glyphs go white-on-white (see .doc-path:hover). */
+    --pico-color: inherit;
+
+    background: var(--pico-muted-border-color);
+}
+
+.zoom-controls .zoom-ratio {
+    min-width: 3.6rem;
+    border-inline: 1px solid var(--pico-muted-border-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.dot {
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    margin-right: 0.45rem;
+    border-radius: 50%;
+    vertical-align: middle;
+}
+
+#resizer {
+    flex: 0 0 6px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background 0.15s ease;
+}
+
+#resizer:hover {
+    background: var(--pico-primary);
+}
+
+#detail {
+    flex: 0 0 460px;
+    overflow-y: auto;
+    padding: 1rem;
+    border-left: 1px solid var(--pico-muted-border-color);
+}
+
+#detail article {
+    margin: 0;
+    padding: 1rem;
+}
+
+#detail-title {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+#detail table {
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+#detail-body h4 {
+    margin: 1rem 0 0.35rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--pico-muted-color);
+}
+
+#detail pre {
+    max-height: 14rem;
+    overflow: auto;
+    font-size: 0.8rem;
+}
+
+#detail pre.frontmatter {
+    border-left: 3px solid var(--pico-muted-border-color);
+}
+
+.frontmatter-label {
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--pico-muted-color);
+}
+
+.preview {
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+.preview > :first-child {
+    margin-top: 0;
+}
+
+.preview > :last-child {
+    margin-bottom: 0;
+}
+
+.app-footer {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start; /* status bar sticks to the top, not centred against the taller expanded help */
+    gap: 0.4rem 1rem;
+    padding: 0.4rem 1.25rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+    font-size: 0.8rem;
+}
+
+/* Left status bar: the mode badge and the document path. */
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0; /* allow the path to shrink and ellipsise */
+    flex: 1 1 auto;
+}
+
+.mode-badge {
+    flex: 0 0 auto;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #fff;
+    cursor: help;
+    white-space: nowrap;
+}
+
+.mode-badge.mode-static {
+    background: var(--pico-muted-color);
+}
+
+.mode-badge.mode-watch {
+    background: #0ea5e9;
+}
+
+.mode-badge.mode-live {
+    background: #22c55e;
+}
+
+/* The document path: filename always visible, the directory middle ellipsised. */
+.doc-path {
+    /* Pico redefines --pico-color to its inverse (white) on buttons; reset it so
+       the hover text uses the normal foreground instead of white-on-white
+       (same fix as .zoom-controls button). */
+    --pico-color: inherit;
+    --pico-background-color: transparent;
+
+    /* An inline, content-sized chip — not a full-width block button. The max-width
+       caps it so a long path is middle-ellipsised (below) instead of stretching
+       across the row. */
+    display: inline-flex;
+    align-items: baseline;
+    min-width: 0;
+    max-width: 24rem;
+    width: auto;
+    margin: 0;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid transparent;
+    border-radius: var(--pico-border-radius);
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.74rem;
+    cursor: pointer;
+}
+
+.doc-path:hover {
+    /* On hover Pico's `button:is(:hover)` rule re-sets --pico-color to the
+       primary-inverse, out-specifying the base reset and flipping the text to an
+       unreadable colour (white-on-white). Re-assert the reset here so the text
+       stays the normal foreground, and give the chip a defined surface (not
+       transparent) so it reads as a clear hover affordance. */
+    --pico-color: inherit;
+
+    border-color: var(--pico-muted-border-color);
+    color: var(--pico-color);
+    background: var(--pico-card-background-color);
+}
+
+.doc-path .path-head {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.doc-path .path-tail {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.app-footer .help {
+    flex: 0 1 auto;
+
+    /* On a wide row the status bar's flex-grow pushes this to the right; when the
+       row runs out of space it wraps to its own line below (no overlap). */
+    margin-left: auto;
+    max-width: 100%;
+}
+
+.app-footer summary {
+    color: var(--pico-muted-color);
+    cursor: pointer;
+}
+
+.app-footer .shortcuts {
+    padding: 0.4rem 0 0.2rem;
+}
+
+.app-footer .shortcuts p {
+    margin: 0.2rem 0;
+    color: var(--pico-muted-color);
+}
+
+.app-footer kbd {
+    padding: 0.05rem 0.35rem;
+    font-size: 0.75rem;
+}
+
+@media (width <= 800px) {
+    #app {
+        flex-direction: column;
+    }
+
+    #stages {
+        height: 60vh;
+        flex: none;
+    }
+
+    #resizer {
+        display: none;
+    }
+
+    #detail {
+        flex-basis: auto;
+        border-left: none;
+        border-top: 1px solid var(--pico-muted-border-color);
+    }
+
+    .source-view {
+        flex-direction: column;
+    }
+
+    .source-pane {
+        flex-basis: 45%;
+    }
+
+    .source-divider {
+        display: none;
+    }
+}

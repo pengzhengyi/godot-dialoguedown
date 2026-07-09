@@ -1,0 +1,3 @@
+# The single-file report is generated with LF endings; pin it so the CI
+# freshness check (`git diff dist/report.html`) is stable across platforms.
+dist/report.html text eol=lf

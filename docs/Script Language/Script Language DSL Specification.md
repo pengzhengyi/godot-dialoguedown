@@ -636,30 +636,42 @@ Alice: Nice to see you, Bob!
 ## Complete example
 
 ```markdown
+---
+title: Gallery Visit
+speakers: speakers.json
+---
+
+<!-- A short gallery scene that exercises the whole language. -->
+
 ## Gallery
 
-- Alice: Bob, this is your photo. I love it!
+Narrator @narrator ##default: Alice visits Bob's photography gallery.
+
+- Alice @A #main: Bob, this is *your* photo. I love it! ![Bob's photo #align=left](assets/bobs-photo.jpg)
     => [Discuss Bob's photo](#discuss-bobs-photo)
-- Alice: Look, this is Christina's painting.
+- Alice: Look, this is **Christina's** painting. ![Christina's painting #size=large](assets/christinas-painting.jpg)
     => [Discuss Christina's painting](#discuss-christinas-painting)
 
 ## Discuss Bob's photo
 
-Bob: Thank you. I'm glad you like it. `IncreaseAffection("Bob", "Alice")`
+Bob @B #mood=happy: Thank you. I'm glad you like it. `IncreaseAffection("Bob", "Alice")`
 
-Alice: I want to join the Photography Club!
+Alice: My favorite colour is `"Alice.FavoriteColor"`. May I join the Photography Club?
 
-Bob: Good idea. You'll meet new friends and have fun.
+- Bob: Yes — welcome aboard!
+    - Alice: Wonderful, thank you!
+- Bob: Not ~~yet~~ quite.
 
-`JoinClub("Alice", "Photography")`
+`("Alice joins Photography")`
 
 ## Discuss Christina's painting
 
-Bob: This is the night view of the Huangpu River. It's beautiful.
+Bob: This is the night view of the Huangpu River.
+It is *beautiful*, especially at dusk.
 
-Alice: I love this painting too. The colors are amazing.
+Alice: I love this painting too. The colours are **amazing**.
 
-Christina: I learned color theory in the Art Club.
+Christina @C: I learned colour theory in the Art Club.
 
 `IncreaseAffection("Christina", "Alice")`
 

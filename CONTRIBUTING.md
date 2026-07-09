@@ -51,6 +51,51 @@ report is written to `coverage-report/index.html`.
 
 CI fails below 90% line coverage and warns below 100%.
 
+### Visualization frontend (`web/`)
+
+The compilation report's client is a self-contained TypeScript + Vite project in
+`src/DialogueDown.Visualization/web/`. The .NET library embeds its **built**
+single-file report (`web/dist/report.html`), which is committed to the repo, so a
+plain `dotnet build` needs no Node. You only need Node (20+) to change the client:
+
+```bash
+cd src/DialogueDown.Visualization/web
+npm install
+npm run dev                        # live-reloading dev server with sample data
+npm run check                      # typecheck, lint, style, format, unit tests
+npx playwright install chromium    # once, for e2e
+npm run e2e                        # Playwright end-to-end + accessibility tests
+npm run build                      # rebuild the committed dist/report.html
+```
+
+If you change anything under `web/src`, **rebuild and commit
+`web/dist/report.html`** — CI fails if the committed report is out of sync with its
+sources.
+
+### The `visualize` CLI and live server
+
+`src/DialogueDown.Visualization.Live` is a small console app (and loopback server)
+for viewing a script's compilation:
+
+```bash
+cd src/DialogueDown.Visualization.Live
+dotnet run -- path/to/scene.dialogue.md            # render + open a static report
+dotnet run -- path/to/scene.dialogue.md --watch    # serve + hot-reload on file changes
+dotnet run -- path/to/scene.dialogue.md -o out.html --no-open   # write, don't open
+```
+
+Watch mode starts a `127.0.0.1`-only server that pushes recompiled stages to the
+browser over Server-Sent Events; it is a development tool, not a hosted service.
+The live end-to-end tests run with `npm run e2e:live` in `web/` (they build and
+launch this server automatically).
+
+### Editor tasks (VS Code)
+
+Common tasks are wired up in `.vscode/tasks.json` (**Terminal → Run Task**), so
+you can build, test, and clean without memorising commands: `build` / `test`
+(.NET), `web: build` / `web: check` / `web: e2e` (frontend), `build: all` and
+`verify: all` (both stacks), and `clean` (remove build/test artifacts).
+
 ## Commit style
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
@@ -72,6 +117,7 @@ Before opening a pull request:
 - [ ] Update documentation for public API or script-language changes.
 - [ ] Run `dotnet test DialogueDown.sln`.
 - [ ] Run source-focused coverage when changing tested behavior.
+- [ ] If you changed the visualization frontend (`web/`), rebuild and commit `web/dist/report.html`.
 - [ ] Keep the pull request focused on one topic.
 - [ ] Explain why the change is useful.
 

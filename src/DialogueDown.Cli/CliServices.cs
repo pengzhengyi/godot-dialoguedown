@@ -1,4 +1,5 @@
 using DialogueDown.Cli.Compilation;
+using DialogueDown.Visualization.Live;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DialogueDown.Cli;
@@ -11,6 +12,8 @@ internal static class CliServices
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddSingleton<IScriptCompiler, PendingScriptCompiler>();
+        services.AddSingleton<IBrowserLauncher, BrowserLauncher>();
+        services.AddSingleton<IVisualizeRunner, VisualizeRunner>();
         return services;
     }
 }

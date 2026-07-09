@@ -1,0 +1,93 @@
+using DialogueDown.Markdown;
+using DialogueDown.Script.Ast;
+using MarkdownLineBreak = DialogueDown.Markdown.LineBreak;
+
+namespace DialogueDown.Script.Transpiler.Builders;
+
+/// <summary>
+/// Walks the Markdown block tree into the Dialogue AST skeleton. It orchestrates: a
+/// heading becomes a flat <see cref="SceneHeading"/> marker, a paragraph is handed to the
+/// <see cref="LineBuilder"/>, and a list becomes <see cref="Choices"/>. It is a faithful,
+/// local tokenizer — composition across siblings, such as grouping headings into scenes,
+/// is deferred to later stages. One shared, recursive <see cref="Build"/> serves both the
+/// document body and each choice body.
+/// </summary>
+internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder lineBuilder)
+{
+    public IReadOnlyList<ScriptBlock> Build(IReadOnlyList<MarkdownBlock> blocks)
+    {
+        var result = new List<ScriptBlock>();
+        foreach (var block in blocks)
+        {
+            Append(block, result);
+        }
+
+        return result;
+    }
+
+    // Split a paragraph's inlines at hard breaks into line groups; soft breaks stay inside
+    // a group as a display hint. An empty group (a leading, trailing, or doubled hard break)
+    // is dropped, so no phantom empty line is emitted.
+    private static IEnumerable<IReadOnlyList<MarkdownInline>> SplitAtHardBreaks(
+        IReadOnlyList<MarkdownInline> inlines)
+    {
+        var group = new List<MarkdownInline>();
+        foreach (var inline in inlines)
+        {
+            if (inline is MarkdownLineBreak { IsHard: true })
+            {
+                if (group.Count > 0)
+                {
+                    yield return group;
+                }
+
+                group = [];
+            }
+            else
+            {
+                group.Add(inline);
+            }
+        }
+
+        if (group.Count > 0)
+        {
+            yield return group;
+        }
+    }
+
+    private void Append(MarkdownBlock block, List<ScriptBlock> blocks)
+    {
+        switch (block)
+        {
+            case Heading heading:
+                blocks.Add(new SceneHeading(
+                    inlineBuilder.Build(heading.Inlines), heading.Level, heading.Span));
+                break;
+            case Paragraph paragraph:
+                foreach (var group in SplitAtHardBreaks(paragraph.Inlines))
+                {
+                    blocks.Add(lineBuilder.Build(group));
+                }
+
+                break;
+            case ListBlock list:
+                blocks.Add(BuildChoices(list));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(block), block.GetType().Name,
+                    $"Cannot transpile a block of kind '{block.GetType().Name}' because it "
+                    + "is not one of the supported block types.");
+        }
+    }
+
+    // Each list item's blocks recurse through the same walk, so a nested list inside an item
+    // becomes a nested Choices inside that Choice.
+    private Choices BuildChoices(ListBlock list)
+    {
+        var options = list.Items
+            .Select(item => new Choice(Build(item.Blocks), item.Span))
+            .ToList();
+        return new Choices(list.IsOrdered, options, list.Span);
+    }
+}

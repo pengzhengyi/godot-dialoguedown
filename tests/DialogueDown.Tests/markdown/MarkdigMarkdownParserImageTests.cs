@@ -14,7 +14,7 @@ public sealed class MarkdigMarkdownParserImageTests : MarkdigMarkdownParserTestB
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var image = AssertSingleInline<ImageInline>(paragraph.Inlines);
         Assert.Equal("tennis.png", image.Source);
-        Assert.Equal("Play tennis", image.AltText);
+        AssertSingleText(image.Alt, "Play tennis");
     }
 
     [Fact]
@@ -26,31 +26,35 @@ public sealed class MarkdigMarkdownParserImageTests : MarkdigMarkdownParserTestB
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var image = AssertSingleInline<ImageInline>(paragraph.Inlines);
         Assert.Empty(image.Source);
-        Assert.Equal("alt", image.AltText);
+        AssertSingleText(image.Alt, "alt");
     }
 
     [Fact]
     public void Parse_ImageWithEmptyAlt_IsAccepted()
     {
-        // An empty alt text is valid; a presentation layer may still render the image.
+        // An empty alt is valid; a presentation layer may still render the image.
         var document = Parser.Parse("![](tennis.png)");
 
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var image = AssertSingleInline<ImageInline>(paragraph.Inlines);
         Assert.Equal("tennis.png", image.Source);
-        Assert.Empty(image.AltText);
+        Assert.Empty(image.Alt);
     }
 
     [Fact]
-    public void Parse_ImageAltWithCodeSpan_FlattensToRawText()
+    public void Parse_ImageAltWithCodeSpan_PreservesStructure()
     {
-        // A formatted alt text (here a code span) is flattened to raw text, mirroring links.
+        // An alt is inline content, so a code span inside it is kept as structure.
         var document = Parser.Parse("![a `b` c](x.png)");
 
         var paragraph = AssertSingleBlock<Paragraph>(document);
         var image = AssertSingleInline<ImageInline>(paragraph.Inlines);
         Assert.Equal("x.png", image.Source);
-        Assert.Equal("a `b` c", image.AltText);
+        Assert.Collection(
+            image.Alt,
+            inline => AssertText(inline, "a "),
+            inline => Assert.Equal("b", Assert.IsType<CodeSpanInline>(inline).Content),
+            inline => AssertText(inline, " c"));
     }
 
     [Fact]
@@ -68,7 +72,7 @@ public sealed class MarkdigMarkdownParserImageTests : MarkdigMarkdownParserTestB
             {
                 var image = Assert.IsType<ImageInline>(inline);
                 Assert.Equal("x.png", image.Source);
-                Assert.Equal("alt", image.AltText);
+                AssertSingleText(image.Alt, "alt");
             },
             inline => AssertText(inline, " end"));
     }

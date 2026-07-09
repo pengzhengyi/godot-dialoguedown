@@ -4,6 +4,7 @@ import "./highlight.css";
 import "./styles.css";
 
 import { runApp } from "./app";
+import { startLiveClient } from "./live-client";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
 import type { Report } from "./model";
 
@@ -21,4 +22,7 @@ function resolveReport(): Report {
     return { stages: [] };
 }
 
-runApp(resolveReport());
+const report = resolveReport();
+const app = runApp(report);
+// When served by the live server, subscribe for hot-reload pushes.
+if (report.live) startLiveClient(app);

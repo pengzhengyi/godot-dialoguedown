@@ -5,39 +5,68 @@ import { createSourceView } from "./source-view";
 import { initResizer } from "./resizer";
 import { initTooltips } from "./tooltips";
 
+/** Controls a running report: swap in fresh data, or show/clear a status banner. */
+export interface AppController {
+    /** Re-render the report with new data, keeping the active tab where possible. */
+    rerender(report: Report): void;
+    /** Show a status message (e.g. a live compile error), or clear it with `null`. */
+    showBanner(message: string | null): void;
+}
+
 /**
- * Build the tabs — an optional Source tab followed by one per stage — and wire
- * the shared interactions.
+ * Build the tabs — an optional Source tab followed by one per stage — wire the
+ * shared interactions, and return a controller for live updates.
  */
-export function runApp(report: Report): void {
+export function runApp(report: Report): AppController {
     const tabsEl = document.getElementById("tabs")!;
     const stagesEl = document.getElementById("stages")!;
     const appEl = document.getElementById("app")!;
+    const bannerEl = document.getElementById("live-banner")!;
     const panel = createDetailPanel();
     // Per tab: its tree view (graph tabs) or null (the Source tab, which has no
     // node-detail panel and no keyboard tree navigation).
-    const views: (TreeView | null)[] = [];
+    let views: (TreeView | null)[] = [];
     let activeIndex = 0;
 
-    if (report.source != null) {
-        const section = document.createElement("section");
-        section.className = "stage source-stage";
-        section.appendChild(createSourceView(report.source));
-        addTab("Source", section, null);
-    }
-    for (const stage of report.stages) {
-        addStageTab(stage);
-    }
+    build(report);
 
+    // One-time wiring that outlives a re-render (the containers persist).
     document.addEventListener("keydown", (event) => {
         const target = event.target as Element | null;
         if (target?.closest?.("button, input, textarea, select")) return;
         views[activeIndex]?.handleKey(event);
     });
-
     initResizer();
     initTooltips(stagesEl);
-    if (views.length > 0) activate(0);
+
+    return {
+        rerender(next) {
+            const previous = activeIndex;
+            build(next);
+            if (views.length > 0) activate(Math.min(previous, views.length - 1));
+        },
+        showBanner(message) {
+            bannerEl.textContent = message ?? "";
+            bannerEl.hidden = message === null;
+        },
+    };
+
+    function build(report: Report): void {
+        tabsEl.replaceChildren();
+        stagesEl.replaceChildren();
+        views = [];
+
+        if (report.source != null) {
+            const section = document.createElement("section");
+            section.className = "stage source-stage";
+            section.appendChild(createSourceView(report.source));
+            addTab("Source", section, null);
+        }
+        for (const stage of report.stages) {
+            addStageTab(stage);
+        }
+        if (views.length > 0) activate(0);
+    }
 
     function addStageTab(stage: Stage): void {
         const section = document.createElement("section");

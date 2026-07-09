@@ -40,4 +40,8 @@ export interface Report {
      */
     source?: string;
     stages: Stage[];
+    /** The document's path — present when served by the live server. */
+    path?: string;
+    /** True when served live: the client subscribes for hot-reload pushes. */
+    live?: boolean;
 }

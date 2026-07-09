@@ -69,6 +69,20 @@ button.tab.active {
     font-weight: 600;
 }
 
+/* Live status banner (compile error / missing document); hidden until needed. */
+#live-banner {
+    flex: 0 0 auto;
+    padding: 0.5rem 1.25rem;
+    background: var(--pico-del-color, #b3261e);
+    color: #fff;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+}
+
+#live-banner[hidden] {
+    display: none;
+}
+
 #app {
     flex: 1 1 auto;
     display: flex;

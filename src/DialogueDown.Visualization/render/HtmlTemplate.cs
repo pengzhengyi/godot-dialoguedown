@@ -16,9 +16,12 @@ internal static class HtmlTemplate
 {
     private const string ReportSlot = "\"__REPORT__\"";
 
-    public static string RenderPage(IReadOnlyList<DisplayGraph> stages, string? source = null)
+    public static string RenderPage(
+        IReadOnlyList<DisplayGraph> stages,
+        string? source = null,
+        string? livePath = null)
     {
         return EmbeddedAsset.ReadText("report.html")
-            .Replace(ReportSlot, DisplayGraphJson.SerializeReport(source, stages));
+            .Replace(ReportSlot, DisplayGraphJson.SerializeReport(source, stages, livePath));
     }
 }

@@ -56,4 +56,55 @@ public sealed class CompilationVisualizerTests
         Assert.Contains("\"source\":\"# Hello\"", html);     // heading's source snippet
         Assert.Contains("\"source\":\"# Hello\\n\\nWorld\"", html); // whole document for the Source tab
     }
+
+    [Fact]
+    public void RenderLiveReport_MarksThePayloadLiveWithTheDocumentPath()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var html = visualizer.RenderLiveReport("scene.dialogue.md", "# Hello");
+
+        Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"live\":true", html);
+        Assert.Contains("\"path\":\"scene.dialogue.md\"", html);
+        Assert.Contains("\"title\":\"Markdown AST\"", html);
+    }
+
+    [Fact]
+    public void RenderHtmlReport_LeavesThePayloadStatic_NoLiveMarker()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var html = visualizer.RenderHtmlReport("# Hello");
+
+        Assert.DoesNotContain("\"live\":true", html);
+    }
+
+    [Fact]
+    public void RenderLiveReport_NullDocumentPath_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => new CompilationVisualizer().RenderLiveReport(null!, "# Hello"));
+    }
+
+    [Fact]
+    public void SerializeDocument_ReturnsPathSourceAndStages()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var json = visualizer.SerializeDocument("scene.dialogue.md", "# Hello");
+
+        Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
+        Assert.Contains("\"source\":\"# Hello\"", json);
+        Assert.Contains("\"stages\":[", json);
+        Assert.Contains("\"title\":\"Markdown AST\"", json);
+        Assert.DoesNotContain("\"live\":", json); // the document payload carries no live marker
+    }
+
+    [Fact]
+    public void SerializeDocument_NullDocumentPath_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => new CompilationVisualizer().SerializeDocument(null!, "# Hello"));
+    }
 }

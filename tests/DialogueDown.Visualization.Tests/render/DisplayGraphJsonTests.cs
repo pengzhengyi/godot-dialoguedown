@@ -80,4 +80,40 @@ public sealed class DisplayGraphJsonTests
         Assert.DoesNotContain("\"source\":", json);
         Assert.Contains("\"stages\":[", json);
     }
+
+    [Fact]
+    public void SerializeReport_WithLivePath_AddsLiveMarkerAndPath()
+    {
+        var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport("# Hi", [graph], "scene.dialogue.md");
+
+        Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
+        Assert.Contains("\"live\":true", json);
+        Assert.Contains("\"source\":\"# Hi\"", json);
+    }
+
+    [Fact]
+    public void SerializeReport_WithoutLivePath_HasNoLiveMarkerOrPath()
+    {
+        var graph = Graph("G", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport("# Hi", [graph]);
+
+        Assert.DoesNotContain("\"live\":", json);
+        Assert.DoesNotContain("\"path\":", json);
+    }
+
+    [Fact]
+    public void SerializeDocument_WrapsPathSourceAndStages()
+    {
+        var graph = Graph("Markdown AST", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeDocument("scene.dialogue.md", "# Hi", [graph]);
+
+        Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
+        Assert.Contains("\"source\":\"# Hi\"", json);
+        Assert.Contains("\"stages\":[", json);
+        Assert.DoesNotContain("\"live\":", json);
+    }
 }

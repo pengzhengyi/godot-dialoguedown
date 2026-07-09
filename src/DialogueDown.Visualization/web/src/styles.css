@@ -497,9 +497,13 @@ svg.tree {
     --pico-color: inherit;
     --pico-background-color: transparent;
 
-    display: flex;
+    /* An inline, content-sized chip — not a full-width block button. The max-width
+       caps it so a long path is middle-ellipsised (below) instead of stretching
+       across the row. */
+    display: inline-flex;
     align-items: baseline;
     min-width: 0;
+    max-width: 24rem;
     width: auto;
     margin: 0;
     padding: 0.1rem 0.4rem;

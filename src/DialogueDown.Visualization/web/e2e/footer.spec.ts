@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import type { Report } from "../src/model";
 import { SAMPLE_SOURCE, SAMPLE_STAGES, writeReport } from "./report";
 
-// A deliberately long absolute path so the document path fills the status bar and
-// forces the layout to cope on a narrow screen.
+// A deliberately long absolute path (long directory, ordinary filename) so the
+// directory must ellipsise and the layout must cope on a narrow screen.
 const LONG_PATH =
-    "/Users/pengzhengyi/Documents/Dev/PersonalProjects/Game/DialogueDown/very/deep/nested/a-really-quite-long-scene-file-name.dialogue.md";
+    "/Users/pengzhengyi/Documents/Dev/PersonalProjects/Game/DialogueDown/very/deep/nested/folders/scene.dialogue.md";
 
 const REPORT_WITH_PATH: Report = {
     mode: "watch",
@@ -53,4 +53,24 @@ test("on a narrow screen the help wraps below the status bar, not over the path"
     expect(overlaps).toBe(false);
     // The help sits on its own line, below the status bar.
     expect(helpBox.y).toBeGreaterThan(pathBox.y + 2);
+});
+
+test("the document path is a compact ellipsised chip, not a full-width block", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(writeReport(REPORT_WITH_PATH));
+
+    // Even with plenty of room, the chip stays capped instead of stretching the
+    // long path across the row.
+    const box = (await page.locator("#doc-path").boundingBox())!;
+    const footerWidth = (await page.locator(".app-footer").boundingBox())!.width;
+    expect(box.width).toBeLessThan(footerWidth * 0.5);
+
+    // The directory head is actually ellipsised: its content overflows its box.
+    const headTruncated = await page
+        .locator("#doc-path .path-head")
+        .evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(headTruncated).toBe(true);
+
+    // The filename tail stays fully visible.
+    await expect(page.locator("#doc-path .path-tail")).toHaveText("/scene.dialogue.md");
 });

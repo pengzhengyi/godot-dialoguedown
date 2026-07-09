@@ -5,7 +5,6 @@ using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
 using Md = DialogueDown.Tests.Support.MarkdownAstFactory;
 using MdEmphasisKind = DialogueDown.Markdown.EmphasisKind;
-using MdInline = DialogueDown.Markdown.MarkdownInline;
 
 namespace DialogueDown.Tests.Script.Transpiler.Builders;
 
@@ -163,7 +162,7 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_UnhandledInlineKind_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => _builder.Build([new UnknownInline(SourceSpanFactory.Span())]));
+            () => _builder.Build([new UnknownMarkdownInline(SourceSpanFactory.Span())]));
 
     [Fact]
     public void Build_WithStrictPolicy_RejectsACodeSpanInALabel()
@@ -178,6 +177,4 @@ public sealed class InlineBuilderTests
 
     private static SpeechStyle StyleOf(MdEmphasisKind kind) =>
         AssertStyledText(Assert.Single(_builder.Build([Md.Emphasis(kind, Md.Text("x"))]))).Style;
-
-    private sealed record UnknownInline(DialogueDown.Common.SourceSpan Span) : MdInline(Span);
 }

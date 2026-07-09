@@ -1,8 +1,8 @@
 using DialogueDown.Script.Transpiler.Builders;
+using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.InlinePolicyAssert;
 using Md = DialogueDown.Tests.Support.MarkdownAstFactory;
 using MdEmphasisKind = DialogueDown.Markdown.EmphasisKind;
-using MdInline = DialogueDown.Markdown.MarkdownInline;
 
 namespace DialogueDown.Tests.Script.Transpiler.Builders;
 
@@ -64,7 +64,5 @@ public sealed class LiteralInlinePolicyTests
     [Fact]
     public void Resolve_UnknownInline_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => _policy.Resolve(new UnknownInline(Md.Span())));
-
-    private sealed record UnknownInline(DialogueDown.Common.SourceSpan Span) : MdInline(Span);
+            () => _policy.Resolve(new UnknownMarkdownInline(Md.Span())));
 }

@@ -1,5 +1,6 @@
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Script.Transpiler.Errors;
+using DialogueDown.Tests.Support;
 using Md = DialogueDown.Tests.Support.MarkdownAstFactory;
 using MdEmphasisKind = DialogueDown.Markdown.EmphasisKind;
 using MdInline = DialogueDown.Markdown.MarkdownInline;
@@ -45,10 +46,8 @@ public sealed class RejectingInlinePolicyTests
     {
         // An element with no specific description falls back to a generic message.
         var error = Assert.Throws<DialogueSyntaxError>(
-            () => _policy.Resolve(new UnknownInline(Md.Span())));
+            () => _policy.Resolve(new UnknownMarkdownInline(Md.Span())));
 
         Assert.Contains("not allowed inside a label", error.Message);
     }
-
-    private sealed record UnknownInline(DialogueDown.Common.SourceSpan Span) : MdInline(Span);
 }

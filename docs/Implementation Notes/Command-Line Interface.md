@@ -6,6 +6,10 @@
 > `visualize` subcommands. This first pass builds the **skeleton and
 > architecture** only — both commands are stubs behind a compilation seam that
 > later components fill in.
+>
+> **Maturity caveat.** Unlike the core library, this CLI was built quickly
+> ("vibe-coded") with lighter design review. It is well-tested and works, but its
+> abstractions are not yet battle-hardened and may be refined as it sees real use.
 
 ## Table of contents
 

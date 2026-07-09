@@ -165,25 +165,25 @@ through narrow interfaces, so each can be swapped or tested alone.
 
 ## Functionality checklist
 
-- [ ] **ScriptDocument** root wraps the document's top-level content.
-- [ ] **SceneHeading** from a heading, as a flat marker; nesting into scenes is deferred.
-- [ ] **Line** from a paragraph; a paragraph **splits into Lines at hard breaks**.
-- [ ] **Speaker split**: try-parse a `Name @id #tags:` prefix into a
+- [x] **ScriptDocument** root wraps the document's top-level content.
+- [x] **SceneHeading** from a heading, as a flat marker; nesting into scenes is deferred.
+- [x] **Line** from a paragraph; a paragraph **splits into Lines at hard breaks**.
+- [x] **Speaker split**: try-parse a `Name @id #tags:` prefix into a
       **`SpeakerDeclaration`** / **`SpeakerNameReference`** / **`SpeakerIdReference`**
       (D11); on no match the Line has **no speaker** (default filled in Desugar).
-- [ ] **Speech** as ordered **InlineFragment**s: Text, StyledText, Image, soft
+- [x] **Speech** as ordered **InlineFragment**s: Text, StyledText, Image, soft
       LineBreak, GameCall, JumpIndicator, Link, Tag.
-- [ ] **Soft breaks kept** as `LineBreak` (display-wrap hints); **hard breaks
+- [x] **Soft breaks kept** as `LineBreak` (display-wrap hints); **hard breaks
       consumed** as Line boundaries.
-- [ ] **Choices** / **Choice** from a list and its items; **nesting and ordering
+- [x] **Choices** / **Choice** from a list and its items; **nesting and ordering
       preserved** (`IsOrdered` retained).
-- [ ] **Code span** into **Query** (`"…"`) / **DefaultCommand** (`(…)`) /
+- [x] **Code span** into **Query** (`"…"`) / **DefaultCommand** (`(…)`) /
       **CustomCommand** (`Name(args)`).
-- [ ] **`=>`** into **JumpIndicator**; a **link** into **Link** (unresolved).
-- [ ] **Tag** recognition via the pluggable `TagParser`, wherever tags appear.
-- [ ] Malformed dialogue grammar raises a **`DialogueSyntaxError`** with a
+- [x] **`=>`** into **JumpIndicator**; a **link** into **Link** (unresolved).
+- [x] **Tag** recognition via the pluggable `TagParser`, wherever tags appear.
+- [x] Malformed dialogue grammar raises a **`DialogueSyntaxError`** with a
       located, friendly, actionable message.
-- [ ] Every node carries a **`SourceSpan`**; the `ScriptDocument` root is a plain
+- [x] Every node carries a **`SourceSpan`**; the `ScriptDocument` root is a plain
   container and does not.
 
 Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
@@ -229,6 +229,7 @@ classDiagram
     }
     class SpeakerNameReference
     class SpeakerIdReference
+    class PartialSpeakerDeclaration
     class Choices
     class Choice
     class Tag {
@@ -267,6 +268,8 @@ classDiagram
     SpeakerDeclaration o-- Tag
     Speaker <|-- SpeakerDeclaration
     Speaker <|-- SpeakerReference
+    Speaker <|-- PartialSpeakerDeclaration
+    PartialSpeakerDeclaration o-- Tag
     SpeakerReference <|-- SpeakerNameReference
     SpeakerReference <|-- SpeakerIdReference
     InlineFragment <|-- Text
@@ -689,23 +692,23 @@ buildSpeech(inlines, policy):         # InlineBuilder, gated by the context poli
 
 ## Markdown AST to Dialogue AST mapping
 
-| Markdown AST            | Dialogue AST                                 | Notes                                  |
-| ----------------------- | -------------------------------------------- | -------------------------------------- |
-| `MarkdownDocument`      | `ScriptDocument`                             | root                                   |
-| `Heading`               | `SceneHeading`                               | flat marker; nesting deferred (D5)     |
-| `Paragraph`             | one or more `Line`                           | split at hard breaks (D4/D7)           |
-| leading text of a Line  | `SpeakerDeclaration` / `SpeakerReference`    | try-parse prefix (D3, D11)             |
-| `TextInline`            | `Text`                                       | plain words                            |
-| `EmphasisInline`        | `StyledText`                                 | style + nested fragments               |
-| `ImageInline`           | `Image`                                      | alt is a fragment sequence (D9)        |
-| `LineBreak` (soft)      | `LineBreak`                                  | kept as display hint (D4)              |
-| `LineBreak` (hard)      | —                                            | consumed as a Line boundary (D4)       |
-| `CodeSpanInline`        | `Query` / `DefaultCommand` / `CustomCommand` | via `GameCallParser` (D7)              |
-| `TextInline` `=>`       | `JumpIndicator`                              | jump assembled in Desugar (D8)         |
-| `LinkInline`            | `Link`                                       | fragment label, unresolved target (D8) |
-| tag text (any position) | `Tag`                                        | via `TagParser` (D9)                   |
-| `ListBlock`             | `Choices`                                    | `IsOrdered` kept (D6)                  |
-| `ListItem`              | `Choice`                                     | keeps nested content                   |
+| Markdown AST            | Dialogue AST                                                            | Notes                                  |
+| ----------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
+| `MarkdownDocument`      | `ScriptDocument`                                                        | root                                   |
+| `Heading`               | `SceneHeading`                                                          | flat marker; nesting deferred (D5)     |
+| `Paragraph`             | one or more `Line`                                                      | split at hard breaks (D4/D7)           |
+| leading text of a Line  | `SpeakerDeclaration` / `SpeakerReference` / `PartialSpeakerDeclaration` | try-parse prefix (D3, D11)             |
+| `TextInline`            | `Text`                                                                  | plain words                            |
+| `EmphasisInline`        | `StyledText`                                                            | style + nested fragments               |
+| `ImageInline`           | `Image`                                                                 | alt is a fragment sequence (D9)        |
+| `LineBreak` (soft)      | `LineBreak`                                                             | kept as display hint (D4)              |
+| `LineBreak` (hard)      | —                                                                       | consumed as a Line boundary (D4)       |
+| `CodeSpanInline`        | `Query` / `DefaultCommand` / `CustomCommand`                            | via `GameCallParser` (D7)              |
+| `TextInline` `=>`       | `JumpIndicator`                                                         | jump assembled in Desugar (D8)         |
+| `LinkInline`            | `Link`                                                                  | fragment label, unresolved target (D8) |
+| tag text (any position) | `Tag`                                                                   | via `TagParser` (D9)                   |
+| `ListBlock`             | `Choices`                                                               | `IsOrdered` kept (D6)                  |
+| `ListItem`              | `Choice`                                                                | keeps nested content                   |
 
 ## Error and boundary cases
 

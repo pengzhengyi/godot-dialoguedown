@@ -1,5 +1,6 @@
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DialogueAstAssert;
 using static DialogueDown.Tests.Support.MarkdownAstFactory;
 
 namespace DialogueDown.Tests.Script.Transpiler.Builders;
@@ -19,8 +20,18 @@ public sealed class BlockBuilderTests
 
         var body = _builder.Build([heading]);
 
-        var scene = DialogueAstAssert.AssertSceneHeading(Assert.Single(body), "The Cave", 2);
+        var scene = AssertSceneHeading(Assert.Single(body), "The Cave", 2);
         Assert.Equal(heading.Span, scene.Span);
+    }
+
+    [Fact]
+    public void Paragraph_BecomesALine()
+    {
+        var body = _builder.Build([Paragraph(Text("Alice: Hello there."))]);
+
+        var line = AssertLine(Assert.Single(body));
+        AssertSpeakerNameReference(line.Speaker!, "Alice");
+        AssertSpeechText(line, "Hello there.");
     }
 
     [Fact]

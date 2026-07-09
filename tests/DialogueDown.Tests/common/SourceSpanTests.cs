@@ -44,4 +44,25 @@ public sealed class SourceSpanTests
         Assert.NotEqual(new SourceSpan(2, 3), new SourceSpan(2, 4));
         Assert.NotEqual(new SourceSpan(2, 3), new SourceSpan(1, 3));
     }
+
+    [Theory]
+    [InlineData(0, 2, 2, 3, 0, 5)] // contiguous: [0,2) through [2,5)
+    [InlineData(0, 2, 6, 1, 0, 7)] // gapped: [0,2) through [6,7), spanning the gap
+    [InlineData(3, 4, 3, 4, 3, 7)] // single span: covers itself
+    public void Covering_EndFollowsStart_SpansFromStartBeginningToEndEnding(
+        int startPos, int startLen, int endPos, int endLen, int expectedStart, int expectedEnd)
+    {
+        var covering = SourceSpan.Covering(new SourceSpan(startPos, startLen), new SourceSpan(endPos, endLen));
+
+        Assert.Equal(expectedStart, covering.Start);
+        Assert.Equal(expectedEnd, covering.End);
+    }
+
+    [Theory]
+    [InlineData(5, 2, 1, 2)] // end begins before start
+    [InlineData(2, 5, 3, 1)] // end ends before start ends
+    public void Covering_EndPrecedesStart_Throws(
+        int startPos, int startLen, int endPos, int endLen) =>
+        Assert.Throws<ArgumentException>(
+            () => SourceSpan.Covering(new SourceSpan(startPos, startLen), new SourceSpan(endPos, endLen)));
 }

@@ -113,6 +113,11 @@ internal static class DialogueAstAssert
         return scene;
     }
 
+    public static Line AssertLine(ScriptBlock actual) => Assert.IsType<Line>(actual);
+
+    public static Text AssertSpeechText(Line line, string content) =>
+        AssertText(Assert.Single(line.Speech), content);
+
     private static void AssertTags(IReadOnlyList<Tag> actual, Tag[] expected)
     {
         if (expected.Length == 0)

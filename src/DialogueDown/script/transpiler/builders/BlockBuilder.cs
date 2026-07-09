@@ -4,14 +4,14 @@ using DialogueDown.Script.Ast;
 namespace DialogueDown.Script.Transpiler.Builders;
 
 /// <summary>
-/// Walks the Markdown block tree into the Dialogue AST skeleton. It is a faithful,
-/// local tokenizer: a heading becomes a flat <see cref="SceneHeading"/> marker, a
-/// paragraph becomes one or more <see cref="Line"/>s, and a list becomes
-/// <see cref="Choices"/>. Composition across siblings — grouping headings into scenes,
-/// assembling jumps — is deferred to later stages. One shared, recursive
-/// <see cref="Build"/> serves both the document body and each choice body.
+/// Walks the Markdown block tree into the Dialogue AST skeleton. It orchestrates: a
+/// heading becomes a flat <see cref="SceneHeading"/> marker, a paragraph is handed to the
+/// <see cref="LineBuilder"/>, and a list becomes <see cref="Choices"/>. It is a faithful,
+/// local tokenizer — composition across siblings, such as grouping headings into scenes,
+/// is deferred to later stages. One shared, recursive <see cref="Build"/> serves both the
+/// document body and each choice body.
 /// </summary>
-internal sealed class BlockBuilder(InlineBuilder inlineBuilder)
+internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder lineBuilder)
 {
     public IReadOnlyList<ScriptBlock> Build(IReadOnlyList<MarkdownBlock> blocks)
     {
@@ -31,6 +31,9 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder)
             case Heading heading:
                 blocks.Add(new SceneHeading(
                     inlineBuilder.Build(heading.Inlines), heading.Level, heading.Span));
+                break;
+            case Paragraph paragraph:
+                blocks.Add(lineBuilder.Build(paragraph.Inlines));
                 break;
             default:
                 throw new ArgumentOutOfRangeException(

@@ -141,11 +141,11 @@ separated by namespace.
 This component has two cleanly separated layers, mirroring the pipeline's
 *Transpiler* and *Inline line parser* stages as internal seams:
 
-1. **ScriptBlock transpiler** (`BlockBuilder`) — walks the Markdown block tree and
+1. **Block transpiler** (`BlockBuilder`) — walks the Markdown block tree and
    builds the Dialogue AST skeleton: `ScriptDocument`, `SceneHeading` (a flat
-   marker), `Line` (split at hard breaks), `Choices` / `Choice`. One shared,
-   recursive `Build(blocks)` serves both the document body and each choice body
-   (D4).
+   marker), `Line` (via `LineBuilder`, split at hard breaks), `Choices` / `Choice`.
+   One shared, recursive `Build(blocks)` serves both the document body and each
+   choice body (D4).
 2. **Inline mini-parsers** — for each Line, re-tokenize its inline content into
    a `Speech` of fragments. Small, pure, single-purpose parsers, each **built and
    tested in isolation**, then composed by the block transpiler:
@@ -189,19 +189,20 @@ Deferred to **Desugar** (out of scope here): assembling a **Jump**, filling the
 
 ## Interfaces and abstractions
 
-| Type                              | Responsibility                                                                                                              | Collaborators                      |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                                    | Markdown AST, `ScriptDocument`     |
-| `BlockBuilder`                    | block-layer tree walk → Dialogue AST; one shared, recursive `Build(blocks)` for the document body and each choice body (D4) | builders, parsers                  |
-| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                            | `SourceSpan`                       |
-| `ScriptBlock`                     | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                              | `ScriptNode`                       |
-| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                           | `ParseInput`, `ParseResult`        |
-| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                                      | `IParser<T>`                       |
-| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                                      | `…Data` records                    |
-| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder`          | `…Data`, AST nodes                 |
-| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), under an `IInlinePolicy` (D14)                               | leaf tokenizer, builders, policy   |
-| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                          | `TagBuilder`                       |
-| `IInlinePolicy`                   | what a context admits and what an unsupported inline becomes: reconstruct-as-text or reject (D14)                           | `MarkdownInline`, `InlineFragment` |
+| Type                              | Responsibility                                                                                                                                                                            | Collaborators                      |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `IScriptTranspiler`               | public seam: `ScriptDocument Transpile(MarkdownDocument, string source)`                                                                                                                  | Markdown AST, `ScriptDocument`     |
+| `BlockBuilder`                    | block-layer tree walk → Dialogue AST; orchestrates dispatch, delegating each line to `LineBuilder`; one shared, recursive `Build(blocks)` for the document body and each choice body (D4) | `LineBuilder`, `InlineBuilder`     |
+| `LineBuilder`                     | one group of inlines → a `Line`: split an optional speaker off the leading text, build the remaining speech, span the group                                                               | `SpeakerBuilder`, `InlineBuilder`  |
+| `ScriptNode`                      | base for every Dialogue AST node; carries `Span`                                                                                                                                          | `SourceSpan`                       |
+| `ScriptBlock`                     | base for a script body item: `Line`, `Choices`, `SceneHeading`                                                                                                                            | `ScriptNode`                       |
+| `IParser<T>`                      | the single non-throwing parser contract: `Consume` a prefix (D12)                                                                                                                         | `ParseInput`, `ParseResult`        |
+| composites + Superpower adapter   | `Select` / `SelectMany` / `Optional` / `Repeated`; wrap a `TextParser`                                                                                                                    | `IParser<T>`                       |
+| game-call / tag / speaker parsers | pure text → parsed **data** (no nodes, no spans) (D13)                                                                                                                                    | `…Data` records                    |
+| per-node builders                 | parsed data → AST nodes; classify, validate, raise errors (D13): `TagBuilder`, `SpeakerBuilder`, `GameCallBuilder`                                                                        | `…Data`, AST nodes                 |
+| `InlineBuilder`                   | inline walk → `InlineFragment`s (a line's Speech, or a label), under an `IInlinePolicy` (D14)                                                                                             | leaf tokenizer, builders, policy   |
+| `InlineLeafBuilder`               | a tokenized leaf → an `InlineFragment`: `Text`, `Tag` (via `TagBuilder`), or `JumpIndicator` (D14)                                                                                        | `TagBuilder`                       |
+| `IInlinePolicy`                   | what a context admits and what an unsupported inline becomes: reconstruct-as-text or reject (D14)                                                                                         | `MarkdownInline`, `InlineFragment` |
 
 The block walk is hand-written (its input is already a tree). **Superpower**
 (Apache-2.0) powers the character-level leaves, wrapped behind the `IParser<T>`
@@ -656,13 +657,15 @@ Build(blocks):            # flat: headings are tokens, not containers (D5)
         Heading      -> emit SceneHeading(InlineBuilder.build(inlines), level)
         Paragraph    -> for each group in splitAtHardBreaks(paragraph):  # D4/D7
                             if group is empty: skip           # drop phantom lines (D4)
-                            else:              emit convertLine(group)
+                            else:              emit LineBuilder.build(group)
         List         -> emit Choices(IsOrdered,
                                      items -> Choice(Build(item.blocks)))   # recurse (D6)
 
-convertLine(inlines):
-    speaker, rest = SpeakerPrefixParser.tryParse(leadingText(inlines))  # layer 2
-    return Line(speaker, buildSpeech(rest, speechPolicy))                # D14
+# LineBuilder: one group of inlines -> one Line.
+LineBuilder.build(group):
+    speaker, rest = SpeakerBuilder.build(leadingText(group))   # try-parse; strip the prefix
+    span = SourceSpan.Covering(group.first.span, group.last.span)  # covers speaker + speech
+    return Line(speaker, buildSpeech(rest, speechPolicy), span)    # D14
 
 buildSpeech(inlines, policy):         # InlineBuilder, gated by the context policy
     speech = []
@@ -701,25 +704,27 @@ buildSpeech(inlines, policy):         # InlineBuilder, gated by the context poli
 
 ## Error and boundary cases
 
-| Case                                                                | Behavior                                                                                                                                                                              |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Text with no valid speaker prefix                                   | Line has **no speaker**; not an error (default filled in Desugar)                                                                                                                     |
-| Colon inside speech (`The time is 3:00`)                            | prefix parse fails → no speaker; colon stays in Speech                                                                                                                                |
-| Code span that is neither query nor command                         | **`DialogueSyntaxError`** — "code spans are only for game calls…"                                                                                                                     |
-| Malformed tag (e.g. `#` with no name)                               | **`DialogueSyntaxError`** with the expected form                                                                                                                                      |
-| Prose `=>` not before a link (`the => arrow`)                       | emitted as a `JumpIndicator`; downstream degrades the dangling one back to plain text, so it reads literally (D8)                                                                     |
-| Whitespace between `=>` and its link                                | kept as plain text here; folded into the `Jump` when a later stage pairs `JumpIndicator` + `Link` (D8)                                                                                |
-| Literal `#word` in speech                                           | recognized as a `Tag` (D9); a literal `#word` is not yet expressible — planned: a `` `#` `` symbol-escape at desugar                                                                  |
-| Empty document                                                      | a `ScriptDocument` with an empty body                                                                                                                                                 |
-| Content before the first heading                                    | attaches to the `ScriptDocument` root                                                                                                                                                 |
-| Irregular heading order (an `H1` after an `H2`, or a skipped level) | handled without error by relative nesting (D5); a dedicated test covers `H2` then `H1`                                                                                                |
-| Empty group between hard breaks (back-to-back hard breaks)          | dropped — no phantom empty `Line`; an author writes an intentional blank explicitly (D4)                                                                                              |
-| Deeply nested choices                                               | represented faithfully; no depth cap                                                                                                                                                  |
-| Speaker prefix on a choice item (`- Alice: Hi`)                     | honored — the choice body runs the same `Build`, so it becomes `Choice([Line(Alice, "Hi")])`; omitting the prefix defaults the speaker (D6)                                           |
-| Empty emphasis (`****`)                                             | the source degrades it to plain text, so `StyledText` never has empty children                                                                                                        |
-| A game call / nested link inside a label or alt                     | not admitted there; the default policy restores it to literal text, a strict policy raises a `DialogueSyntaxError` (D14)                                                              |
-| A backslash escape Markdig strips (`\*`, `\#`)                      | a sub-token's span may drift ≤1 char **within** that literal; it does not accumulate across the document (each literal is re-anchored). Accepted for now; skipped tests track the fix |
-| A node dropped by the front-end policy                              | never reaches the transpiler                                                                                                                                                          |
+| Case                                                                | Behavior                                                                                                                                                                                              |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Text with no valid speaker prefix                                   | Line has **no speaker**; not an error (default filled in Desugar)                                                                                                                                     |
+| Colon inside speech (`The time is 3:00`)                            | prefix parse fails → no speaker; colon stays in Speech                                                                                                                                                |
+| Styled leading prefix (`*Alice*: Hi`)                               | **no speaker** — the leading inline is emphasis, not text, and the shape is identical to legitimate emphasis-led prose (`*Note*: important`); spoken as styled text. A downstream warning may flag it |
+| Empty paragraph or line group (only filtered/ignored inlines)       | dropped upstream so no `Line` is emitted; `LineBuilder` still asserts a non-empty group, failing explicitly if one slips through                                                                      |
+| Code span that is neither query nor command                         | **`DialogueSyntaxError`** — "code spans are only for game calls…"                                                                                                                                     |
+| Malformed tag (e.g. `#` with no name)                               | **`DialogueSyntaxError`** with the expected form                                                                                                                                                      |
+| Prose `=>` not before a link (`the => arrow`)                       | emitted as a `JumpIndicator`; downstream degrades the dangling one back to plain text, so it reads literally (D8)                                                                                     |
+| Whitespace between `=>` and its link                                | kept as plain text here; folded into the `Jump` when a later stage pairs `JumpIndicator` + `Link` (D8)                                                                                                |
+| Literal `#word` in speech                                           | recognized as a `Tag` (D9); a literal `#word` is not yet expressible — planned: a `` `#` `` symbol-escape at desugar                                                                                  |
+| Empty document                                                      | a `ScriptDocument` with an empty body                                                                                                                                                                 |
+| Content before the first heading                                    | attaches to the `ScriptDocument` root                                                                                                                                                                 |
+| Irregular heading order (an `H1` after an `H2`, or a skipped level) | handled without error by relative nesting (D5); a dedicated test covers `H2` then `H1`                                                                                                                |
+| Empty group between hard breaks (back-to-back hard breaks)          | dropped — no phantom empty `Line`; an author writes an intentional blank explicitly (D4)                                                                                                              |
+| Deeply nested choices                                               | represented faithfully; no depth cap                                                                                                                                                                  |
+| Speaker prefix on a choice item (`- Alice: Hi`)                     | honored — the choice body runs the same `Build`, so it becomes `Choice([Line(Alice, "Hi")])`; omitting the prefix defaults the speaker (D6)                                                           |
+| Empty emphasis (`****`)                                             | the source degrades it to plain text, so `StyledText` never has empty children                                                                                                                        |
+| A game call / nested link inside a label or alt                     | not admitted there; the default policy restores it to literal text, a strict policy raises a `DialogueSyntaxError` (D14)                                                                              |
+| A backslash escape Markdig strips (`\*`, `\#`)                      | a sub-token's span may drift ≤1 char **within** that literal; it does not accumulate across the document (each literal is re-anchored). Accepted for now; skipped tests track the fix                 |
+| A node dropped by the front-end policy                              | never reaches the transpiler                                                                                                                                                                          |
 
 ## Integration
 
@@ -742,7 +747,9 @@ buildSpeech(inlines, policy):         # InlineBuilder, gated by the context poli
 - **BlockBuilder** is tested by feeding small Markdown ASTs (built through the
   front-end parser, or via a shared **Object Mother** factory) and asserting the
   Dialogue AST — a new `DialogueAstAssert` mirrors the front-end's
-  `MarkdownAstAssert`.
+  `MarkdownAstAssert`. **LineBuilder** is unit-tested in isolation on inline
+  groups (speaker split, empty speech, non-text lead, tags-without-name), so
+  BlockBuilder tests stay focused on orchestration.
 - Tests use **multi-line raw string literals** for readable script inputs, stay
   independent, and run in **parallel**.
 

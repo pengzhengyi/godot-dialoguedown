@@ -23,5 +23,7 @@ internal static class TranspilerBuilderFactory
     public static InlineBuilder InlineBuilder(IInlinePolicy labelPolicy) =>
         new(InlineLeafBuilder(), GameCallBuilder(), labelPolicy);
 
-    public static BlockBuilder BlockBuilder() => new(InlineBuilder());
+    public static LineBuilder LineBuilder() => new(SpeakerBuilder(), InlineBuilder());
+
+    public static BlockBuilder BlockBuilder() => new(InlineBuilder(), LineBuilder());
 }

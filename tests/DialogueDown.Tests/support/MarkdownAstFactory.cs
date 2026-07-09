@@ -44,6 +44,9 @@ internal static class MarkdownAstFactory
     public static Paragraph Paragraph(params MarkdownInline[] inlines) =>
         new(inlines.Length == 0 ? [Text()] : inlines, Span());
 
+    public static Paragraph TextParagraph(params string[] texts) =>
+        Paragraph(texts.Select(Text).ToArray());
+
     public static ListItem ListItem(params MarkdownBlock[] blocks) =>
         new(blocks.Length == 0 ? [Paragraph()] : blocks, Span());
 

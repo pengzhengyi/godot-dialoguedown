@@ -115,6 +115,15 @@ internal static class DialogueAstAssert
 
     public static Line AssertLine(ScriptBlock actual) => Assert.IsType<Line>(actual);
 
+    public static Choices AssertChoices(ScriptBlock actual, bool isOrdered)
+    {
+        var choices = Assert.IsType<Choices>(actual);
+        Assert.Equal(isOrdered, choices.IsOrdered);
+        return choices;
+    }
+
+    public static Line AssertChoiceLine(Choice choice) => AssertLine(Assert.Single(choice.Body));
+
     public static Text AssertSpeechText(Line line, string content) =>
         AssertText(Assert.Single(line.Speech), content);
 

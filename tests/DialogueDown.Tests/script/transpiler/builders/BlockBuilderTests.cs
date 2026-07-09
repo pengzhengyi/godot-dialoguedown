@@ -27,7 +27,7 @@ public sealed class BlockBuilderTests
     [Fact]
     public void Paragraph_BecomesALine()
     {
-        var body = _builder.Build([Paragraph(Text("Alice: Hello there."))]);
+        var body = _builder.Build([TextParagraph("Alice: Hello there.")]);
 
         var line = AssertLine(Assert.Single(body));
         AssertSpeakerNameReference(line.Speaker!, "Alice");
@@ -85,6 +85,88 @@ public sealed class BlockBuilderTests
     [Fact]
     public void Paragraph_OnlyHardBreaks_EmitsNoLine() =>
         Assert.Empty(_builder.Build([Paragraph(LineBreak(hard: true))]));
+
+    [Fact]
+    public void List_BecomesChoices_OneChoicePerItem()
+    {
+        var body = _builder.Build(
+        [
+            ListBlock(
+                ordered: false,
+                ListItem(TextParagraph("Go north")),
+                ListItem(TextParagraph("Go south"))),
+        ]);
+
+        var choices = AssertChoices(Assert.Single(body), isOrdered: false);
+        Assert.Equal(2, choices.Options.Count);
+        AssertSpeechText(AssertChoiceLine(choices.Options[0]), "Go north");
+        AssertSpeechText(AssertChoiceLine(choices.Options[1]), "Go south");
+    }
+
+    [Fact]
+    public void OrderedList_KeepsIsOrdered() =>
+        AssertChoices(
+            Assert.Single(_builder.Build([ListBlock(ordered: true, ListItem(TextParagraph("First")))])),
+            isOrdered: true);
+
+    [Fact]
+    public void ChoiceItem_MayCarryASpeaker()
+    {
+        var body = _builder.Build([ListBlock(ordered: false, ListItem(TextParagraph("Alice: Hi")))]);
+
+        var choices = AssertChoices(Assert.Single(body), isOrdered: false);
+        var line = AssertChoiceLine(Assert.Single(choices.Options));
+        AssertSpeakerNameReference(line.Speaker!, "Alice");
+        AssertSpeechText(line, "Hi");
+    }
+
+    [Fact]
+    public void ChoiceItem_WithMultipleBlocks_KeepsThemAll()
+    {
+        var body = _builder.Build(
+        [
+            ListBlock(
+                ordered: false,
+                ListItem(TextParagraph("Line one"), TextParagraph("Line two"))),
+        ]);
+
+        var choice = Assert.Single(AssertChoices(Assert.Single(body), isOrdered: false).Options);
+        Assert.Equal(2, choice.Body.Count);
+        AssertSpeechText(AssertLine(choice.Body[0]), "Line one");
+        AssertSpeechText(AssertLine(choice.Body[1]), "Line two");
+    }
+
+    [Fact]
+    public void NestedList_BecomesNestedChoices()
+    {
+        var innerList = ListBlock(ordered: false, ListItem(TextParagraph("Inner")));
+        var outerList = ListBlock(
+            ordered: false,
+            ListItem(TextParagraph("Pick one:"), innerList));
+
+        var body = _builder.Build([outerList]);
+
+        // The outer list is one Choices with a single option.
+        var choice = Assert.Single(AssertChoices(Assert.Single(body), isOrdered: false).Options);
+
+        // That option holds its line, then the nested list as a nested Choices.
+        Assert.Equal(2, choice.Body.Count);
+        AssertSpeechText(AssertLine(choice.Body[0]), "Pick one:");
+        var inner = AssertChoices(choice.Body[1], isOrdered: false);
+        AssertSpeechText(AssertChoiceLine(Assert.Single(inner.Options)), "Inner");
+    }
+
+    [Fact]
+    public void Choices_CarryListAndItemSpans()
+    {
+        var item = ListItem(TextParagraph("Go north"));
+        var list = ListBlock(ordered: false, item);
+
+        var choices = AssertChoices(Assert.Single(_builder.Build([list])), isOrdered: false);
+
+        Assert.Equal(list.Span, choices.Span);
+        Assert.Equal(item.Span, Assert.Single(choices.Options).Span);
+    }
 
     [Fact]
     public void UnknownBlockKind_Throws() =>

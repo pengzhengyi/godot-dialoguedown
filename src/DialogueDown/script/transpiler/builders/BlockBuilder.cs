@@ -70,11 +70,24 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder line
                 }
 
                 break;
+            case ListBlock list:
+                blocks.Add(BuildChoices(list));
+                break;
             default:
                 throw new ArgumentOutOfRangeException(
                     nameof(block), block.GetType().Name,
                     $"Cannot transpile a block of kind '{block.GetType().Name}' because it "
                     + "is not one of the supported block types.");
         }
+    }
+
+    // Each list item's blocks recurse through the same walk, so a nested list inside an item
+    // becomes a nested Choices inside that Choice.
+    private Choices BuildChoices(ListBlock list)
+    {
+        var options = list.Items
+            .Select(item => new Choice(Build(item.Blocks), item.Span))
+            .ToList();
+        return new Choices(list.IsOrdered, options, list.Span);
     }
 }

@@ -28,10 +28,11 @@ const server = spawn(
     [
         "run",
         "--project",
-        "../../DialogueDown.Visualization.Live",
+        "../../DialogueDown.Cli",
         "-c",
         "Release",
         "--",
+        "visualize",
         RENDER_ROOT_DOC,
         "--watch",
         "--port",

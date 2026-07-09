@@ -13,10 +13,11 @@ const server = spawn(
     [
         "run",
         "--project",
-        "../../DialogueDown.Visualization.Live",
+        "../../DialogueDown.Cli",
         "-c",
         "Release",
         "--",
+        "visualize",
         LIVE_DOC,
         "--watch",
         "--port",

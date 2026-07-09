@@ -118,8 +118,8 @@ jobs:
       - name: End-to-end tests (Playwright, static)
         run: npm run e2e
 
-      - name: Build the live server (for the live e2e)
-        run: dotnet build ../../DialogueDown.Visualization.Live/DialogueDown.Visualization.Live.csproj -c Release
+      - name: Build the CLI (for the live e2e)
+        run: dotnet build ../../DialogueDown.Cli/DialogueDown.Cli.csproj -c Release
 
       - name: End-to-end tests (Playwright, live server)
         run: npm run e2e:live

@@ -13,11 +13,18 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
 {
     private readonly WebApplication _app;
     private readonly LiveSession _session;
+    private readonly ServeRoot? _serveRoot;
 
-    /// <summary>Builds a server for <paramref name="session"/> on the given loopback port (0 = ephemeral).</summary>
-    public LiveVisualizationServer(LiveSession session, int port = 0)
+    /// <summary>
+    /// Builds a server for <paramref name="session"/> on the given loopback port
+    /// (0 = ephemeral). <paramref name="serveRoot"/> is the folder to host and the
+    /// URL path the report is served at; when omitted the document's own folder is
+    /// hosted and the report sits at <c>/</c>.
+    /// </summary>
+    public LiveVisualizationServer(LiveSession session, int port = 0, ServeRoot? serveRoot = null)
     {
         _session = session;
+        _serveRoot = serveRoot ?? DefaultServeRootFor(session.DocumentPath);
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.Logging.ClearProviders();
@@ -31,31 +38,48 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
             .Features.Get<IServerAddressesFeature>()!
             .Addresses.First();
 
+    /// <summary>The URL of the report itself — <see cref="BaseUrl"/> plus the report path.</summary>
+    public string ReportUrl => BaseUrl.TrimEnd('/') + (_serveRoot?.ReportPath ?? "/");
+
     /// <summary>Starts listening.</summary>
     public Task StartAsync() => _app.StartAsync();
 
     /// <inheritdoc />
     public ValueTask DisposeAsync() => _app.DisposeAsync();
 
+    private static ServeRoot? DefaultServeRootFor(string documentPath)
+    {
+        var documentDirectory = Path.GetDirectoryName(Path.GetFullPath(documentPath));
+        return documentDirectory is null ? null : ServeRoot.For(documentDirectory, documentDirectory);
+    }
+
     private void Configure(WebApplication app)
     {
-        // Serve files alongside the document (e.g. `assets/painting.jpg`) so the
-        // report's relative image and resource links resolve. Rooted at the
-        // document's own directory, so only its siblings are exposed (loopback,
-        // dev-only); traversal outside the root is blocked by the middleware.
-        var documentDirectory = Path.GetDirectoryName(Path.GetFullPath(_session.DocumentPath));
-        if (documentDirectory is not null)
+        // Serve the resolved root folder as static files so the report's relative
+        // image and resource links resolve. Hosting is minimal and consent-gated:
+        // the document's own folder by default, a broader ancestor only when the
+        // caller resolved one (see ServeRootResolver). Traversal outside the root is
+        // blocked by the middleware.
+        var reportPath = _serveRoot?.ReportPath ?? "/";
+        if (_serveRoot is { } serveRoot)
         {
             app.UseStaticFiles(new StaticFileOptions
             {
-                FileProvider = new PhysicalFileProvider(documentDirectory),
+                FileProvider = new PhysicalFileProvider(serveRoot.RootDirectory),
                 RequestPath = string.Empty,
             });
         }
 
+        // The report sits at its sub-path under the root; a broadened root serves it
+        // below `/`, so send `/` there for convenience.
         app.MapGet(
-            "/",
+            reportPath,
             () => Results.Content(_session.RenderInitialHtml(), "text/html; charset=utf-8"));
+        if (reportPath != "/")
+        {
+            app.MapGet("/", () => Results.Redirect(reportPath));
+        }
+
         app.MapGet(
             "/api/document",
             () => Results.Content(_session.CurrentDocumentJson(), "application/json; charset=utf-8"));

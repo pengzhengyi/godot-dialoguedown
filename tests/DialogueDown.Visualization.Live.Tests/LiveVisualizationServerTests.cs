@@ -1,4 +1,5 @@
 using DialogueDown.Visualization.Live.Tests.Support;
+using System.Net;
 
 namespace DialogueDown.Visualization.Live.Tests;
 
@@ -104,5 +105,60 @@ public sealed class LiveVisualizationServerTests
 
         Assert.True(sawReload);
         Assert.True(sawContent);
+    }
+
+    [Fact]
+    public async Task DefaultRoot_ReportUrlIsTheServerRoot()
+    {
+        using var doc = new TempDocument("# Scene");
+        await using var server = new LiveVisualizationServer(new LiveSession(doc.Path));
+        await server.StartAsync();
+
+        Assert.Equal(server.BaseUrl.TrimEnd('/') + "/", server.ReportUrl);
+    }
+
+    [Fact]
+    public async Task BroadenedRoot_ServesTheReportAtTheDocumentSubPath_AndRedirectsRoot()
+    {
+        using var tree = new TempTree();
+        var documentPath = tree.File("proj/scene.dialogue.md", "# Scene");
+        var serveRoot = ServeRoot.For(tree.Root, Path.GetDirectoryName(documentPath)!);
+        await using var server = new LiveVisualizationServer(
+            new LiveSession(documentPath), serveRoot: serveRoot);
+        await server.StartAsync();
+
+        Assert.EndsWith("/proj/", server.ReportUrl);
+
+        using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+        var report = await client.GetStringAsync("/proj/");
+        Assert.StartsWith("<!doctype html", report, StringComparison.OrdinalIgnoreCase);
+
+        using var noRedirect = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+        {
+            BaseAddress = new Uri(server.BaseUrl),
+        };
+        var rootResponse = await noRedirect.GetAsync("/");
+        Assert.Equal(HttpStatusCode.Redirect, rootResponse.StatusCode);
+        Assert.Equal("/proj/", rootResponse.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task BroadenedRoot_ServesFilesOutsideTheDocumentFolder()
+    {
+        using var tree = new TempTree();
+        var documentPath = tree.File("proj/scene.dialogue.md", "# Scene\n\n![p](../shared/pic.png)");
+        var pic = tree.File("shared/pic.png");
+        var bytes = new byte[] { 9, 8, 7 };
+        await File.WriteAllBytesAsync(pic, bytes);
+        var serveRoot = ServeRoot.For(tree.Root, Path.GetDirectoryName(documentPath)!);
+        await using var server = new LiveVisualizationServer(
+            new LiveSession(documentPath), serveRoot: serveRoot);
+        await server.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+
+        var response = await client.GetAsync("/shared/pic.png");
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal(bytes, await response.Content.ReadAsByteArrayAsync());
     }
 }

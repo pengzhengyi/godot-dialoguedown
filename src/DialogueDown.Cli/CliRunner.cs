@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using DialogueDown.Cli.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console.Cli;
@@ -8,6 +9,7 @@ namespace DialogueDown.Cli;
 /// Composition root: wire the services, build the Spectre command app, and run it.
 /// Kept separate from <c>Program</c> so the wiring is a normal, callable method.
 /// </summary>
+[ExcludeFromCodeCoverage] // Composition wiring; exercised end-to-end, not unit-tested.
 internal static class CliRunner
 {
     /// <summary>Runs the CLI for the given arguments and returns a process exit code.</summary>

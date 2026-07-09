@@ -49,15 +49,12 @@ internal static class CliConfigurator
     /// <summary>The tool version, read from the assembly (set by <c>&lt;Version&gt;</c>).</summary>
     private static string ResolveVersion()
     {
-        var informational = typeof(CliConfigurator).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (!string.IsNullOrEmpty(informational))
-        {
-            // Drop any build metadata (e.g. a "+<commit>" suffix from SourceLink).
-            var plus = informational.IndexOf('+', StringComparison.Ordinal);
-            return plus >= 0 ? informational[..plus] : informational;
-        }
+        var version = typeof(CliConfigurator).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? "0.0.0";
 
-        return typeof(CliConfigurator).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+        // Drop any build metadata (e.g. a "+<commit>" suffix from SourceLink).
+        var plus = version.IndexOf('+', StringComparison.Ordinal);
+        return plus >= 0 ? version[..plus] : version;
     }
 }

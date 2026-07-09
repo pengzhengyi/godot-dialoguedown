@@ -1,3 +1,4 @@
+using DialogueDown.Cli.Commands;
 using DialogueDown.Cli.Compilation;
 using DialogueDown.Cli.Tests.Support;
 using NSubstitute;
@@ -35,6 +36,18 @@ public sealed class CompileCommandTests
 
         Assert.Equal(ExitCodes.Success, result.ExitCode);
         compiler.Received(1).Compile(source);
+    }
+
+    [Fact]
+    public void Compile_ParsesTheOutputOption()
+    {
+        using var script = new TempScript("# Scene");
+        var tester = CliTester.Create();
+
+        var result = tester.Run("compile", script.Path, "-o", "out.txt");
+
+        var settings = Assert.IsType<CompileSettings>(result.Settings);
+        Assert.Equal("out.txt", settings.Output);
     }
 
     [Fact]

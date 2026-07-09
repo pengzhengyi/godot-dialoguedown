@@ -68,9 +68,11 @@ npm run e2e                        # Playwright end-to-end + accessibility tests
 npm run build                      # rebuild the committed dist/report.html
 ```
 
-If you change anything under `web/src`, **rebuild and commit
-`web/dist/report.html`** — CI fails if the committed report is out of sync with its
-sources.
+If you change anything under `web/src`, rebuild and commit `web/dist/report.html`
+so it stays in sync with its sources. As a safety net the **Sync report bundle**
+workflow rebuilds and commits it for you on pull requests that forget to (including
+Dependabot build-tool bumps), but committing it yourself keeps CI green on the first
+run instead of after an automatic follow-up commit.
 
 ### The `visualize` CLI and live server
 
@@ -117,7 +119,7 @@ Before opening a pull request:
 - [ ] Update documentation for public API or script-language changes.
 - [ ] Run `dotnet test DialogueDown.sln`.
 - [ ] Run source-focused coverage when changing tested behavior.
-- [ ] If you changed the visualization frontend (`web/`), rebuild and commit `web/dist/report.html`.
+- [ ] If you changed the visualization frontend (`web/`), rebuild and commit `web/dist/report.html` (CI auto-commits it if you forget).
 - [ ] Keep the pull request focused on one topic.
 - [ ] Explain why the change is useful.
 

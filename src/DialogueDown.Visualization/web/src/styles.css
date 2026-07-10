@@ -482,7 +482,8 @@ svg.tree {
 .app-footer {
     flex: 0 0 auto;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* keep the status bar and the help on one row (the help shrinks
+       and wraps its own text) so the help never drops to a line below the status bar */
     align-items: flex-start; /* status bar sticks to the top, not centred against the taller expanded help */
     gap: 0.4rem 1rem;
     padding: 0.4rem 1.25rem;
@@ -578,9 +579,12 @@ svg.tree {
 
 .app-footer .help {
     flex: 0 1 auto;
+    min-width: 0; /* let the help shrink and wrap its shortcut lines in place instead of
+       the whole block dropping below the status bar, so its summary stays on the top
+       row — level with the status bar and path — at every width */
 
-    /* On a wide row the status bar's flex-grow pushes this to the right; when the
-       row runs out of space it wraps to its own line below (no overlap). */
+    /* On a wide row the status bar's flex-grow pushes this to the right; when space is
+       tight the help shrinks in place and its lines wrap. */
     margin-left: auto;
     max-width: 100%;
 }
@@ -634,6 +638,17 @@ svg.tree {
 
     .source-divider {
         display: none;
+    }
+
+    /* Stack the footer: on a phone-width screen the help drops full-width below the
+       status bar rather than shrinking into a cramped column beside it. */
+    .app-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .app-footer .help {
+        margin-left: 0;
     }
 }
 

@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 
 test("serves a live report bound to the document", async ({ page }) => {
     // The payload is marked live, so the tabs render and the Source tab is present.
-    await expect(page.locator(".tab")).toHaveCount(2);
+    await expect(page.locator(".tab")).toHaveCount(3);
     await expect(page.locator(".tab").first()).toHaveText("Source");
     // The mode badge reflects watch mode.
     await expect(page.locator("#mode-badge")).toHaveText("Hot Reload");

@@ -55,8 +55,20 @@ internal readonly record struct TextRange
     }
 
     /// <summary>
-    /// Converts this range to a strict <see cref="SourceSpan"/> for an AST node. An
-    /// empty range throws, because a node always covers at least one character.
+    /// Converts this range to a strict <see cref="SourceSpan"/> for a parsed AST node. An
+    /// empty range throws: a node built from matched text always covers at least one
+    /// character, so an empty range signals a parser bug. A synthetic node with no source
+    /// text uses <see cref="SourceSpan.EmptyAt"/> directly instead.
     /// </summary>
-    public SourceSpan ToSourceSpan() => new(Start, Length);
+    public SourceSpan ToSourceSpan()
+    {
+        if (Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot convert the empty range at {Start} to a source span; a parsed "
+                + "node covers at least one character.");
+        }
+
+        return new(Start, Length);
+    }
 }

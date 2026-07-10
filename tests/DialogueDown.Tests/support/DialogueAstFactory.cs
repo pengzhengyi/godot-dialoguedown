@@ -18,6 +18,18 @@ internal static class DialogueAstFactory
 
     public static Text Text(string content) => new(content, SourceSpanFactory.Span());
 
+    public static Jump Jump(string target, params InlineFragment[] label) =>
+        new(target, label, SourceSpanFactory.Span());
+
+    public static JumpIndicator JumpIndicator() => new(SourceSpanFactory.Span());
+
+    public static Link Link(string target, params InlineFragment[] label) =>
+        new(target, label.Length == 0 ? [Text("label")] : label, SourceSpanFactory.Span());
+
+    public static LineBreak LineBreak() => new(SourceSpanFactory.Span());
+
+    public static DefaultSpeaker DefaultSpeaker() => new(SourceSpanFactory.Span());
+
     public static Line Line(params InlineFragment[] speech) =>
         new(null, speech, SourceSpanFactory.Span());
 

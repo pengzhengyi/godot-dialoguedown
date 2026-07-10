@@ -1,5 +1,5 @@
-using DialogueDown.Cli.Compilation;
 using DialogueDown.Cli.Infrastructure;
+using DialogueDown.Compilation;
 using DialogueDown.Visualization.Live;
 using Microsoft.Extensions.DependencyInjection;
 using Spectre.Console.Cli.Testing;

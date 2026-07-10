@@ -1,12 +1,12 @@
-using DialogueDown.Cli.Compilation;
+using DialogueDown.Compilation;
 using Spectre.Console.Cli;
 
 namespace DialogueDown.Cli.Commands;
 
 /// <summary>
-/// The <c>compile</c> command: compile a script through the compilation seam. The
-/// seam is not implemented yet, so this reports "not implemented" until the
-/// transpiler lands; the command body then needs no change.
+/// The <c>compile</c> command: compile a script through the compiler facade. The
+/// compiled output is not emitted yet; the command reports success and will honor
+/// <c>--output</c> once the later stages produce something to write.
 /// </summary>
 internal sealed class CompileCommand : Command<CompileSettings>
 {
@@ -26,7 +26,8 @@ internal sealed class CompileCommand : Command<CompileSettings>
         var source = File.ReadAllText(settings.Script);
         _compiler.Compile(source);
 
-        // TODO(transpiler): emit the compiled result, honoring --output.
+        // TODO(compiler): emit the compiled output, honoring --output, once the later
+        // stages produce a serializable result.
         return ExitCodes.Success;
     }
 }

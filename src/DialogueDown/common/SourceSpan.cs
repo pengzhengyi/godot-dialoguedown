@@ -2,9 +2,11 @@ namespace DialogueDown.Common;
 
 /// <summary>
 /// A half-open character range <c>[Start, End)</c> into the script source.
-/// Every Markdown AST node carries one so raw text can be sliced from the
-/// original source and diagnostics can point back at the exact location. The
-/// range always covers at least one character.
+/// Every AST node carries one so raw text can be sliced from the original source
+/// and diagnostics can point back at the exact location. A range usually covers at
+/// least one character; a <b>zero-width</b> (empty) span marks a synthetic node — one
+/// with no source text of its own, such as a filled-in default speaker — at the
+/// position where it belongs, so a tool can render a caret there rather than a range.
 /// </summary>
 internal readonly record struct SourceSpan
 {
@@ -16,10 +18,10 @@ internal readonly record struct SourceSpan
                 nameof(start), start, "Source span start must be non-negative.");
         }
 
-        if (length < 1)
+        if (length < 0)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(length), length, "Source span length must be positive.");
+                nameof(length), length, "Source span length must be non-negative.");
         }
 
         Start = start;
@@ -31,6 +33,18 @@ internal readonly record struct SourceSpan
     public int Length { get; }
 
     public int End => Start + Length;
+
+    /// <summary>
+    /// Whether the span covers no characters: a synthetic node's position marker rather
+    /// than a real slice of source.
+    /// </summary>
+    public bool IsEmpty => Length == 0;
+
+    /// <summary>
+    /// A zero-width span at <paramref name="position"/>: an empty range marking a synthetic
+    /// node — one with no source text — at the point where it belongs.
+    /// </summary>
+    public static SourceSpan EmptyAt(int position) => new(position, 0);
 
     /// <summary>
     /// The span reaching from <paramref name="start"/>'s beginning through

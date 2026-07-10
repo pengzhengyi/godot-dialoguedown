@@ -42,9 +42,9 @@ public sealed class TextRangeTests
 
     [Fact]
     public void ToSourceSpan_EmptyRange_Throws() =>
-        // A node always covers at least one character, so an empty range cannot
-        // become a SourceSpan.
-        Assert.Throws<ArgumentOutOfRangeException>(() => new TextRange(5, 0).ToSourceSpan());
+        // A parsed node always covers at least one character, so an empty range cannot
+        // become a SourceSpan (a synthetic node uses SourceSpan.EmptyAt instead).
+        Assert.Throws<InvalidOperationException>(() => new TextRange(5, 0).ToSourceSpan());
 
     [Fact]
     public void Plus_JoinsContiguousRanges_FromFirstStartToSecondEnd()

@@ -449,9 +449,9 @@ a declaration *binds* metadata. Under an abstract **`Speaker`** base:
 a **declaration**; a bare name is a **reference** that the semantic analyzer
 auto-declares on first use. An `@id` **with** tags is a
 **`PartialSpeakerDeclaration`** — it points at a speaker by id and contributes extra
-tags, which **Desugar** resolves against the referenced speaker (a no-conflict
-merge). Only tags with **neither a name nor an id** (`#tag:`) have nothing to attach
-to and are a **`DialogueSyntaxError`**.
+tags, which **semantic analysis** resolves against the referenced speaker (a
+no-conflict merge). Only tags with **neither a name nor an id** (`#tag:`) have
+nothing to attach to and are a **`DialogueSyntaxError`**.
 
 ### D12 — A uniform, span-aware parser abstraction
 

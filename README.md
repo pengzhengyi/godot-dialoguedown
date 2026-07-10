@@ -37,8 +37,12 @@ adapter over this library's interfaces.
 | --- | --- |
 | `src/DialogueDown/` | the reusable class library (net8.0, no engine refs) |
 | `src/DialogueDown.Visualization/` | diagnostics-only visualizer of compiler stages (not shipped in the core package) |
+| `src/DialogueDown.Visualization.Live/` | loopback server that serves the report, hot-reloads it on edit, and hosts the launcher |
+| `src/DialogueDown.Cli/` | the `dialoguedown` command-line interface (`compile`, `visualize`) |
 | `tests/DialogueDown.Tests/` | xUnit tests for the pure logic |
 | `tests/DialogueDown.Visualization.Tests/` | xUnit tests for the visualizer |
+| `tests/DialogueDown.Visualization.Live.Tests/` | xUnit tests for the live server and launcher |
+| `tests/DialogueDown.Cli.Tests/` | xUnit tests for the CLI |
 
 ## Build and test
 
@@ -94,16 +98,19 @@ becomes share a colour), with a legend and arrow-key navigation. The report is a
 bundled in, so it needs no server and works fully offline. It reads the compiler
 through the same seams the tests use and never touches the shipped core package,
 so the core stays dependency-light. The Markdown AST view ships today; the
-Dialogue AST view lands with the transpiler.
+Dialogue AST view is added as the transpiler's stage is wired in.
 
-Render a script from the command line with the `visualize` tool:
+Render a script from the command line with the `dialoguedown visualize` command:
 
 ```bash
-# Render a self-contained report and open it in the browser
-dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md
+# Open the launcher to browse for a script (the uniform entry point)
+dotnet run --project src/DialogueDown.Cli -- visualize
 
-# Watch the file and hot-reload the report in the browser as you edit it
-dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md --watch
+# Watch a script and hot-reload its report in the browser as you edit it
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --watch --root .
+
+# Export a self-contained report to a file (no server, no browser)
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md -o report.html
 ```
 
 > [!NOTE]

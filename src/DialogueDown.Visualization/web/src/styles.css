@@ -7,7 +7,7 @@
     --md-link: #0969da;
     --md-code: #0550ae;
     --md-muted: #6e7781;
-    --cm-selection: #add6ff;
+    --cm-selection: rgb(20 100 210 / 22%);
 }
 
 /* System dark (unless the reader forced light). */
@@ -18,7 +18,7 @@
         --md-link: #79c0ff;
         --md-code: #a5d6ff;
         --md-muted: #8b949e;
-        --cm-selection: #3a5f8f;
+        --cm-selection: rgb(100 165 255 / 35%);
     }
 }
 
@@ -29,7 +29,7 @@
     --md-link: #79c0ff;
     --md-code: #a5d6ff;
     --md-muted: #8b949e;
-    --cm-selection: #3a5f8f;
+    --cm-selection: rgb(100 165 255 / 35%);
 }
 
 html,
@@ -283,10 +283,17 @@ section.stage.error {
     border-left-color: var(--pico-color);
 }
 
+/* The drawn selection (from drawSelection) is our own element, not the OS selection,
+   so its color is stable across browsers/platforms. !important beats CodeMirror's
+   high-specificity default focused-selection rule; the semi-transparent tint keeps the
+   selected text readable in both themes. */
 .source-pane .cm-selectionBackground,
-.source-pane .cm-focused .cm-selectionBackground,
-.source-pane .cm-line ::selection {
-    background: var(--cm-selection);
+.source-pane .cm-focused .cm-selectionBackground {
+    background-color: var(--cm-selection) !important;
+}
+
+.source-pane ::selection {
+    background-color: var(--cm-selection);
 }
 
 /* Fold markers in the gutter, and the placeholder shown for a folded section. */

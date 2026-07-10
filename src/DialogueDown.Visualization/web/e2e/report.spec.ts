@@ -65,6 +65,23 @@ test("the editor supports search and code folding (read-only)", async ({ page })
     await expect(page.locator(".cm-foldPlaceholder")).toBeVisible();
 });
 
+test("the editor selection uses the themed color when focused, not CodeMirror's default", async ({
+    page,
+}) => {
+    await page.locator(".cm-content").click();
+    await page.keyboard.press("ControlOrMeta+a"); // focused selection — the historic bug's case
+    const bg = await page
+        .locator(".cm-selectionBackground")
+        .first()
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    // CodeMirror's default focused selection is an opaque lavender (rgb(215, 212, 240));
+    // ours is a themed, semi-transparent tint (alpha < 1) so the text stays readable.
+    expect(bg).not.toBe("rgb(215, 212, 240)");
+    const alpha = Number(bg.match(/[\d.]+/g)?.[3] ?? "1");
+    expect(alpha).toBeLessThan(1);
+});
+
 test("switching from Source to the Markdown AST tab shows the graph and detail panel", async ({
     page,
 }) => {

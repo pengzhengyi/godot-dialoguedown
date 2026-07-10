@@ -12,7 +12,7 @@ namespace DialogueDown.Script.Desugar;
 /// after it is dangling: it is just the characters <c>=&gt;</c>, so it degrades to a plain
 /// <see cref="Text"/>. A link with no preceding indicator is left untouched. Fragments stay
 /// granular here — a later stage folds adjacent text runs together — so the degraded arrow
-/// is left as its own run, exactly like any other neighbouring text. It works one level at
+/// is left as its own run, exactly like any other neighboring text. It works one level at
 /// a time; nested sequences are reached by the rewriter.
 /// </summary>
 internal static class JumpAssembler

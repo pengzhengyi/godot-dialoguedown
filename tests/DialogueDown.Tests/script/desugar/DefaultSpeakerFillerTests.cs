@@ -2,6 +2,7 @@ using DialogueDown.Common;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DialogueAstAssert;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 
 namespace DialogueDown.Tests.Script.Desugar;
@@ -15,7 +16,7 @@ public sealed class DefaultSpeakerFillerTests
 
         var filled = DefaultSpeakerFiller.Fill(line);
 
-        var speaker = Assert.IsType<DefaultSpeaker>(filled.Speaker);
+        var speaker = AssertDefaultSpeaker(filled.Speaker);
         Assert.Equal(SourceSpan.EmptyAt(line.Span.Start), speaker.Span);
         Assert.True(speaker.Span.IsEmpty);
         Assert.Same(line.Speech, filled.Speech);
@@ -37,6 +38,6 @@ public sealed class DefaultSpeakerFillerTests
         // fill covers it, with no special case.
         var line = Line(new DefaultCommand("wave", SourceSpanFactory.Span()));
 
-        Assert.IsType<DefaultSpeaker>(DefaultSpeakerFiller.Fill(line).Speaker);
+        AssertDefaultSpeaker(DefaultSpeakerFiller.Fill(line).Speaker);
     }
 }

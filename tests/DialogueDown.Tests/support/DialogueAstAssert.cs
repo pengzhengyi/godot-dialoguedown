@@ -115,6 +115,9 @@ internal static class DialogueAstAssert
         return reference;
     }
 
+    public static DefaultSpeaker AssertDefaultSpeaker(Speaker? actual) =>
+        Assert.IsType<DefaultSpeaker>(actual);
+
     public static SceneHeading AssertSceneHeading(ScriptBlock actual, string title, int level)
     {
         var scene = Assert.IsType<SceneHeading>(actual);

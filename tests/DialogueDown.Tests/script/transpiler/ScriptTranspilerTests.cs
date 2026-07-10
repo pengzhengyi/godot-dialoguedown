@@ -2,7 +2,6 @@ using DialogueDown.Script.Transpiler;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
 using static DialogueDown.Tests.Support.MarkdownAstFactory;
-using MarkdigMarkdownParser = DialogueDown.Markdown.MarkdigMarkdownParser;
 
 namespace DialogueDown.Tests.Script.Transpiler;
 
@@ -54,7 +53,7 @@ public sealed class ScriptTranspilerTests
             - Go left
             - Go right
             """;
-        var document = new MarkdigMarkdownParser().Parse(source);
+        var document = MarkdownParserFactory.MarkdownParser().Parse(source);
 
         var script = _transpiler.Transpile(document, source);
 

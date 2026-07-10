@@ -6,8 +6,9 @@ namespace DialogueDown.Visualization.Live;
 
 /// <summary>
 /// A loopback-only web server that serves a document's live report and streams
-/// hot-reload events over Server-Sent Events. Read-only: it exposes no write
-/// routes. Binds <c>127.0.0.1</c> on an ephemeral port unless one is given.
+/// hot-reload events over Server-Sent Events. In Live Edit mode it also exposes a
+/// single write route (<c>POST /api/save</c>) that writes the edited buffer back to
+/// the document. Binds <c>127.0.0.1</c> on an ephemeral port unless one is given.
 /// </summary>
 internal sealed class LiveVisualizationServer : IAsyncDisposable
 {
@@ -84,6 +85,13 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
             "/api/document",
             () => Results.Content(_session.CurrentDocumentJson(), "application/json; charset=utf-8"));
         app.MapGet("/api/events", HandleEventsAsync);
+
+        // Live Edit adds the one write route — it saves the edited buffer back to the
+        // document. Watch stays read-only.
+        if (_session.Mode == VisualizationMode.Live)
+        {
+            app.MapPost("/api/save", (SaveRequest request) => Save(request));
+        }
     }
 
     private async Task HandleEventsAsync(HttpContext context, CancellationToken cancellationToken)
@@ -106,4 +114,21 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
             await context.Response.Body.FlushAsync(cancellationToken);
         }
     }
+
+    // Saves the posted buffer to the document and returns the recompiled payload; a
+    // write failure surfaces as a 400 with a message rather than a 500.
+    private IResult Save(SaveRequest request)
+    {
+        try
+        {
+            var json = _session.Save(request.Source ?? string.Empty);
+            return Results.Content(json, "application/json; charset=utf-8");
+        }
+        catch (IOException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private sealed record SaveRequest(string? Source);
 }

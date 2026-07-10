@@ -65,6 +65,23 @@ public sealed class VisualizeCommandTests
     }
 
     [Fact]
+    public void Visualize_FullySpecifiedLive_BypassesToTheLiveRun()
+    {
+        using var script = new TempScript("# Scene");
+        var root = Path.GetDirectoryName(script.Path)!;
+        var runner = Substitute.For<IVisualizeRunner>();
+        runner
+            .RunLiveAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(0));
+        var tester = CliTester.Create(runner: runner, launcher: Launcher());
+
+        var result = tester.Run("visualize", script.Path, "--live", "--root", root, "--port", "5199");
+
+        Assert.Equal(0, result.ExitCode);
+        runner.Received(1).RunLiveAsync(script.Path, 5199, false, root, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public void Visualize_FullySpecifiedStatic_BypassesToTheStaticRun()
     {
         using var script = new TempScript("# Scene");

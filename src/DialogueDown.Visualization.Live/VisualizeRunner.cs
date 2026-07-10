@@ -26,4 +26,14 @@ public sealed class VisualizeRunner : IVisualizeRunner
         return WatchMode.RunAsync(
             file, port, noOpen, renderRoot, _browser, consent, Console.Out, Console.Error, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<int> RunLiveAsync(
+        string file, int? port, bool noOpen, string? renderRoot, CancellationToken cancellationToken)
+    {
+        var consent = new ConsoleHostConsent(!Console.IsInputRedirected, Console.In, Console.Out);
+        return WatchMode.RunAsync(
+            file, port, noOpen, renderRoot, _browser, consent, Console.Out, Console.Error,
+            cancellationToken, VisualizationMode.Live);
+    }
 }

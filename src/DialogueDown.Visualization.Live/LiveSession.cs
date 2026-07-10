@@ -11,6 +11,7 @@ namespace DialogueDown.Visualization.Live;
 internal sealed class LiveSession
 {
     private readonly CompilationVisualizer _visualizer;
+    private volatile string? _lastSaved;
 
     /// <summary>Creates a session for <paramref name="documentPath"/> in the given <paramref name="mode"/>.</summary>
     public LiveSession(
@@ -43,15 +44,39 @@ internal sealed class LiveSession
         _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
 
     /// <summary>
+    /// Writes <paramref name="source"/> to the document file (a force overwrite),
+    /// recompiles it, and returns the document payload. Records the written content so
+    /// the watcher's self-triggered <see cref="Refresh"/> is not mistaken for an external
+    /// edit (see <see cref="Refresh"/>).
+    /// </summary>
+    public string Save(string source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        // Record before writing so the watcher, even if it fires immediately, can tell
+        // this write from an external one.
+        _lastSaved = source;
+        File.WriteAllText(DocumentPath, source);
+        return _visualizer.SerializeDocument(DocumentPath, source, Mode);
+    }
+
+    /// <summary>
     /// Recompiles the current file and pushes a <c>reload</c> to every client, or a
     /// <c>problem</c> event carrying an error message when the file is missing or
-    /// cannot be read.
+    /// cannot be read. A change whose content matches the last <see cref="Save"/> is the
+    /// browser's own write and is skipped, so a save does not bounce back as a reload.
     /// </summary>
     public void Refresh()
     {
         try
         {
-            Broadcaster.Broadcast(new LiveEvent("reload", CurrentDocumentJson()));
+            var current = File.ReadAllText(DocumentPath);
+            if (current == _lastSaved)
+            {
+                return;
+            }
+
+            Broadcaster.Broadcast(
+                new LiveEvent("reload", _visualizer.SerializeDocument(DocumentPath, current, Mode)));
         }
         catch (IOException ex)
         {

@@ -67,4 +67,46 @@ public sealed class LiveSessionTests
         Assert.Equal("problem", received!.Event);
         Assert.Contains("not found", received.Data, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Save_WritesTheBufferToDiskAndReturnsCompiledStages()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "live");
+
+        var json = session.Save("# New\n\nAlice: Hi");
+
+        Assert.Equal("# New\n\nAlice: Hi", File.ReadAllText(doc.Path));
+        Assert.Contains("\"source\":\"# New", json);
+        Assert.Contains("\"stages\":[", json);
+    }
+
+    [Fact]
+    public void Refresh_AfterSave_SuppressesTheSelfTriggeredReload()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "live");
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        session.Save("# Saved");
+        session.Refresh(); // the watcher firing for the browser's own write
+
+        Assert.False(reader.TryRead(out _));
+    }
+
+    [Fact]
+    public void Refresh_ExternalChangeAfterSave_StillBroadcasts()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "live");
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        session.Save("# Saved");
+        File.WriteAllText(doc.Path, "# External");
+        session.Refresh();
+
+        Assert.True(reader.TryRead(out var received));
+        Assert.Equal("reload", received!.Event);
+        Assert.Contains("# External", received.Data);
+    }
 }

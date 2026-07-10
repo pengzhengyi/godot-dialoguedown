@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
@@ -160,6 +162,51 @@ public sealed class WatchModeTests
         using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
         var response = await client.GetAsync("/shared/pic.png");
         Assert.False(response.IsSuccessStatusCode);
+
+        stop.Cancel();
+        await task;
+    }
+
+    [Fact]
+    public async Task RunAsync_LiveMode_SaveWritesTheBufferAndReturnsStages()
+    {
+        using var doc = new TempDocument("# First");
+        var browser = new FakeBrowserLauncher();
+        using var stop = new CancellationTokenSource();
+
+        var task = WatchMode.RunAsync(
+            doc.Path, port: 0, noOpen: false, renderRoot: null, browser, new FakeHostConsent(allow: false),
+            new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.Live);
+        await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
+
+        using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved\n\nAlice: Hi" });
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("# Saved\n\nAlice: Hi", await File.ReadAllTextAsync(doc.Path));
+        Assert.Contains("\"stages\":[", await response.Content.ReadAsStringAsync());
+
+        stop.Cancel();
+        await task;
+    }
+
+    [Fact]
+    public async Task RunAsync_WatchMode_HasNoSaveRoute()
+    {
+        using var doc = new TempDocument("# First");
+        var browser = new FakeBrowserLauncher();
+        using var stop = new CancellationTokenSource();
+
+        var task = WatchMode.RunAsync(
+            doc.Path, port: 0, noOpen: false, renderRoot: null, browser, new FakeHostConsent(allow: false),
+            new StringWriter(), new StringWriter(), stop.Token);
+        await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
+
+        using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Nope" });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("# First", await File.ReadAllTextAsync(doc.Path)); // untouched
 
         stop.Cancel();
         await task;

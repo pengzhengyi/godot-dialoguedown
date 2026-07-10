@@ -17,7 +17,7 @@ internal sealed class VisualizeSettings : CommandSettings
     public string? Root { get; init; }
 
     [CommandOption("--mode <mode>")]
-    [Description("How to open the script: static, watch, or live (live is not yet available).")]
+    [Description("How to open the script: static, watch, or live.")]
     public LaunchMode? Mode { get; init; }
 
     [CommandOption("--watch")]
@@ -25,7 +25,7 @@ internal sealed class VisualizeSettings : CommandSettings
     public bool Watch { get; init; }
 
     [CommandOption("--live")]
-    [Description("Shorthand for --mode live (not yet available; opens the launcher).")]
+    [Description("Shorthand for --mode live: serve an editable report and save edits back to the file.")]
     public bool Live { get; init; }
 
     [CommandOption("--pick")]

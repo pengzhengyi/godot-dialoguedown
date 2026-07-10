@@ -42,12 +42,16 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
         var mode = explicitMode ?? LaunchMode.Static;
 
         // Bypass to the report only when the source, mode, and root are all explicit.
-        if (hasScript && explicitMode is not null && settings.Root is not null && !settings.Pick
-            && mode != LaunchMode.Live)
+        if (hasScript && explicitMode is not null && settings.Root is not null && !settings.Pick)
         {
-            return mode == LaunchMode.Watch
-                ? _runner.RunWatchAsync(settings.Script, settings.Port, settings.NoOpen, settings.Root, cancellationToken)
-                : Task.FromResult(_runner.RunStatic(settings.Script, null, settings.NoOpen));
+            return mode switch
+            {
+                LaunchMode.Watch => _runner.RunWatchAsync(
+                    settings.Script, settings.Port, settings.NoOpen, settings.Root, cancellationToken),
+                LaunchMode.Live => _runner.RunLiveAsync(
+                    settings.Script, settings.Port, settings.NoOpen, settings.Root, cancellationToken),
+                _ => Task.FromResult(_runner.RunStatic(settings.Script, null, settings.NoOpen)),
+            };
         }
 
         var (root, source) = ResolveLaunch(settings.Script, hasScript, settings.Root);

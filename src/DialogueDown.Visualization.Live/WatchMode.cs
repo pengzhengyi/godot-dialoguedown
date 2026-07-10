@@ -1,17 +1,19 @@
 namespace DialogueDown.Visualization.Live;
 
 /// <summary>
-/// The <c>visualize &lt;file&gt; --watch</c> path: start a loopback live server for
-/// the document, watch the file, and recompile-and-push on every change, until the
-/// process is interrupted (Ctrl+C). The report is read-only — the file changes from
-/// your editor, not the page.
+/// The <c>visualize &lt;file&gt; --watch</c> and <c>--live</c> path: start a loopback
+/// live server for the document, watch the file, and recompile-and-push on every change,
+/// until the process is interrupted (Ctrl+C). Watch is read-only — the file changes from
+/// your editor, not the page; Live Edit serves an editable report that saves back to the
+/// file.
 /// </summary>
 internal static class WatchMode
 {
     /// <summary>
-    /// Runs a watch session until <paramref name="cancellationToken"/> is canceled.
-    /// Returns 0 on a clean stop, or 1 when the document is invalid or an explicit
-    /// <paramref name="renderRoot"/> cannot be used.
+    /// Runs a watch or live session until <paramref name="cancellationToken"/> is
+    /// canceled. <paramref name="mode"/> selects <c>watch</c> (read-only) or <c>live</c>
+    /// (editable). Returns 0 on a clean stop, or 1 when the document is invalid or an
+    /// explicit <paramref name="renderRoot"/> cannot be used.
     /// </summary>
     public static async Task<int> RunAsync(
         string file,
@@ -22,7 +24,8 @@ internal static class WatchMode
         IHostConsent consent,
         TextWriter output,
         TextWriter error,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string mode = VisualizationMode.Watch)
     {
         var problem = DocumentValidation.Validate(file);
         if (problem is not null)
@@ -39,13 +42,14 @@ internal static class WatchMode
             return 1;
         }
 
-        var session = new LiveSession(fullPath);
+        var session = new LiveSession(fullPath, mode);
         await using var server = new LiveVisualizationServer(session, port ?? 0, serveRoot);
         await server.StartAsync();
         using var watcher = new DocumentWatcher(fullPath, session.Refresh);
 
         var url = server.ReportUrl;
-        output.WriteLine($"Live visualization of {fullPath}");
+        var verb = mode == VisualizationMode.Live ? "editing" : "visualization";
+        output.WriteLine($"Live {verb} of {fullPath}");
         output.WriteLine($"  {url}  (press Ctrl+C to stop)");
         if (!noOpen)
         {

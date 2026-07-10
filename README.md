@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="DialogueDown logo" width="120" height="120" />
+</p>
+
 # DialogueDown
 
 Engine-agnostic, C#-first branching **dialogue library**. Kept free of any Godot
@@ -83,6 +87,10 @@ CI fails if line coverage drops below 90% and emits a warning when it is below
   for proposed writer-facing dialogue syntax.
 
 ## Compilation visualization
+
+<p align="center">
+  <img src="assets/logo-pipeline.svg" alt="A choice node branching to two options that each lead to a scene" width="132" height="132" />
+</p>
 
 DialogueDown aims to be **transparent end to end**: you can *see* what the
 compiler produced at each stage. The optional

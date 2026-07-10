@@ -20,6 +20,13 @@ public sealed class MarkdownAstProjectionTests
     }
 
     [Fact]
+    public void Description_IsANonEmptyOneLiner()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(_projection.Description));
+        Assert.DoesNotContain('\n', _projection.Description);
+    }
+
+    [Fact]
     public void Describe_NullNode_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => _projection.Describe(null!));
@@ -83,7 +90,7 @@ public sealed class MarkdownAstProjectionTests
         var span = new SourceSpan(0, 2);
 
         // The categories are a cross-stage vocabulary: a code span is "call" so it
-        // shares a colour with the game call it later compiles to.
+        // shares a color with the game call it later compiles to.
         Assert.Equal("document", _projection.Describe(new MarkdownDocument([])).Category);
         Assert.Equal("structure", _projection.Describe(new Heading(1, [], span)).Category);
         Assert.Equal("speech", _projection.Describe(new Paragraph([], span)).Category);
@@ -194,69 +201,69 @@ public sealed class MarkdownAstProjectionTests
     }
 
     [Fact]
-    public void Neighbours_NullNode_Throws()
+    public void Neighbors_NullNode_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => _projection.Neighbours(null!));
+        Assert.Throws<ArgumentNullException>(() => _projection.Neighbors(null!));
     }
 
     [Fact]
-    public void Neighbours_Document_ReturnsBlocks()
+    public void Neighbors_Document_ReturnsBlocks()
     {
         var paragraph = new Paragraph([], new SourceSpan(0, 1));
         var document = new MarkdownDocument([paragraph]);
 
-        Assert.Equal(new object[] { paragraph }, _projection.Neighbours(document));
+        Assert.Equal(new object[] { paragraph }, _projection.Neighbors(document));
     }
 
     [Fact]
-    public void Neighbours_Heading_ReturnsInlines()
+    public void Neighbors_Heading_ReturnsInlines()
     {
         var text = new TextInline("Hi", new SourceSpan(0, 2));
         var heading = new Heading(1, [text], new SourceSpan(0, 4));
 
-        Assert.Equal(new object[] { text }, _projection.Neighbours(heading));
+        Assert.Equal(new object[] { text }, _projection.Neighbors(heading));
     }
 
     [Fact]
-    public void Neighbours_Paragraph_ReturnsInlines()
+    public void Neighbors_Paragraph_ReturnsInlines()
     {
         var text = new TextInline("Hi", new SourceSpan(0, 2));
         var paragraph = new Paragraph([text], new SourceSpan(0, 2));
 
-        Assert.Equal(new object[] { text }, _projection.Neighbours(paragraph));
+        Assert.Equal(new object[] { text }, _projection.Neighbors(paragraph));
     }
 
     [Fact]
-    public void Neighbours_ListBlock_ReturnsItems()
+    public void Neighbors_ListBlock_ReturnsItems()
     {
         var item = new ListItem([], new SourceSpan(0, 1));
         var list = new ListBlock(false, [item], new SourceSpan(0, 1));
 
-        Assert.Equal(new object[] { item }, _projection.Neighbours(list));
+        Assert.Equal(new object[] { item }, _projection.Neighbors(list));
     }
 
     [Fact]
-    public void Neighbours_ListItem_ReturnsBlocks()
+    public void Neighbors_ListItem_ReturnsBlocks()
     {
         var paragraph = new Paragraph([], new SourceSpan(0, 1));
         var item = new ListItem([paragraph], new SourceSpan(0, 1));
 
-        Assert.Equal(new object[] { paragraph }, _projection.Neighbours(item));
+        Assert.Equal(new object[] { paragraph }, _projection.Neighbors(item));
     }
 
     [Fact]
-    public void Neighbours_Emphasis_ReturnsChildren()
+    public void Neighbors_Emphasis_ReturnsChildren()
     {
         var text = new TextInline("Hi", new SourceSpan(0, 2));
         var emphasis = new EmphasisInline(EmphasisKind.Italic, [text], new SourceSpan(0, 4));
 
-        Assert.Equal(new object[] { text }, _projection.Neighbours(emphasis));
+        Assert.Equal(new object[] { text }, _projection.Neighbors(emphasis));
     }
 
     [Fact]
-    public void Neighbours_LeafInline_IsEmpty()
+    public void Neighbors_LeafInline_IsEmpty()
     {
-        Assert.Empty(_projection.Neighbours(new TextInline("Hi", new SourceSpan(0, 2))));
+        Assert.Empty(_projection.Neighbors(new TextInline("Hi", new SourceSpan(0, 2))));
     }
 
     private static string Attribute(NodeDescription description, string name) =>

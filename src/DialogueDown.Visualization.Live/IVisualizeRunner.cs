@@ -3,7 +3,7 @@ namespace DialogueDown.Visualization.Live;
 /// <summary>
 /// Drives the visualization run modes for the <c>dialoguedown visualize</c> command:
 /// a one-shot static render, or a watch session that serves the live report until
-/// cancelled. Injected so the command is testable with a substitute.
+/// canceled. Injected so the command is testable with a substitute.
 /// </summary>
 public interface IVisualizeRunner
 {
@@ -16,7 +16,7 @@ public interface IVisualizeRunner
 
     /// <summary>
     /// Serves the live report for <paramref name="file"/> on a loopback port and
-    /// hot-reloads it until <paramref name="cancellationToken"/> is cancelled.
+    /// hot-reloads it until <paramref name="cancellationToken"/> is canceled.
     /// <paramref name="renderRoot"/> pins the static-asset root (otherwise it is
     /// resolved, with consent, from the document's referenced images). Returns a
     /// process exit code.

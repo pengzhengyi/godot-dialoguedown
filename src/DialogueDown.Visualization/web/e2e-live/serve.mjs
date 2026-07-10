@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { LIVE_DOC, LIVE_PORT, INITIAL_SOURCE } from "./fixture.mjs";
 
 // The Playwright webServer for the live e2e. Writes a fresh temp document (so the
@@ -20,6 +21,8 @@ const server = spawn(
         "visualize",
         LIVE_DOC,
         "--watch",
+        "--root",
+        dirname(LIVE_DOC),
         "--port",
         String(LIVE_PORT),
         "--no-open",

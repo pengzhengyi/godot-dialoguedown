@@ -4,13 +4,17 @@ playwright-report/
 test-results/
 .vite/
 
-# The single-file build output is committed for the .NET embed (freshness is
+# The single-file build outputs are committed for the .NET embed (freshness is
 # verified in CI); ignore everything else Vite may emit under dist/.
 dist/*
 !dist/report.html
+!dist/launcher.html
 
 # Live e2e temp document
 e2e-live/.live-doc.dialogue.md
 
 # Live e2e --render-root temp tree
 e2e-live/.render-root/
+
+# Launcher e2e temp tree
+e2e-live/.launcher-tree/

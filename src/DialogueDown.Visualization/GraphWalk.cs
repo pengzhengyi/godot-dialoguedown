@@ -38,19 +38,19 @@ public static class GraphWalk
             nodes.Add(new DisplayNode(
                 id, description.Label, description.Attributes, description.Source, description.Category));
 
-            foreach (var neighbour in projection.Neighbours(node))
+            foreach (var neighbor in projection.Neighbors(node))
             {
-                ArgumentNullException.ThrowIfNull(neighbour);
-                var alreadySeen = idByNode.ContainsKey(neighbour);
-                var neighbourId = Visit(neighbour);
+                ArgumentNullException.ThrowIfNull(neighbor);
+                var alreadySeen = idByNode.ContainsKey(neighbor);
+                var neighborId = Visit(neighbor);
                 var kind = alreadySeen ? DisplayEdgeKind.Reference : DisplayEdgeKind.Child;
-                edges.Add(new DisplayEdge(id, neighbourId, kind));
+                edges.Add(new DisplayEdge(id, neighborId, kind));
             }
 
             return id;
         }
 
         Visit(root);
-        return new DisplayGraph(projection.Title, nodes, edges);
+        return new DisplayGraph(projection.Title, projection.Description, nodes, edges);
     }
 }

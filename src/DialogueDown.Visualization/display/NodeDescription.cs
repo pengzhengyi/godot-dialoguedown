@@ -3,7 +3,7 @@ namespace DialogueDown.Visualization;
 /// <summary>
 /// What a projection reports about a single IR node: a short <see cref="Label"/>,
 /// any <see cref="Attributes"/> (extra detail such as a span or kind), an optional
-/// semantic <see cref="Category"/> (a stable group name that drives colour), and
+/// semantic <see cref="Category"/> (a stable group name that drives color), and
 /// optionally the original <see cref="Source"/> text the node was produced from.
 /// The walk turns this into a <see cref="DisplayNode"/> by adding an identity.
 /// </summary>
@@ -31,8 +31,8 @@ public sealed record NodeDescription
 
     /// <summary>
     /// A stable, cross-stage semantic group name (for example <c>"call"</c> or
-    /// <c>"speech"</c>) that a renderer maps to a colour. Corresponding concepts in
-    /// different stages share a category, so they share a colour.
+    /// <c>"speech"</c>) that a renderer maps to a color. Corresponding concepts in
+    /// different stages share a category, so they share a color.
     /// </summary>
     public string? Category { get; }
 }

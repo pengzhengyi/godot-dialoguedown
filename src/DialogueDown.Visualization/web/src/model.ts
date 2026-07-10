@@ -11,7 +11,7 @@ export interface DisplayNode {
     attributes: DisplayAttribute[];
     /** The original source text this node was produced from, if known. */
     source?: string;
-    /** A stable, cross-stage semantic category that drives colour. */
+    /** A stable, cross-stage semantic category that drives color. */
     category?: string;
 }
 
@@ -25,6 +25,8 @@ export interface DisplayEdge {
 
 export interface Stage {
     title: string;
+    /** A one-line description of what this stage's graph shows (its tab tooltip). */
+    description: string;
     nodes: DisplayNode[];
     edges: DisplayEdge[];
 }

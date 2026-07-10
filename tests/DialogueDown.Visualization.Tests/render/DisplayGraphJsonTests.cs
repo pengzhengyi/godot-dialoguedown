@@ -23,6 +23,17 @@ public sealed class DisplayGraphJsonTests
     }
 
     [Fact]
+    public void Serialize_IncludesStageDescription()
+    {
+        var graph = MakeGraph(
+            "Markdown AST", [Node("n0", "Document")], [], description: "What it shows.");
+
+        var json = DisplayGraphJson.Serialize([graph]);
+
+        Assert.Contains("\"description\":\"What it shows.\"", json);
+    }
+
+    [Fact]
     public void Serialize_IncludesNodeSourceWhenPresentAndOmitsWhenNull()
     {
         var graph = MakeGraph(

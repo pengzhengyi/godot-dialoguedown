@@ -15,7 +15,7 @@ const REPORT_WITH_PATH: Report = {
 };
 
 // Light scheme is the harder case for the historic bug: the button-inverse text
-// colour (white) would be invisible on the light footer.
+// color (white) would be invisible on the light footer.
 test.use({ colorScheme: "light" });
 
 test("the document path stays legible on hover (not white-on-white)", async ({ page }) => {

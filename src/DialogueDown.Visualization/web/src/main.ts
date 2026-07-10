@@ -7,6 +7,7 @@ import { runApp } from "./app";
 import { startLiveClient } from "./live-client";
 import { initModeBadge } from "./mode-badge";
 import { initPathDisplay } from "./path-display";
+import { initBackToLauncher } from "./back-link";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
 import type { Report } from "./model";
 
@@ -28,5 +29,7 @@ const report = resolveReport();
 const app = runApp(report);
 initModeBadge(report.mode ?? "static");
 initPathDisplay(report.path);
+const header = document.querySelector<HTMLElement>(".app-header");
+if (header) initBackToLauncher(header, window.location.pathname);
 // When served by the live server (watch or live mode), subscribe for pushes.
 if (report.mode === "watch" || report.mode === "live") startLiveClient(app);

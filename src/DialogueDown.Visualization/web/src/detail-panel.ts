@@ -25,7 +25,7 @@ export function createDetailPanel(): DetailPanel {
         },
     };
 
-    // A colour dot ties the node to its legend colour without repeating a category
+    // A color dot ties the node to its legend color without repeating a category
     // name (the node's own label already appears beside it).
     function categoryDot(category: string | undefined): string {
         if (!category) return "";

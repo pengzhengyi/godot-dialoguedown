@@ -21,12 +21,42 @@ body {
 
 .app-header {
     flex: 0 0 auto;
+    position: relative;
     padding: 0.7rem 1.25rem 0;
     border-bottom: 1px solid var(--pico-muted-border-color);
 }
 
+/* GitHub link, pinned to the top-right of the header. */
+.repo-link {
+    position: absolute;
+    top: 0.6rem;
+    right: 1.25rem;
+    display: inline-flex;
+    line-height: 0;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+}
+
+.repo-link:hover {
+    color: var(--pico-color);
+}
+
+/* "Back to launcher" link, shown only on a launcher-served report (see back-link.ts). */
+.back-to-launcher {
+    display: inline-block;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+}
+
+.back-to-launcher:hover {
+    color: var(--pico-color);
+}
+
 .app-header hgroup {
     margin-bottom: 0.5rem;
+    padding-right: 2rem;
 }
 
 .app-header h1 {
@@ -136,11 +166,11 @@ section.stage.error {
 .source-pane pre {
     margin: 0;
     white-space: pre-wrap;
-    word-break: break-word;
+    overflow-wrap: break-word;
     font-size: 0.82rem;
 }
 
-/* Use highlight.js only for token colours; let the code blend with the pane
+/* Use highlight.js only for token colors; let the code blend with the pane
    background rather than carry the theme's own block background. */
 .source-pane .hljs {
     background: transparent;
@@ -452,8 +482,9 @@ svg.tree {
 .app-footer {
     flex: 0 0 auto;
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start; /* status bar sticks to the top, not centred against the taller expanded help */
+    flex-wrap: nowrap; /* keep the status bar and the help on one row (the help shrinks
+       and wraps its own text) so the help never drops to a line below the status bar */
+    align-items: flex-start; /* status bar sticks to the top, not centered against the taller expanded help */
     gap: 0.4rem 1rem;
     padding: 0.4rem 1.25rem;
     border-top: 1px solid var(--pico-muted-border-color);
@@ -523,7 +554,7 @@ svg.tree {
 .doc-path:hover {
     /* On hover Pico's `button:is(:hover)` rule re-sets --pico-color to the
        primary-inverse, out-specifying the base reset and flipping the text to an
-       unreadable colour (white-on-white). Re-assert the reset here so the text
+       unreadable color (white-on-white). Re-assert the reset here so the text
        stays the normal foreground, and give the chip a defined surface (not
        transparent) so it reads as a clear hover affordance. */
     --pico-color: inherit;
@@ -548,9 +579,12 @@ svg.tree {
 
 .app-footer .help {
     flex: 0 1 auto;
+    min-width: 0; /* let the help shrink and wrap its shortcut lines in place instead of
+       the whole block dropping below the status bar, so its summary stays on the top
+       row — level with the status bar and path — at every width */
 
-    /* On a wide row the status bar's flex-grow pushes this to the right; when the
-       row runs out of space it wraps to its own line below (no overlap). */
+    /* On a wide row the status bar's flex-grow pushes this to the right; when space is
+       tight the help shrinks in place and its lines wrap. */
     margin-left: auto;
     max-width: 100%;
 }
@@ -605,4 +639,126 @@ svg.tree {
     .source-divider {
         display: none;
     }
+
+    /* Stack the footer: on a phone-width screen the help drops full-width below the
+       status bar rather than shrinking into a cramped column beside it. */
+    .app-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .app-footer .help {
+        margin-left: 0;
+    }
+}
+
+/* Launcher page (launcher.html): a centered card to pick a script and a mode. */
+.launcher {
+    max-width: 40rem;
+    margin: 2.5rem auto;
+    padding: 0 1.25rem;
+}
+
+.launcher-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.launcher-title {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.launcher-subtitle {
+    margin: 0;
+    color: var(--pico-muted-color);
+    font-size: 0.85rem;
+}
+
+.launcher-root {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+}
+
+.launcher-root-path {
+    font-family: var(--pico-font-family-monospace);
+    overflow-wrap: anywhere;
+}
+
+.launcher-listing {
+    max-height: 22rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+.launcher-item {
+    padding: 0.4rem 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    cursor: pointer;
+}
+
+.launcher-item:last-child {
+    border-bottom: 0;
+}
+
+.launcher-item:hover {
+    background: var(--pico-muted-border-color);
+}
+
+.launcher-item.selected {
+    background: var(--pico-primary-background);
+    color: var(--pico-primary-inverse);
+}
+
+.launcher-item.up::before {
+    content: "↑ ";
+    opacity: 0.7;
+}
+
+.launcher-item.dir::before {
+    content: "📁 ";
+}
+
+.launcher-item.src::before {
+    content: "📄 ";
+}
+
+.launcher-empty {
+    padding: 0.8rem;
+    color: var(--pico-muted-color);
+    font-style: italic;
+}
+
+.launcher-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    align-items: center;
+}
+
+.launcher-mode {
+    display: inline-flex;
+    gap: 0.3rem;
+    align-items: center;
+    margin: 0;
+    cursor: pointer;
+}
+
+.launcher-mode.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.launcher-open {
+    align-self: flex-start;
 }

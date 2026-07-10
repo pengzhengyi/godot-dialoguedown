@@ -40,6 +40,16 @@ public sealed class GraphWalkTests
     }
 
     [Fact]
+    public void Walk_UsesProjectionDescription()
+    {
+        var graph = GraphWalk.Walk(
+            new Cell("root"),
+            new CellProjection { Description = "What this stage shows." });
+
+        Assert.Equal("What this stage shows.", graph.Description);
+    }
+
+    [Fact]
     public void Walk_IncludesLabelAndAttributes()
     {
         var root = new Cell("root");
@@ -174,7 +184,7 @@ public sealed class GraphWalkTests
     }
 
     [Fact]
-    public void Walk_NullNeighbour_Throws()
+    public void Walk_NullNeighbor_Throws()
     {
         var root = new Cell("root");
         var projection = new CellProjection().Link(root, (Cell)null!);

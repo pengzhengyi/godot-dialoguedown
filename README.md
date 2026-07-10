@@ -19,6 +19,7 @@ adapter over this library's interfaces.
 - [Documentation](#documentation)
 - [Compilation visualization](#compilation-visualization)
 - [Design intent](#design-intent)
+- [Similar projects](#similar-projects)
 - [Contributing](#contributing)
 - [Security](#security)
 - [License](#license)
@@ -36,8 +37,12 @@ adapter over this library's interfaces.
 | --- | --- |
 | `src/DialogueDown/` | the reusable class library (net8.0, no engine refs) |
 | `src/DialogueDown.Visualization/` | diagnostics-only visualizer of compiler stages (not shipped in the core package) |
+| `src/DialogueDown.Visualization.Live/` | loopback server that serves the report, hot-reloads it on edit, and hosts the launcher |
+| `src/DialogueDown.Cli/` | the `dialoguedown` command-line interface (`compile`, `visualize`) |
 | `tests/DialogueDown.Tests/` | xUnit tests for the pure logic |
 | `tests/DialogueDown.Visualization.Tests/` | xUnit tests for the visualizer |
+| `tests/DialogueDown.Visualization.Live.Tests/` | xUnit tests for the live server and launcher |
+| `tests/DialogueDown.Cli.Tests/` | xUnit tests for the CLI |
 
 ## Build and test
 
@@ -87,22 +92,25 @@ tab (the whole document beside a live preview, with working anchor links), then
 one tab per stage with pan and zoom and click-to-collapse — plus Mermaid and DOT
 text for quick embedding. Click a node to inspect **the source it was produced
 from**, with a rendered Markdown preview, in a resizable side panel. Nodes are
-**colour-coded by a cross-stage category** (a code span and the game call it
-becomes share a colour), with a legend and arrow-key navigation. The report is a
+**color-coded by a cross-stage category** (a code span and the game call it
+becomes share a color), with a legend and arrow-key navigation. The report is a
 **single self-contained HTML file** — D3, Pico.css, marked, and Tippy.js are all
 bundled in, so it needs no server and works fully offline. It reads the compiler
 through the same seams the tests use and never touches the shipped core package,
 so the core stays dependency-light. The Markdown AST view ships today; the
-Dialogue AST view lands with the transpiler.
+Dialogue AST view is added as the transpiler's stage is wired in.
 
-Render a script from the command line with the `visualize` tool:
+Render a script from the command line with the `dialoguedown visualize` command:
 
 ```bash
-# Render a self-contained report and open it in the browser
-dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md
+# Open the launcher to browse for a script (the uniform entry point)
+dotnet run --project src/DialogueDown.Cli -- visualize
 
-# Watch the file and hot-reload the report in the browser as you edit it
-dotnet run --project src/DialogueDown.Visualization.Live -- scene.dialogue.md --watch
+# Watch a script and hot-reload its report in the browser as you edit it
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --watch --root .
+
+# Export a self-contained report to a file (no server, no browser)
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md -o report.html
 ```
 
 > [!NOTE]
@@ -126,6 +134,19 @@ See the
 ## Consumers
 
 Referenced by games via `ProjectReference`, for example `survival-game-learner`.
+
+## Similar projects
+
+DialogueDown is intentionally small, engine-agnostic, and C#-first. These
+projects are useful references if you need a different tradeoff:
+
+| Project | What it does | How DialogueDown differs |
+| --- | --- | --- |
+| [Ink](https://github.com/inkle/ink) | Mature interactive-fiction scripting language and runtime with strong authoring tools. | DialogueDown keeps Markdown-like source close to game writing notes and focuses on a lightweight C# library that Godot projects can reference directly. |
+| [Yarn Spinner](https://github.com/YarnSpinnerTool/YarnSpinner) | Full-featured Yarn dialogue compiler/runtime with a writer-friendly scripting language and broad engine integrations. | DialogueDown is narrower and dependency-light: it prioritizes pure C# graph/runtime seams and explicit visualization over a larger cross-engine toolchain. |
+| [Dialogic](https://github.com/coppolaemilio/dialogic) | Feature-rich Godot dialogue plugin with visual editing, portraits, timelines, variables, and localization. | DialogueDown deliberately avoids Godot dependencies in the core so dialogue logic stays reusable, unit-testable, and portable across consuming games. |
+| [Godot Dialogue Manager](https://github.com/nathanhoad/godot_dialogue_manager) | Godot-native dialogue manager and scripting workflow for branching conversations. | DialogueDown targets engine-agnostic C# packages first, leaving Godot presentation and input as thin adapters in each game. |
+| [Godot Ink](https://github.com/paulloz/godot-ink) | Godot integration for Ink stories. | DialogueDown is not an Ink bridge; it explores a smaller Markdown-to-dialogue pipeline with compiler-stage visualization for debugging and teaching. |
 
 ## Contributing
 

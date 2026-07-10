@@ -14,8 +14,8 @@ namespace DialogueDown.Visualization;
 internal sealed class MarkdownAstProjection : INodeProjection<object>
 {
     // Semantic categories: a stable, cross-stage vocabulary the renderer maps to
-    // colours. Later stages reuse these names so corresponding concepts share a
-    // colour — e.g. a code span becomes a game call, so both are "call".
+    // colors. Later stages reuse these names so corresponding concepts share a
+    // color — e.g. a code span becomes a game call, so both are "call".
     private const string DocumentCategory = "document";
     private const string StructureCategory = "structure";
     private const string SpeechCategory = "speech";
@@ -36,6 +36,10 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
     }
 
     public string Title => "Markdown AST";
+
+    public string Description =>
+        "The Markdown syntax tree parsed from the source — its document, blocks " +
+        "(headings, paragraphs, lists), and inline spans, each tied to the text it came from.";
 
     public NodeDescription Describe(object node)
     {
@@ -85,7 +89,7 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
         };
     }
 
-    public IEnumerable<object> Neighbours(object node)
+    public IEnumerable<object> Neighbors(object node)
     {
         ArgumentNullException.ThrowIfNull(node);
         return node switch

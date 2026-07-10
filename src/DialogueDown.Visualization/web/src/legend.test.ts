@@ -35,6 +35,7 @@ describe("createLegend", () => {
 
     const stage: Stage = {
         title: "Markdown AST",
+        description: "Markdown AST stage.",
         edges: [],
         nodes: [
             node("n1", "Heading (H1)", "structure"),

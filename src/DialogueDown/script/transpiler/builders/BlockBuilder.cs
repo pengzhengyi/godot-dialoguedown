@@ -61,7 +61,7 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder line
         {
             case Heading heading:
                 blocks.Add(new SceneHeading(
-                    inlineBuilder.Build(heading.Inlines), heading.Level, heading.Span));
+                    inlineBuilder.BuildTitle(heading.Inlines), heading.Level, heading.Span));
                 break;
             case Paragraph paragraph:
                 foreach (var group in SplitAtHardBreaks(paragraph.Inlines))

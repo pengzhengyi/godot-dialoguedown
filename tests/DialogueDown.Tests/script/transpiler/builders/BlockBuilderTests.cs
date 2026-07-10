@@ -1,3 +1,4 @@
+using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
@@ -22,6 +23,31 @@ public sealed class BlockBuilderTests
 
         var scene = AssertSceneHeading(Assert.Single(body), "The Cave", 2);
         Assert.Equal(heading.Span, scene.Span);
+    }
+
+    [Fact]
+    public void Heading_ArrowIsPlainText_NotAJump()
+    {
+        // A heading becomes a scene, which is itself a jump target, so a `=>` inside a
+        // heading is not a jump — it reads as plain text.
+        var scene = Assert.IsType<SceneHeading>(
+            Assert.Single(_builder.Build([Heading(1, Text("=> "), Link("#x", Text("there")))])));
+
+        Assert.Equal(2, scene.Title.Count);
+        AssertText(scene.Title[0], "=> ");
+        AssertLink(scene.Title[1], "#x");
+        Assert.DoesNotContain(scene.Title, fragment => fragment is JumpIndicator);
+    }
+
+    [Fact]
+    public void Heading_StillRecognizesTagsAndGameCalls()
+    {
+        var scene = Assert.IsType<SceneHeading>(
+            Assert.Single(_builder.Build([Heading(1, Text("Chapter #act1"), CodeSpan("\"n\""))])));
+
+        AssertText(scene.Title[0], "Chapter ");
+        AssertCustomTag(scene.Title[1], "act1");
+        AssertQuery(scene.Title[2], "n");
     }
 
     [Fact]

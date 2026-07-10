@@ -25,11 +25,38 @@ public sealed class SourceSpanTests
     }
 
     [Theory]
-    [InlineData(0)]
     [InlineData(-1)]
-    public void Constructor_NonPositiveLength_Throws(int length)
+    [InlineData(-5)]
+    public void Constructor_NegativeLength_Throws(int length)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new SourceSpan(0, length));
+    }
+
+    [Fact]
+    public void Constructor_ZeroLength_IsAnEmptySpanAtTheStart()
+    {
+        var span = new SourceSpan(4, 0);
+
+        Assert.Equal(4, span.Start);
+        Assert.Equal(0, span.Length);
+        Assert.Equal(4, span.End);
+        Assert.True(span.IsEmpty);
+    }
+
+    [Fact]
+    public void EmptyAt_ReturnsAZeroWidthSpanAtThePosition()
+    {
+        var span = SourceSpan.EmptyAt(7);
+
+        Assert.Equal(7, span.Start);
+        Assert.Equal(7, span.End);
+        Assert.True(span.IsEmpty);
+    }
+
+    [Fact]
+    public void IsEmpty_NonZeroLength_IsFalse()
+    {
+        Assert.False(new SourceSpan(2, 3).IsEmpty);
     }
 
     [Fact]

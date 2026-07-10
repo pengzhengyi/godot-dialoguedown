@@ -8,5 +8,5 @@ namespace DialogueDown.Tests.Support;
 /// </summary>
 public abstract class MarkdigMarkdownParserTestBase
 {
-    private protected IMarkdownParser Parser { get; } = new MarkdigMarkdownParser();
+    private protected IMarkdownParser Parser { get; } = MarkdownParserFactory.MarkdownParser();
 }

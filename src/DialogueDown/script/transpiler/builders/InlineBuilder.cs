@@ -21,6 +21,9 @@ internal sealed class InlineBuilder(
     public IReadOnlyList<InlineFragment> Build(IReadOnlyList<MarkdownInline> inlines) =>
         Build(inlines, AllowAllInlinePolicy.Instance);
 
+    public IReadOnlyList<InlineFragment> BuildTitle(IReadOnlyList<MarkdownInline> inlines) =>
+        Build(inlines, TitleInlinePolicy.Instance);
+
     private static SpeechStyle ToStyle(EmphasisKind kind) => kind switch
     {
         EmphasisKind.Italic => SpeechStyle.Italic,

@@ -65,7 +65,8 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
         var fullScript = Path.GetFullPath(script);
         var root = rootOption
             ?? (IsUnder(current, fullScript) ? current : Path.GetDirectoryName(fullScript)!);
-        return (root, fullScript);
+        var source = IsUnder(root, fullScript) ? Relative(root, fullScript) : null;
+        return (root, source);
     }
 
     private static bool IsUnder(string root, string fullPath)
@@ -75,4 +76,7 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
             && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
             && !Path.IsPathRooted(relative);
     }
+
+    private static string Relative(string root, string fullPath) =>
+        Path.GetRelativePath(Path.GetFullPath(root), fullPath).Replace(Path.DirectorySeparatorChar, '/');
 }

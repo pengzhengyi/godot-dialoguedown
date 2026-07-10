@@ -747,20 +747,3 @@ svg.tree {
 .launcher-open {
     align-self: flex-start;
 }
-
-.launcher-current {
-    margin: 0;
-    overflow: hidden;
-    font-family: var(--pico-font-family-monospace);
-    font-size: 0.78rem;
-    color: var(--pico-muted-color);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.launcher-set-root {
-    width: auto;
-    margin: 0;
-    padding: 0.1rem 0.5rem;
-    font-size: 0.72rem;
-}

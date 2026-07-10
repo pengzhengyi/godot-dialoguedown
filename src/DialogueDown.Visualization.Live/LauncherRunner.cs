@@ -45,7 +45,7 @@ public sealed class LauncherRunner : ILauncherRunner
 
         var launchRoot = LaunchRoot.At(root);
         var html = LauncherPage.Render(launchRoot.RootDirectory, source, ModeToString(mode));
-        await using var server = new LauncherServer(launchRoot.RootDirectory, html, port ?? 0);
+        await using var server = new LauncherServer(launchRoot, html, port ?? 0);
         await server.StartAsync();
 
         var url = server.BaseUrl;

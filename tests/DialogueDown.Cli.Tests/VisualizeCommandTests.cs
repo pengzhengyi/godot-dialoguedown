@@ -31,7 +31,7 @@ public sealed class VisualizeCommandTests
         tester.Run("visualize", script.Path);
 
         launcher.Received(1).RunAsync(
-            root, Path.GetFullPath(script.Path), LaunchMode.Static,
+            root, Path.GetFileName(script.Path), LaunchMode.Static,
             null, false, Arg.Any<CancellationToken>());
     }
 
@@ -90,7 +90,7 @@ public sealed class VisualizeCommandTests
 
         runner.DidNotReceive().RunStatic(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<bool>());
         launcher.Received(1).RunAsync(
-            root, Path.GetFullPath(script.Path), LaunchMode.Static,
+            root, Path.GetFileName(script.Path), LaunchMode.Static,
             null, false, Arg.Any<CancellationToken>());
     }
 

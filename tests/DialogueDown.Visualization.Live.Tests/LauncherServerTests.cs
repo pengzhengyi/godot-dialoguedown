@@ -15,11 +15,13 @@ public sealed class LauncherServerTests
         await using var server = await Started(tree);
         using var client = Client(server);
 
-        Assert.Equal(LauncherHtml, await client.GetStringAsync("/"));
+        var html = await client.GetStringAsync("/");
+
+        Assert.Equal(LauncherHtml, html);
     }
 
     [Fact]
-    public async Task Browse_ListsSubdirectoriesAndDialogueSourcesAsAbsolutePaths()
+    public async Task Browse_ListsSubdirectoriesAndDialogueSources()
     {
         using var tree = new TempTree();
         tree.File("root/a.dialogue.md", "# A");
@@ -30,35 +32,33 @@ public sealed class LauncherServerTests
 
         var json = await client.GetStringAsync("/api/browse?path=");
 
-        Assert.Contains(Path.Combine(tree.Dir("root"), "proj").Replace("\\", "\\\\"), json);
-        Assert.Contains("a.dialogue.md", json);
+        Assert.Contains("\"directories\":[\"proj\"]", json);
+        Assert.Contains("\"sources\":[\"a.dialogue.md\"]", json);
         Assert.DoesNotContain("notes.md", json);
     }
 
     [Fact]
-    public async Task Browse_IsUnconfined_CanListOutsideTheStartRoot()
+    public async Task Browse_OutsideRoot_NotFound()
     {
         using var tree = new TempTree();
-        tree.Dir("root");
-        tree.File("outside/x.dialogue.md");
         await using var server = await Started(tree);
         using var client = Client(server);
 
-        var response = await client.GetAsync($"/api/browse?path={Uri.EscapeDataString(tree.Dir("outside"))}");
+        var response = await client.GetAsync("/api/browse?path=../");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("x.dialogue.md", await response.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
     public async Task Open_ValidSource_RedirectsToReportAndServesIt()
     {
         using var tree = new TempTree();
-        var source = tree.File("root/proj/scene.dialogue.md", "# Scene");
+        tree.File("root/proj/scene.dialogue.md", "# Scene");
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
 
-        var open = await Open(client, tree.Dir("root"), source, "static");
+        var open = await client.PostAsJsonAsync(
+            "/api/open", new { source = "proj/scene.dialogue.md", mode = "static" });
 
         Assert.Equal(HttpStatusCode.SeeOther, open.StatusCode);
         Assert.Equal("/r/proj/", open.Headers.Location!.ToString());
@@ -72,54 +72,28 @@ public sealed class LauncherServerTests
     public async Task Open_WatchMode_ServesReportInWatchMode()
     {
         using var tree = new TempTree();
-        var source = tree.File("root/scene.dialogue.md", "# Scene");
+        tree.File("root/scene.dialogue.md", "# Scene");
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
 
-        var open = await Open(client, tree.Dir("root"), source, "watch");
+        var open = await client.PostAsJsonAsync(
+            "/api/open", new { source = "scene.dialogue.md", mode = "watch" });
 
         Assert.Equal("/r/", open.Headers.Location!.ToString());
         Assert.Contains("\"mode\":\"watch\"", await client.GetStringAsync("/r/"));
     }
 
     [Fact]
-    public async Task Open_ChoosingAHigherRoot_ChangesTheReportPath()
-    {
-        using var tree = new TempTree();
-        var source = tree.File("root/proj/scene.dialogue.md", "# Scene");
-        await using var server = await Started(tree);
-        using var client = Client(server, followRedirects: false);
-
-        var deep = await Open(client, tree.Dir("root/proj"), source, "static");
-        var shallow = await Open(client, tree.Dir("root"), source, "static");
-
-        Assert.Equal("/r/", deep.Headers.Location!.ToString());
-        Assert.Equal("/r/proj/", shallow.Headers.Location!.ToString());
-    }
-
-    [Fact]
-    public async Task Open_SourceOutsideTheChosenRoot_NotFound()
-    {
-        using var tree = new TempTree();
-        tree.Dir("root");
-        var outside = tree.File("outside/x.dialogue.md", "# X");
-        await using var server = await Started(tree);
-        using var client = Client(server, followRedirects: false);
-
-        var open = await Open(client, tree.Dir("root"), outside, "static");
-
-        Assert.Equal(HttpStatusCode.NotFound, open.StatusCode);
-    }
-
-    [Fact]
     public async Task Open_NonDialogueSource_NotFound()
     {
         using var tree = new TempTree();
-        var notes = tree.File("root/notes.md");
+        tree.File("root/notes.md");
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
 
-        Assert.Equal(HttpStatusCode.NotFound, (await Open(client, tree.Dir("root"), notes, "static")).StatusCode);
+        var open = await client.PostAsJsonAsync("/api/open", new { source = "notes.md", mode = "static" });
+
+        Assert.Equal(HttpStatusCode.NotFound, open.StatusCode);
     }
 
     [Fact]
@@ -136,24 +110,21 @@ public sealed class LauncherServerTests
     public async Task OpenedSource_ServesRelativeAssetsUnderReportMount()
     {
         using var tree = new TempTree();
-        var source = tree.File("root/proj/scene.dialogue.md", "# Scene\n\n![pic](art/pic.png)");
+        tree.File("root/proj/scene.dialogue.md", "# Scene\n\n![pic](art/pic.png)");
         await File.WriteAllBytesAsync(tree.File("root/proj/art/pic.png"), [1, 2, 3, 4]);
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
 
-        await Open(client, tree.Dir("root"), source, "static");
+        await client.PostAsJsonAsync("/api/open", new { source = "proj/scene.dialogue.md", mode = "static" });
         var asset = await client.GetAsync("/r/proj/art/pic.png");
 
         Assert.True(asset.IsSuccessStatusCode);
         Assert.Equal(new byte[] { 1, 2, 3, 4 }, await asset.Content.ReadAsByteArrayAsync());
     }
 
-    private static Task<HttpResponseMessage> Open(HttpClient client, string root, string source, string mode) =>
-        client.PostAsJsonAsync("/api/open", new { root, source, mode });
-
     private static async Task<LauncherServer> Started(TempTree tree)
     {
-        var server = new LauncherServer(tree.Dir("root"), LauncherHtml);
+        var server = new LauncherServer(LaunchRoot.At(tree.Dir("root")), LauncherHtml);
         await server.StartAsync();
         return server;
     }

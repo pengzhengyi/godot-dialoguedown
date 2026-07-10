@@ -41,6 +41,14 @@ internal sealed class LaunchRoot
             return RootDirectory;
         }
 
+        // Reject a climbing ("..") or absolute path up front, before the value reaches any
+        // path or filesystem API, so a resolved candidate can only ever live inside the
+        // root. Kept inline (not a helper) so it reads as a direct traversal barrier.
+        if (relativePath.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(relativePath))
+        {
+            return null;
+        }
+
         var candidate = Canonicalize(Path.GetFullPath(Path.Combine(RootDirectory, relativePath)));
         return IsInside(candidate) ? candidate : null;
     }

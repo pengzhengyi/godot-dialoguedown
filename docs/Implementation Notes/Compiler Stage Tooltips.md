@@ -94,7 +94,7 @@ couple the copy to title strings, so it is rejected.
 
 The report already depends on Tippy.js for rich, accessible node tooltips. The tab
 tips reuse it, so they inherit the same styling, delay, and keyboard/`aria`
-behaviour, and add no new dependency. A bare `title` attribute would be
+behavior, and add no new dependency. A bare `title` attribute would be
 inconsistent and less accessible.
 
 ### D3 — The Source tab tip is a frontend constant

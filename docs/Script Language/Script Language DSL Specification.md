@@ -255,7 +255,7 @@ Alice: I *really* mean it.
 
 Alice: This is **very** important.
 
-Alice: That plan is ~~cancelled~~.
+Alice: That plan is ~~canceled~~.
 ```
 
 - `*text*` or `_text_` is **italic**; `**text**` or `__text__` is **bold**;
@@ -656,7 +656,7 @@ Narrator @narrator ##default: Alice visits Bob's photography gallery.
 
 Bob @B #mood=happy: Thank you. I'm glad you like it. `IncreaseAffection("Bob", "Alice")`
 
-Alice: My favorite colour is `"Alice.FavoriteColor"`. May I join the Photography Club?
+Alice: My favorite color is `"Alice.FavoriteColor"`. May I join the Photography Club?
 
 - Bob: Yes — welcome aboard!
     - Alice: Wonderful, thank you!
@@ -669,9 +669,9 @@ Alice: My favorite colour is `"Alice.FavoriteColor"`. May I join the Photography
 Bob: This is the night view of the Huangpu River.
 It is *beautiful*, especially at dusk.
 
-Alice: I love this painting too. The colours are **amazing**.
+Alice: I love this painting too. The colors are **amazing**.
 
-Christina @C: I learned colour theory in the Art Club.
+Christina @C: I learned color theory in the Art Club.
 
 `IncreaseAffection("Christina", "Alice")`
 

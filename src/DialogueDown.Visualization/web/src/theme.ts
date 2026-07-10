@@ -71,8 +71,58 @@ export function createThemeSelect(
     return select;
 }
 
+/** Feather Icons (MIT), sized for the header. Line icons matching the GitHub glyph. */
+const icon = (paths: string): string =>
+    `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"` +
+    ` stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
+const THEME_ICONS: Record<ThemePreference, string> = {
+    light: icon(
+        '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>' +
+            '<line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>' +
+            '<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>' +
+            '<line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>' +
+            '<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+    ),
+    dark: icon('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'),
+    system: icon(
+        '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>' +
+            '<line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+    ),
+};
+
+/** The icon for a preference: a sun (light), a moon (dark), or a monitor (system). */
+export function themeIcon(preference: ThemePreference): string {
+    return THEME_ICONS[preference];
+}
+
+/**
+ * The header theme control: the {@link createThemeSelect} paired with a leading icon
+ * (sun / moon / monitor) that reflects — and updates with — the current choice.
+ */
+export function createThemeControl(
+    apply: (preference: ThemePreference) => void = applyThemePreference,
+    initial: ThemePreference = readThemePreference(),
+): HTMLElement {
+    const control = document.createElement("div");
+    control.className = "theme-control";
+
+    const glyph = document.createElement("span");
+    glyph.className = "theme-icon";
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.innerHTML = themeIcon(initial);
+
+    const select = createThemeSelect((preference) => {
+        glyph.innerHTML = themeIcon(preference);
+        apply(preference);
+    }, initial);
+
+    control.append(glyph, select);
+    return control;
+}
+
 /** Apply the stored preference on load and mount the toggle into the header controls. */
 export function initTheme(host: Element | null): void {
     applyThemePreference(readThemePreference());
-    host?.prepend(createThemeSelect());
+    host?.prepend(createThemeControl());
 }

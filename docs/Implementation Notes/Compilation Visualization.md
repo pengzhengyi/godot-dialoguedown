@@ -257,7 +257,8 @@ The flagship format is an interactive, collapsible **HTML** view built on
 extensible to graph layouts when the runtime graph arrives. D3 does the layout and
 interaction, so the .NET code never hand-rolls rendering. **Pico.css** styles the
 page chrome for a clean, modern light/dark look with almost no custom CSS, and a
-**System / Light / Dark** toggle in the header lets the reader override the OS
+**System / Light / Dark** toggle in the header — a select with a sun / moon / monitor
+icon (Feather Icons, MIT) reflecting the choice — lets the reader override the OS
 preference (remembered in `localStorage`).
 
 A **detail panel** sits beside the graph. Clicking a node shows its attributes and

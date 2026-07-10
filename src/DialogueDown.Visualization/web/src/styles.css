@@ -68,6 +68,19 @@ body {
     color: var(--pico-color);
 }
 
+/* Theme control: a leading icon (sun/moon/monitor) beside the System/Light/Dark select. */
+.theme-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--pico-muted-color);
+}
+
+.theme-icon {
+    display: inline-flex;
+    line-height: 0;
+}
+
 /* Compact System/Light/Dark selector in the header controls. */
 .theme-select {
     width: auto;

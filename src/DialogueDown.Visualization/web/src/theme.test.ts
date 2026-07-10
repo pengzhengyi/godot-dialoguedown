@@ -3,6 +3,8 @@ import {
     readThemePreference,
     applyThemePreference,
     createThemeSelect,
+    createThemeControl,
+    themeIcon,
     type ThemePreference,
 } from "./theme";
 
@@ -94,5 +96,34 @@ describe("createThemeSelect", () => {
         select.value = "light";
         select.dispatchEvent(new Event("change"));
         expect(apply).toHaveBeenCalledWith<[ThemePreference]>("light");
+    });
+});
+
+describe("themeIcon", () => {
+    it("returns a distinct SVG icon for each preference", () => {
+        const icons = [themeIcon("system"), themeIcon("light"), themeIcon("dark")];
+        expect(new Set(icons).size).toBe(3);
+        for (const svg of icons) expect(svg).toContain("<svg");
+    });
+});
+
+describe("createThemeControl", () => {
+    it("pairs the select with the icon for the initial preference", () => {
+        const control = createThemeControl(vi.fn(), "dark");
+        expect(control.querySelector(".theme-select")).not.toBeNull();
+        // the moon path distinguishes the dark icon
+        expect(control.querySelector(".theme-icon")!.innerHTML).toContain("12.79");
+    });
+
+    it("updates the icon and applies the choice on change", () => {
+        const apply = vi.fn();
+        const control = createThemeControl(apply, "system");
+        const select = control.querySelector<HTMLSelectElement>(".theme-select")!;
+        select.value = "light";
+        select.dispatchEvent(new Event("change"));
+        expect(apply).toHaveBeenCalledWith<[ThemePreference]>("light");
+        // the sun icon uses a circle; the monitor (system) icon uses a rect
+        expect(control.querySelector(".theme-icon")!.innerHTML).toContain("<circle");
+        expect(control.querySelector(".theme-icon")!.innerHTML).not.toContain("<rect");
     });
 });

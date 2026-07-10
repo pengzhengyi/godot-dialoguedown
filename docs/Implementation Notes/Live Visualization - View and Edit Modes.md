@@ -1,7 +1,7 @@
 # Live Visualization — View and Edit Modes
 
 > [!NOTE]
-> Status: **proposed**. This component reshapes the visualization's three launch
+> Status: **implemented**. This component reshapes the visualization's three launch
 > modes (`static`, `watch`, `live`) into a single **served session** with a runtime
 > **View ⇄ Edit** toggle, plus a **static export** for an offline snapshot. Viewing
 > and editing stop being launch-time decisions and become a Vim-like switch you flip
@@ -64,21 +64,21 @@ note only changes how they are selected and toggled.
 
 ## Functionality checklist
 
-- [ ] `visualize <script>` serves the report and opens it in **View** (read-only,
+- [x] `visualize <script>` serves the report and opens it in **View** (read-only,
       auto-updating); `--edit` opens it in **Edit**.
-- [ ] A **toggle** in the report switches View ⇄ Edit at runtime, **without
+- [x] A **toggle** in the report switches View ⇄ Edit at runtime, **without
       reloading** — the buffer, cursor position, scroll, and undo history survive.
-- [ ] **View**: the editor is read-only and the report hot-reloads on disk changes;
+- [x] **View**: the editor is read-only and the report hot-reloads on disk changes;
       no Save button.
-- [ ] **Edit**: the editor is editable, Save (⌘/Ctrl-S or the button) writes the file,
+- [x] **Edit**: the editor is editable, Save (⌘/Ctrl-S or the button) writes the file,
       the session owns its buffer (disk changes raise the passive chip, not a reload),
       and the `beforeunload` guard is armed while dirty.
-- [ ] Switching **Edit → View while dirty** prompts first (the same guard), since View
+- [x] Switching **Edit → View while dirty** prompts first (the same guard), since View
       may hot-reload over unsaved edits.
-- [ ] `visualize -o <out.html> <script>` writes a **static export** — offline,
+- [x] `visualize -o <out.html> <script>` writes a **static export** — offline,
       read-only, no server, no toggle.
-- [ ] The launcher offers **View / Edit** (default View) and opens a served session.
-- [ ] `--watch`, `--live`, and `--mode` are **removed**.
+- [x] The launcher offers **View / Edit** (default View) and opens a served session.
+- [x] `--watch`, `--live`, and `--mode` are **removed**.
 
 ## The model
 

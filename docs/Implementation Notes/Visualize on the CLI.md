@@ -5,6 +5,11 @@
 > Make `dialoguedown visualize` render for real by delegating to the visualization
 > engine, and retire the hand-rolled `System.CommandLine` entry point — one CLI.
 >
+> The launch surface has since changed: a script opens a **served session** (View by
+> default, `--edit` for Edit — a runtime toggle), and `-o` is the static export;
+> `--watch`, `--live`, and `--mode` are gone. See the
+> [View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) note.
+>
 > **Maturity caveat.** Like the rest of the visualization work, this is built
 > quickly ("vibe-coded") with lighter design review; it is well-tested and works,
 > but its abstractions may be refined with real use.

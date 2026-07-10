@@ -7,6 +7,10 @@
 > changes on disk. **Live editing** (an in-browser editor, Save, dirty tracking)
 > and a **file launcher** (in-app document picker) follow as separate components
 > and reuse the foundation laid here.
+>
+> The watch + SSE mechanism here is the **View** side of the served session's runtime
+> **View ⇄ Edit** toggle — see the
+> [View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) note.
 
 The compilation report is transparent but **frozen**: you run it once and get a
 snapshot. When you are iterating on a `.dialogue.md` script, you want the report

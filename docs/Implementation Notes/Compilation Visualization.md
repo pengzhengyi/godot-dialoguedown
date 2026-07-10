@@ -321,11 +321,12 @@ a kind occurs at a glance.
 ### D9 — A Source tab pairs the raw document with a live preview
 
 The first tab shows the **input** itself: the whole source document in a
-**CodeMirror** editor on the left (read-only in Static and Watch, editable in Live
-Edit — see the Live Edit note), with theme-adaptive Markdown highlighting, beside a
-**live rendered preview** on the right, split like an editor's side-by-side preview
-(a draggable divider re-proportions the two). This grounds the stage graphs in the
-text a writer actually authored — you read the document, then see what each compiler
+**CodeMirror** editor on the left (read-only in **View**, editable in **Edit**,
+toggled in place — see the View and Edit Modes note), with theme-adaptive Markdown
+highlighting, beside a **live rendered preview** on the right, split like an editor's
+side-by-side preview (a draggable divider re-proportions the two). This grounds the
+stage graphs in the text a writer actually authored — you read the document, then see
+what each compiler
 stage made of it.
 
 Preview **anchor links work**: headings carry GitHub-style ids (via marked's

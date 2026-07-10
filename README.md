@@ -106,8 +106,11 @@ Render a script from the command line with the `dialoguedown visualize` command:
 # Open the launcher to browse for a script (the uniform entry point)
 dotnet run --project src/DialogueDown.Cli -- visualize
 
-# Watch a script and hot-reload its report in the browser as you edit it
-dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --watch --root .
+# Serve a script's report and toggle View ⇄ Edit in the browser (auto-updates on save)
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --root .
+
+# Start directly in Edit (editable, saves back to the file)
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --edit --root .
 
 # Export a self-contained report to a file (no server, no browser)
 dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md -o report.html

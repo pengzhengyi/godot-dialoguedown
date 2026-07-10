@@ -4,7 +4,7 @@
 > Status: **implemented** (Component 2 of live visualization). Hot Reload (Component 1)
 > watches a file and pushes a recompiled report; the File Launcher (Component 3)
 > browses and opens scripts. This component makes the report's **Source tab an
-> editor** — read-only in Static and Watch (for a consistent look), **editable in
+> editor** — read-only in View (for a consistent look), **editable in
 > Live Edit**. In Live Edit you type, the **preview updates as you type**, and
 > **Save** (Ctrl+S / ⌘S from any tab, or the Save button) writes the buffer to disk
 > and recompiles the
@@ -13,6 +13,11 @@
 >
 > Like the rest of the visualization tooling, this surface is "vibe-coded" (see the
 > visualization note's maturity caveat); the core engine stays the reviewed surface.
+>
+> This editor + Save is the **Edit** side of the served session's runtime **View ⇄
+> Edit** toggle — reached with `visualize <script> --edit` or the in-browser toggle
+> (see the
+> [View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) note).
 
 ## Table of contents
 
@@ -36,11 +41,11 @@ Today the report is a read-only mirror of a file. Live Edit makes the **Source t
 an editor** and closes the write loop: you type in the browser, the **preview**
 re-renders **as you type** (client-side, no server), and **Save** writes the buffer
 to the file and **recompiles the graphs**. The editor is present in every mode for a
-consistent look — read-only in Static and Watch, editable only in Live Edit.
+consistent look — read-only in View, editable only in Edit.
 
 In scope:
 
-- The Source tab is a **code editor in every mode** — read-only in Static and Watch,
+- The Source tab is a **code editor in every mode** — read-only in View,
   editable in **Live Edit**.
 - **Preview-as-you-type**: each edit re-renders the Markdown preview from the buffer
   in the browser, with no server round-trip.
@@ -82,7 +87,7 @@ Reuses the live-visualization language (**session**, **mode**, **report**,
 ## Functionality checklist
 
 - [x] The Source tab is a code editor (Markdown) in every mode, seeded with the
-      file's contents; it is **read-only** in Static and Watch and **editable** in
+      file's contents; it is **read-only** in View and **editable** in
       Live Edit.
 - [x] Typing re-renders the **preview** in place (client-side); the editor text and
       cursor are untouched and no server call is made.
@@ -96,7 +101,7 @@ Reuses the live-visualization language (**session**, **mode**, **report**,
 - [x] In Live Edit an external change to the file shows a passive "**file changed on
       disk — refresh to sync**" chip; the editor is **never** auto-reloaded over your
       edits. Refresh re-seeds from disk.
-- [x] `visualize <script> --live --root <dir>` opens the editor directly; the
+- [x] `visualize <script> --edit` opens the editor directly (Edit mode); the
       launcher's **Live Edit** option is enabled and opens the same.
 
 ## Architecture
@@ -241,10 +246,10 @@ Adds **one** write route to the existing live surface (loopback-only):
 
 ## Key design decisions
 
-### D1 — The editor is present in every mode, editable only in Live Edit
+### D1 — The editor is present in every mode, editable only in Edit
 
 For a consistent Source tab, every mode uses the same CodeMirror editor; `editable`
-is just a flag, off in Static and Watch and on in Live Edit. This unifies the source
+is just a flag, off in View and on in Edit. This unifies the source
 pane's look and code (one implementation) instead of a read-only `<pre>` in some
 modes and an editor in another.
 

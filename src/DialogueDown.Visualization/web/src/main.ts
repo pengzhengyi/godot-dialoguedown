@@ -36,7 +36,6 @@ if (report.mode === "live") {
     // wiring closures reference `live` only when invoked (after it is created below).
     const app = runApp(report, {
         onEdit: (buffer) => live.onEdit(buffer),
-        onSave: () => void live.save(),
     });
     const live = createLiveEdit(
         initLiveEditUi(app, () => void live.save()),

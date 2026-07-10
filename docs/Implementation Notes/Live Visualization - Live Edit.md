@@ -6,7 +6,8 @@
 > browses and opens scripts. This component makes the report's **Source tab an
 > editor** — read-only in Static and Watch (for a consistent look), **editable in
 > Live Edit**. In Live Edit you type, the **preview updates as you type**, and
-> **Save** (⌘/Ctrl+S or the Save button) writes the buffer to disk and recompiles the
+> **Save** (Ctrl+S / ⌘S from any tab, or the Save button) writes the buffer to disk
+> and recompiles the
 > graphs. Live Edit owns its buffer: it ignores disk hot-reload (a passive chip notes
 > when the file changed on disk; refresh to re-sync) and Save is a force-overwrite.
 >
@@ -43,9 +44,11 @@ In scope:
   editable in **Live Edit**.
 - **Preview-as-you-type**: each edit re-renders the Markdown preview from the buffer
   in the browser, with no server round-trip.
-- **Save** (⌘/Ctrl+S **and** a Save button) writes the buffer to the file and
+- **Save** (Ctrl+S / ⌘S, or a Save button) writes the buffer to the file and
   **recompiles the graphs** — the save response returns fresh stages, updated in
-  place. Save is a **force-overwrite**.
+  place. Save is a **force-overwrite**. The shortcut is a document-level handler, so
+  it works from **any tab** (not only when the editor is focused) and intercepts both
+  keys so the browser's own "save page" dialog never fires.
 - A **dirty** marker on the Source tab, and a **`beforeunload`** prompt when the
   buffer is dirty.
 - **Live Edit ignores disk hot-reload**: a passive "**file changed on disk — refresh
@@ -73,7 +76,7 @@ Reuses the live-visualization language (**session**, **mode**, **report**,
 | **Buffer** | The in-browser editor's current text — what you are typing, which may differ from the file on disk. |
 | **Preview-as-you-type** | Re-rendering the Markdown **preview** from the buffer on each edit, client-side, without touching disk or the server. |
 | **Dirty** | The buffer differs from the last saved content; shown as a marker on the Source tab. |
-| **Save** | Writing the buffer to the document file (⌘/Ctrl+S or the Save button) — a force-overwrite — which also recompiles the graphs. |
+| **Save** | Writing the buffer to the document file (Ctrl+S / ⌘S or the Save button) — a force-overwrite — which also recompiles the graphs. |
 | **Disk change** | The file changed on disk under a Live session; surfaced as a passive "refresh to sync" chip, never an auto-reload. |
 
 ## Functionality checklist
@@ -84,9 +87,9 @@ Reuses the live-visualization language (**session**, **mode**, **report**,
 - [x] Typing re-renders the **preview** in place (client-side); the editor text and
       cursor are untouched and no server call is made.
 - [x] The graphs **do not** change while typing — they recompile on **Save**.
-- [x] **⌘/Ctrl+S** and a **Save** button write the buffer to the file (force
-      overwrite), recompile, and update the graph tabs from the response; the dirty
-      marker clears.
+- [x] **Ctrl+S / ⌘S** (from any tab) and a **Save** button write the buffer to the
+      file (force overwrite), recompile, and update the graph tabs from the response;
+      the dirty marker clears.
 - [x] The Source tab shows a **dirty** marker whenever the buffer differs from the
       last saved content; leaving/refreshing while dirty triggers a `beforeunload`
       confirmation.
@@ -119,7 +122,7 @@ flowchart TB
     end
 
     buffer -->|type| preview
-    buffer -->|"Save (Cmd/Ctrl+S)"| save
+    buffer -->|"Save (Ctrl+S / ⌘S)"| save
     save -->|force overwrite| file
     save -->|returns stages| graphs
     file -->|external change| refresh
@@ -189,13 +192,14 @@ meaningful:
   (the seed, then whatever Save last wrote). The Source tab shows a marker (a dot,
   mirroring an editor's unsaved indicator), and a **`beforeunload`** handler prompts
   before a refresh/close/navigation while dirty — the one guard against losing edits.
-- **Save** (`POST /api/save { source }`), triggered by **⌘/Ctrl+S** or the **Save
-  button** in the status bar (enabled only while dirty), is a **force-overwrite**: it
-  writes the buffer to the file regardless of the disk state, then recompiles and
-  returns the stages. `LiveSession.Save` records the bytes it wrote; when the watcher
-  fires for that write, `Refresh` sees disk == last-saved and **suppresses** the
-  event, so a save never bounces back. The dirty marker clears; other open tabs
-  (viewers) get one hot-reload.
+- **Save** (`POST /api/save { source }`), triggered by **Ctrl+S / ⌘S** (a
+  document-level shortcut that works from any tab and blocks the browser's save-page
+  dialog) or the **Save button** in the status bar (enabled only while dirty), is a
+  **force-overwrite**: it writes the buffer to the file regardless of the disk state,
+  then recompiles and returns the stages. `LiveSession.Save` records the bytes it
+  wrote; when the watcher fires for that write, `Refresh` sees disk == last-saved and
+  **suppresses** the event, so a save never bounces back. The dirty marker clears;
+  other open tabs (viewers) get one hot-reload.
 - **Disk change.** When the watcher fires and disk != last-saved (a real external
   edit), Live Edit shows the passive "**file changed on disk — refresh to sync**"
   chip and otherwise **ignores** it — the buffer is never clobbered. An explicit
@@ -300,9 +304,10 @@ Same posture as Hot Reload and the Launcher, plus the first **write** route:
   DOM/fetch/`EventSource` ports are browser-integration (excluded from the jsdom unit
   suite), so `visualize --live` over a temp file exercises them for real — type and
   assert the preview updates while the graphs and file are unchanged and the Save
-  button enables; click **Save** (and press ⌘/Ctrl+S) and assert the file now matches,
-  the graphs updated, and dirty clears; edit the file on disk and assert the chip
-  appears while the buffer is preserved.
+  button enables; save with the button **and** the Ctrl/⌘+S shortcut, including **from
+  a graph tab** (not just Source), and assert the file now matches, the graphs
+  updated, and dirty clears; edit the file on disk and assert the chip appears while
+  the buffer is preserved.
 
 ## Follow-ups
 

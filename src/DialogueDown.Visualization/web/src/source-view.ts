@@ -15,8 +15,6 @@ export interface SourceViewOptions {
     editable?: boolean;
     /** Called (Live Edit) with the new buffer on every edit — for the preview and dirty state. */
     onChange?: (value: string) => void;
-    /** Called (Live Edit) when Save (Cmd/Ctrl+S) is pressed. */
-    onSave?: () => void;
 }
 
 /**
@@ -27,7 +25,7 @@ export interface SourceViewOptions {
  * headings (see {@link renderDocument}).
  */
 export function createSourceView(source: string, options: SourceViewOptions = {}): HTMLElement {
-    const { editable = false, onChange, onSave } = options;
+    const { editable = false, onChange } = options;
 
     const container = document.createElement("div");
     container.className = "source-view";
@@ -47,19 +45,6 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
     preview.setAttribute("role", "region");
     preview.setAttribute("aria-label", "Preview");
     preview.innerHTML = renderDocument(source);
-
-    // Save (Cmd/Ctrl+S): trigger a save (the live-edit state machine holds the buffer)
-    // and swallow the browser's own save dialog.
-    const saveKeymap = keymap.of([
-        {
-            key: "Mod-s",
-            preventDefault: true,
-            run: () => {
-                onSave?.();
-                return true;
-            },
-        },
-    ]);
 
     // Re-render the preview and report the new buffer on every edit (Live Edit only —
     // a read-only editor never fires a doc change).
@@ -95,8 +80,6 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
                           },
                 ),
                 onEdit,
-                // Only Live Edit intercepts Cmd/Ctrl+S; static reports keep the browser's own.
-                ...(onSave ? [saveKeymap] : []),
             ],
         }),
     });

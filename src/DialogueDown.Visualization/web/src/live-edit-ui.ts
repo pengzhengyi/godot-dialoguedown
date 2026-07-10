@@ -15,6 +15,7 @@ export function initLiveEditUi(app: AppController, requestSave: () => void): Liv
     const tabsEl = document.getElementById("tabs")!;
     const chip = createDiskChip();
     const setSaveEnabled = createSaveButton(requestSave);
+    installSaveShortcut(requestSave);
     let unloadHandler: ((event: BeforeUnloadEvent) => void) | null = null;
 
     return {
@@ -78,19 +79,34 @@ function createDiskChip(): HTMLElement {
 }
 
 /**
- * A Save button in the status bar (the explicit affordance beside ⌘/Ctrl+S). It is
- * enabled only while there are unsaved edits. Returns a setter to reflect that state.
+ * A Save button in the status bar (the explicit affordance beside the keyboard
+ * shortcut). It is enabled only while there are unsaved edits. Returns a setter to
+ * reflect that state.
  */
 function createSaveButton(onSave: () => void): (enabled: boolean) => void {
     const button = document.createElement("button");
     button.className = "save-button";
     button.type = "button";
     button.textContent = "Save";
-    button.title = "Save changes to the file (⌘/Ctrl+S)";
+    button.title = "Save changes to the file (Ctrl+S / ⌘S)";
     button.disabled = true;
     button.addEventListener("click", onSave);
     document.querySelector(".status-bar")?.appendChild(button);
     return (enabled) => {
         button.disabled = !enabled;
     };
+}
+
+/**
+ * Install the Save shortcut on the whole document so it works from any tab and
+ * regardless of focus (not only when the editor is focused). Intercepting both
+ * Ctrl+S and ⌘S prevents the browser's own "save page" dialog either way.
+ */
+function installSaveShortcut(onSave: () => void): void {
+    document.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "s") {
+            event.preventDefault();
+            onSave();
+        }
+    });
 }

@@ -18,3 +18,13 @@ export const RENDER_ROOT_TREE = join(here, ".render-root");
 export const RENDER_ROOT_DOC = join(RENDER_ROOT_TREE, "proj", "scene.dialogue.md");
 export const RENDER_ROOT_IMAGE = join(RENDER_ROOT_TREE, "shared", "out.png");
 export const RENDER_ROOT_SOURCE = "# Gallery\n\n![an outside picture](../shared/out.png)\n";
+
+// A launcher server over a small tree: a script at the root and one in a
+// sub-folder, so the e2e can browse the tree, descend into the folder, and open
+// either script's report.
+export const LAUNCHER_PORT = 5179;
+export const LAUNCHER_TREE = join(here, ".launcher-tree");
+export const LAUNCHER_TOP_DOC = join(LAUNCHER_TREE, "top.dialogue.md");
+export const LAUNCHER_SUB_DOC = join(LAUNCHER_TREE, "sub", "nested.dialogue.md");
+export const LAUNCHER_TOP_SOURCE = "# Top Scene\n\nAlice: The script at the root.\n";
+export const LAUNCHER_SUB_SOURCE = "# Nested Scene\n\nBob: The script in a sub-folder.\n";

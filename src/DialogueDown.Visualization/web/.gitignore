@@ -15,3 +15,6 @@ e2e-live/.live-doc.dialogue.md
 
 # Live e2e --render-root temp tree
 e2e-live/.render-root/
+
+# Launcher e2e temp tree
+e2e-live/.launcher-tree/

@@ -58,18 +58,18 @@ public sealed class LauncherServerTests
         using var client = Client(server, followRedirects: false);
 
         var open = await client.PostAsJsonAsync(
-            "/api/open", new { source = "proj/scene.dialogue.md", mode = "static" });
+            "/api/open", new { source = "proj/scene.dialogue.md", mode = "view" });
 
         Assert.Equal(HttpStatusCode.SeeOther, open.StatusCode);
         Assert.Equal("/r/proj/", open.Headers.Location!.ToString());
 
         var html = await client.GetStringAsync("/r/proj/");
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"mode\":\"static\"", html);
+        Assert.Contains("\"mode\":\"view\"", html);
     }
 
     [Fact]
-    public async Task Open_WatchMode_ServesReportInWatchMode()
+    public async Task Open_ViewMode_ServesReportInViewMode()
     {
         using var tree = new TempTree();
         tree.File("root/scene.dialogue.md", "# Scene");
@@ -77,37 +77,38 @@ public sealed class LauncherServerTests
         using var client = Client(server, followRedirects: false);
 
         var open = await client.PostAsJsonAsync(
-            "/api/open", new { source = "scene.dialogue.md", mode = "watch" });
+            "/api/open", new { source = "scene.dialogue.md", mode = "view" });
 
         Assert.Equal("/r/", open.Headers.Location!.ToString());
-        Assert.Contains("\"mode\":\"watch\"", await client.GetStringAsync("/r/"));
+        Assert.Contains("\"mode\":\"view\"", await client.GetStringAsync("/r/"));
     }
 
     [Fact]
-    public async Task Save_AfterOpeningLive_WritesTheDocumentAndReturnsStages()
+    public async Task Save_AfterOpeningEdit_WritesTheDocumentAndReturnsStages()
     {
         using var tree = new TempTree();
         var path = tree.File("root/scene.dialogue.md", "# Scene");
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
-        await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "live" });
+        await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "edit" });
 
-        var save = await client.PostAsJsonAsync("/api/save", new { source = "# Edited live\n" });
+        var save = await client.PostAsJsonAsync("/api/save", new { source = "# Edited\n" });
 
         Assert.True(save.IsSuccessStatusCode);
         var json = await save.Content.ReadAsStringAsync();
         Assert.Contains("\"stages\":", json);
-        Assert.Equal("# Edited live\n", await File.ReadAllTextAsync(path));
+        Assert.Equal("# Edited\n", await File.ReadAllTextAsync(path));
     }
 
     [Fact]
-    public async Task Save_WhenActiveReportIsReadOnly_NotFound()
+    public async Task Save_BeforeOpeningAnything_NotFound()
     {
+        // A served session always exposes /api/save, but there is nothing to write to
+        // until a script is opened.
         using var tree = new TempTree();
         tree.File("root/scene.dialogue.md", "# Scene");
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
-        await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "static" });
 
         var save = await client.PostAsJsonAsync("/api/save", new { source = "# Nope\n" });
 
@@ -122,7 +123,7 @@ public sealed class LauncherServerTests
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
 
-        var open = await client.PostAsJsonAsync("/api/open", new { source = "notes.md", mode = "static" });
+        var open = await client.PostAsJsonAsync("/api/open", new { source = "notes.md", mode = "view" });
 
         Assert.Equal(HttpStatusCode.NotFound, open.StatusCode);
     }
@@ -146,7 +147,7 @@ public sealed class LauncherServerTests
         await using var server = await Started(tree);
         using var client = Client(server, followRedirects: false);
 
-        await client.PostAsJsonAsync("/api/open", new { source = "proj/scene.dialogue.md", mode = "static" });
+        await client.PostAsJsonAsync("/api/open", new { source = "proj/scene.dialogue.md", mode = "view" });
         var asset = await client.GetAsync("/r/proj/art/pic.png");
 
         Assert.True(asset.IsSuccessStatusCode);

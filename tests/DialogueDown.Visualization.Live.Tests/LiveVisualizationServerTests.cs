@@ -16,7 +16,7 @@ public sealed class LiveVisualizationServerTests
         var html = await client.GetStringAsync("/");
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"mode\":\"watch\"", html);
+        Assert.Contains("\"mode\":\"view\"", html);
     }
 
     [Fact]

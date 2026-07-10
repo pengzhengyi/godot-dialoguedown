@@ -13,18 +13,18 @@ public sealed class LiveSessionTests
         var html = session.RenderInitialHtml();
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"mode\":\"watch\"", html); // watch is the default session mode
+        Assert.Contains("\"mode\":\"view\"", html); // view is the default session mode
     }
 
     [Fact]
-    public void Mode_DefaultsToWatch_AndIsCarriedIntoThePayload()
+    public void Mode_Explicit_IsCarriedIntoThePayload()
     {
         using var doc = new TempDocument("# Scene");
 
-        var session = new LiveSession(doc.Path, "live");
+        var session = new LiveSession(doc.Path, "edit");
 
-        Assert.Equal("live", session.Mode);
-        Assert.Contains("\"mode\":\"live\"", session.CurrentDocumentJson());
+        Assert.Equal("edit", session.Mode);
+        Assert.Contains("\"mode\":\"edit\"", session.CurrentDocumentJson());
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class LiveSessionTests
     [Fact]
     public void Refresh_MissingDocument_BroadcastsAProblem()
     {
-        var session = new LiveSession("/tmp/missing-live.dialogue.md");
+        var session = new LiveSession("/tmp/missing-edit.dialogue.md");
         using var subscription = session.Broadcaster.Subscribe(out var reader);
 
         session.Refresh();
@@ -72,7 +72,7 @@ public sealed class LiveSessionTests
     public void Save_WritesTheBufferToDiskAndReturnsCompiledStages()
     {
         using var doc = new TempDocument("# Old");
-        var session = new LiveSession(doc.Path, "live");
+        var session = new LiveSession(doc.Path, "edit");
 
         var json = session.Save("# New\n\nAlice: Hi");
 
@@ -85,7 +85,7 @@ public sealed class LiveSessionTests
     public void Refresh_AfterSave_SuppressesTheSelfTriggeredReload()
     {
         using var doc = new TempDocument("# Old");
-        var session = new LiveSession(doc.Path, "live");
+        var session = new LiveSession(doc.Path, "edit");
         using var subscription = session.Broadcaster.Subscribe(out var reader);
 
         session.Save("# Saved");
@@ -98,7 +98,7 @@ public sealed class LiveSessionTests
     public void Refresh_ExternalChangeAfterSave_StillBroadcasts()
     {
         using var doc = new TempDocument("# Old");
-        var session = new LiveSession(doc.Path, "live");
+        var session = new LiveSession(doc.Path, "edit");
         using var subscription = session.Broadcaster.Subscribe(out var reader);
 
         session.Save("# Saved");

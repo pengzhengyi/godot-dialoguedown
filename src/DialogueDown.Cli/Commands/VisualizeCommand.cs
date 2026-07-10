@@ -1,14 +1,15 @@
+using DialogueDown.Visualization;
 using DialogueDown.Visualization.Live;
 using Spectre.Console.Cli;
 
 namespace DialogueDown.Cli.Commands;
 
 /// <summary>
-/// The <c>visualize</c> command. The launcher is the uniform interactive entry point:
-/// choose a script, a mode, and a root in the browser. Arguments pre-fill the launcher,
-/// and a fully specified command (script, <c>--mode</c>, and <c>--root</c>, without
-/// <c>--pick</c>) bypasses it to open the report directly. <c>-o</c> is a non-interactive
-/// export. The work is delegated to the visualization engine through
+/// The <c>visualize</c> command. Given a script it opens a <b>served session</b>
+/// directly — read-only <b>View</b> by default, or editable <b>Edit</b> with
+/// <c>--edit</c> — where the reader toggles View/Edit in the browser. With no script (or
+/// <c>--pick</c>) it opens the launcher to browse for one. <c>-o</c> is a non-interactive
+/// static export. The work is delegated to the visualization engine through
 /// <see cref="IVisualizeRunner"/> (direct) and <see cref="ILauncherRunner"/> (launcher).
 /// </summary>
 internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
@@ -31,27 +32,22 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
         ArgumentNullException.ThrowIfNull(settings);
         var hasScript = !string.IsNullOrWhiteSpace(settings.Script);
 
-        // A non-interactive export never opens the launcher.
+        // A non-interactive export never opens a server or the launcher.
         if (settings.Output is not null)
         {
             return Task.FromResult(_runner.RunStatic(settings.Script, settings.Output, settings.NoOpen));
         }
 
-        var explicitMode = settings.Mode
-            ?? (settings.Watch ? LaunchMode.Watch : settings.Live ? LaunchMode.Live : null);
-        var mode = explicitMode ?? LaunchMode.Static;
+        var mode = settings.Edit ? LaunchMode.Edit : LaunchMode.View;
 
-        // Bypass to the report only when the source, mode, and root are all explicit.
-        if (hasScript && explicitMode is not null && settings.Root is not null && !settings.Pick)
+        // A script opens a served session directly (View, or Edit with --edit); the
+        // launcher is for browsing (no script) or when forced with --pick.
+        if (hasScript && !settings.Pick)
         {
-            return mode switch
-            {
-                LaunchMode.Watch => _runner.RunWatchAsync(
-                    settings.Script, settings.Port, settings.NoOpen, settings.Root, cancellationToken),
-                LaunchMode.Live => _runner.RunLiveAsync(
-                    settings.Script, settings.Port, settings.NoOpen, settings.Root, cancellationToken),
-                _ => Task.FromResult(_runner.RunStatic(settings.Script, null, settings.NoOpen)),
-            };
+            return _runner.RunServedAsync(
+                settings.Script, settings.Port, settings.NoOpen, settings.Root,
+                settings.Edit ? VisualizationMode.Edit : VisualizationMode.View,
+                cancellationToken);
         }
 
         var (root, source) = ResolveLaunch(settings.Script, hasScript, settings.Root);

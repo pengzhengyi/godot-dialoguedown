@@ -1,19 +1,21 @@
 namespace DialogueDown.Visualization.Live;
 
 /// <summary>
-/// The <c>visualize &lt;file&gt; --watch</c> and <c>--live</c> path: start a loopback
-/// live server for the document, watch the file, and recompile-and-push on every change,
-/// until the process is interrupted (Ctrl+C). Watch is read-only — the file changes from
-/// your editor, not the page; Live Edit serves an editable report that saves back to the
-/// file.
+/// The interactive <c>visualize &lt;file&gt;</c> path: start a loopback server for the
+/// document, watch the file, and recompile-and-push on every change, until the process
+/// is interrupted (Ctrl+C). The same served session hosts both <b>View</b> (read-only,
+/// auto-updating) and <b>Edit</b> (in-browser editing that saves back to the file);
+/// <paramref name="mode"/> only chooses which side the browser opens on — the reader can
+/// toggle at runtime. The offline snapshot is a separate export (see <c>StaticMode</c>).
 /// </summary>
-internal static class WatchMode
+internal static class ServeMode
 {
     /// <summary>
-    /// Runs a watch or live session until <paramref name="cancellationToken"/> is
-    /// canceled. <paramref name="mode"/> selects <c>watch</c> (read-only) or <c>live</c>
-    /// (editable). Returns 0 on a clean stop, or 1 when the document is invalid or an
-    /// explicit <paramref name="renderRoot"/> cannot be used.
+    /// Runs a served session until <paramref name="cancellationToken"/> is canceled.
+    /// <paramref name="mode"/> is the initial side of the View/Edit toggle
+    /// (<see cref="VisualizationMode.View"/> or <see cref="VisualizationMode.Edit"/>).
+    /// Returns 0 on a clean stop, or 1 when the document is invalid or an explicit
+    /// <paramref name="renderRoot"/> cannot be used.
     /// </summary>
     public static async Task<int> RunAsync(
         string file,
@@ -25,7 +27,7 @@ internal static class WatchMode
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken,
-        string mode = VisualizationMode.Watch)
+        string mode = VisualizationMode.View)
     {
         var problem = DocumentValidation.Validate(file);
         if (problem is not null)
@@ -48,7 +50,7 @@ internal static class WatchMode
         using var watcher = new DocumentWatcher(fullPath, session.Refresh);
 
         var url = server.ReportUrl;
-        var verb = mode == VisualizationMode.Live ? "editing" : "visualization";
+        var verb = mode == VisualizationMode.Edit ? "editing" : "visualization";
         output.WriteLine($"Live {verb} of {fullPath}");
         output.WriteLine($"  {url}  (press Ctrl+C to stop)");
         if (!noOpen)

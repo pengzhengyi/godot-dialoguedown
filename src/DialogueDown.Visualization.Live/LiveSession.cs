@@ -16,7 +16,7 @@ internal sealed class LiveSession
     /// <summary>Creates a session for <paramref name="documentPath"/> in the given <paramref name="mode"/>.</summary>
     public LiveSession(
         string documentPath,
-        string mode = VisualizationMode.Watch,
+        string mode = VisualizationMode.View,
         CompilationVisualizer? visualizer = null)
     {
         ArgumentNullException.ThrowIfNull(documentPath);

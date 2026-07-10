@@ -66,9 +66,8 @@ internal sealed class LauncherServer : IAsyncDisposable
     {
         parsed = mode?.ToLowerInvariant() switch
         {
-            null or "" or VisualizationMode.Static => VisualizationMode.Static,
-            VisualizationMode.Watch => VisualizationMode.Watch,
-            VisualizationMode.Live => VisualizationMode.Live,
+            null or "" or VisualizationMode.View => VisualizationMode.View,
+            VisualizationMode.Edit => VisualizationMode.Edit,
             _ => string.Empty,
         };
         return parsed.Length != 0;
@@ -118,9 +117,9 @@ internal sealed class LauncherServer : IAsyncDisposable
         var sourceDirectory = Path.GetDirectoryName(source)!;
         var reportPath = ServeRoot.For(_root.RootDirectory, sourceDirectory).ReportPath;
         var session = _sessionFactory(source, mode);
-        // Watch and Live both track the file: Watch pushes reloads to the read-only report,
-        // Live surfaces a passive "changed on disk" chip. Only Static needs no watcher.
-        var watcher = mode == VisualizationMode.Static ? null : new DocumentWatcher(source, session.Refresh);
+        // A served session always watches the file: View hot-reloads the report, Edit
+        // surfaces a passive "changed on disk" chip.
+        var watcher = new DocumentWatcher(source, session.Refresh);
 
         lock (_gate)
         {
@@ -151,12 +150,13 @@ internal sealed class LauncherServer : IAsyncDisposable
             : Results.Content(active.Session.CurrentDocumentJson(), "application/json; charset=utf-8");
     }
 
-    // Saves the edited buffer to the active document, but only when it was opened in Live
-    // Edit; watch/static reports remain read-only.
+    // Saves the edited buffer to the active document. A served session always accepts
+    // this (the client only calls it in Edit); there is just nothing active before a
+    // script is opened.
     private IResult Save(SaveRequest request)
     {
         var active = Active();
-        if (active is null || active.Session.Mode != VisualizationMode.Live)
+        if (active is null)
         {
             return Results.NotFound();
         }

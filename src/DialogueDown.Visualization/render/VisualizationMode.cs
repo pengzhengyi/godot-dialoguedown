@@ -8,12 +8,12 @@ namespace DialogueDown.Visualization;
 /// </summary>
 public static class VisualizationMode
 {
-    /// <summary>A one-shot, self-contained report; no server.</summary>
+    /// <summary>A one-shot, self-contained report; no server (the <c>-o</c> export).</summary>
     public const string Static = "static";
 
     /// <summary>Server-backed, read-only; the report hot-reloads on on-disk changes.</summary>
-    public const string Watch = "watch";
+    public const string View = "view";
 
-    /// <summary>Server-backed with in-browser editing (a later component).</summary>
-    public const string Live = "live";
+    /// <summary>Server-backed with in-browser editing; saves edits back to the file.</summary>
+    public const string Edit = "edit";
 }

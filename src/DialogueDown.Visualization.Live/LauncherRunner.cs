@@ -66,8 +66,7 @@ public sealed class LauncherRunner : ILauncherRunner
 
     private static string ModeToString(LaunchMode mode) => mode switch
     {
-        LaunchMode.Watch => VisualizationMode.Watch,
-        LaunchMode.Live => VisualizationMode.Live,
-        _ => VisualizationMode.Static,
+        LaunchMode.Edit => VisualizationMode.Edit,
+        _ => VisualizationMode.View,
     };
 }

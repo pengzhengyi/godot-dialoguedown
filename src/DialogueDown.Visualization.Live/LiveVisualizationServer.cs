@@ -86,12 +86,9 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
             () => Results.Content(_session.CurrentDocumentJson(), "application/json; charset=utf-8"));
         app.MapGet("/api/events", HandleEventsAsync);
 
-        // Live Edit adds the one write route — it saves the edited buffer back to the
-        // document. Watch stays read-only.
-        if (_session.Mode == VisualizationMode.Live)
-        {
-            app.MapPost("/api/save", (SaveRequest request) => Save(request));
-        }
+        // A served session always accepts the write route; the client only calls it in
+        // Edit. (The offline export has no server, so it can never reach this.)
+        app.MapPost("/api/save", (SaveRequest request) => Save(request));
     }
 
     private async Task HandleEventsAsync(HttpContext context, CancellationToken cancellationToken)

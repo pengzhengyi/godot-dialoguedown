@@ -1,10 +1,12 @@
 # Implementation note: Script compiler facade
 
-> [!NOTE]
-> Status: **proposed** — a design draft, not yet implemented. A cross-cutting
-> component that gives the compiler a single public entry point and a dependency
-> injection story, so other projects and the CLI invoke compilation through one
-> seam instead of hand-wiring stages.
+> [!IMPORTANT]
+> Status: **implemented**. A cross-cutting component that gives the compiler a
+> single public entry point (`IScriptCompiler`) and a dependency injection story
+> (`AddDialogueDown` and `ScriptCompilerFactory.CreateDefault`), so other projects
+> and the CLI invoke compilation through one seam instead of hand-wiring stages.
+> The pipeline runs parse → transpile → desugar and stops there until the later
+> stages land.
 
 ## Table of contents
 
@@ -77,14 +79,14 @@ call. The dashed stages are not built yet; they slot in at the same seam as
 
 ## Functionality checklist
 
-- [ ] **Orchestrate** parse → transpile → desugar and return a `CompilationResult`.
-- [ ] **Expose each stage artifact** on the result (internal) for tooling to project.
-- [ ] **`CreateDefault()`** builds a fully wired facade with no container.
-- [ ] **`AddDialogueDown()`** registers the stages and the facade; resolving
+- [x] **Orchestrate** parse → transpile → desugar and return a `CompilationResult`.
+- [x] **Expose each stage artifact** on the result (internal) for tooling to project.
+- [x] **`CreateDefault()`** builds a fully wired facade with no container.
+- [x] **`AddDialogueDown()`** registers the stages and the facade; resolving
       `IScriptCompiler` from the provider works.
-- [ ] **Errors propagate** from a stage (no diagnostics component yet).
-- [ ] **CLI `compile`** runs real compilation through the facade.
-- [ ] **Deliberately incomplete**: a `TODO` seam marks semantic analysis and the
+- [x] **Errors propagate** from a stage (no diagnostics component yet).
+- [x] **CLI `compile`** runs real compilation through the facade.
+- [x] **Deliberately incomplete**: a `TODO` seam marks semantic analysis and the
       later stages.
 
 ## Interfaces and abstractions
@@ -166,7 +168,9 @@ composition roots so no caller is forced to adopt a container it does not want:
 - **`AddDialogueDown(this IServiceCollection)`** registers the stage interfaces and
   the facade, for callers that already run a container (the CLI). It lives in the
   `Microsoft.Extensions.DependencyInjection` namespace so it is discoverable
-  wherever that `using` already exists.
+  wherever that `using` already exists. Each registration uses **`TryAdd`**, so a
+  caller that registers its own implementation of a stage before calling
+  `AddDialogueDown` swaps just that stage while the rest keep their defaults.
 - **`ScriptCompilerFactory.CreateDefault()`** returns a fully wired facade in one
   call, for container-free callers (Visualization, a game, tests).
 
@@ -188,12 +192,12 @@ returns one wired instance. Both roots share the same per-stage defaults
 
 ### DD5 — Errors propagate until diagnostics land
 
-A stage throws on malformed input (for example `DialogueSyntaxError`). Until a
-diagnostics component exists, the facade **propagates** the exception rather than
-collecting it; a `CompilationResult` is returned only on success. The CLI's
-existing exception handler already turns these into a clean message and exit code.
-Collecting diagnostics into the result (partial compilation) is a planned public
-seam on `CompilationResult`.
+A stage throws on malformed input (for example a syntax error). Until a diagnostics
+component exists, the facade **propagates** the exception rather than collecting it;
+a `CompilationResult` is returned only on success. The CLI's exception handler maps
+a propagated exception to a non-zero exit code (the generic error path today).
+Collecting diagnostics into the result (partial compilation), and formatting each as
+a clean per-diagnostic message, is a planned public seam on `CompilationResult`.
 
 ### DD6 — CLI adopts the facade now
 
@@ -235,13 +239,15 @@ internal stage members.
 
 - **`ScriptCompiler`** — unit test with NSubstitute stage doubles: assert it calls
   parse → transpile → desugar in order, threads `source`, and assembles the result
-  from each stage's output.
+  from each stage's output. Core exposes internals to `DynamicProxyGenAssembly2` so
+  the mock generator can substitute the internal stage interfaces.
 - **`CompilationResult`** — a friend test (in `DialogueDown.Tests`) asserting the
   internal stage artifacts are exposed.
 - **`ScriptCompilerFactory.CreateDefault()`** — end-to-end on a real script: the
   result's desugared tree upholds the post-desugar invariants (no `JumpIndicator`
   survives, no line lacks a speaker).
 - **`AddDialogueDown()`** — build a provider, resolve `IScriptCompiler`, compile a
-  script, and confirm it is a working singleton graph.
+  script, confirm it is a working singleton graph, and confirm a stage
+  pre-registered before `AddDialogueDown` is kept (the `TryAdd` swap point).
 - **CLI** — a `compile` smoke test: a real script compiles and returns the success
   exit code; the retired placeholder's "not implemented" test is removed.

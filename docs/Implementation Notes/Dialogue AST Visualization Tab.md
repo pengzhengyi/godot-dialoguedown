@@ -79,8 +79,8 @@ source ──► IMarkdownParser.Parse ──► MarkdownDocument ──► Mark
 
 ## Node mapping
 
-Nodes reuse the cross-stage colour **categories** so corresponding concepts share a
-colour across stages (a Markdown code span and the `call` it becomes are both red).
+Nodes reuse the cross-stage color **categories** so corresponding concepts share a
+color across stages (a Markdown code span and the `call` it becomes are both red).
 
 | Dialogue AST node | Label | Category |
 | --- | --- | --- |
@@ -116,8 +116,8 @@ that wires it — reusable by the `compile` pipeline when it lands.
 ### D3 — Tags get a new category; everything else reuses existing ones
 
 The Dialogue AST is the first stage with **tags**, which have no Markdown
-counterpart, so they get a new `tag` category and colour. Every other node maps to
-an existing category (see the [mapping](#node-mapping)) so colours stay continuous
+counterpart, so they get a new `tag` category and color. Every other node maps to
+an existing category (see the [mapping](#node-mapping)) so colors stay continuous
 across the two stages.
 
 ## Testability

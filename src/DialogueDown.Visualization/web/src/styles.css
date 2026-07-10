@@ -41,6 +41,19 @@ body {
     color: var(--pico-color);
 }
 
+/* "Back to launcher" link, shown only on a launcher-served report (see back-link.ts). */
+.back-to-launcher {
+    display: inline-block;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+}
+
+.back-to-launcher:hover {
+    color: var(--pico-color);
+}
+
 .app-header hgroup {
     margin-bottom: 0.5rem;
     padding-right: 2rem;

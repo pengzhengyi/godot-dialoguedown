@@ -173,7 +173,7 @@ directly.
 
 - **`ILauncherRunner` / `LauncherRunner`** (new, `DialogueDown.Visualization.Live`):
   `Task<int> RunAsync(string root, string? source, LaunchMode mode, int? port, bool noOpen, CancellationToken)`
-  — resolves the launch root, serves the launcher page, and stays up until cancelled.
+  — resolves the launch root, serves the launcher page, and stays up until canceled.
   Started by the CLI whenever the report is not opened directly. Parallels `WatchMode`.
 - **`LaunchRoot`** (new): a validated root plus path helpers (`Resolve`, `ResolveSource`,
   `Browse`) that confine every path to the root (normalizing `..`, rejecting absolute

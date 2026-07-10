@@ -77,7 +77,7 @@ One concept, one name — used here, in code, and in tests.
 | **IR** | Intermediate representation — the tree or directed graph a stage produces (e.g. `MarkdownDocument`). |
 | **Node projection** | The unified seam (`INodeProjection<TNode>`): for one IR node, its `Label`, `Attributes`, and out-neighbours. One small implementation per IR family. |
 | **Display node** | One node prepared for display: an `Id`, a short `Label`, optional `Attributes` (key–value extras such as span or kind), the optional `Source` snippet it was produced from, and an optional `Category`. Renderer-agnostic. |
-| **Category** | A stable, cross-stage semantic group name (for example `call`, `speech`) that the renderer maps to a colour. Corresponding concepts in different stages share a category, so they share a colour. |
+| **Category** | A stable, cross-stage semantic group name (for example `call`, `speech`) that the renderer maps to a color. Corresponding concepts in different stages share a category, so they share a color. |
 | **Display edge** | A directed link between display nodes, with a `Kind` — a normal **child** edge, or a **reference** edge back to an already-seen node (how a cycle or shared node is shown). |
 | **Display graph** | A titled diagram for one stage: a `Title`, its display nodes, and its display edges. A **tree** is the acyclic, single-parent case. |
 | **Walk** | The graph-aware traversal that builds a display graph from an IR root plus a projection, using a visited set so cycles terminate. |
@@ -102,8 +102,8 @@ One concept, one name — used here, in code, and in tests.
       Markdown preview. Arrow keys navigate; on-screen zoom controls (+/−, click
       the ratio to reset) and a resizable panel round it out. The whole report is
       one self-contained file, so it works offline.
-- [x] A **semantic colour scheme**: each node carries a cross-stage category that
-      the renderer maps to a colour, shown on nodes, the panel, and an interactive
+- [x] A **semantic color scheme**: each node carries a cross-stage category that
+      the renderer maps to a color, shown on nodes, the panel, and an interactive
       legend that counts each type, highlights it on hover, and toggles it
       (dimming) on click.
 - [x] A **Source tab** shows the whole document as raw Markdown beside a live
@@ -292,26 +292,26 @@ document) first, then one tab **per stage** (Markdown AST, later Dialogue AST, �
 One artifact opens in any browser, needs no server, and reads well for
 non-developers.
 
-### D8 — Semantic categories drive a stable, cross-stage colour scheme
+### D8 — Semantic categories drive a stable, cross-stage color scheme
 
-Colour carries meaning here, so it must be **consistent and cross-stage**. The
+Color carries meaning here, so it must be **consistent and cross-stage**. The
 projection tags each node with a **category** — a small, stable vocabulary
 (`document`, `structure`, `speech`, `text`, `choice`, `jump`, `media`, `call`,
 `styling`, `break`) — and the renderer owns the palette that maps a category to a
-colour. This keeps domain knowledge (what a node *means*) in the projection and
-presentation (what colour it *is*) in the renderer.
+color. This keeps domain knowledge (what a node *means*) in the projection and
+presentation (what color it *is*) in the renderer.
 
 The categories are chosen so **corresponding concepts across stages share one**,
-and therefore share a colour: a Markdown `CodeSpanInline` and the runtime **game
+and therefore share a color: a Markdown `CodeSpanInline` and the runtime **game
 call** it compiles to are both `call` (red), so a reader can trace a concept by
-colour from one stage to the next. Only the *colour* is shared across stages — the
+color from one stage to the next. Only the *color* is shared across stages — the
 human label is stage-local: the per-stage **legend** is labelled with that stage's
 own node types (the Markdown AST legend reads "Code span", never the future "game
-call"), and the detail panel marks the node with a colour **dot**. The legend is
+call"), and the detail panel marks the node with a color **dot**. The legend is
 interactive: each row counts how many nodes of that type are present, and clicking
 a row toggles it — dimming its label and every node of that category in the graph,
 so a reader can focus on one kind at a time. A category is optional, so a node
-without one falls back to a neutral colour. Hovering a legend row highlights every
+without one falls back to a neutral color. Hovering a legend row highlights every
 node of that category (a gentle pop and a bold label), so a reader can spot where
 a kind occurs at a glance.
 
@@ -405,7 +405,7 @@ test pyramid and quality gates run locally (`npm run check`) and in CI (the
   scroll to their headings, tabs switch, nodes render, clicking shows source and
   preview, hovering shows a tooltip, the legend dims, zoom works, and arrow keys
   navigate. A **`@axe-core/playwright`** pass asserts no accessibility violations
-  on both tabs — including **colour-contrast**, which a real browser can measure
+  on both tabs — including **color-contrast**, which a real browser can measure
   (jsdom cannot).
 - **Build freshness** — CI rebuilds the single-file report and fails if the
   committed `web/dist/report.html` is stale (`git diff --exit-code`), so the

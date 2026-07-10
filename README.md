@@ -92,8 +92,8 @@ tab (the whole document beside a live preview, with working anchor links), then
 one tab per stage with pan and zoom and click-to-collapse — plus Mermaid and DOT
 text for quick embedding. Click a node to inspect **the source it was produced
 from**, with a rendered Markdown preview, in a resizable side panel. Nodes are
-**colour-coded by a cross-stage category** (a code span and the game call it
-becomes share a colour), with a legend and arrow-key navigation. The report is a
+**color-coded by a cross-stage category** (a code span and the game call it
+becomes share a color), with a legend and arrow-key navigation. The report is a
 **single self-contained HTML file** — D3, Pico.css, marked, and Tippy.js are all
 bundled in, so it needs no server and works fully offline. It reads the compiler
 through the same seams the tests use and never touches the shipped core package,

@@ -5,11 +5,11 @@
 > shipped a `visualize` command that serves one document from a loopback server and
 > hot-reloads it. This component makes a **launcher** the uniform interactive entry
 > point: `visualize` opens a browser modal — like VS Code's Open File — to browse the
-> **launch root** (set by `--root` or the current directory) for a `.dialogue.md`
-> **source** and pick a **mode**, then opens the report. CLI arguments pre-fill the
-> modal; a fully specified command skips it. **Live editing** (Component 2) and
-> **choosing a different root inside the modal** are deferred — the mode option shows
-> Live Edit disabled, and the root is set when the launcher starts.
+> filesystem for a `.dialogue.md` **source**, choose the **root** it is served from, and
+> pick a **mode**, then opens the report. CLI arguments pre-fill the modal; a fully
+> specified command skips it. Browsing is unconfined and the serving **root** is shown and
+> changeable in the modal (default: `--root` or the current directory). **Live editing**
+> (Component 2) is deferred — its mode option shows disabled.
 >
 > Unlike the core library, this component is part of the "vibe-coded" visualization
 > tooling (see the visualization note's maturity caveat); the core engine remains the
@@ -113,11 +113,11 @@ visualize [args] ──► resolve selection (root, source?, mode)
                               static files served under the launch root
 ```
 
-- **One launch root, mounted at `/r/`.** The server serves static files under the launch
-  root (set at startup from `--root`/cwd) at the `/r/` mount, so a source's relative
-  assets resolve in place and reports never collide with the launcher at `/`. Binding
-  serving to the root removes Component 1's per-document serve-root negotiation: the root
-  *is* the hosting consent for that subtree (see [Security](#security)).
+- **The chosen root, mounted at `/r/`.** A `MutableFileRoot` serves static files under the
+  root chosen for the active open, at the `/r/` mount, so a source's relative assets
+  resolve in place and reports never collide with the launcher at `/`. Binding serving to
+  the root removes Component 1's per-document serve-root negotiation: the root *is* the
+  hosting consent for that subtree (see [Security](#security)).
 - **One active session, swapped on open.** The server keeps at most one live session and
   swaps it when you open another source. This reuses the existing single-session server
   rather than generalizing it to many concurrent documents (a possible later extension).
@@ -158,14 +158,13 @@ directly.
    the report opens directly (Component 1) and the steps below are skipped.
 2. Otherwise, `LauncherMode` starts the server and opens `/`; the modal loads pre-filled
    with the resolved selection (root, source if any, mode).
-3. The modal requests `GET /api/browse?path=` from the launch root and renders its
-   sub-directories and `.dialogue.md` sources; descending re-requests `browse`, which
-   confines every path to the root.
-4. The user selects a source and a mode, then clicks Open →
-   `POST /api/open { source, mode }`.
-5. The server validates the paths, sets the active root, (re)creates the active session
-   for the source, starts the watcher when the mode is watch, and responds
-   `303 See Other` with the report URL.
+3. The modal requests `GET /api/browse?path=` (absolute paths, unconfined) and renders a
+   folder's sub-directories and `.dialogue.md` sources; navigating re-requests `browse`.
+4. The user selects a source, adjusts the serving root, and picks a mode, then clicks
+   Open → `POST /api/open { root, source, mode }`.
+5. The server validates the source is under the root, sets the active root, (re)creates
+   the active session for the source, starts the watcher when the mode is watch, and
+   responds `303 See Other` with the report URL.
 6. The browser follows the redirect to the report, which behaves as today. When watched,
    edits on disk hot-reload it (Component 1). **Back to launcher** navigates to `/`.
 
@@ -175,11 +174,12 @@ directly.
   `Task<int> RunAsync(string root, string? source, LaunchMode mode, int? port, bool noOpen, CancellationToken)`
   — resolves the launch root, serves the launcher page, and stays up until cancelled.
   Started by the CLI whenever the report is not opened directly. Parallels `WatchMode`.
-- **`LaunchRoot`** (new): a validated root plus path helpers (`Resolve`, `ResolveSource`,
-  `Browse`) that confine every path to the root (normalizing `..`, rejecting absolute
-  paths, following a terminal symlink). **`LauncherServer`** serves the page, `browse`,
-  and `open`, swapping one active `LiveSession` per open and serving its report under
-  `/r/`.
+- **`LaunchRoot`** (new) validates a root and confines a source to it (`ResolveSource` —
+  normalizing `..`, rejecting absolute paths, following a terminal symlink), used to
+  check an open. **`DirectoryBrowser`** lists any directory (unconfined) for `browse`;
+  **`MutableFileRoot`** is the static-file provider that follows the chosen root.
+  **`LauncherServer`** serves the page, `browse`, and `open`, swapping one active
+  `LiveSession` per open and serving its report under `/r/`.
 - The report/session path reuses `LiveSession`, `ServeRoot`, and `DocumentWatcher`; the
   CLI keeps using `IVisualizeRunner` for the direct (bypass) path and adds
   `ILauncherRunner` for the launcher path.
@@ -192,8 +192,8 @@ directly.
 | Method + path | Purpose | Response |
 | --- | --- | --- |
 | `GET /` | The launcher modal, with its initial selection injected (like the report's data) | `text/html` (embedded `launcher.html`) |
-| `GET /api/browse?path=<dir>` | List a directory's sub-directories and `.dialogue.md` sources | JSON `{ path, parent, directories[], sources[] }` |
-| `POST /api/open` | Open a source (`{ source, mode }`) | `303 See Other` → the report under `/r/` (or `400`/`404`) |
+| `GET /api/browse?path=<dir>` | List a directory anywhere (absolute paths) | JSON `{ path, parent, directories[], sources[] }` |
+| `POST /api/open` | Open a source under a root (`{ root, source, mode }`) | `303 See Other` → the report under `/r/` (or `400`/`404`) |
 | `GET /r/<report path>` | The active session's report | `text/html` |
 | `GET /api/document`, `GET /api/events` | The active session's data and SSE | Existing (Component 1) |
 
@@ -230,15 +230,17 @@ single-file plugin and embedded as an assembly resource like `report.html`. This
 the TypeScript, styling, and Node-free .NET build consistent, at the cost of a second
 build output and embedded resource.
 
-### D5 — The launch root is the hosting boundary
+### D5 — The chosen root is the hosting boundary
 
-The launcher serves exactly one subtree — the launch root — and every `browse`/`open`
-path is confined to it. The root is set when the launcher starts, from `--root` or the
-current directory; choosing a *different* root inside the modal (VS Code's Open Folder)
-is deferred, so the shipped browse and serving stay within one startup root. Binding
-serving to that root removes Component 1's per-document consent: the root *is* the
-hosting consent for its subtree, the server is loopback-only, and only the root's files
-are ever served (see [Security](#security)).
+Browsing is unconfined — the picker lists any directory, like a native Open Folder — but
+**serving** is confined to the root chosen for an open. The root defaults to `--root` or
+the current directory, is shown in the modal, and is changeable (a "Use current folder"
+control, or it re-roots to a source's folder when you pick one outside it). At open the
+server validates the source is under the chosen root (`LaunchRoot`) and points a
+`MutableFileRoot` at it, so `/r/` serves that subtree. This replaces Component 1's
+per-document consent: the root *is* the hosting consent for its subtree, the server is
+loopback-only, and only the chosen root's files are ever served (see
+[Security](#security)).
 
 ### D6 — One active session, swapped on open
 
@@ -288,9 +290,11 @@ is the central concern.
   real path is not inside the active root is rejected. Absolute paths and traversal
   within a root are refused, and only the active root's files are ever served.
 - **Extension filter.** Only directories and `.dialogue.md` files are listed or opened.
-- **Root set at startup.** The root is `--root` or the current directory, fixed when the
-  launcher starts; browse and serving stay within it, and the launcher never widens
-  serving on its own. Choosing a different root inside the modal is deferred.
+- **Unconfined browse, confined serving.** The picker lists any directory (a native
+  folder chooser does too), but it only ever *lists* folder names and `.dialogue.md`
+  files — never file contents — and serves nothing outside the chosen root. Choosing a
+  root is a deliberate act; the server is loopback-only, and serving is always scoped to
+  that root.
 
 ## Integration
 

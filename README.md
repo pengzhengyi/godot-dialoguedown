@@ -19,6 +19,7 @@ adapter over this library's interfaces.
 - [Documentation](#documentation)
 - [Compilation visualization](#compilation-visualization)
 - [Design intent](#design-intent)
+- [Similar projects](#similar-projects)
 - [Contributing](#contributing)
 - [Security](#security)
 - [License](#license)
@@ -126,6 +127,19 @@ See the
 ## Consumers
 
 Referenced by games via `ProjectReference`, for example `survival-game-learner`.
+
+## Similar projects
+
+DialogueDown is intentionally small, engine-agnostic, and C#-first. These
+projects are useful references if you need a different tradeoff:
+
+| Project | What it does | How DialogueDown differs |
+| --- | --- | --- |
+| [Ink](https://github.com/inkle/ink) | Mature interactive-fiction scripting language and runtime with strong authoring tools. | DialogueDown keeps Markdown-like source close to game writing notes and focuses on a lightweight C# library that Godot projects can reference directly. |
+| [Yarn Spinner](https://github.com/YarnSpinnerTool/YarnSpinner) | Full-featured Yarn dialogue compiler/runtime with a writer-friendly scripting language and broad engine integrations. | DialogueDown is narrower and dependency-light: it prioritizes pure C# graph/runtime seams and explicit visualization over a larger cross-engine toolchain. |
+| [Dialogic](https://github.com/coppolaemilio/dialogic) | Feature-rich Godot dialogue plugin with visual editing, portraits, timelines, variables, and localization. | DialogueDown deliberately avoids Godot dependencies in the core so dialogue logic stays reusable, unit-testable, and portable across consuming games. |
+| [Godot Dialogue Manager](https://github.com/nathanhoad/godot_dialogue_manager) | Godot-native dialogue manager and scripting workflow for branching conversations. | DialogueDown targets engine-agnostic C# packages first, leaving Godot presentation and input as thin adapters in each game. |
+| [Godot Ink](https://github.com/paulloz/godot-ink) | Godot integration for Ink stories. | DialogueDown is not an Ink bridge; it explores a smaller Markdown-to-dialogue pipeline with compiler-stage visualization for debugging and teaching. |
 
 ## Contributing
 

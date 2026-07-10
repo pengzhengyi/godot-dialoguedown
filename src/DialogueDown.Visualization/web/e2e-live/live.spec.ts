@@ -103,3 +103,36 @@ test("toggles to Edit and back to View, reconfiguring the one editor in place", 
     await expect(view).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(".save-button")).toBeHidden();
 });
+
+test("accents blue in View and green in Edit, and keeps the footer on one aligned line", async ({
+    page,
+}) => {
+    const edit = page.locator('.mode-toggle-option[data-mode="edit"]');
+    const activeTab = page.locator("button.tab.active");
+    const GREEN = "rgb(21, 128, 61)"; // #15803d, the Save-button green
+
+    // View: the document reports view mode and the accent is not the Edit green.
+    await expect(page.locator("html")).toHaveAttribute("data-served-mode", "view");
+    await expect(activeTab).not.toHaveCSS("border-bottom-color", GREEN);
+
+    // Edit: the accent switches to green on the active tab and the pressed toggle.
+    await edit.click();
+    await expect(page.locator("html")).toHaveAttribute("data-served-mode", "edit");
+    await expect(activeTab).toHaveCSS("border-bottom-color", GREEN);
+    await expect(edit).toHaveCSS("background-color", GREEN);
+
+    // The status line keeps the toggle, path, and help toggle vertically centered together.
+    const centers = await page.evaluate(() => {
+        const center = (selector: string): number => {
+            const rect = document.querySelector(selector)!.getBoundingClientRect();
+            return rect.top + rect.height / 2;
+        };
+        return {
+            toggle: center(".mode-toggle"),
+            path: center("#doc-path"),
+            help: center("#help-toggle"),
+        };
+    });
+    expect(Math.abs(centers.toggle - centers.path)).toBeLessThan(2);
+    expect(Math.abs(centers.toggle - centers.help)).toBeLessThan(2);
+});

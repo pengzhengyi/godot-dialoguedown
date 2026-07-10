@@ -30,6 +30,18 @@ test("the Source tab is first and active, showing the document beside a preview"
     await expect(page.locator("#detail")).toBeHidden();
 });
 
+test("the header brand shows the logo and reveals the name on hover", async ({ page }) => {
+    const name = page.locator(".brand-name");
+    // The wordmark stays in the DOM (so the <h1> keeps accessible text) but is clipped by default.
+    await expect(name).toHaveText("DialogueDown");
+    expect(await name.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThan(1);
+    // Hovering the brand expands the wordmark into view.
+    await page.locator(".brand").hover();
+    await expect
+        .poll(async () => name.evaluate((el) => el.getBoundingClientRect().width))
+        .toBeGreaterThan(20);
+});
+
 test("clicking a preview anchor link scrolls to its heading", async ({ page }) => {
     await page.locator('.source-preview a[href="#the-market"]').click();
     await expect(page).toHaveURL(/#the-market$/);

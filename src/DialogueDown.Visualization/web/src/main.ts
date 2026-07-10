@@ -53,7 +53,11 @@ if (report.mode === "view" || report.mode === "edit") {
         app,
         live,
         setSaveVisible: ui.setSaveVisible,
-        reflect: toggle.reflect,
+        reflect: (mode) => {
+            // Drive the blue (View) / green (Edit) accent, then the toggle's pressed state.
+            document.documentElement.dataset.servedMode = mode;
+            toggle.reflect(mode);
+        },
         confirmDiscard: () =>
             window.confirm("Discard unsaved edits and switch to View? Your changes will be lost."),
     });

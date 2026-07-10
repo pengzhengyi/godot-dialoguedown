@@ -8,6 +8,14 @@
     --md-code: #0550ae;
     --md-muted: #6e7781;
     --cm-selection: rgb(20 100 210 / 22%);
+
+    /* Mode accent: View is blue (the framework primary), Edit is green (matching the
+       Save button). It is driven by data-served-mode on <html> (set from the mode
+       controller) and tints the active tab and the pressed toggle, so the whole UI
+       standardizes on one accent per mode. A static export has no served mode and so
+       keeps the blue default. */
+    --mode-accent: var(--pico-primary);
+    --mode-accent-contrast: var(--pico-primary-inverse);
 }
 
 /* System dark (unless the reader forced light). */
@@ -30,6 +38,12 @@
     --md-code: #a5d6ff;
     --md-muted: #8b949e;
     --cm-selection: rgb(100 165 255 / 35%);
+}
+
+/* Edit mode: switch the accent from blue to green (matching the Save button). */
+[data-served-mode="edit"] {
+    --mode-accent: #15803d;
+    --mode-accent-contrast: #fff;
 }
 
 html,
@@ -109,18 +123,70 @@ body {
 
 .app-header hgroup {
     margin-bottom: 0.5rem;
-    padding-right: 8.5rem; /* clear the top-right controls (theme select + GitHub link) */
+    padding-right: 8.5rem; /* keep the brand clear of the top-right controls */
 }
 
-.app-header h1 {
-    font-size: 1.15rem;
+/* Brand: the logo mark alone by default; on hover it morphs to the compilation-pipeline
+   mark and reveals the "DialogueDown" wordmark. The name stays in the DOM (only visually
+   clipped) so the <h1> keeps its accessible text. */
+.brand {
+    display: inline-flex;
+    align-items: center;
     margin: 0;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: default;
 }
 
-.app-header hgroup p {
-    margin: 0.25rem 0 0;
-    font-size: 0.8rem;
-    color: var(--pico-muted-color);
+.brand-mark {
+    position: relative;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+}
+
+.brand-logo {
+    position: absolute;
+    inset: 0;
+    display: inline-flex;
+    transition: opacity 0.25s ease;
+}
+
+.brand-logo svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.brand-logo-pipeline {
+    opacity: 0;
+}
+
+.brand:hover .brand-logo-default {
+    opacity: 0;
+}
+
+.brand:hover .brand-logo-pipeline {
+    opacity: 1;
+}
+
+.brand-name {
+    max-width: 0;
+    margin-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    white-space: nowrap;
+    font-weight: 700;
+    transition:
+        max-width 0.3s ease,
+        margin-left 0.3s ease,
+        opacity 0.25s ease;
+}
+
+.brand:hover .brand-name {
+    max-width: 12rem;
+    margin-left: 0.55rem;
+    opacity: 1;
 }
 
 nav.tabs {
@@ -142,13 +208,13 @@ button.tab {
 }
 
 button.tab:hover {
-    color: var(--pico-primary);
+    color: var(--mode-accent);
     background: transparent;
 }
 
 button.tab.active {
-    color: var(--pico-primary);
-    border-bottom-color: var(--pico-primary);
+    color: var(--mode-accent);
+    border-bottom-color: var(--mode-accent);
     font-weight: 600;
 }
 
@@ -161,7 +227,7 @@ button.tab.dirty::after {
     margin-left: 0.4rem;
     vertical-align: middle;
     border-radius: 50%;
-    background: var(--pico-primary);
+    background: var(--mode-accent);
 }
 
 /* The passive "file changed on disk" chip in the header (Live Edit). */
@@ -719,6 +785,7 @@ svg.tree {
     display: inline-flex;
     flex: 0 0 auto;
     width: auto; /* override Pico's full-width [role=group] button group */
+    margin: 0; /* drop Pico's [role=group] bottom margin so it centers in the status bar */
     overflow: hidden;
     border: 1px solid var(--pico-muted-border-color);
     border-radius: var(--pico-border-radius);
@@ -755,8 +822,8 @@ svg.tree {
 }
 
 .mode-toggle .mode-toggle-option[aria-pressed="true"] {
-    background: var(--pico-primary);
-    color: var(--pico-primary-inverse);
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
 }
 
 /* The explicit Save affordance beside ⌘/Ctrl+S, enabled only while there are unsaved

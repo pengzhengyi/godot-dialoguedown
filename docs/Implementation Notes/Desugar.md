@@ -40,9 +40,10 @@ knowledge, no reference resolution.
 
 It does two things:
 
-1. **Assemble jumps.** Collapse a `JumpIndicator · (whitespace) · Link` run in a
-   fragment sequence into a single **`Jump`**. A dangling `=>` (no link after it)
-   degrades back to plain text; a bare link stays a link.
+1. **Assemble jumps.** Collapse a `JumpIndicator · (same-line whitespace) · Link`
+   run in a fragment sequence into a single **`Jump`**. A jump is single-line, so a
+   `LineBreak` between the `=>` and the link ends it. A dangling `=>` (no link
+   after it) degrades back to plain text; a bare link stays a link.
 2. **Fill the default speaker.** A `Line` that names no speaker gets the
    **`DefaultSpeaker`** sentinel. A lone command line is just a speaker-less line,
    so this same fill also covers the DSL's **silent command**.
@@ -90,9 +91,10 @@ through unchanged.
 
 ## Functionality checklist
 
-- [ ] **Assemble a `Jump`** from `JumpIndicator · (whitespace) · Link` in any
-      fragment sequence, folding the between-whitespace into the jump's span.
-- [ ] **Degrade a dangling `=>`** to `Text` and coalesce it with adjacent text.
+- [ ] **Assemble a `Jump`** from `JumpIndicator · (same-line whitespace) · Link`
+      in any fragment sequence, folding the between-whitespace into the jump's span.
+- [ ] **Degrade a dangling `=>`** to a plain `Text` at the arrow's own span, kept
+      granular (folding adjacent text is a later, rendering-stage concern).
 - [ ] **Keep a bare `Link`** (no preceding `=>`) as an inline link.
 - [ ] **Fill `DefaultSpeaker`** on a `Line` that names no speaker.
 - [ ] **Cover silent commands** by the same default-speaker fill.
@@ -202,13 +204,15 @@ invariant that **no `JumpIndicator` survives Desugar**,
 assembly runs on **every** fragment list (via `RewriteFragments`), not one node
 type. For each list:
 
-- Scan for a `JumpIndicator`. Look ahead past **whitespace-only** fragments
-  (blank `Text`, soft `LineBreak`). If the next fragment is a `Link`, emit a
+- Scan for a `JumpIndicator`. Look ahead past **blank, same-line** fragments
+  (whitespace-only `Text`). If the next fragment is a `Link`, emit a
   `Jump(link.Label, link.Target, span)` whose span covers from the `=>` through
-  the link — the between-whitespace is folded in.
-- Otherwise the `JumpIndicator` is **dangling**: replace it with `Text("=>")` and
-  merge it with any adjacent `Text` (contiguous spans join), so `the => arrow`
-  reads as one literal run.
+  the link — the between-whitespace is folded in. A jump is single-line, so a soft
+  `LineBreak` is not skipped: it stops the scan and the `=>` is left dangling.
+- Otherwise the `JumpIndicator` is **dangling**: replace it with a plain
+  `Text("=>")` at the arrow's own span. Fragments stay granular, so the degraded
+  arrow is left as its own run next to any surrounding text (`the => arrow` becomes
+  three `Text` runs) — folding adjacent text is a later, rendering-stage concern.
 - A `Link` with no preceding `=>` is left untouched.
 
 ### DD5 — Default speaker is a sentinel; silent commands fold in
@@ -274,12 +278,12 @@ AssembleJumps(fragments):
     i = 0
     while i < fragments.length:
         if fragments[i] is JumpIndicator:
-            j = skipWhitespaceOnly(fragments, i + 1)
+            j = skipBlanks(fragments, i + 1)
             if fragments[j] is Link link:
                 out += Jump(link.Label, link.Target, cover(fragments[i], link))
                 i = j + 1
                 continue
-            out += coalesceText(Text("=>", fragments[i].Span))   # dangling
+            out += Text("=>", fragments[i].Span)                 # dangling
         else:
             out += fragments[i]
         i += 1
@@ -317,8 +321,9 @@ classDiagram
 
 | Case                                                        | Behavior                                                                                                    |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Dangling `=>` (`the => arrow`)                              | degrades to `Text`, coalesced with neighbours; **not** an error                                             |
-| `=>` then non-whitespace then link (`=> x [a](b)`)          | `=>` is dangling (only whitespace may sit between); the link stays bare                                     |
+| Dangling `=>` (`the => arrow`)                              | degrades to a plain `Text` at its own span, kept granular; **not** an error                                 |
+| `=>` then non-whitespace then link (`=> x [a](b)`)          | `=>` is dangling (only same-line whitespace may sit between); the link stays bare                           |
+| `=>` then line break then link (`=>` ⏎ `[a](b)`)            | a jump is single-line; the break ends it, so `=>` is dangling and the link stays bare                       |
 | `=>` immediately before a link (`=>[a](b)`)                 | assembled; no whitespace to fold                                                                            |
 | Multiple jumps in one speech                                | each `JumpIndicator · Link` pair assembled independently; a later stage may warn (sequential jumps confuse) |
 | `JumpIndicator` nested in `StyledText`                      | assembled or degraded in place, so none survive                                                             |
@@ -346,8 +351,8 @@ classDiagram
 ## Testability
 
 - **Rules** are pure functions tested in isolation on hand-built fragments and
-  lines: jump assembly (assemble, fold whitespace, dangling degrade, coalesce,
-  nested), and default-speaker fill (fills only when absent, covers a command
+  lines: jump assembly (assemble, fold same-line whitespace, single-line boundary,
+  dangling degrade, nested), and default-speaker fill (fills only when absent, covers a command
   line). A shared Object Mother builds AST inputs; `DialogueAstAssert` grows
   `AssertJump` / `AssertDefaultSpeaker` helpers.
 - **Rewriter** is tested by a trivial subclass (identity clone leaves the tree

@@ -559,6 +559,10 @@ dialogue.
 => [Meet Bob](chapter-02.md#meet-bob)
 ```
 
+A jump cannot appear **inside a heading**. A heading marks a scene, which is
+itself a jump *target*, so jumping from within one is meaningless. A `=>` written
+in a heading is read as plain text, not a jump.
+
 Example:
 
 ```markdown

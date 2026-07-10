@@ -220,7 +220,11 @@ type. For each list:
 A `Line` with no speaker gets a **`DefaultSpeaker`** node — a sentinel meaning
 "whatever the default is". It is **not** resolved to a concrete speaker here;
 binding it to the `##default`-tagged speaker (or the system speaker when none
-exists) is semantic analysis, which owns the document-wide speaker table. Because
+exists) is semantic analysis, which owns the document-wide speaker table. The
+sentinel has no source text of its own, so it carries a **zero-width span**
+(`SourceSpan.EmptyAt`) at the line's start — a caret a tool can detect via
+`SourceSpan.IsEmpty` and render as a point, rather than underlining the whole
+line. Because
 a lone command line is simply a speaker-less line whose speech is a command, the
 DSL's **silent command** needs no special case — the same fill produces a
 default-speaker command line (the spec's `@default:` form).

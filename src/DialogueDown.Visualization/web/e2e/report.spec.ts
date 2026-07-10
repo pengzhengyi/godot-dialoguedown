@@ -51,6 +51,20 @@ test("the theme toggle forces light/dark and returns to following the system", a
     await expect(html).not.toHaveAttribute("data-theme");
 });
 
+test("the editor supports search and code folding (read-only)", async ({ page }) => {
+    await page.locator(".cm-content").click();
+
+    // Search panel opens with the shortcut and closes with Escape.
+    await page.keyboard.press("ControlOrMeta+f");
+    await expect(page.locator(".cm-panel.cm-search")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".cm-panel.cm-search")).toHaveCount(0);
+
+    // Folding a section from the gutter chevron collapses it to a placeholder.
+    await page.locator(".cm-foldGutter .cm-gutterElement", { hasText: "⌄" }).first().click();
+    await expect(page.locator(".cm-foldPlaceholder")).toBeVisible();
+});
+
 test("switching from Source to the Markdown AST tab shows the graph and detail panel", async ({
     page,
 }) => {

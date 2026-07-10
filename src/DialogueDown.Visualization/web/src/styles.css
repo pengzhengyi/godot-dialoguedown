@@ -259,6 +259,73 @@ section.stage.error {
     caret-color: var(--pico-color);
 }
 
+/* Fold markers in the gutter, and the placeholder shown for a folded section. */
+.source-pane .cm-foldGutter .cm-gutterElement {
+    color: var(--pico-muted-color);
+    cursor: pointer;
+}
+
+.source-pane .cm-foldPlaceholder {
+    margin: 0 0.2rem;
+    padding: 0 0.35rem;
+    border: none;
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+}
+
+/* Subtle, theme-neutral highlights for the active line and other matches of the selection. */
+.source-pane .cm-activeLine,
+.source-pane .cm-activeLineGutter {
+    background: rgb(128 128 128 / 10%);
+}
+
+.source-pane .cm-selectionMatch {
+    background: rgb(120 160 255 / 25%);
+}
+
+/* The search/replace panel, themed to match the page instead of CodeMirror's light default. */
+.source-pane .cm-panels {
+    background: var(--pico-card-background-color);
+    color: var(--pico-color);
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+
+.source-pane .cm-panel.cm-search {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.78rem;
+}
+
+.source-pane .cm-panel.cm-search label {
+    color: var(--pico-color);
+    font-size: 0.76rem;
+}
+
+.source-pane .cm-panel.cm-search input,
+.source-pane .cm-panel.cm-search button {
+    margin: 0 0.15rem;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid var(--pico-form-element-border-color);
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-form-element-background-color);
+    color: var(--pico-color);
+    font-size: 0.76rem;
+}
+
+.source-pane .cm-panel.cm-search button {
+    cursor: pointer;
+}
+
+.source-pane .cm-panel.cm-search button:hover:not(:disabled) {
+    border-color: var(--pico-primary);
+}
+
+.source-pane .cm-panel.cm-search button[name="close"] {
+    border: none;
+    background: transparent;
+    color: var(--pico-muted-color);
+}
+
 .source-divider {
     flex: 0 0 7px;
     cursor: col-resize;

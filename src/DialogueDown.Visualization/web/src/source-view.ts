@@ -1,9 +1,29 @@
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
+import {
+    EditorView,
+    keymap,
+    lineNumbers,
+    highlightActiveLine,
+    highlightActiveLineGutter,
+    drawSelection,
+    rectangularSelection,
+    crosshairCursor,
+} from "@codemirror/view";
+import { EditorState, EditorSelection, Prec } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import {
+    syntaxHighlighting,
+    HighlightStyle,
+    bracketMatching,
+    foldGutter,
+    codeFolding,
+    foldKeymap,
+    foldService,
+} from "@codemirror/language";
+import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { tags } from "@lezer/highlight";
+import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
 import { renderDocument } from "./text";
 
 /**
@@ -24,6 +44,44 @@ const markdownHighlightStyle = HighlightStyle.define([
         color: "var(--md-muted)",
     },
 ]);
+
+/**
+ * Fold Markdown sections: a heading folds everything down to the next heading of the
+ * same or higher level (so a scene collapses to its `##` line). See
+ * {@link headingFoldEndLine}.
+ */
+const foldHeadings = foldService.of((state, lineStart) => {
+    const line = state.doc.lineAt(lineStart);
+    const endLine = headingFoldEndLine((n) => state.doc.line(n).text, state.doc.lines, line.number);
+    return endLine == null ? null : { from: line.to, to: state.doc.line(endLine).to };
+});
+
+/** Emphasis markers that surround a selection when typed over it (auto-surround). */
+const EMPHASIS_MARKS = new Set(["*", "_", "~"]);
+
+/**
+ * Type `*`, `_`, or `~` over a selection to wrap it (e.g. select a word, press `*` →
+ * `*word*`). Typing with no selection is left alone, so a lone marker stays literal.
+ */
+const emphasisSurround = EditorView.inputHandler.of((view, from, to, text) => {
+    if (from === to || !EMPHASIS_MARKS.has(text)) return false;
+    const selected = view.state.sliceDoc(from, to);
+    view.dispatch(
+        view.state.update({
+            changes: { from, to, insert: `${text}${selected}${text}` },
+            selection: EditorSelection.range(from + text.length, to + text.length),
+            userEvent: "input",
+        }),
+    );
+    return true;
+});
+
+/** VS Code-style Markdown formatting shortcuts (bold, italic, link). */
+const formatKeymap = [
+    { key: "Mod-b", run: toggleWrap("**"), preventDefault: true },
+    { key: "Mod-i", run: toggleWrap("*"), preventDefault: true },
+    { key: "Mod-k", run: insertLink, preventDefault: true },
+];
 
 /** Bounds for the draggable split, as a fraction of the container width. */
 const MIN_RATIO = 0.2;
@@ -82,8 +140,19 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
             doc: source,
             extensions: [
                 lineNumbers(),
+                highlightActiveLineGutter(),
+                foldGutter(),
+                foldHeadings,
+                codeFolding(),
+                drawSelection(),
+                EditorState.allowMultipleSelections.of(true),
+                rectangularSelection(),
+                crosshairCursor(),
+                highlightActiveLine(),
+                highlightSelectionMatches(),
+                bracketMatching(),
+                search(),
                 history(),
-                keymap.of([...defaultKeymap, ...historyKeymap]),
                 markdown(),
                 syntaxHighlighting(markdownHighlightStyle),
                 EditorView.lineWrapping,
@@ -99,6 +168,17 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
                               tabindex: "0",
                           },
                 ),
+                // Authoring aids only make sense when editable.
+                ...(editable
+                    ? [closeBrackets(), emphasisSurround, Prec.high(keymap.of(formatKeymap))]
+                    : []),
+                keymap.of([
+                    ...closeBracketsKeymap,
+                    ...defaultKeymap,
+                    ...historyKeymap,
+                    ...searchKeymap,
+                    ...foldKeymap,
+                ]),
                 onEdit,
             ],
         }),

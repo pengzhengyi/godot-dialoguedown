@@ -6,6 +6,11 @@ const SOURCE_HELP = `
      the right pane is a live Markdown preview.</p>
   <p><strong>Preview links</strong> jump to their headings within the preview.</p>
   <p><strong>Drag the divider</strong> between the panes to re-proportion them.</p>
+  <p><strong>Editor.</strong> Find with <kbd>⌘/Ctrl-F</kbd> and fold a section from the
+     gutter arrow. In Live Edit, format the selection with <kbd>⌘/Ctrl-B</kbd> (bold),
+     <kbd>⌘/Ctrl-I</kbd> (italic) and <kbd>⌘/Ctrl-K</kbd> (link), or type <kbd>*</kbd>
+     around a selection to emphasize it. To learn more about how to use the editor,
+     check out <a href="https://codemirror.net/" target="_blank" rel="noopener noreferrer">CodeMirror</a>.</p>
 `;
 
 const GRAPH_HELP = `

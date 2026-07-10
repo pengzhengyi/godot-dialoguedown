@@ -77,6 +77,28 @@ test("the Save button also saves from a graph tab", async ({ page }) => {
     await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("via the button");
 });
 
+test("formatting shortcuts and emphasis auto-surround wrap the selection", async ({ page }) => {
+    await page.goto(`${base}/`);
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+
+    const content = page.locator(".cm-content");
+    await content.click();
+
+    // Bold via the ⌘/Ctrl+B shortcut wraps the selected word.
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type("brave");
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.press("ControlOrMeta+b");
+    await expect(content).toContainText("**brave**");
+
+    // Emphasis auto-surround: typing an emphasis mark over a selection wraps it.
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type("hero");
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.type("_");
+    await expect(content).toContainText("_hero_");
+});
+
 test("an external change surfaces the passive chip without discarding local edits", async ({
     page,
 }) => {

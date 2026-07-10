@@ -158,6 +158,17 @@ light/dark theme — including the header's **System / Light / Dark** toggle —
 without rebuilding the editor. The right pane stays the live preview; the draggable
 divider is unchanged.
 
+**Authoring and navigation aids** — all CodeMirror-official extensions, from packages
+already in the bundle. Every mode gets **search** (⌘/Ctrl-F), **section folding** (a
+heading folds down to the next same-or-higher heading — see `headingFoldEndLine`),
+bracket matching, active-line and selection-match highlighting, and multi-cursor /
+column selection. Live Edit additionally gets **auto-close and auto-surround** for
+brackets, quotes, backticks, and emphasis (select text and type `*` / `_` / `` ` `` to
+wrap it), plus VS Code-style formatting shortcuts — **⌘/Ctrl-B** bold, **⌘/Ctrl-I**
+italic, **⌘/Ctrl-K** link (see `editor-commands.ts`, unit-tested as pure state
+commands). List and blockquote continuation on Enter comes free from the Markdown
+language. The Source-tab help links to CodeMirror for the full keymap.
+
 **Why CodeMirror 6** (a lean, vetted shortlist):
 
 | Option | Fit | Note |
@@ -316,10 +327,10 @@ Same posture as Hot Reload and the Launcher, plus the first **write** route:
 Both are deliberately out of this component and picked up next:
 
 - **Lazy-loaded editor.** CodeMirror is bundled into the single-file report **now**
-  (no cross-file lazy-load), which grew the report bundle to ~750 KB (from ~270 KB —
-  CodeMirror adds ~480 KB) — accepted for a diagnostics tool. A separate non-inlined
-  "editor" build that loads CodeMirror on demand is a possible follow-up if the bundle
-  size matters.
+  (no cross-file lazy-load), which grew the report bundle to ~800 KB (from ~270 KB —
+  the CodeMirror editor stack, including search, folding, and close-brackets, adds
+  ~530 KB) — accepted for a diagnostics tool. A separate non-inlined "editor" build
+  that loads CodeMirror on demand is a possible follow-up if the bundle size matters.
 - **Save As.** Writes the buffer to a new file and **switches the editor to it** (the
   VS Code model), with the target confined to the serve root. The remaining detail —
   the target-path UX (a confined field vs. the launcher's folder browser) — is settled

@@ -1,7 +1,7 @@
 # Dialogue AST Visualization Tab
 
 > [!NOTE]
-> Status: **proposed** (an enhancement to
+> Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md)). The transpiler's
 > Dialogue AST has landed on `main`, so the report can now show it as a **second
 > graph tab** beside the Markdown AST — one more projection over the existing walk,

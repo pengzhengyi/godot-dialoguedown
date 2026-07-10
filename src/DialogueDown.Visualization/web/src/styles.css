@@ -21,12 +21,29 @@ body {
 
 .app-header {
     flex: 0 0 auto;
+    position: relative;
     padding: 0.7rem 1.25rem 0;
     border-bottom: 1px solid var(--pico-muted-border-color);
 }
 
+/* GitHub link, pinned to the top-right of the header. */
+.repo-link {
+    position: absolute;
+    top: 0.6rem;
+    right: 1.25rem;
+    display: inline-flex;
+    line-height: 0;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+}
+
+.repo-link:hover {
+    color: var(--pico-color);
+}
+
 .app-header hgroup {
     margin-bottom: 0.5rem;
+    padding-right: 2rem;
 }
 
 .app-header h1 {

@@ -25,7 +25,10 @@ export default defineConfig({
     build: {
         target: "es2022",
         outDir: "dist",
-        emptyOutDir: true,
+        // The interim launcher.html is a hand-written committed page under dist/ (until
+        // it becomes its own Vite entry); don't empty dist/ or the report build would
+        // wipe it. report.html is overwritten in place by the rename plugin.
+        emptyOutDir: false,
         rollupOptions: {
             output: {
                 // Keep a stable, predictable output filename for the .NET embed.

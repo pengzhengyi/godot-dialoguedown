@@ -18,6 +18,12 @@ public interface INodeProjection<TNode>
     /// <summary>The stage title, for example <c>"Markdown AST"</c>.</summary>
     string Title { get; }
 
+    /// <summary>
+    /// A one-line description of what this stage's graph shows, surfaced as the
+    /// stage tab's hover tooltip in the report.
+    /// </summary>
+    string Description { get; }
+
     /// <summary>Describes one node: its label and any extra attributes.</summary>
     NodeDescription Describe(TNode node);
 

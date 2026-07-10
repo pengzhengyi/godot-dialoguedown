@@ -17,6 +17,7 @@ internal static class Display
     public static DisplayEdge Reference(string fromId, string toId) =>
         new(fromId, toId, DisplayEdgeKind.Reference);
 
-    public static DisplayGraph MakeGraph(string title, DisplayNode[] nodes, DisplayEdge[] edges) =>
-        new(title, nodes, edges);
+    public static DisplayGraph MakeGraph(
+        string title, DisplayNode[] nodes, DisplayEdge[] edges, string description = "") =>
+        new(title, description, nodes, edges);
 }

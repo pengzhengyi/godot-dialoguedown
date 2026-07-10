@@ -37,6 +37,10 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
 
     public string Title => "Markdown AST";
 
+    public string Description =>
+        "The Markdown syntax tree parsed from the source — its document, blocks " +
+        "(headings, paragraphs, lists), and inline spans, each tied to the text it came from.";
+
     public NodeDescription Describe(object node)
     {
         ArgumentNullException.ThrowIfNull(node);

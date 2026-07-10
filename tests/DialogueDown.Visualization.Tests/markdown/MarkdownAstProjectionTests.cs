@@ -20,6 +20,13 @@ public sealed class MarkdownAstProjectionTests
     }
 
     [Fact]
+    public void Description_IsANonEmptyOneLiner()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(_projection.Description));
+        Assert.DoesNotContain('\n', _projection.Description);
+    }
+
+    [Fact]
     public void Describe_NullNode_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => _projection.Describe(null!));

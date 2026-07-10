@@ -58,14 +58,14 @@ contain cycles**. The display model and the traversal are therefore
 - Editing or round-tripping — this is read-only diagnostics.
 - Shipping the visualizer inside the core NuGet package (see
   [D1](#d1--a-separate-project-keeps-the-core-pure)).
-- A public/CLI entry point — the parser's external API is not public yet, so the
-  visualizer is invoked from tests only for now (see [Integration](#integration)).
+- The CLI and live/hosted delivery of the report — the `dialoguedown visualize`
+  command and the loopback server wrap this component and have their own notes;
+  this note covers the render/model core they build on.
 
-**Delivery reality.** On `main`, only the Markdown AST stage exists; the Dialogue
-AST and transpiler are still on a separate branch. So this component ships the
-**framework plus the Markdown AST view first**, and adds the Dialogue AST
-projection once that stage merges to `main`. This matches the
-"developed along the way, sync from `main`" model.
+**Delivery reality.** The Markdown AST stage ships today. The transpiler's
+Dialogue AST has since landed on `main`; its `DialogueAstProjection` is added as a
+second stage the same way — one small projection, with no change to the walk,
+model, or renderers.
 
 ## Ubiquitous language
 
@@ -356,14 +356,13 @@ error model.
   returning `MarkdownDocument`. The projection consumes that seam;
   `InternalsVisibleTo` makes the internal parser and nodes reachable from the
   visualization project.
-- **Sync-from-`main` model.** The component is built on a branch off `main` and
-  periodically merged forward. The Markdown AST view ships first; when the
-  transpiler's Dialogue AST lands on `main`, a `DialogueAstProjection` is added
-  with no change to the walk, model, or renderers.
-- **Entry point.** For now the visualizer is **invoked from tests only** — the
-  parser's external API is not public yet, so there is no CLI or public entry.
-  When the parser exposes a public surface, a CLI or `dotnet run` sample can wrap
-  the same `CompilationVisualizer` facade.
+- **One projection per stage.** The Markdown AST view ships today; now that the
+  transpiler's Dialogue AST has landed on `main`, a `DialogueAstProjection` adds it
+  as a second stage with no change to the walk, model, or renderers.
+- **Entry point.** The `dialoguedown` CLI's `visualize` command wraps the same
+  `CompilationVisualizer` facade — rendering a static report, watching and
+  hot-reloading it, or opening the launcher to browse for a script (see the CLI
+  and Live Visualization notes).
 - **README.** The project README carries a short "full-process transparency"
   section linking here, and lists the visualization project in its layout.
 

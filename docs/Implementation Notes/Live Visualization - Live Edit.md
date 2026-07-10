@@ -1,14 +1,14 @@
 # Live Visualization — Live Edit
 
 > [!NOTE]
-> Status: **proposed** (Component 2 of live visualization). Hot Reload (Component 1)
+> Status: **implemented** (Component 2 of live visualization). Hot Reload (Component 1)
 > watches a file and pushes a recompiled report; the File Launcher (Component 3)
 > browses and opens scripts. This component makes the report's **Source tab an
 > editor** — read-only in Static and Watch (for a consistent look), **editable in
 > Live Edit**. In Live Edit you type, the **preview updates as you type**, and
-> **Save** (⌘/Ctrl+S) writes the buffer to disk and recompiles the graphs. Live Edit
-> owns its buffer: it ignores disk hot-reload (a passive chip notes when the file
-> changed on disk; refresh to re-sync) and Save is a force-overwrite.
+> **Save** (⌘/Ctrl+S or the Save button) writes the buffer to disk and recompiles the
+> graphs. Live Edit owns its buffer: it ignores disk hot-reload (a passive chip notes
+> when the file changed on disk; refresh to re-sync) and Save is a force-overwrite.
 >
 > Like the rest of the visualization tooling, this surface is "vibe-coded" (see the
 > visualization note's maturity caveat); the core engine stays the reviewed surface.
@@ -73,27 +73,27 @@ Reuses the live-visualization language (**session**, **mode**, **report**,
 | **Buffer** | The in-browser editor's current text — what you are typing, which may differ from the file on disk. |
 | **Preview-as-you-type** | Re-rendering the Markdown **preview** from the buffer on each edit, client-side, without touching disk or the server. |
 | **Dirty** | The buffer differs from the last saved content; shown as a marker on the Source tab. |
-| **Save** | Writing the buffer to the document file (⌘/Ctrl+S) — a force-overwrite — which also recompiles the graphs. |
+| **Save** | Writing the buffer to the document file (⌘/Ctrl+S or the Save button) — a force-overwrite — which also recompiles the graphs. |
 | **Disk change** | The file changed on disk under a Live session; surfaced as a passive "refresh to sync" chip, never an auto-reload. |
 
 ## Functionality checklist
 
-- [ ] The Source tab is a code editor (Markdown) in every mode, seeded with the
+- [x] The Source tab is a code editor (Markdown) in every mode, seeded with the
       file's contents; it is **read-only** in Static and Watch and **editable** in
       Live Edit.
-- [ ] Typing re-renders the **preview** in place (client-side); the editor text and
+- [x] Typing re-renders the **preview** in place (client-side); the editor text and
       cursor are untouched and no server call is made.
-- [ ] The graphs **do not** change while typing — they recompile on **Save**.
-- [ ] **⌘/Ctrl+S** and a **Save** button write the buffer to the file (force
+- [x] The graphs **do not** change while typing — they recompile on **Save**.
+- [x] **⌘/Ctrl+S** and a **Save** button write the buffer to the file (force
       overwrite), recompile, and update the graph tabs from the response; the dirty
       marker clears.
-- [ ] The Source tab shows a **dirty** marker whenever the buffer differs from the
+- [x] The Source tab shows a **dirty** marker whenever the buffer differs from the
       last saved content; leaving/refreshing while dirty triggers a `beforeunload`
       confirmation.
-- [ ] In Live Edit an external change to the file shows a passive "**file changed on
+- [x] In Live Edit an external change to the file shows a passive "**file changed on
       disk — refresh to sync**" chip; the editor is **never** auto-reloaded over your
       edits. Refresh re-seeds from disk.
-- [ ] `visualize <script> --live --root <dir>` opens the editor directly; the
+- [x] `visualize <script> --live --root <dir>` opens the editor directly; the
       launcher's **Live Edit** option is enabled and opens the same.
 
 ## Architecture
@@ -146,9 +146,12 @@ flowchart TB
 
 The Source tab's left pane is a **CodeMirror 6** editor (Markdown language, line
 numbers, the app's light/dark theme) in **every** mode; it is `editable` only when
-`mode === "live"` (read-only otherwise), so the Source tab looks and behaves
-identically across modes. The right pane stays the live preview; the draggable
-divider is unchanged. (The node-detail panel keeps highlight.js for its snippets.)
+`mode === "live"`, so the Source tab looks and behaves identically across modes. In
+the other modes it is read-only through CodeMirror's `readOnly` facet (not by
+disabling the editor), which keeps the pane **focusable and selectable** — a
+keyboard user can still reach and scroll the source, and text can be copied. The
+right pane stays the live preview; the draggable divider is unchanged. (The
+node-detail panel keeps highlight.js for its snippets.)
 
 **Why CodeMirror 6** (a lean, vetted shortlist):
 
@@ -186,12 +189,13 @@ meaningful:
   (the seed, then whatever Save last wrote). The Source tab shows a marker (a dot,
   mirroring an editor's unsaved indicator), and a **`beforeunload`** handler prompts
   before a refresh/close/navigation while dirty — the one guard against losing edits.
-- **Save** (`POST /api/save { source }`) is a **force-overwrite**: it writes the
-  buffer to the file regardless of the disk state, then recompiles and returns the
-  stages. `LiveSession.Save` records the bytes it wrote; when the watcher fires for
-  that write, `Refresh` sees disk == last-saved and **suppresses** the event, so a
-  save never bounces back. The dirty marker clears; other open tabs (viewers) get one
-  hot-reload.
+- **Save** (`POST /api/save { source }`), triggered by **⌘/Ctrl+S** or the **Save
+  button** in the status bar (enabled only while dirty), is a **force-overwrite**: it
+  writes the buffer to the file regardless of the disk state, then recompiles and
+  returns the stages. `LiveSession.Save` records the bytes it wrote; when the watcher
+  fires for that write, `Refresh` sees disk == last-saved and **suppresses** the
+  event, so a save never bounces back. The dirty marker clears; other open tabs
+  (viewers) get one hot-reload.
 - **Disk change.** When the watcher fires and disk != last-saved (a real external
   edit), Live Edit shows the passive "**file changed on disk — refresh to sync**"
   chip and otherwise **ignores** it — the buffer is never clobbered. An explicit
@@ -283,26 +287,32 @@ Same posture as Hot Reload and the Launcher, plus the first **write** route:
 - **`LiveSession`** (unit, .NET): `Save(buffer)` writes the file (force overwrite)
   and returns compiled stages for the buffer; after a save, `Refresh` suppresses the
   self-triggered event, while an external change still broadcasts `reload`.
-- **Server route** (integration, .NET): `POST /api/save` writes the document and
-  returns the compiled payload; a write error returns a message, not a 500.
-- **Editor client** (unit, vitest): the Source tab builds an editable CodeMirror in
-  `live` mode and a read-only one otherwise; an edit re-renders the preview and sets
-  dirty (no server call); ⌘/Ctrl+S calls the injected `save` port and is prevented
-  from bubbling, and dirty clears on save; a disk-changed event shows the chip (not a
-  reload); `beforeunload` is armed only while dirty.
-- **End to end** (Playwright, live): `visualize --live` over a temp file — type and
-  assert the preview updates while the graphs and file are unchanged; ⌘S and assert
-  the file now matches and the graphs updated; edit the file on disk and assert the
-  chip appears while the buffer is preserved.
+- **Server routes** (integration, .NET): `POST /api/save` on the standalone live
+  server and on the launcher's active session writes the document and returns the
+  compiled payload; it is live-only (a read-only report returns `404`), and a write
+  error returns a message, not a `500`.
+- **Live Edit logic** (unit, vitest): the state machine drives dirty/save/disk-change
+  through injected ports — the first edit marks dirty and arms the unload guard,
+  repeated edits do not re-fire it, Save posts the **latest** edited buffer and
+  applies the recompiled stages and clears dirty, a failed save stays dirty, Save is a
+  no-op when nothing changed, and a disk change shows the chip without a reload.
+- **Editor and Save round-trip** (end to end, Playwright live): CodeMirror and the
+  DOM/fetch/`EventSource` ports are browser-integration (excluded from the jsdom unit
+  suite), so `visualize --live` over a temp file exercises them for real — type and
+  assert the preview updates while the graphs and file are unchanged and the Save
+  button enables; click **Save** (and press ⌘/Ctrl+S) and assert the file now matches,
+  the graphs updated, and dirty clears; edit the file on disk and assert the chip
+  appears while the buffer is preserved.
 
 ## Follow-ups
 
 Both are deliberately out of this component and picked up next:
 
 - **Lazy-loaded editor.** CodeMirror is bundled into the single-file report **now**
-  (no cross-file lazy-load), which grows it — accepted for a diagnostics tool. A
-  separate non-inlined "editor" build that loads CodeMirror on demand is a possible
-  follow-up if the bundle size matters.
+  (no cross-file lazy-load), which grew the report bundle to ~750 KB (from ~270 KB —
+  CodeMirror adds ~480 KB) — accepted for a diagnostics tool. A separate non-inlined
+  "editor" build that loads CodeMirror on demand is a possible follow-up if the bundle
+  size matters.
 - **Save As.** Writes the buffer to a new file and **switches the editor to it** (the
   VS Code model), with the target confined to the serve root. The remaining detail —
   the target-path UX (a confined field vs. the launcher's folder browser) — is settled

@@ -51,6 +51,6 @@ public static class GraphWalk
         }
 
         Visit(root);
-        return new DisplayGraph(projection.Title, nodes, edges);
+        return new DisplayGraph(projection.Title, projection.Description, nodes, edges);
     }
 }

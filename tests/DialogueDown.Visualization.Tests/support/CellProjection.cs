@@ -22,6 +22,8 @@ internal sealed class CellProjection : INodeProjection<Cell>
 
     public string Title { get; init; } = "Cells";
 
+    public string Description { get; init; } = "A cell graph.";
+
     public CellProjection Link(Cell from, params Cell[] to)
     {
         _neighbours[from] = to;

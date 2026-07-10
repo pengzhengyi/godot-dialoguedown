@@ -1,9 +1,12 @@
 # Implementation note: Desugar
 
-> [!NOTE]
-> Status: **proposed** — a design draft, not yet implemented. Component 3 of the
-> DialogueDown script compiler, sitting between the transpiler and semantic
-> analysis.
+> [!IMPORTANT]
+> Status: **implemented**. Component 3 of the DialogueDown script compiler, sitting
+> between the transpiler and semantic analysis. Both local rules ship — jump
+> assembly (`JumpAssembler`) and default-speaker fill (`DefaultSpeakerFiller`) —
+> wired through the reusable `DialogueAstRewriter` and exposed via the
+> `IScriptDesugarer` seam (`ScriptDesugarer`), with the result wrapped as a
+> `DesugaredScriptDocument`.
 
 ## Table of contents
 
@@ -82,7 +85,7 @@ through unchanged.
 | --------------------------- | ---------------------------------------------------------------------- |
 | **Desugar**                 | the stage that composes and normalizes the Dialogue AST.               |
 | **Rewriter**                | an immutable tree transformer: clone by default, override a few nodes. |
-| **Rule**                    | one small, named transform (`FillDefaultSpeaker`, `AssembleJumps`).    |
+| **Rule**                    | one small, named transform (`DefaultSpeakerFiller`, `JumpAssembler`).  |
 | **Jump**                    | an assembled jump fragment: a label and an unresolved target.          |
 | **DefaultSpeaker**          | the sentinel for "the default speaker", resolved later.                |
 | **DesugaredScriptDocument** | the desugared tree, wrapped as a distinct pipeline-stage type.         |
@@ -91,19 +94,19 @@ through unchanged.
 
 ## Functionality checklist
 
-- [ ] **Assemble a `Jump`** from `JumpIndicator · (same-line whitespace) · Link`
+- [x] **Assemble a `Jump`** from `JumpIndicator · (same-line whitespace) · Link`
       in any fragment sequence, folding the between-whitespace into the jump's span.
-- [ ] **Degrade a dangling `=>`** to a plain `Text` at the arrow's own span, kept
+- [x] **Degrade a dangling `=>`** to a plain `Text` at the arrow's own span, kept
       granular (folding adjacent text is a later, rendering-stage concern).
-- [ ] **Keep a bare `Link`** (no preceding `=>`) as an inline link.
-- [ ] **Fill `DefaultSpeaker`** on a `Line` that names no speaker.
-- [ ] **Cover silent commands** by the same default-speaker fill.
-- [ ] **Reusable rewriter**: clone by default, a complete set of typed hooks
+- [x] **Keep a bare `Link`** (no preceding `=>`) as an inline link.
+- [x] **Fill `DefaultSpeaker`** on a `Line` that names no speaker.
+- [x] **Cover silent commands** by the same default-speaker fill.
+- [x] **Reusable rewriter**: clone by default, a complete set of typed hooks
       (blocks, line, speaker, tag, and every fragment sequence).
-- [ ] **Invariants after Desugar**: no `JumpIndicator` survives; no `Line` has a
+- [x] **Invariants after Desugar**: no `JumpIndicator` survives; no `Line` has a
       null speaker.
-- [ ] **Wrap the result** in a `DesugaredScriptDocument` stage marker.
-- [ ] **Everything else passes through** structurally unchanged.
+- [x] **Wrap the result** in a `DesugaredScriptDocument` stage marker.
+- [x] **Everything else passes through** structurally unchanged.
 
 ## Interfaces and abstractions
 
@@ -112,8 +115,8 @@ through unchanged.
 | `IScriptDesugarer`        | public seam: `DesugaredScriptDocument Desugar(ScriptDocument, string source)`; `source` is validated only, held for future warnings | `ScriptDocument`, `DesugaredScriptDocument` |
 | `Desugarer`               | the default desugarer — a `DialogueAstRewriter` wired with the rules                                                                | rewriter, rules                             |
 | `DialogueAstRewriter`     | immutable clone-by-default tree rewrite with a complete set of typed hooks                                                          | `ScriptNode`                                |
-| `FillDefaultSpeaker`      | rule: a `Line` with no speaker gets a `DefaultSpeaker`                                                                              | `Line`, `DefaultSpeaker`                    |
-| `AssembleJumps`           | rule: fold `JumpIndicator · Link` into `Jump`; degrade dangling                                                                     | `InlineFragment` list                       |
+| `DefaultSpeakerFiller`    | rule: a `Line` with no speaker gets a `DefaultSpeaker` at a zero-width caret                                                        | `Line`, `DefaultSpeaker`                    |
+| `JumpAssembler`           | rule: fold `JumpIndicator · (same-line whitespace) · Link` into `Jump`; degrade a dangling `=>` to plain text                       | `InlineFragment` list                       |
 | `Jump` (AST)              | assembled jump fragment: label + unresolved target                                                                                  | `InlineFragment`                            |
 | `DefaultSpeaker` (AST)    | the default-speaker sentinel                                                                                                        | `Speaker`                                   |
 | `DesugaredScriptDocument` | thin wrapper marking a desugared tree, so stages type-check in order                                                                | `ScriptDocument`                            |
@@ -155,8 +158,8 @@ the two transforms stay independent and are never interleaved during traversal:
 
 ```text
 Desugarer : DialogueAstRewriter
-  RewriteLine(line)      = FillDefaultSpeaker(base.RewriteLine(line))
-  RewriteFragments(list) = AssembleJumps(base.RewriteFragments(list))
+  RewriteLine(line)      = DefaultSpeakerFiller.Fill(base.RewriteLine(line))
+  RewriteFragments(list) = JumpAssembler.Assemble(base.RewriteFragments(list))
 ```
 
 A **configurable rule pipeline** (registering rules dynamically) is a deliberate
@@ -251,8 +254,7 @@ References and declarations pass through unchanged: `SpeakerDeclaration`,
 left for semantic analysis to resolve. In particular, merging a
 `PartialSpeakerDeclaration`'s tags **into the referenced speaker** needs that
 speaker's declaration (document-wide), so it belongs to semantic analysis, not
-here. (The transpiler note's D11 currently assigns that merge to Desugar; it will
-be corrected to say semantic analysis.)
+here.
 
 ## Desugar in pseudocode
 
@@ -265,26 +267,26 @@ Desugar(document, source):
 # hook overrides
 RewriteLine(line):
     line = base.RewriteLine(line)         # rewrite speech first (assembles inner jumps)
-    return FillDefaultSpeaker(line)
+    return DefaultSpeakerFiller.Fill(line)
 
 RewriteFragments(fragments):
     fragments = base.RewriteFragments(fragments)   # rewrite each fragment first
-    return AssembleJumps(fragments)
+    return JumpAssembler.Assemble(fragments)
 
 # rules
-FillDefaultSpeaker(line):
+DefaultSpeakerFiller.Fill(line):
     if line.Speaker is null:
-        return line with Speaker = DefaultSpeaker(line.Span)
+        return line with Speaker = DefaultSpeaker(EmptyAt(line.Span.Start))   # caret
     return line
 
-AssembleJumps(fragments):
+JumpAssembler.Assemble(fragments):
     out = []
     i = 0
     while i < fragments.length:
         if fragments[i] is JumpIndicator:
             j = skipBlanks(fragments, i + 1)
             if fragments[j] is Link link:
-                out += Jump(link.Label, link.Target, cover(fragments[i], link))
+                out += Jump(link.Target, link.Label, cover(fragments[i], link))
                 i = j + 1
                 continue
             out += Text("=>", fragments[i].Span)                 # dangling

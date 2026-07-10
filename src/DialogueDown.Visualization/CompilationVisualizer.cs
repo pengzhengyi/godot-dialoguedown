@@ -1,4 +1,5 @@
 using DialogueDown.Markdown;
+using DialogueDown.Script.Transpiler;
 
 namespace DialogueDown.Visualization;
 
@@ -9,13 +10,14 @@ namespace DialogueDown.Visualization;
 /// the same facade to render and serialize a document.
 /// </summary>
 /// <remarks>
-/// Only the Markdown AST stage exists on <c>main</c> today. The Dialogue AST stage
-/// is appended in <see cref="BuildStages"/> once the transpiler lands, with no
-/// change to the walk, model, or renderers.
+/// <see cref="BuildStages"/> projects two stages: the parsed Markdown AST and the
+/// Dialogue AST the transpiler derives from it. Each is one projection over the shared
+/// walk, model, and renderers.
 /// </remarks>
 public sealed class CompilationVisualizer
 {
     private readonly IMarkdownParser _parser;
+    private readonly IScriptTranspiler _transpiler;
 
     /// <summary>Creates a visualizer using the default Markdig-based parser.</summary>
     public CompilationVisualizer()
@@ -25,9 +27,17 @@ public sealed class CompilationVisualizer
 
     /// <summary>Creates a visualizer over a specific <paramref name="parser"/>.</summary>
     internal CompilationVisualizer(IMarkdownParser parser)
+        : this(parser, ScriptTranspilerFactory.CreateDefault())
+    {
+    }
+
+    /// <summary>Creates a visualizer over a specific parser and transpiler.</summary>
+    internal CompilationVisualizer(IMarkdownParser parser, IScriptTranspiler transpiler)
     {
         ArgumentNullException.ThrowIfNull(parser);
+        ArgumentNullException.ThrowIfNull(transpiler);
         _parser = parser;
+        _transpiler = transpiler;
     }
 
     /// <summary>Compiles the source and projects each stage into a display graph.</summary>
@@ -35,7 +45,8 @@ public sealed class CompilationVisualizer
     {
         ArgumentNullException.ThrowIfNull(source);
         var markdown = _parser.Parse(source);
-        return [markdown.ToDisplayGraph(source)];
+        var dialogue = _transpiler.Transpile(markdown, source);
+        return [markdown.ToDisplayGraph(source), dialogue.ToDisplayGraph(source)];
     }
 
     /// <summary>

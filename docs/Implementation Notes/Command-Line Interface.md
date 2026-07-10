@@ -128,7 +128,7 @@ The CLI is becoming a first-class surface, so it deserves a real framework rathe
 than growing a bespoke parser. **Spectre.Console.Cli** gives a strongly-typed
 command/settings model, automatic `--help`/`--version`, subcommands, validation,
 and a DI seam; paired with **Spectre.Console** it also unlocks modern, readable
-output (tables, colour, prompts) for later. It is MIT-licensed, widely adopted, and
+output (tables, color, prompts) for later. It is MIT-licensed, widely adopted, and
 first-class **testable** (see [Testability](#testability)). The one trade-off is
 its pre-1.0 (0.x) versioning — minor bumps can carry small API changes — accepted
 because the CLI API has been stable for years and this avoids reinventing a parser.

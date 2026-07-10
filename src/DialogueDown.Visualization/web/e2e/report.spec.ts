@@ -36,6 +36,21 @@ test("clicking a preview anchor link scrolls to its heading", async ({ page }) =
     await expect(page.locator("#the-market")).toBeInViewport();
 });
 
+test("the theme toggle forces light/dark and returns to following the system", async ({ page }) => {
+    const html = page.locator("html");
+    await expect(page.locator(".theme-select")).toBeVisible();
+
+    await page.selectOption(".theme-select", "dark");
+    await expect(html).toHaveAttribute("data-theme", "dark");
+
+    await page.selectOption(".theme-select", "light");
+    await expect(html).toHaveAttribute("data-theme", "light");
+
+    // "System" removes the override so the page follows prefers-color-scheme again.
+    await page.selectOption(".theme-select", "system");
+    await expect(html).not.toHaveAttribute("data-theme");
+});
+
 test("switching from Source to the Markdown AST tab shows the graph and detail panel", async ({
     page,
 }) => {

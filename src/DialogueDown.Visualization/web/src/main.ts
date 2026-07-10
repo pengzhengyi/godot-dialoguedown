@@ -10,6 +10,7 @@ import { initLiveEditUi, watchDiskChanges } from "./live-edit-ui";
 import { initModeBadge } from "./mode-badge";
 import { initPathDisplay } from "./path-display";
 import { initBackToLauncher } from "./back-link";
+import { initTheme } from "./theme";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
 import type { Report } from "./model";
 
@@ -29,6 +30,9 @@ function resolveReport(): Report {
 
 const report = resolveReport();
 const header = document.querySelector<HTMLElement>(".app-header");
+
+// Apply the saved color theme and mount the System/Light/Dark toggle (every mode).
+initTheme(header?.querySelector(".header-controls") ?? null);
 
 if (report.mode === "live") {
     // Live Edit: the editor owns the buffer. Save writes it and recompiles the graphs;

@@ -2,8 +2,28 @@ import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 import { renderDocument } from "./text";
+
+/**
+ * Markdown syntax highlighting driven by CSS variables (`--md-*`), so the editor
+ * follows the page's light/dark theme live — the colors resolve in the document, so
+ * switching the theme re-colors the editor without rebuilding it. Strong and emphasis
+ * keep the foreground color and lean on weight/slant, which reads in both themes.
+ */
+const markdownHighlightStyle = HighlightStyle.define([
+    { tag: tags.heading, color: "var(--md-heading)", fontWeight: "600" },
+    { tag: tags.strong, fontWeight: "700" },
+    { tag: tags.emphasis, fontStyle: "italic" },
+    { tag: [tags.link, tags.url], color: "var(--md-link)", textDecoration: "underline" },
+    { tag: tags.monospace, color: "var(--md-code)" },
+    { tag: tags.quote, color: "var(--md-muted)" },
+    {
+        tag: [tags.processingInstruction, tags.list, tags.contentSeparator],
+        color: "var(--md-muted)",
+    },
+]);
 
 /** Bounds for the draggable split, as a fraction of the container width. */
 const MIN_RATIO = 0.2;
@@ -65,7 +85,7 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
                 history(),
                 keymap.of([...defaultKeymap, ...historyKeymap]),
                 markdown(),
-                syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+                syntaxHighlighting(markdownHighlightStyle),
                 EditorView.lineWrapping,
                 // Read-only (Static/Watch) keeps the editor focusable and selectable — it
                 // just rejects edits — so the scrollable pane stays keyboard-accessible.

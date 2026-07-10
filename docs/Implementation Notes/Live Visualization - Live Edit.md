@@ -152,9 +152,11 @@ numbers, the app's light/dark theme) in **every** mode; it is `editable` only wh
 `mode === "live"`, so the Source tab looks and behaves identically across modes. In
 the other modes it is read-only through CodeMirror's `readOnly` facet (not by
 disabling the editor), which keeps the pane **focusable and selectable** — a
-keyboard user can still reach and scroll the source, and text can be copied. The
-right pane stays the live preview; the draggable divider is unchanged. (The
-node-detail panel keeps highlight.js for its snippets.)
+keyboard user can still reach and scroll the source, and text can be copied. Syntax
+highlighting is driven by CSS variables (`--md-*`), so the editor follows the page's
+light/dark theme — including the header's **System / Light / Dark** toggle — live,
+without rebuilding the editor. The right pane stays the live preview; the draggable
+divider is unchanged.
 
 **Why CodeMirror 6** (a lean, vetted shortlist):
 

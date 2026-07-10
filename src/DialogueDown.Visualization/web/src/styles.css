@@ -1,11 +1,32 @@
 :root {
     --dd-reference: #cf222e;
+
+    /* Markdown editor syntax colors (CodeMirror reads these live, so the editor
+       follows the theme). Light values here; dark overrides below. */
+    --md-heading: #0550ae;
+    --md-link: #0969da;
+    --md-code: #0550ae;
+    --md-muted: #6e7781;
 }
 
+/* System dark (unless the reader forced light). */
 @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
         --dd-reference: #f85149;
+        --md-heading: #79c0ff;
+        --md-link: #79c0ff;
+        --md-code: #a5d6ff;
+        --md-muted: #8b949e;
     }
+}
+
+/* Forced dark (the toggle), regardless of the OS preference. */
+[data-theme="dark"] {
+    --dd-reference: #f85149;
+    --md-heading: #79c0ff;
+    --md-link: #79c0ff;
+    --md-code: #a5d6ff;
+    --md-muted: #8b949e;
 }
 
 html,
@@ -26,11 +47,17 @@ body {
     border-bottom: 1px solid var(--pico-muted-border-color);
 }
 
-/* GitHub link, pinned to the top-right of the header. */
-.repo-link {
+/* GitHub link and theme toggle, pinned together to the top-right of the header. */
+.header-controls {
     position: absolute;
-    top: 0.6rem;
+    top: 0.5rem;
     right: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.repo-link {
     display: inline-flex;
     line-height: 0;
     color: var(--pico-muted-color);
@@ -39,6 +66,16 @@ body {
 
 .repo-link:hover {
     color: var(--pico-color);
+}
+
+/* Compact System/Light/Dark selector in the header controls. */
+.theme-select {
+    width: auto;
+    margin: 0;
+    padding: 0.15rem 1.75rem 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    height: auto;
 }
 
 /* "Back to launcher" link, shown only on a launcher-served report (see back-link.ts). */
@@ -56,7 +93,7 @@ body {
 
 .app-header hgroup {
     margin-bottom: 0.5rem;
-    padding-right: 2rem;
+    padding-right: 8.5rem; /* clear the top-right controls (theme select + GitHub link) */
 }
 
 .app-header h1 {
@@ -218,6 +255,7 @@ section.stage.error {
 }
 
 .source-pane .cm-content {
+    color: var(--pico-color);
     caret-color: var(--pico-color);
 }
 

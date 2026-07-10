@@ -7,6 +7,7 @@
     --md-link: #0969da;
     --md-code: #0550ae;
     --md-muted: #6e7781;
+    --cm-selection: #add6ff;
 }
 
 /* System dark (unless the reader forced light). */
@@ -17,6 +18,7 @@
         --md-link: #79c0ff;
         --md-code: #a5d6ff;
         --md-muted: #8b949e;
+        --cm-selection: #3a5f8f;
     }
 }
 
@@ -27,6 +29,7 @@
     --md-link: #79c0ff;
     --md-code: #a5d6ff;
     --md-muted: #8b949e;
+    --cm-selection: #3a5f8f;
 }
 
 html,
@@ -270,6 +273,20 @@ section.stage.error {
 .source-pane .cm-content {
     color: var(--pico-color);
     caret-color: var(--pico-color);
+}
+
+/* A prominent caret and a readable selection in both themes (drawSelection draws its
+   own cursor/selection, so the native caret-color above is only a fallback). */
+.source-pane .cm-cursor,
+.source-pane .cm-dropCursor {
+    border-left-width: 2px;
+    border-left-color: var(--pico-color);
+}
+
+.source-pane .cm-selectionBackground,
+.source-pane .cm-focused .cm-selectionBackground,
+.source-pane .cm-line ::selection {
+    background: var(--cm-selection);
 }
 
 /* Fold markers in the gutter, and the placeholder shown for a folded section. */
@@ -644,13 +661,17 @@ svg.tree {
 .app-footer {
     flex: 0 0 auto;
     display: flex;
-    flex-wrap: nowrap; /* keep the status bar and the help on one row (the help shrinks
-       and wraps its own text) so the help never drops to a line below the status bar */
-    align-items: flex-start; /* status bar sticks to the top, not centered against the taller expanded help */
-    gap: 0.4rem 1rem;
-    padding: 0.4rem 1.25rem;
+    flex-direction: column; /* the status line, then the expandable help below it */
     border-top: 1px solid var(--pico-muted-border-color);
     font-size: 0.8rem;
+}
+
+/* The status line: the status bar (left) and the "How to use" toggle (right). */
+.status-line {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem 1rem;
+    padding: 0.4rem 1.25rem;
 }
 
 /* Left status bar: the mode badge and the document path. */
@@ -774,25 +795,45 @@ svg.tree {
     font-weight: 600;
 }
 
-.app-footer .help {
-    flex: 0 1 auto;
-    min-width: 0; /* let the help shrink and wrap its shortcut lines in place instead of
-       the whole block dropping below the status bar, so its summary stays on the top
-       row — level with the status bar and path — at every width */
+/* The "How to use" disclosure toggle on the status line. */
+.app-footer .help-toggle {
+    /* Reset Pico's full-width button so it sits inline at the right of the status line. */
+    --pico-color: inherit;
+    --pico-background-color: transparent;
 
-    /* On a wide row the status bar's flex-grow pushes this to the right; when space is
-       tight the help shrinks in place and its lines wrap. */
-    margin-left: auto;
-    max-width: 100%;
-}
-
-.app-footer summary {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: auto;
+    margin: 0 0 0 auto;
+    padding: 0.1rem 0.3rem;
+    border: none;
+    background: transparent;
     color: var(--pico-muted-color);
+    font-size: 0.8rem;
     cursor: pointer;
 }
 
+.app-footer .help-toggle:hover {
+    color: var(--pico-color);
+}
+
+.app-footer .help-caret::before {
+    content: "›";
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.app-footer .help-toggle[aria-expanded="true"] .help-caret::before {
+    transform: rotate(90deg);
+}
+
+/* The shortcut panel, shown full width below the status line when expanded. */
 .app-footer .shortcuts {
-    padding: 0.4rem 0 0.2rem;
+    padding: 0.5rem 1.25rem 0.6rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+    background: var(--pico-card-background-color);
 }
 
 .app-footer .shortcuts p {
@@ -844,8 +885,8 @@ svg.tree {
         align-items: stretch;
     }
 
-    .app-footer .help {
-        margin-left: 0;
+    .app-footer .help-toggle {
+        margin-left: auto;
     }
 }
 

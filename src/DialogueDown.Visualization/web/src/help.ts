@@ -50,3 +50,18 @@ export function setHelp(context: HelpContext): void {
     if (summary) summary.textContent = SUMMARY[context];
     if (content) content.innerHTML = CONTENT[context];
 }
+
+/**
+ * Wire the footer's "How to use" disclosure: the toggle stays on the status line, and
+ * clicking it shows or hides the shortcut panel below the status bar (full width).
+ */
+export function initHelpToggle(): void {
+    const toggle = document.getElementById("help-toggle");
+    const content = document.getElementById("help-content");
+    if (!toggle || !content) return;
+    toggle.addEventListener("click", () => {
+        const open = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", String(!open));
+        content.hidden = open;
+    });
+}

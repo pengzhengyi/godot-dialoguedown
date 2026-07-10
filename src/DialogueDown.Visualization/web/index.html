@@ -52,16 +52,25 @@
             </aside>
         </main>
         <footer class="app-footer">
-            <div class="status-bar">
-                <span id="mode-badge" class="mode-badge"></span>
-                <button id="doc-path" class="doc-path" type="button" hidden>
-                    <span class="path-head"></span><span class="path-tail"></span>
+            <div class="status-line">
+                <div class="status-bar">
+                    <span id="mode-badge" class="mode-badge"></span>
+                    <button id="doc-path" class="doc-path" type="button" hidden>
+                        <span class="path-head"></span><span class="path-tail"></span>
+                    </button>
+                </div>
+                <button
+                    type="button"
+                    id="help-toggle"
+                    class="help-toggle"
+                    aria-expanded="false"
+                    aria-controls="help-content"
+                >
+                    <span id="help-summary">How to use</span>
+                    <span class="help-caret" aria-hidden="true"></span>
                 </button>
             </div>
-            <details class="help">
-                <summary id="help-summary">How to use</summary>
-                <div id="help-content" class="shortcuts"></div>
-            </details>
+            <div id="help-content" class="shortcuts" hidden></div>
         </footer>
         <script>
             window.__DD_REPORT__ = "__REPORT__";

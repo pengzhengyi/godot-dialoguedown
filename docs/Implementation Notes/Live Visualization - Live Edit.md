@@ -155,8 +155,9 @@ disabling the editor), which keeps the pane **focusable and selectable** — a
 keyboard user can still reach and scroll the source, and text can be copied. Syntax
 highlighting is driven by CSS variables (`--md-*`), so the editor follows the page's
 light/dark theme — including the header's **System / Light / Dark** toggle — live,
-without rebuilding the editor. The right pane stays the live preview; the draggable
-divider is unchanged.
+without rebuilding the editor. The caret and text selection are themed to stay visible
+in both schemes. The right pane stays the live preview; the draggable divider is
+unchanged.
 
 **Authoring and navigation aids** — all CodeMirror-official extensions, from packages
 already in the bundle. Every mode gets **search** (⌘/Ctrl-F), **section folding** (a

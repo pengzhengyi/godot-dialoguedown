@@ -11,6 +11,7 @@ import { initModeBadge } from "./mode-badge";
 import { initPathDisplay } from "./path-display";
 import { initBackToLauncher } from "./back-link";
 import { initTheme } from "./theme";
+import { initHelpToggle } from "./help";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
 import type { Report } from "./model";
 
@@ -56,3 +57,4 @@ if (report.mode === "live") {
 
 initModeBadge(report.mode ?? "static");
 initPathDisplay(report.path);
+initHelpToggle();

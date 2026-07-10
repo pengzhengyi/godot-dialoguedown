@@ -1,17 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
-import { initLauncher, leafName, parentPath, type BrowseListing } from "./launcher";
+import { initLauncher, leafName, dirName, isUnder, type BrowseListing } from "./launcher";
 
 const rootListing: BrowseListing = {
-    path: "",
-    parent: null,
-    directories: ["proj"],
-    sources: ["a.dialogue.md"],
+    path: "/root",
+    parent: "/",
+    directories: ["/root/proj"],
+    sources: ["/root/a.dialogue.md"],
 };
 const projListing: BrowseListing = {
-    path: "proj",
-    parent: "",
+    path: "/root/proj",
+    parent: "/root",
     directories: [],
-    sources: ["proj/scene.dialogue.md"],
+    sources: ["/root/proj/scene.dialogue.md"],
 };
 
 function ports(overrides: Partial<ReturnType<typeof basePorts>> = {}) {
@@ -20,7 +20,7 @@ function ports(overrides: Partial<ReturnType<typeof basePorts>> = {}) {
 
 function basePorts() {
     return {
-        browse: vi.fn(async (path: string) => (path === "proj" ? projListing : rootListing)),
+        browse: vi.fn(async (path: string) => (path === "/root/proj" ? projListing : rootListing)),
         open: vi.fn(async () => "http://127.0.0.1:1/r/proj/"),
         navigate: vi.fn<(url: string) => void>(),
     };
@@ -30,48 +30,55 @@ const flush = () => new Promise((resolve) => setTimeout(resolve));
 const items = (root: HTMLElement, selector = ".launcher-item") =>
     [...root.querySelectorAll(selector)].map((node) => node.textContent);
 
-describe("leafName / parentPath", () => {
-    it("leafName returns the last path segment", () => {
-        expect(leafName("proj/scene.dialogue.md")).toBe("scene.dialogue.md");
-        expect(leafName("")).toBe("");
+describe("path helpers", () => {
+    it("leafName returns the last segment (either separator)", () => {
+        expect(leafName("/root/proj/scene.dialogue.md")).toBe("scene.dialogue.md");
+        expect(leafName("C:\\a\\b")).toBe("b");
     });
 
-    it("parentPath drops the last segment", () => {
-        expect(parentPath("a/b/c")).toBe("a/b");
-        expect(parentPath("a")).toBe("");
+    it("dirName returns the parent, and / at the top", () => {
+        expect(dirName("/root/proj/scene.dialogue.md")).toBe("/root/proj");
+        expect(dirName("/root")).toBe("/");
+    });
+
+    it("isUnder tests containment", () => {
+        expect(isUnder("/root", "/root/a.dialogue.md")).toBe(true);
+        expect(isUnder("/root", "/root")).toBe(true);
+        expect(isUnder("/root", "/other/x")).toBe(false);
     });
 });
 
 describe("initLauncher", () => {
-    it("renders the root, its folders and its sources", async () => {
+    it("renders the folders and sources of the start root", async () => {
         const container = document.createElement("div");
         const p = ports();
 
-        initLauncher(container, { root: "/proj", source: null, mode: "static" }, p);
+        initLauncher(container, { root: "/root", source: null, mode: "static" }, p);
         await flush();
 
-        expect(container.querySelector(".launcher-root-path")?.textContent).toBe("/proj");
-        expect(items(container)).toEqual(["proj", "a.dialogue.md"]);
-        expect(p.browse).toHaveBeenCalledWith("");
+        expect(items(container, ".launcher-item.dir")).toEqual(["proj"]);
+        expect(items(container, ".launcher-item.src")).toEqual(["a.dialogue.md"]);
+        expect(container.querySelector(".launcher-root-path")?.textContent).toBe("/root");
+        expect(p.browse).toHaveBeenCalledWith("/root");
     });
 
-    it("browses into a directory when it is clicked", async () => {
+    it("browses into a directory when clicked", async () => {
         const container = document.createElement("div");
         const p = ports();
-        initLauncher(container, { root: "/", source: null, mode: "static" }, p);
+        initLauncher(container, { root: "/root", source: null, mode: "static" }, p);
         await flush();
 
         (container.querySelector(".launcher-item.dir") as HTMLElement).click();
         await flush();
 
-        expect(p.browse).toHaveBeenLastCalledWith("proj");
+        expect(p.browse).toHaveBeenLastCalledWith("/root/proj");
         expect(items(container, ".launcher-item.src")).toEqual(["scene.dialogue.md"]);
     });
 
-    it("selects a source, enabling and driving Open", async () => {
+    it("selects a source and drives Open with the root", async () => {
         const container = document.createElement("div");
         const p = ports();
-        initLauncher(container, { root: "/", source: null, mode: "watch" }, p);
+        initLauncher(container, { root: "/root", source: null, mode: "watch" }, p);
         await flush();
         const open = container.querySelector(".launcher-open") as HTMLButtonElement;
 
@@ -81,29 +88,62 @@ describe("initLauncher", () => {
 
         open.click();
         await flush();
-        expect(p.open).toHaveBeenCalledWith("a.dialogue.md", "watch");
+        expect(p.open).toHaveBeenCalledWith("/root", "/root/a.dialogue.md", "watch");
         expect(p.navigate).toHaveBeenCalledWith("http://127.0.0.1:1/r/proj/");
     });
 
-    it("pre-selects the initial source and enables Open", async () => {
+    it("pre-selects the initial source and browses its folder", async () => {
         const container = document.createElement("div");
         const p = ports({ browse: vi.fn(async () => projListing) });
 
-        initLauncher(container, { root: "/", source: "proj/scene.dialogue.md", mode: "static" }, p);
+        initLauncher(
+            container,
+            { root: "/root", source: "/root/proj/scene.dialogue.md", mode: "static" },
+            p,
+        );
         await flush();
 
-        expect(p.browse).toHaveBeenCalledWith("proj");
+        expect(p.browse).toHaveBeenCalledWith("/root/proj");
         expect(container.querySelector(".launcher-item.selected")?.textContent).toBe(
             "scene.dialogue.md",
         );
-        expect((container.querySelector(".launcher-open") as HTMLButtonElement).disabled).toBe(
-            false,
-        );
+    });
+
+    it("'Use current folder' sets the serving root to the browsed folder", async () => {
+        const container = document.createElement("div");
+        const p = ports();
+        initLauncher(container, { root: "/root", source: null, mode: "static" }, p);
+        await flush();
+        (container.querySelector(".launcher-item.dir") as HTMLElement).click();
+        await flush();
+
+        (container.querySelector(".launcher-set-root") as HTMLElement).click();
+
+        expect(container.querySelector(".launcher-root-path")?.textContent).toBe("/root/proj");
+    });
+
+    it("selecting a source outside the root re-roots to its folder", async () => {
+        const container = document.createElement("div");
+        const outside: BrowseListing = {
+            path: "/other",
+            parent: "/",
+            directories: [],
+            sources: ["/other/x.dialogue.md"],
+        };
+        const p = ports({ browse: vi.fn(async () => outside) });
+        initLauncher(container, { root: "/root", source: null, mode: "static" }, p);
+        await flush();
+
+        (container.querySelector(".launcher-item.src") as HTMLElement).click();
+        (container.querySelector(".launcher-open") as HTMLButtonElement).click();
+        await flush();
+
+        expect(p.open).toHaveBeenCalledWith("/other", "/other/x.dialogue.md", "static");
     });
 
     it("disables the Live Edit mode and defaults to static", async () => {
         const container = document.createElement("div");
-        initLauncher(container, { root: "/", source: null, mode: "static" }, ports());
+        initLauncher(container, { root: "/root", source: null, mode: "static" }, ports());
         await flush();
 
         expect((container.querySelector('input[value="live"]') as HTMLInputElement).disabled).toBe(
@@ -112,18 +152,5 @@ describe("initLauncher", () => {
         expect((container.querySelector('input[value="static"]') as HTMLInputElement).checked).toBe(
             true,
         );
-    });
-
-    it("shows a parent row that browses up", async () => {
-        const container = document.createElement("div");
-        const p = ports({ browse: vi.fn(async () => projListing) });
-        initLauncher(container, { root: "/", source: null, mode: "static" }, p);
-        await flush();
-
-        const up = container.querySelector(".launcher-item.up") as HTMLElement;
-        expect(up.textContent).toBe("..");
-        up.click();
-        await flush();
-        expect(p.browse).toHaveBeenLastCalledWith("");
     });
 });

@@ -1,17 +1,19 @@
 /**
- * The launcher client: browse the launch root for `.dialogue.md` sources, pick one and a
- * mode, and open its report. The DOM building lives here (unit-tested with jsdom); the
- * browser wiring — CSS imports, `fetch`, and navigation — lives in `launcher-main.ts`.
+ * The launcher client: browse the local filesystem (anywhere, like Open Folder) for a
+ * `.dialogue.md` source, choose the **root** it is served from, pick a **mode**, and open
+ * its report. Browsing is unconfined; the server confines serving to the chosen root. The
+ * DOM building lives here (unit-tested with jsdom); the browser wiring — CSS imports,
+ * `fetch`, and navigation — lives in `launcher-main.ts`.
  */
 
-/** The initial selection injected into the page by the server. */
+/** The initial selection injected into the page by the server (absolute paths). */
 export interface LaunchSelection {
     root: string;
     source: string | null;
     mode: string;
 }
 
-/** A directory listing under the launch root, as returned by `GET /api/browse`. */
+/** A directory listing from `GET /api/browse` — absolute paths. */
 export interface BrowseListing {
     path: string;
     parent: string | null;
@@ -22,7 +24,7 @@ export interface BrowseListing {
 /** The side-effecting collaborators, injected so the UI is testable without a server. */
 export interface LauncherPorts {
     browse(path: string): Promise<BrowseListing | null>;
-    open(source: string, mode: string): Promise<string | null>;
+    open(root: string, source: string, mode: string): Promise<string | null>;
     navigate(url: string): void;
 }
 
@@ -48,17 +50,23 @@ const MODES: readonly ModeOption[] = [
     },
 ];
 
-/** The last path segment of a root-relative path (a display label). */
+/** The last segment of a filesystem path (handles `/` and `\`). */
 export function leafName(path: string): string {
-    const parts = path.split("/").filter(Boolean);
+    const parts = path.split(/[\\/]/).filter(Boolean);
     return parts.length > 0 ? parts[parts.length - 1] : path;
 }
 
-/** The parent (root-relative) of a path — the empty string at the root. */
-export function parentPath(path: string): string {
-    const parts = path.split("/").filter(Boolean);
-    parts.pop();
-    return parts.join("/");
+/** The parent directory of a path, or the path itself at a filesystem root. */
+export function dirName(path: string): string {
+    const match = path.replace(/[\\/]+$/, "").match(/^(.*)[\\/][^\\/]+$/);
+    return match ? match[1] || "/" : path;
+}
+
+/** Whether `path` is `root` or sits inside it. */
+export function isUnder(root: string, path: string): boolean {
+    if (path === root) return true;
+    const separator = root.includes("\\") ? "\\" : "/";
+    return path.startsWith(root.endsWith(separator) ? root : root + separator);
 }
 
 /** Builds the launcher UI into <paramref /> and wires it to <paramref />. */
@@ -74,29 +82,44 @@ export function initLauncher(
         withText(
             "p",
             "launcher-subtitle",
-            "Choose a .dialogue.md script under the root, pick a mode, and open its compilation report.",
+            "Browse for a .dialogue.md script, choose the root it is served from, pick a mode, and open its report.",
         ),
     );
 
+    const current = withText("p", "launcher-current", "");
+    current.title = "Current folder";
     const rootRow = element("p", "launcher-root");
-    rootRow.append(document.createTextNode("Root: "));
     const rootPath = withText("span", "launcher-root-path", initial.root);
-    rootPath.title = initial.root;
-    rootRow.append(rootPath);
-    card.append(rootRow);
+    const useCurrent = withText("button", "launcher-set-root", "Use current folder");
+    (useCurrent as HTMLButtonElement).type = "button";
+    rootRow.append(
+        document.createTextNode("Serving root: "),
+        rootPath,
+        document.createTextNode(" "),
+        useCurrent,
+    );
 
     const listing = element("ul", "launcher-listing");
     const modes = renderModes(initial.mode);
     const open = withText("button", "launcher-open", "Open") as HTMLButtonElement;
     open.type = "button";
-    open.disabled = true;
-    card.append(listing, modes.element, open);
+    open.disabled = initial.source === null;
+    card.append(current, rootRow, listing, modes.element, open);
     container.append(card);
 
+    let root = initial.root;
     let selected: string | null = initial.source;
+    let here = initial.source ? dirName(initial.source) : initial.root;
+
+    const setRoot = (value: string): void => {
+        root = value;
+        rootPath.textContent = root;
+        rootPath.title = root;
+    };
 
     const select = (source: string, item: HTMLElement): void => {
         selected = source;
+        if (!isUnder(root, source)) setRoot(dirName(source));
         open.disabled = false;
         for (const chosen of listing.querySelectorAll("li.selected"))
             chosen.classList.remove("selected");
@@ -104,6 +127,8 @@ export function initLauncher(
     };
 
     const render = (list: BrowseListing): void => {
+        here = list.path;
+        current.textContent = list.path;
         listing.replaceChildren();
         if (list.parent !== null) {
             listing.append(row("..", "up", () => void browse(list.parent!)));
@@ -129,14 +154,24 @@ export function initLauncher(
         if (list) render(list);
     };
 
+    useCurrent.addEventListener("click", () => {
+        setRoot(here);
+        if (selected !== null && !isUnder(root, selected)) {
+            selected = null;
+            open.disabled = true;
+            for (const chosen of listing.querySelectorAll("li.selected"))
+                chosen.classList.remove("selected");
+        }
+    });
+
     open.addEventListener("click", () => {
         if (selected === null) return;
-        void ports.open(selected, modes.value()).then((url) => {
+        void ports.open(root, selected, modes.value()).then((url) => {
             if (url) ports.navigate(url);
         });
     });
 
-    void browse(initial.source ? parentPath(initial.source) : "");
+    void browse(here);
 }
 
 function row(label: string, kind: string, onClick: () => void): HTMLElement {

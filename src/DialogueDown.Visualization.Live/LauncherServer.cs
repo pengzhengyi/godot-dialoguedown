@@ -1,40 +1,43 @@
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.Extensions.FileProviders;
 
 namespace DialogueDown.Visualization.Live;
 
 /// <summary>
-/// A loopback launcher server. It serves the launcher page at <c>/</c>, browses the
-/// launch root for <c>.dialogue.md</c> sources, and on open swaps in a live session for
-/// the chosen source — served once (static) or watched — under <c>/r/</c>. Browsing and
-/// serving stay confined to the launch root (see <see cref="LaunchRoot"/>); the report is
-/// mounted under <c>/r/</c> so it never collides with the launcher at <c>/</c>.
+/// A loopback launcher server. It serves the launcher page at <c>/</c>, browses the local
+/// filesystem for <c>.dialogue.md</c> sources (<c>GET /api/browse</c> — unconfined, like a
+/// native "Open Folder" dialog), and on <c>POST /api/open</c> opens the chosen source
+/// under the chosen root: it swaps in a live session — static or watched — and serves its
+/// report under <c>/r/</c>. Browsing is unconfined, but serving is confined to the opened
+/// root (validated with <see cref="LaunchRoot"/>, backed by a <see cref="MutableFileRoot"/>
+/// that follows it) and the server is loopback-only.
 /// </summary>
 internal sealed class LauncherServer : IAsyncDisposable
 {
     private const string ReportMount = "/r";
 
     private readonly WebApplication _app;
-    private readonly LaunchRoot _root;
+    private readonly string _startRoot;
     private readonly string _launcherHtml;
     private readonly Func<string, string, LiveSession> _sessionFactory;
+    private readonly MutableFileRoot _serveRoot = new();
     private readonly object _gate = new();
     private ActiveDocument? _active;
 
     /// <summary>
-    /// Builds a launcher server for <paramref name="root"/> on the given loopback port
-    /// (0 = ephemeral), serving <paramref name="launcherHtml"/> at <c>/</c>.
+    /// Builds a launcher server that starts browsing at <paramref name="startRoot"/> on the
+    /// given loopback port (0 = ephemeral), serving <paramref name="launcherHtml"/> at <c>/</c>.
     /// </summary>
     public LauncherServer(
-        LaunchRoot root,
+        string startRoot,
         string launcherHtml,
         int port = 0,
         Func<string, string, LiveSession>? sessionFactory = null)
     {
-        _root = root;
+        _startRoot = Path.GetFullPath(startRoot);
         _launcherHtml = launcherHtml;
         _sessionFactory = sessionFactory ?? ((path, mode) => new LiveSession(path, mode));
+        _serveRoot.Set(_startRoot);
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.Logging.ClearProviders();
@@ -75,18 +78,18 @@ internal sealed class LauncherServer : IAsyncDisposable
 
     private void Configure(WebApplication app)
     {
-        // Assets for the active source resolve under the launch root at /r/... . Static
+        // Assets for the active source resolve under the active root at /r/... . Static
         // files runs before routing (explicit UseRouting below) so it serves an existing
         // asset even though the catch-all report route would also match its path.
         app.UseStaticFiles(new StaticFileOptions
         {
-            FileProvider = new PhysicalFileProvider(_root.RootDirectory),
+            FileProvider = _serveRoot,
             RequestPath = ReportMount,
         });
         app.UseRouting();
 
         app.MapGet("/", () => Results.Content(_launcherHtml, "text/html; charset=utf-8"));
-        app.MapGet("/api/browse", (string? path) => Browse(path ?? string.Empty));
+        app.MapGet("/api/browse", (string? path) => Browse(path));
         app.MapPost("/api/open", (OpenRequest request, HttpContext context) => Open(request, context));
         app.MapGet("/api/document", Document);
         app.MapGet("/api/events", HandleEventsAsync);
@@ -94,15 +97,22 @@ internal sealed class LauncherServer : IAsyncDisposable
         app.MapGet(ReportMount + "/{**path}", (string? path) => Report(path ?? string.Empty));
     }
 
-    private IResult Browse(string path)
+    private IResult Browse(string? path)
     {
-        var listing = _root.Browse(path);
+        var listing = DirectoryBrowser.List(string.IsNullOrEmpty(path) ? _startRoot : path);
         return listing is null ? Results.NotFound() : Results.Json(listing.Value);
     }
 
     private IResult Open(OpenRequest request, HttpContext context)
     {
-        var source = _root.ResolveSource(request.Source ?? string.Empty);
+        if (string.IsNullOrEmpty(request.Root) || !Directory.Exists(request.Root))
+        {
+            return Results.NotFound();
+        }
+
+        var root = LaunchRoot.At(request.Root);
+        var relative = Path.GetRelativePath(root.RootDirectory, Path.GetFullPath(request.Source ?? string.Empty));
+        var source = root.ResolveSource(relative);
         if (source is null)
         {
             return Results.NotFound();
@@ -113,14 +123,14 @@ internal sealed class LauncherServer : IAsyncDisposable
             return Results.BadRequest(new { message = $"Unsupported mode: {request.Mode}" });
         }
 
-        var sourceDirectory = Path.GetDirectoryName(source)!;
-        var reportPath = ServeRoot.For(_root.RootDirectory, sourceDirectory).ReportPath;
+        var reportPath = ServeRoot.For(root.RootDirectory, Path.GetDirectoryName(source)!).ReportPath;
         var session = _sessionFactory(source, mode);
         var watcher = mode == VisualizationMode.Watch ? new DocumentWatcher(source, session.Refresh) : null;
 
         lock (_gate)
         {
             _active?.Watcher?.Dispose();
+            _serveRoot.Set(root.RootDirectory);
             _active = new ActiveDocument(session, reportPath.Trim('/'), watcher);
         }
 
@@ -180,5 +190,5 @@ internal sealed class LauncherServer : IAsyncDisposable
 
     private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher);
 
-    private sealed record OpenRequest(string? Source, string? Mode);
+    private sealed record OpenRequest(string? Root, string? Source, string? Mode);
 }

@@ -19,11 +19,11 @@ const ports = {
         const response = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
         return response.ok ? ((await response.json()) as BrowseListing) : null;
     },
-    async open(source: string, mode: string): Promise<string | null> {
+    async open(root: string, source: string, mode: string): Promise<string | null> {
         const response = await fetch("/api/open", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ source, mode }),
+            body: JSON.stringify({ root, source, mode }),
         });
         // The server answers 303 to the report; fetch follows it, so response.url is the
         // report URL. A rejected open (bad source) is not a redirect.

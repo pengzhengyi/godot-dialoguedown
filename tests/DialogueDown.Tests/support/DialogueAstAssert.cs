@@ -15,6 +15,9 @@ internal static class DialogueAstAssert
         return text;
     }
 
+    public static Text AssertSingleText(IReadOnlyList<InlineFragment> fragments, string content) =>
+        AssertText(Assert.Single(fragments), content);
+
     public static StyledText AssertStyledText(InlineFragment actual, SpeechStyle style)
     {
         var styled = AssertStyledText(actual);
@@ -37,6 +40,13 @@ internal static class DialogueAstAssert
         var link = Assert.IsType<Link>(actual);
         Assert.Equal(target, link.Target);
         return link;
+    }
+
+    public static Jump AssertJump(InlineFragment actual, string target)
+    {
+        var jump = Assert.IsType<Jump>(actual);
+        Assert.Equal(target, jump.Target);
+        return jump;
     }
 
     public static Query AssertQuery(InlineFragment actual, string key)

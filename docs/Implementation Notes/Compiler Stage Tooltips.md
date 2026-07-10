@@ -1,7 +1,7 @@
 # Compiler Stage Tooltips
 
 > [!NOTE]
-> Status: **proposed** (an enhancement to
+> Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md)). Each compiler
 > stage tab gains a hover tooltip that says what that stage's graph shows, and the
 > report's generic subtitle is slimmed to a short hint. The text belongs to the
@@ -107,7 +107,9 @@ constant in the client, kept beside where the Source tab is built.
 
 - **Projection** (unit, .NET): `MarkdownAstProjection.Description` is a non-empty
   one-liner; the walk copies it onto `DisplayGraph`.
-- **Serialization** (unit, .NET): a rendered/serialized report carries each stage's
+- **Serialization** (unit, .NET): a serialized report carries each stage's
   `description` field.
-- **Tabs** (unit, vitest): building the report attaches a tooltip to each stage tab
-  from its description, and to the Source tab from the constant.
+- **Tabs** (Playwright e2e): hovering a stage tab shows a Tippy tooltip with its
+  description, and hovering the Source tab shows the constant tip. The tab wiring
+  lives in the browser-integration layer (`app.ts`), covered end-to-end rather
+  than by jsdom unit tests.

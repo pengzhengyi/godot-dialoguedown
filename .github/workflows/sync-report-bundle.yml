@@ -57,7 +57,7 @@ jobs:
         run: npm run build
 
       - name: Commit the rebuilt report if it changed
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "build: rebuild the committed report bundle"
           file_pattern: src/DialogueDown.Visualization/web/dist/report.html

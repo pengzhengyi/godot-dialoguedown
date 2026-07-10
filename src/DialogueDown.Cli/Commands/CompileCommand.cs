@@ -26,7 +26,7 @@ internal sealed class CompileCommand : Command<CompileSettings>
         var source = File.ReadAllText(settings.Script);
         _compiler.Compile(source);
 
-        // TODO(transpiler): emit the compiled result, honouring --output.
+        // TODO(transpiler): emit the compiled result, honoring --output.
         return ExitCodes.Success;
     }
 }

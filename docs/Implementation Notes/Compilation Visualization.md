@@ -75,7 +75,7 @@ One concept, one name — used here, in code, and in tests.
 | --- | --- |
 | **Stage** | A compilation phase that produces an IR (Markdown AST, Dialogue AST, runtime graph, …). |
 | **IR** | Intermediate representation — the tree or directed graph a stage produces (e.g. `MarkdownDocument`). |
-| **Node projection** | The unified seam (`INodeProjection<TNode>`): for one IR node, its `Label`, `Attributes`, and out-neighbours. One small implementation per IR family. |
+| **Node projection** | The unified seam (`INodeProjection<TNode>`): for one IR node, its `Label`, `Attributes`, and out-neighbors. One small implementation per IR family. |
 | **Display node** | One node prepared for display: an `Id`, a short `Label`, optional `Attributes` (key–value extras such as span or kind), the optional `Source` snippet it was produced from, and an optional `Category`. Renderer-agnostic. |
 | **Category** | A stable, cross-stage semantic group name (for example `call`, `speech`) that the renderer maps to a color. Corresponding concepts in different stages share a category, so they share a color. |
 | **Display edge** | A directed link between display nodes, with a `Kind` — a normal **child** edge, or a **reference** edge back to an already-seen node (how a cycle or shared node is shown). |
@@ -87,7 +87,7 @@ One concept, one name — used here, in code, and in tests.
 ## Functionality checklist
 
 - [x] A unified `INodeProjection<TNode>` seam describes any IR node (label,
-      attributes, out-neighbours), with extension-method ergonomics
+      attributes, out-neighbors), with extension-method ergonomics
       (`ir.ToDisplayGraph()`).
 - [x] A graph-aware **walk** builds a display graph from any IR root and its
       projection, using a **visited set** so cycles terminate — a revisited node
@@ -95,7 +95,7 @@ One concept, one name — used here, in code, and in tests.
 - [x] A **Markdown AST** projection maps every node type (`MarkdownDocument`,
       `Heading`, `Paragraph`, `ListBlock`, `ListItem`, `TextInline`, `LinkInline`,
       `ImageInline`, `CodeSpanInline`, `EmphasisInline`, `LineBreak`) to a
-      labelled display node with useful attributes (span, kind, target, etc.).
+      labeled display node with useful attributes (span, kind, target, etc.).
 - [x] An **HTML renderer** emits an interactive, collapsible view with a detail
       panel: clicking a node (a generous hit area, not just the dot) shows its
       attributes and the source snippet it was produced from, with a rendered
@@ -172,9 +172,9 @@ DisplayGraph Walk<TNode>(TNode root, INodeProjection<TNode> projection):
         display = DisplayNode(projection.Describe(node))
         visited[node] = display
         graph.Add(display)
-        for neighbour in projection.Neighbours(node):
-            child = Visit(neighbour)
-            kind = (neighbour was already visited) ? Reference : Child
+        for neighbor in projection.Neighbors(node):
+            child = Visit(neighbor)
+            kind = (neighbor was already visited) ? Reference : Child
             graph.AddEdge(display -> child, kind)
         return display
 
@@ -182,7 +182,7 @@ DisplayGraph Walk<TNode>(TNode root, INodeProjection<TNode> projection):
     return graph
 ```
 
-A projection supplies `Describe` (label + attributes) and `Neighbours` (the
+A projection supplies `Describe` (label + attributes) and `Neighbors` (the
 out-edges) for its IR family; the walk supplies the graph-aware mechanics.
 
 ## Interfaces and abstractions
@@ -193,7 +193,7 @@ out-edges) for its IR family; the walk supplies the graph-aware mechanics.
 | `DisplayEdge` | Directed edge with a `Kind` (child or reference). | built by the walk |
 | `DisplayGraph` | Titled diagram: `Title` + display nodes + display edges. A tree is the acyclic case. | produced by the walk |
 | `NodeDescription` | What a projection reports for one node: its `Label`, `Attributes`, optional `Source`, and optional `Category`. | `INodeProjection`, walk |
-| `INodeProjection<TNode>` | The unified seam: `Title`, `Describe(node)`, and `Neighbours(node)` for one IR family. | `GraphWalk` |
+| `INodeProjection<TNode>` | The unified seam: `Title`, `Describe(node)`, and `Neighbors(node)` for one IR family. | `GraphWalk` |
 | `GraphWalk` | Generic graph-aware traversal: `Walk(root, projection) → DisplayGraph`, with cycle-safe visited tracking. | every projection |
 | `MarkdownAstProjection` | `INodeProjection` over `MarkdownDocument` and its node types; titled "Markdown AST". | `IMarkdownParser` |
 | `IDisplayRenderer` | Turns a `DisplayGraph` into one output format (string). | `DisplayGraph` |
@@ -223,7 +223,7 @@ are the only change to the core, and they add no runtime dependency.
 ### D2 — The visualization layer owns traversal via a unified projection
 
 Traversal lives entirely in the visualization layer. Each IR family implements one
-small `INodeProjection<TNode>` — `Describe` (label + attributes) and `Neighbours`
+small `INodeProjection<TNode>` — `Describe` (label + attributes) and `Neighbors`
 (out-edges) — and the generic `Walk` turns any projected IR into a display graph.
 Extension methods (`ir.ToDisplayGraph()`) give a uniform call site.
 
@@ -305,7 +305,7 @@ The categories are chosen so **corresponding concepts across stages share one**,
 and therefore share a color: a Markdown `CodeSpanInline` and the runtime **game
 call** it compiles to are both `call` (red), so a reader can trace a concept by
 color from one stage to the next. Only the *color* is shared across stages — the
-human label is stage-local: the per-stage **legend** is labelled with that stage's
+human label is stage-local: the per-stage **legend** is labeled with that stage's
 own node types (the Markdown AST legend reads "Code span", never the future "game
 call"), and the detail panel marks the node with a color **dot**. The legend is
 interactive: each row counts how many nodes of that type are present, and clicking
@@ -326,9 +326,9 @@ then see what each compiler stage made of it.
 
 Preview **anchor links work**: headings carry GitHub-style ids (via marked's
 `gfm-heading-id` extension), so a `[…](#slug)` link scrolls to its heading within
-the preview. Front matter is shown as a labelled metadata block, not a heading,
+the preview. Front matter is shown as a labeled metadata block, not a heading,
 matching the node-snippet previews. The source is not a compiler stage, so it is
-modelled separately: the .NET side injects a `{ source, stages }` payload and the
+modeled separately: the .NET side injects a `{ source, stages }` payload and the
 frontend prepends the Source tab only when a source is present (a bare
 single-graph render has none). The Source tab has no node-detail panel — that
 belongs to the graph tabs — so it takes the full width.
@@ -376,7 +376,7 @@ target where it is cheap.
   graph's nodes, edges, and child order. A small synthetic **cyclic** projection
   asserts the walk terminates and emits a reference edge.
 - **Unit — projection.** For each Markdown node type, assert it projects to the
-  expected labelled display node (mirror the source layout: one test file per
+  expected labeled display node (mirror the source layout: one test file per
   projection).
 - **Unit — renderers.** Assert the rendered string for a tiny display graph, and
   assert escaping of special characters. Snapshot-style assertions on small,

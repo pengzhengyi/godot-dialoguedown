@@ -21,7 +21,7 @@ describe("createDetailPanel", () => {
         expect(body.textContent).toContain("Click any node");
     });
 
-    it("shows a category colour dot and the escaped label", () => {
+    it("shows a category color dot and the escaped label", () => {
         const node: DisplayNode = {
             id: "n1",
             label: "Code <span>",
@@ -33,7 +33,7 @@ describe("createDetailPanel", () => {
         expect(dot?.style.background).toBeTruthy();
         expect(title.textContent).toContain("Code <span>");
         expect(title.innerHTML).toContain("&lt;span&gt;");
-        // The dot uses the category colour (jsdom normalises the hex, so compare via a probe element).
+        // The dot uses the category color (jsdom normalizes the hex, so compare via a probe element).
         const probe = document.createElement("span");
         probe.style.background = colorOf("call");
         expect(dot?.style.background).toBe(probe.style.background);

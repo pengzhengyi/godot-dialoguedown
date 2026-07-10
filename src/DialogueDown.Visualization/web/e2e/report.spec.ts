@@ -53,7 +53,7 @@ test("the tabs sit together at the start, not spread across the header", async (
 
 // --- Markdown AST graph (second tab) ---
 
-test("renders every node with a coloured circle and a legend of counts", async ({ page }) => {
+test("renders every node with a colored circle and a legend of counts", async ({ page }) => {
     await showAst(page);
     await expect(page.locator("section.stage.active g.node circle")).toHaveCount(nodeCount);
     const legendItems = page.locator("section.stage.active .legend .legend-item");
@@ -130,7 +130,7 @@ test("arrow keys move the selection", async ({ page }) => {
     await expect(page.locator("#detail-title")).not.toContainText("Document");
 });
 
-test("has no accessibility violations (both tabs, real browser incl. colour contrast)", async ({
+test("has no accessibility violations (both tabs, real browser incl. color contrast)", async ({
     page,
 }) => {
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]); // Source tab

@@ -14,7 +14,7 @@ namespace DialogueDown.Visualization;
 internal sealed class DialogueAstProjection : INodeProjection<object>
 {
     // Semantic categories: the same cross-stage vocabulary the Markdown projection uses,
-    // so corresponding concepts share a colour (a code span and the game call it becomes
+    // so corresponding concepts share a color (a code span and the game call it becomes
     // are both "call"). "tag" is new — the Dialogue AST is the first stage with tags.
     private const string DocumentCategory = "document";
     private const string StructureCategory = "structure";
@@ -125,7 +125,7 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
         };
     }
 
-    public IEnumerable<object> Neighbours(object node)
+    public IEnumerable<object> Neighbors(object node)
     {
         ArgumentNullException.ThrowIfNull(node);
         return node switch

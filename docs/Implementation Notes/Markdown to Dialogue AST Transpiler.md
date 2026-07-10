@@ -400,7 +400,7 @@ as plain text here and **folded into the `Jump`** during pairing — a boundary 
 handled downstream, not special-cased in the transpiler. A **dangling
 `JumpIndicator`** — a `=>` with no link after it — **degrades to plain text**, so a
 prose arrow like `the => arrow` reads literally with no escaping needed and the
-neighbouring text coalesces back around it. A **bare `Link`** (no preceding `=>`)
+neighboring text coalesces back around it. A **bare `Link`** (no preceding `=>`)
 stays a meaningful inline link, its dialogue meaning left to the semantic analyzer.
 
 ### D9 — Tags: a dedicated pluggable parser

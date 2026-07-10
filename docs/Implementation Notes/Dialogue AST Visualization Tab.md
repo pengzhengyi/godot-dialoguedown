@@ -72,7 +72,7 @@ source ──► IMarkdownParser.Parse ──► MarkdownDocument ──► Mark
   `DialogueDown.Visualization`) mirrors `MarkdownAstProjection`: it matches each node
   by runtime type (the AST families share no single base usable as `TNode`), returns
   a `NodeDescription` (label, attributes, span-sliced source, category), and yields
-  each node's children from `Neighbours`. `ScriptDocument` is the root (a plain
+  each node's children from `Neighbors`. `ScriptDocument` is the root (a plain
   container, like `MarkdownDocument`).
 - **`CompilationVisualizer.BuildStages`** parses, transpiles via the factory, and
   returns `[markdownStage, dialogueStage]`.

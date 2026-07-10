@@ -25,6 +25,8 @@ export interface DisplayEdge {
 
 export interface Stage {
     title: string;
+    /** A one-line description of what this stage's graph shows (its tab tooltip). */
+    description: string;
     nodes: DisplayNode[];
     edges: DisplayEdge[];
 }

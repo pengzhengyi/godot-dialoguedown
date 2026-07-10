@@ -94,6 +94,20 @@ test("hovering a node shows a Tippy tooltip with the full attribute text", async
     await expect(tooltip).toContainText("should be ellipsised");
 });
 
+test("hovering a stage tab shows a Tippy tooltip describing the stage", async ({ page }) => {
+    await page.locator(".tab", { hasText: "Markdown AST" }).hover();
+    const tooltip = page.locator(".tippy-box");
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toContainText("syntax tree");
+});
+
+test("hovering the Source tab shows a tip describing the source view", async ({ page }) => {
+    await page.locator(".tab", { hasText: "Source" }).hover();
+    const tooltip = page.locator(".tippy-box");
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toContainText("live Markdown preview");
+});
+
 test("clicking a legend entry dims that category's nodes", async ({ page }) => {
     await showAst(page);
     await page.locator(".legend-item", { hasText: "Code span" }).click();

@@ -1,36 +1,41 @@
 import { defineConfig, type Plugin } from "vitest/config";
-import { renameSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import { resolve } from "node:path";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
-// Rename the single build artifact to report.html — a clearer name than Vite's
+// vite-plugin-singlefile inlines everything into ONE file and disables code
+// splitting, so each self-contained page (report, launcher) is built separately —
+// `VITE_ENTRY=launcher` selects the launcher build. See the `build` script.
+const launcherBuild = process.env.VITE_ENTRY === "launcher";
+
+// Rename the report build artifact to report.html — a clearer name than Vite's
 // default index.html for the file the .NET library embeds. Done in a plugin (not
-// a shell `mv`) so it is portable across platforms.
+// a shell `mv`) so it is portable across platforms. The launcher build emits
+// launcher.html directly, so there is nothing to rename.
 function renameToReport(): Plugin {
     return {
         name: "rename-to-report",
         closeBundle() {
-            const dist = resolve("dist");
-            renameSync(resolve(dist, "index.html"), resolve(dist, "report.html"));
+            const index = resolve("dist", "index.html");
+            if (existsSync(index)) renameSync(index, resolve("dist", "report.html"));
         },
     };
 }
 
-// The report is shipped as ONE self-contained HTML file that the .NET library
-// embeds. vite-plugin-singlefile inlines all JS and CSS into dist/report.html;
-// the .NET side only injects the per-report stage data into the __STAGES__ slot.
+// Each page is shipped as ONE self-contained HTML file that the .NET library embeds.
+// vite-plugin-singlefile inlines all JS and CSS; the .NET side injects per-page data
+// into the page's slot (report stages, or the launcher's initial selection).
 export default defineConfig({
     root: ".",
     plugins: [viteSingleFile(), renameToReport()],
     build: {
         target: "es2022",
         outDir: "dist",
-        emptyOutDir: true,
+        // Clear dist/ on the report build (the first one); keep report.html on the
+        // launcher build so both self-contained pages survive.
+        emptyOutDir: !launcherBuild,
         rollupOptions: {
-            output: {
-                // Keep a stable, predictable output filename for the .NET embed.
-                entryFileNames: "report.js",
-            },
+            input: resolve(launcherBuild ? "launcher.html" : "index.html"),
         },
     },
     test: {
@@ -46,6 +51,7 @@ export default defineConfig({
                 "src/**/*.test.ts",
                 "src/dev-stages.ts",
                 "src/main.ts",
+                "src/launcher-main.ts",
                 "src/model.ts",
                 "src/app.ts",
                 "src/tree-view.ts",

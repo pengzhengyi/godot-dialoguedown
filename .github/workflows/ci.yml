@@ -112,8 +112,8 @@ jobs:
       - name: Build single-file report
         run: npm run build
 
-      - name: Verify the committed report is in sync with web/ sources
-        run: git diff --exit-code -- dist/report.html
+      - name: Verify the committed report and launcher are in sync with web/ sources
+        run: git diff --exit-code -- dist/report.html dist/launcher.html
 
       - name: End-to-end tests (Playwright, static)
         run: npm run e2e

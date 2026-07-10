@@ -21,12 +21,42 @@ body {
 
 .app-header {
     flex: 0 0 auto;
+    position: relative;
     padding: 0.7rem 1.25rem 0;
     border-bottom: 1px solid var(--pico-muted-border-color);
 }
 
+/* GitHub link, pinned to the top-right of the header. */
+.repo-link {
+    position: absolute;
+    top: 0.6rem;
+    right: 1.25rem;
+    display: inline-flex;
+    line-height: 0;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+}
+
+.repo-link:hover {
+    color: var(--pico-color);
+}
+
+/* "Back to launcher" link, shown only on a launcher-served report (see back-link.ts). */
+.back-to-launcher {
+    display: inline-block;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+}
+
+.back-to-launcher:hover {
+    color: var(--pico-color);
+}
+
 .app-header hgroup {
     margin-bottom: 0.5rem;
+    padding-right: 2rem;
 }
 
 .app-header h1 {
@@ -605,4 +635,115 @@ svg.tree {
     .source-divider {
         display: none;
     }
+}
+
+/* Launcher page (launcher.html): a centered card to pick a script and a mode. */
+.launcher {
+    max-width: 40rem;
+    margin: 2.5rem auto;
+    padding: 0 1.25rem;
+}
+
+.launcher-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.launcher-title {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.launcher-subtitle {
+    margin: 0;
+    color: var(--pico-muted-color);
+    font-size: 0.85rem;
+}
+
+.launcher-root {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+}
+
+.launcher-root-path {
+    font-family: var(--pico-font-family-monospace);
+    overflow-wrap: anywhere;
+}
+
+.launcher-listing {
+    max-height: 22rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+.launcher-item {
+    padding: 0.4rem 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    cursor: pointer;
+}
+
+.launcher-item:last-child {
+    border-bottom: 0;
+}
+
+.launcher-item:hover {
+    background: var(--pico-muted-border-color);
+}
+
+.launcher-item.selected {
+    background: var(--pico-primary-background);
+    color: var(--pico-primary-inverse);
+}
+
+.launcher-item.up::before {
+    content: "↑ ";
+    opacity: 0.7;
+}
+
+.launcher-item.dir::before {
+    content: "📁 ";
+}
+
+.launcher-item.src::before {
+    content: "📄 ";
+}
+
+.launcher-empty {
+    padding: 0.8rem;
+    color: var(--pico-muted-color);
+    font-style: italic;
+}
+
+.launcher-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    align-items: center;
+}
+
+.launcher-mode {
+    display: inline-flex;
+    gap: 0.3rem;
+    align-items: center;
+    margin: 0;
+    cursor: pointer;
+}
+
+.launcher-mode.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.launcher-open {
+    align-self: flex-start;
 }

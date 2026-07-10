@@ -14,6 +14,7 @@ internal static class CliServices
         services.AddSingleton<IScriptCompiler, PendingScriptCompiler>();
         services.AddSingleton<IBrowserLauncher, BrowserLauncher>();
         services.AddSingleton<IVisualizeRunner, VisualizeRunner>();
+        services.AddSingleton<ILauncherRunner, LauncherRunner>();
         return services;
     }
 }

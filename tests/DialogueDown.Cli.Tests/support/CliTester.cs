@@ -19,7 +19,9 @@ internal static class CliTester
     /// <paramref name="runner"/> replaces the default registration (last wins).
     /// </summary>
     public static CommandAppTester Create(
-        IScriptCompiler? compiler = null, IVisualizeRunner? runner = null)
+        IScriptCompiler? compiler = null,
+        IVisualizeRunner? runner = null,
+        ILauncherRunner? launcher = null)
     {
         var services = new ServiceCollection();
         CliServices.Register(services);
@@ -31,6 +33,11 @@ internal static class CliTester
         if (runner is not null)
         {
             services.AddSingleton(runner);
+        }
+
+        if (launcher is not null)
+        {
+            services.AddSingleton(launcher);
         }
 
         var tester = new CommandAppTester(new TypeRegistrar(services));

@@ -101,13 +101,13 @@ describe("initLauncher", () => {
         );
     });
 
-    it("disables the Live Edit mode and defaults to static", async () => {
+    it("offers the Live Edit mode and defaults to static", async () => {
         const container = document.createElement("div");
         initLauncher(container, { root: "/", source: null, mode: "static" }, ports());
         await flush();
 
         expect((container.querySelector('input[value="live"]') as HTMLInputElement).disabled).toBe(
-            true,
+            false,
         );
         expect((container.querySelector('input[value="static"]') as HTMLInputElement).checked).toBe(
             true,

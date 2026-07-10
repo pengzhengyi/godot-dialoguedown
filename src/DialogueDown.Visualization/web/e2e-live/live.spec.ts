@@ -15,7 +15,7 @@ const PNG_1x1 = Buffer.from(
 test.beforeEach(async ({ page }) => {
     writeFileSync(LIVE_DOC, INITIAL_SOURCE);
     await page.goto("/");
-    await expect(page.locator(".source-pane pre code")).toContainText("Original Scene");
+    await expect(page.locator(".source-pane .cm-content")).toContainText("Original Scene");
 });
 
 test("serves a live report bound to the document", async ({ page }) => {
@@ -49,7 +49,7 @@ test("hot-reloads the report when the document changes on disk", async ({ page }
 
     // The server watches the file, recompiles, and pushes over SSE; the client
     // rebuilds in place. No reload/navigation here — the DOM updates itself.
-    await expect(page.locator(".source-pane pre code")).toContainText("Rewritten Scene");
+    await expect(page.locator(".source-pane .cm-content")).toContainText("Rewritten Scene");
     await expect(page.locator(".source-preview")).toContainText("A brand new line");
 });
 

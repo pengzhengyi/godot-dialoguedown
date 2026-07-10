@@ -43,8 +43,7 @@ const MODES: readonly ModeOption[] = [
     {
         value: "live",
         label: "Live Edit",
-        help: "Edit the script in the browser and save back — coming in a later version.",
-        disabled: true,
+        help: "Edit the script in the browser and save it back to disk.",
     },
 ];
 

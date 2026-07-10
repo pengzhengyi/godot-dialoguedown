@@ -14,7 +14,11 @@ class FakeEventSource {
 }
 
 function setup() {
-    const controller: AppController = { rerender: vi.fn(), showBanner: vi.fn() };
+    const controller: AppController = {
+        rerender: vi.fn(),
+        updateStages: vi.fn(),
+        showBanner: vi.fn(),
+    };
     const source = new FakeEventSource();
     const returned = startLiveClient(controller, () => source as unknown as EventSource);
     return { controller, source, returned };
@@ -56,7 +60,7 @@ describe("startLiveClient", () => {
             addEventListener(): void {}
         };
         try {
-            startLiveClient({ rerender: vi.fn(), showBanner: vi.fn() });
+            startLiveClient({ rerender: vi.fn(), updateStages: vi.fn(), showBanner: vi.fn() });
             expect(created).toEqual(["/api/events"]);
         } finally {
             globalThis.EventSource = RealEventSource;

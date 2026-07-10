@@ -56,6 +56,8 @@ export default defineConfig({
                 "src/app.ts",
                 "src/tree-view.ts",
                 "src/tooltips.ts",
+                "src/source-view.ts",
+                "src/live-edit-ui.ts",
             ],
         },
     },

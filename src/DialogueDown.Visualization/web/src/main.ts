@@ -5,6 +5,8 @@ import "./styles.css";
 
 import { runApp } from "./app";
 import { startLiveClient } from "./live-client";
+import { createLiveEdit } from "./live-edit";
+import { initLiveEditUi, watchDiskChanges } from "./live-edit-ui";
 import { initModeBadge } from "./mode-badge";
 import { initPathDisplay } from "./path-display";
 import { initBackToLauncher } from "./back-link";
@@ -26,10 +28,25 @@ function resolveReport(): Report {
 }
 
 const report = resolveReport();
-const app = runApp(report);
+const header = document.querySelector<HTMLElement>(".app-header");
+
+if (report.mode === "live") {
+    // Live Edit: the editor owns the buffer. Save writes it and recompiles the graphs;
+    // the disk stream only raises a passive chip, never a reload over your edits. The
+    // wiring closures reference `live` only when invoked (after it is created below).
+    const app = runApp(report, {
+        onEdit: () => live.onEdit(),
+        onSave: (buffer) => void live.onSave(buffer),
+    });
+    const live = createLiveEdit(initLiveEditUi(app));
+    watchDiskChanges(() => live.onDiskChange());
+    if (header) initBackToLauncher(header, window.location.pathname);
+} else {
+    const app = runApp(report);
+    if (header) initBackToLauncher(header, window.location.pathname);
+    // Watch hot-reloads from the server; static is inert.
+    if (report.mode === "watch") startLiveClient(app);
+}
+
 initModeBadge(report.mode ?? "static");
 initPathDisplay(report.path);
-const header = document.querySelector<HTMLElement>(".app-header");
-if (header) initBackToLauncher(header, window.location.pathname);
-// When served by the live server (watch or live mode), subscribe for pushes.
-if (report.mode === "watch" || report.mode === "live") startLiveClient(app);

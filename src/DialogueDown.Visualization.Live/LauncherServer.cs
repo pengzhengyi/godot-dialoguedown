@@ -68,6 +68,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         {
             null or "" or VisualizationMode.Static => VisualizationMode.Static,
             VisualizationMode.Watch => VisualizationMode.Watch,
+            VisualizationMode.Live => VisualizationMode.Live,
             _ => string.Empty,
         };
         return parsed.Length != 0;
@@ -89,6 +90,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         app.MapGet("/api/browse", (string? path) => Browse(path ?? string.Empty));
         app.MapPost("/api/open", (OpenRequest request, HttpContext context) => Open(request, context));
         app.MapGet("/api/document", Document);
+        app.MapPost("/api/save", (SaveRequest request) => Save(request));
         app.MapGet("/api/events", HandleEventsAsync);
         app.MapGet(ReportMount, () => Report(string.Empty));
         app.MapGet(ReportMount + "/{**path}", (string? path) => Report(path ?? string.Empty));
@@ -116,7 +118,9 @@ internal sealed class LauncherServer : IAsyncDisposable
         var sourceDirectory = Path.GetDirectoryName(source)!;
         var reportPath = ServeRoot.For(_root.RootDirectory, sourceDirectory).ReportPath;
         var session = _sessionFactory(source, mode);
-        var watcher = mode == VisualizationMode.Watch ? new DocumentWatcher(source, session.Refresh) : null;
+        // Watch and Live both track the file: Watch pushes reloads to the read-only report,
+        // Live surfaces a passive "changed on disk" chip. Only Static needs no watcher.
+        var watcher = mode == VisualizationMode.Static ? null : new DocumentWatcher(source, session.Refresh);
 
         lock (_gate)
         {
@@ -145,6 +149,27 @@ internal sealed class LauncherServer : IAsyncDisposable
         return active is null
             ? Results.NotFound()
             : Results.Content(active.Session.CurrentDocumentJson(), "application/json; charset=utf-8");
+    }
+
+    // Saves the edited buffer to the active document, but only when it was opened in Live
+    // Edit; watch/static reports remain read-only.
+    private IResult Save(SaveRequest request)
+    {
+        var active = Active();
+        if (active is null || active.Session.Mode != VisualizationMode.Live)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var json = active.Session.Save(request.Source ?? string.Empty);
+            return Results.Content(json, "application/json; charset=utf-8");
+        }
+        catch (IOException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private async Task HandleEventsAsync(HttpContext context, CancellationToken cancellationToken)
@@ -181,4 +206,6 @@ internal sealed class LauncherServer : IAsyncDisposable
     private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher);
 
     private sealed record OpenRequest(string? Source, string? Mode);
+
+    private sealed record SaveRequest(string? Source);
 }

@@ -84,6 +84,37 @@ public sealed class LauncherServerTests
     }
 
     [Fact]
+    public async Task Save_AfterOpeningLive_WritesTheDocumentAndReturnsStages()
+    {
+        using var tree = new TempTree();
+        var path = tree.File("root/scene.dialogue.md", "# Scene");
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+        await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "live" });
+
+        var save = await client.PostAsJsonAsync("/api/save", new { source = "# Edited live\n" });
+
+        Assert.True(save.IsSuccessStatusCode);
+        var json = await save.Content.ReadAsStringAsync();
+        Assert.Contains("\"stages\":", json);
+        Assert.Equal("# Edited live\n", await File.ReadAllTextAsync(path));
+    }
+
+    [Fact]
+    public async Task Save_WhenActiveReportIsReadOnly_NotFound()
+    {
+        using var tree = new TempTree();
+        tree.File("root/scene.dialogue.md", "# Scene");
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+        await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "static" });
+
+        var save = await client.PostAsJsonAsync("/api/save", new { source = "# Nope\n" });
+
+        Assert.Equal(HttpStatusCode.NotFound, save.StatusCode);
+    }
+
+    [Fact]
     public async Task Open_NonDialogueSource_NotFound()
     {
         using var tree = new TempTree();

@@ -10,10 +10,18 @@ import { setHelp } from "./help";
 // tip is a constant here rather than a field on the model.
 const SOURCE_TIP = "The document as written, beside a live Markdown preview.";
 
+/** Live Edit wiring for the Source tab: edits mark the session dirty, Cmd/Ctrl+S saves. */
+export interface LiveWiring {
+    onEdit(): void;
+    onSave(buffer: string): void;
+}
+
 /** Controls a running report: swap in fresh data, or show/clear a status banner. */
 export interface AppController {
     /** Re-render the report with new data, keeping the active tab where possible. */
     rerender(report: Report): void;
+    /** Replace only the graph tabs with recompiled stages, leaving the Source tab (editor) intact. */
+    updateStages(stages: Stage[]): void;
     /** Show a status message (e.g. a live compile error), or clear it with `null`. */
     showBanner(message: string | null): void;
 }
@@ -22,7 +30,7 @@ export interface AppController {
  * Build the tabs — an optional Source tab followed by one per stage — wire the
  * shared interactions, and return a controller for live updates.
  */
-export function runApp(report: Report): AppController {
+export function runApp(report: Report, live?: LiveWiring): AppController {
     const tabsEl = document.getElementById("tabs")!;
     const stagesEl = document.getElementById("stages")!;
     const appEl = document.getElementById("app")!;
@@ -32,6 +40,7 @@ export function runApp(report: Report): AppController {
     // node-detail panel and no keyboard tree navigation).
     let views: (TreeView | null)[] = [];
     let activeIndex = 0;
+    let sourcePresent = false;
 
     build(report);
 
@@ -51,6 +60,7 @@ export function runApp(report: Report): AppController {
             build(next);
             if (views.length > 0) activate(Math.min(previous, views.length - 1));
         },
+        updateStages,
         showBanner(message) {
             bannerEl.textContent = message ?? "";
             bannerEl.hidden = message === null;
@@ -61,17 +71,42 @@ export function runApp(report: Report): AppController {
         tabsEl.replaceChildren();
         stagesEl.replaceChildren();
         views = [];
+        sourcePresent = report.source != null;
 
         if (report.source != null) {
             const section = document.createElement("section");
             section.className = "stage source-stage";
-            section.appendChild(createSourceView(report.source));
+            section.appendChild(
+                createSourceView(
+                    report.source,
+                    live
+                        ? {
+                              editable: true,
+                              onChange: () => live.onEdit(),
+                              onSave: (b) => live.onSave(b),
+                          }
+                        : {},
+                ),
+            );
             addTab("Source", section, null, SOURCE_TIP);
         }
         for (const stage of report.stages) {
             addStageTab(stage);
         }
         if (views.length > 0) activate(0);
+    }
+
+    // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
+    // editor — and the reader's cursor — untouched.
+    function updateStages(stages: Stage[]): void {
+        const keep = sourcePresent ? 1 : 0;
+        while (tabsEl.children.length > keep) tabsEl.lastElementChild!.remove();
+        while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
+        views = views.slice(0, keep);
+        for (const stage of stages) {
+            addStageTab(stage);
+        }
+        if (views.length > 0) activate(Math.min(activeIndex, views.length - 1));
     }
 
     function addStageTab(stage: Stage): void {

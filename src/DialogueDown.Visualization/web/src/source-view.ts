@@ -1,34 +1,39 @@
+import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { markdown } from "@codemirror/lang-markdown";
+import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { renderDocument } from "./text";
-import { highlightMarkdown } from "./highlight";
 
 /** Bounds for the draggable split, as a fraction of the container width. */
 const MIN_RATIO = 0.2;
 const MAX_RATIO = 0.8;
 
+/** How the Source tab behaves — read-only in Static/Watch, an editor in Live Edit. */
+export interface SourceViewOptions {
+    /** When true the source pane is an editable editor (Live Edit); otherwise read-only. */
+    editable?: boolean;
+    /** Called (Live Edit) with the new buffer on every edit — for the preview and dirty state. */
+    onChange?: (value: string) => void;
+    /** Called (Live Edit) with the current buffer when Save (Cmd/Ctrl+S) is pressed. */
+    onSave?: (value: string) => void;
+}
+
 /**
- * The Source tab: the whole source document as raw Markdown (left) beside a live
- * rendered preview (right), split down the middle like an editor's side-by-side
- * preview. A draggable divider re-proportions the two panes. Anchor links in the
- * preview (`[text](#slug)`) scroll to their headings, which carry GitHub-style
- * ids (see {@link renderDocument}).
+ * The Source tab: a CodeMirror editor of the document (left) beside a live rendered
+ * preview (right), split like an editor's side-by-side preview. The editor is read-only
+ * in Static and Watch and editable in Live Edit, so the tab looks the same in every mode.
+ * A draggable divider re-proportions the two panes; preview anchor links scroll to their
+ * headings (see {@link renderDocument}).
  */
-export function createSourceView(source: string): HTMLElement {
+export function createSourceView(source: string, options: SourceViewOptions = {}): HTMLElement {
+    const { editable = false, onChange, onSave } = options;
+
     const container = document.createElement("div");
     container.className = "source-view";
 
     const sourcePane = document.createElement("div");
     sourcePane.className = "source-pane";
-    // A scrollable region needs keyboard access (focusable) and a label.
-    sourcePane.tabIndex = 0;
-    sourcePane.setAttribute("role", "region");
-    sourcePane.setAttribute("aria-label", "Markdown source");
-    const pre = document.createElement("pre");
-    const code = document.createElement("code");
-    code.className = "hljs language-markdown";
-    // highlight.js escapes the source, so assigning its HTML is safe.
-    code.innerHTML = highlightMarkdown(source);
-    pre.appendChild(code);
-    sourcePane.appendChild(pre);
 
     const divider = document.createElement("div");
     divider.className = "source-divider";
@@ -42,6 +47,59 @@ export function createSourceView(source: string): HTMLElement {
     preview.setAttribute("role", "region");
     preview.setAttribute("aria-label", "Preview");
     preview.innerHTML = renderDocument(source);
+
+    // Save (Cmd/Ctrl+S): hand the current buffer to the caller and swallow the
+    // browser's own save dialog.
+    const saveKeymap = keymap.of([
+        {
+            key: "Mod-s",
+            preventDefault: true,
+            run: (view) => {
+                onSave?.(view.state.doc.toString());
+                return true;
+            },
+        },
+    ]);
+
+    // Re-render the preview and report the new buffer on every edit (Live Edit only —
+    // a read-only editor never fires a doc change).
+    const onEdit = EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+            const value = update.state.doc.toString();
+            preview.innerHTML = renderDocument(value);
+            onChange?.(value);
+        }
+    });
+
+    new EditorView({
+        parent: sourcePane,
+        state: EditorState.create({
+            doc: source,
+            extensions: [
+                lineNumbers(),
+                history(),
+                keymap.of([...defaultKeymap, ...historyKeymap]),
+                markdown(),
+                syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+                EditorView.lineWrapping,
+                // Read-only (Static/Watch) keeps the editor focusable and selectable — it
+                // just rejects edits — so the scrollable pane stays keyboard-accessible.
+                EditorState.readOnly.of(!editable),
+                EditorView.contentAttributes.of(
+                    editable
+                        ? { "aria-label": "Document source editor", tabindex: "0" }
+                        : {
+                              "aria-label": "Document source",
+                              "aria-readonly": "true",
+                              tabindex: "0",
+                          },
+                ),
+                onEdit,
+                // Only Live Edit intercepts Cmd/Ctrl+S; static reports keep the browser's own.
+                ...(onSave ? [saveKeymap] : []),
+            ],
+        }),
+    });
 
     container.append(sourcePane, divider, preview);
     initSplitDivider(container, sourcePane, divider);

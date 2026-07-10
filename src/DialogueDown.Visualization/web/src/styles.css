@@ -99,6 +99,36 @@ button.tab.active {
     font-weight: 600;
 }
 
+/* A dot on the Source tab marks unsaved edits in Live Edit. */
+button.tab.dirty::after {
+    content: "";
+    display: inline-block;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    border-radius: 50%;
+    background: var(--pico-primary);
+}
+
+/* The passive "file changed on disk" chip in the header (Live Edit). */
+.disk-chip {
+    width: auto;
+    margin: 0 0 0 auto;
+    padding: 0.15rem 0.7rem;
+    align-self: center;
+    font-size: 0.75rem;
+    color: #fff;
+    background: #d97706;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.disk-chip:hover {
+    background: #b45309;
+}
+
 /* Live status banner (compile error / missing document); hidden until needed. */
 #live-banner {
     flex: 0 0 auto;
@@ -159,22 +189,36 @@ section.stage.error {
 .source-pane {
     flex: 0 0 50%;
     min-width: 0;
-    overflow: auto;
-    padding: 0.75rem 1rem;
+    overflow: hidden;
+    display: flex;
 }
 
-.source-pane pre {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
+/* The CodeMirror editor fills the pane and scrolls internally; it blends with the
+   pane background and inherits the theme's foreground rather than a block background. */
+.source-pane .cm-editor {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    background: transparent;
     font-size: 0.82rem;
 }
 
-/* Use highlight.js only for token colors; let the code blend with the pane
-   background rather than carry the theme's own block background. */
-.source-pane .hljs {
+.source-pane .cm-editor.cm-focused {
+    outline: none;
+}
+
+.source-pane .cm-scroller {
+    font-family: var(--pico-font-family-monospace);
+}
+
+.source-pane .cm-gutters {
     background: transparent;
-    padding: 0;
+    border-right: 1px solid var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+}
+
+.source-pane .cm-content {
+    caret-color: var(--pico-color);
 }
 
 .source-divider {

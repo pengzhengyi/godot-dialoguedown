@@ -24,7 +24,7 @@ test("the Source tab is first and active, showing the document beside a preview"
     await expect(page.locator(".tab").first()).toHaveText("Source");
     const active = page.locator("section.stage.active");
     await expect(active).toHaveClass(/source-stage/);
-    await expect(active.locator(".source-pane pre")).toContainText("# Scene");
+    await expect(active.locator(".source-pane .cm-content")).toContainText("# Scene");
     await expect(active.locator(".source-preview")).toBeVisible();
     // The node-detail panel is only for graph tabs; it is hidden here.
     await expect(page.locator("#detail")).toBeHidden();

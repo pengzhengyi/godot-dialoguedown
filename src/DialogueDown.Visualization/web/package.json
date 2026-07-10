@@ -22,8 +22,8 @@
     "@picocss/pico": "^2.0.6",
     "d3": "^7.9.0",
     "highlight.js": "^11.11.1",
-    "marked": "^12.0.2",
-    "marked-gfm-heading-id": "^3.2.0",
+    "marked": "^18.0.6",
+    "marked-gfm-heading-id": "^4.1.4",
     "tippy.js": "^6.3.7"
   },
   "devDependencies": {

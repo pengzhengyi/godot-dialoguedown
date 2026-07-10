@@ -11,7 +11,7 @@ namespace DialogueDown.Script.Transpiler.Parsers;
 /// <c>#tag</c>, and a jump (<see cref="JumpLeaf"/>) where they wrote <c>=&gt;</c>.
 /// Markdown treats these as ordinary text, so this is where they are recognized. Tags
 /// are recognized in every context; jumps only where the context allows (they are
-/// dropped inside a label). Each leaf keeps the range it covered, and neighbouring text
+/// dropped inside a label). Each leaf keeps the range it covered, and neighboring text
 /// is joined into one piece.
 /// </summary>
 internal static class InlineLeafTokenizer

@@ -170,7 +170,7 @@ section.stage.error {
     font-size: 0.82rem;
 }
 
-/* Use highlight.js only for token colours; let the code blend with the pane
+/* Use highlight.js only for token colors; let the code blend with the pane
    background rather than carry the theme's own block background. */
 .source-pane .hljs {
     background: transparent;
@@ -484,7 +484,7 @@ svg.tree {
     display: flex;
     flex-wrap: nowrap; /* keep the status bar and the help on one row (the help shrinks
        and wraps its own text) so the help never drops to a line below the status bar */
-    align-items: flex-start; /* status bar sticks to the top, not centred against the taller expanded help */
+    align-items: flex-start; /* status bar sticks to the top, not centered against the taller expanded help */
     gap: 0.4rem 1rem;
     padding: 0.4rem 1.25rem;
     border-top: 1px solid var(--pico-muted-border-color);
@@ -554,7 +554,7 @@ svg.tree {
 .doc-path:hover {
     /* On hover Pico's `button:is(:hover)` rule re-sets --pico-color to the
        primary-inverse, out-specifying the base reset and flipping the text to an
-       unreadable colour (white-on-white). Re-assert the reset here so the text
+       unreadable color (white-on-white). Re-assert the reset here so the text
        stays the normal foreground, and give the chip a defined surface (not
        transparent) so it reads as a clear hover affordance. */
     --pico-color: inherit;

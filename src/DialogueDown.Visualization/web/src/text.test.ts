@@ -112,7 +112,7 @@ describe("renderMarkdown", () => {
         expect(renderMarkdown("# Scene")).toContain("<h1>Scene</h1>");
     });
 
-    it("shows front matter as a labelled block rather than a heading", () => {
+    it("shows front matter as a labeled block rather than a heading", () => {
         const html = renderMarkdown("---\ntitle: Scene\n---\nBody text");
         expect(html).toContain('<p class="frontmatter-label">Front matter</p>');
         expect(html).toContain('<pre class="frontmatter"><code>title: Scene</code></pre>');

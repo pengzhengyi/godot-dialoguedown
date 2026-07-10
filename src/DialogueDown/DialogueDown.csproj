@@ -23,6 +23,8 @@
     <InternalsVisibleTo Include="DialogueDown.Tests" />
     <InternalsVisibleTo Include="DialogueDown.Visualization" />
     <InternalsVisibleTo Include="DialogueDown.Visualization.Tests" />
+    <!-- Let NSubstitute's proxy generator mock the internal stage interfaces in tests. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
   <ItemGroup>

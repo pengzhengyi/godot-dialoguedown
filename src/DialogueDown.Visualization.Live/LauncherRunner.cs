@@ -4,7 +4,7 @@ namespace DialogueDown.Visualization.Live;
 /// The default <see cref="ILauncherRunner"/>: resolves the launch root, serves the
 /// embedded launcher page (pre-filled with the initial selection) from a
 /// <see cref="LauncherServer"/>, opens it with the injected browser launcher, and stays
-/// up until cancelled.
+/// up until canceled.
 /// </summary>
 public sealed class LauncherRunner : ILauncherRunner
 {
@@ -56,7 +56,7 @@ public sealed class LauncherRunner : ILauncherRunner
             _browser.Open(url);
         }
 
-        // Keep serving until cancelled (Ctrl+C); complete normally rather than throwing.
+        // Keep serving until canceled (Ctrl+C); complete normally rather than throwing.
         var stopped = new TaskCompletionSource();
         await using var registration = cancellationToken.Register(() => stopped.TrySetResult());
         await stopped.Task;

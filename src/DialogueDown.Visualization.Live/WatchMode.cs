@@ -9,7 +9,7 @@ namespace DialogueDown.Visualization.Live;
 internal static class WatchMode
 {
     /// <summary>
-    /// Runs a watch session until <paramref name="cancellationToken"/> is cancelled.
+    /// Runs a watch session until <paramref name="cancellationToken"/> is canceled.
     /// Returns 0 on a clean stop, or 1 when the document is invalid or an explicit
     /// <paramref name="renderRoot"/> cannot be used.
     /// </summary>
@@ -52,7 +52,7 @@ internal static class WatchMode
             browser.Open(url);
         }
 
-        // Keep serving until cancelled (Ctrl+C). Complete normally on cancellation
+        // Keep serving until canceled (Ctrl+C). Complete normally on cancellation
         // rather than throwing, so shutdown is not an exceptional path.
         var stopped = new TaskCompletionSource();
         await using var registration = cancellationToken.Register(() => stopped.TrySetResult());

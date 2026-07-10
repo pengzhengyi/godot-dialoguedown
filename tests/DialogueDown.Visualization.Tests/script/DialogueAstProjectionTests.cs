@@ -81,28 +81,28 @@ public sealed class DialogueAstProjectionTests
     }
 
     [Fact]
-    public void Neighbours_Line_YieldsSpeakerThenSpeech()
+    public void Neighbors_Line_YieldsSpeakerThenSpeech()
     {
         var span = new SourceSpan(0, 5);
         var speaker = new SpeakerNameReference("Alice", span);
         var text = new Text("Hi", span);
         var line = new Line(speaker, [text], span);
 
-        Assert.Equal(new object[] { speaker, text }, _projection.Neighbours(line));
+        Assert.Equal(new object[] { speaker, text }, _projection.Neighbors(line));
     }
 
     [Fact]
-    public void Neighbours_LineWithoutSpeaker_YieldsOnlySpeech()
+    public void Neighbors_LineWithoutSpeaker_YieldsOnlySpeech()
     {
         var span = new SourceSpan(0, 2);
         var text = new Text("Hi", span);
 
-        Assert.Equal(new object[] { text }, _projection.Neighbours(new Line(null, [text], span)));
+        Assert.Equal(new object[] { text }, _projection.Neighbors(new Line(null, [text], span)));
     }
 
     [Fact]
-    public void Neighbours_Leaf_IsEmpty()
+    public void Neighbors_Leaf_IsEmpty()
     {
-        Assert.Empty(_projection.Neighbours(new Text("Hi", new SourceSpan(0, 2))));
+        Assert.Empty(_projection.Neighbors(new Text("Hi", new SourceSpan(0, 2))));
     }
 }

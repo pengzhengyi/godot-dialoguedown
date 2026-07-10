@@ -55,7 +55,7 @@ export function createTreeView(stage: Stage, onSelect: (node: DisplayNode) => vo
 
     const zoomBehavior = zoom<SVGSVGElement, undefined>()
         .scaleExtent([0.1, 3])
-        // Use the container size as the extent so zoom centres correctly and does not
+        // Use the container size as the extent so zoom centers correctly and does not
         // depend on the SVG's intrinsic size.
         .extent(() => {
             const size = viewportSize();

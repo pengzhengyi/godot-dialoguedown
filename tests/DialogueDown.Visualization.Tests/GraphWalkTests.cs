@@ -184,7 +184,7 @@ public sealed class GraphWalkTests
     }
 
     [Fact]
-    public void Walk_NullNeighbour_Throws()
+    public void Walk_NullNeighbor_Throws()
     {
         var root = new Cell("root");
         var projection = new CellProjection().Link(root, (Cell)null!);

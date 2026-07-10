@@ -106,7 +106,7 @@ public sealed class CompilationVisualizer
             references.Add(image.Source);
         }
 
-        foreach (var child in projection.Neighbours(node))
+        foreach (var child in projection.Neighbors(node))
         {
             CollectLocalImages(child, projection, references);
         }

@@ -28,7 +28,7 @@ export interface LegendHandlers {
 
 /**
  * Build the interactive legend for a stage: one row per category present, showing
- * its colour, the stage's own type name(s), and a node count. Clicking a row
+ * its color, the stage's own type name(s), and a node count. Clicking a row
  * toggles it (dimming); hovering highlights it.
  */
 export function createLegend(stage: Stage, handlers: LegendHandlers): HTMLElement {

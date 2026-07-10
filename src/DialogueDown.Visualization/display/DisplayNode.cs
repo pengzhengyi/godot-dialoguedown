@@ -5,7 +5,7 @@ namespace DialogueDown.Visualization;
 /// graph, a short <see cref="Label"/>, optional <see cref="Attributes"/>, the
 /// optional original <see cref="Source"/> text it was produced from, and an
 /// optional semantic <see cref="Category"/> (a stable group name that drives
-/// colour). Renderer-agnostic — every output format is built from this.
+/// color). Renderer-agnostic — every output format is built from this.
 /// </summary>
 public sealed record DisplayNode(
     string Id,

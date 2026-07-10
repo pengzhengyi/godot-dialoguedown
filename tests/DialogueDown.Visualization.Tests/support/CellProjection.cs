@@ -8,7 +8,7 @@ namespace DialogueDown.Visualization.Tests.Support;
 /// </summary>
 internal sealed class CellProjection : INodeProjection<Cell>
 {
-    private readonly Dictionary<Cell, IReadOnlyList<Cell>> _neighbours =
+    private readonly Dictionary<Cell, IReadOnlyList<Cell>> _neighbors =
         new(ReferenceEqualityComparer.Instance);
 
     private readonly Dictionary<Cell, IReadOnlyList<DisplayAttribute>> _attributes =
@@ -26,7 +26,7 @@ internal sealed class CellProjection : INodeProjection<Cell>
 
     public CellProjection Link(Cell from, params Cell[] to)
     {
-        _neighbours[from] = to;
+        _neighbors[from] = to;
         return this;
     }
 
@@ -55,6 +55,6 @@ internal sealed class CellProjection : INodeProjection<Cell>
             _sources.TryGetValue(node, out var source) ? source : null,
             _categories.TryGetValue(node, out var category) ? category : null);
 
-    public IEnumerable<Cell> Neighbours(Cell node) =>
-        _neighbours.TryGetValue(node, out var neighbours) ? neighbours : [];
+    public IEnumerable<Cell> Neighbors(Cell node) =>
+        _neighbors.TryGetValue(node, out var neighbors) ? neighbors : [];
 }

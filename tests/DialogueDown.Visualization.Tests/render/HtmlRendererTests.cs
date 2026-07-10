@@ -21,7 +21,7 @@ public sealed class HtmlRendererTests
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
         // The page is one self-contained file: the client libraries are inlined
-        // (no CDN, works offline). Pico and Tippy leave recognisable CSS markers.
+        // (no CDN, works offline). Pico and Tippy leave recognizable CSS markers.
         Assert.DoesNotContain("cdn.jsdelivr.net", html);
         Assert.DoesNotContain("<script src=\"http", html);
         Assert.Contains("--pico-", html);

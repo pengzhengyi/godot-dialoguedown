@@ -1,20 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>DialogueDown.Cli</RootNamespace>
-    <AssemblyName>dialoguedown</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-    <IsAotCompatible>false</IsAotCompatible>
+    <RootNamespace>DialogueDown.Cli</RootNamespace>
+    <AssemblyName>DialogueDown.Cli</AssemblyName>
     <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
     <!-- The command-line front-end for DialogueDown scripts. A thin Spectre.Console.Cli
-         shell over the reusable DialogueDown library. -->
+         host over the library; the real work lives behind the compilation seam. -->
+    <Description>Command-line interface for DialogueDown scripts.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="DialogueDown.Cli.Tests" />
+    <!-- Let NSubstitute (Castle DynamicProxy) mock the CLI's internal interfaces. -->
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
@@ -29,7 +31,4 @@
     <ProjectReference Include="..\DialogueDown.Visualization.Live\DialogueDown.Visualization.Live.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="Program.cs" />
-  </ItemGroup>
 </Project>

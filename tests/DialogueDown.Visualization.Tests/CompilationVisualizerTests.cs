@@ -19,7 +19,7 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
-    public void BuildStages_ProducesMarkdownAstStageFromInjectedParser()
+    public void BuildStages_ProducesMarkdownAndDialogueStagesFromInjectedParser()
     {
         var document = new MarkdownDocument(
         [
@@ -30,10 +30,36 @@ public sealed class CompilationVisualizerTests
 
         var stages = visualizer.BuildStages("script source");
 
-        var stage = Assert.Single(stages);
-        Assert.Equal("Markdown AST", stage.Title);
+        Assert.Collection(
+            stages,
+            markdown => Assert.Equal("Markdown AST", markdown.Title),
+            dialogue => Assert.Equal("Dialogue AST", dialogue.Title));
         Assert.Equal("script source", parser.ReceivedSource);
-        Assert.Contains(stage.Nodes, n => n.Label == "Paragraph");
+        Assert.Contains(stages[0].Nodes, n => n.Label == "Paragraph");
+        Assert.Contains(stages[1].Nodes, n => n.Label == "Line"); // the paragraph becomes a line
+    }
+
+    [Fact]
+    public void BuildStages_RealParser_ProducesDialogueStageWithSpeakersChoicesAndCalls()
+    {
+        var stages = new CompilationVisualizer().BuildStages(
+            """
+            # Scene
+
+            Alice: Hello, **there**! `Wave()`
+
+            - Go left
+            - Go right
+            """);
+
+        var dialogue = Assert.IsType<DisplayGraph>(stages[1]);
+        Assert.Equal("Dialogue AST", dialogue.Title);
+        Assert.False(string.IsNullOrWhiteSpace(dialogue.Description));
+        Assert.Contains(dialogue.Nodes, n => n.Label == "Line");
+        Assert.Contains(dialogue.Nodes, n => n.Label.StartsWith("Speaker", StringComparison.Ordinal));
+        Assert.Contains(dialogue.Nodes, n => n.Label.StartsWith("Choices", StringComparison.Ordinal));
+        Assert.Contains(dialogue.Nodes, n => n.Category == "call");     // the `Wave()` game call
+        Assert.Contains(dialogue.Nodes, n => n.Category == "styling");  // the **there** bold
     }
 
     [Fact]

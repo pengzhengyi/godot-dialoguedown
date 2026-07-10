@@ -181,7 +181,7 @@ sequenceDiagram
 | Type | Responsibility | Collaborators |
 | --- | --- | --- |
 | `VisualizeCli` | Build the `visualize` command (arguments and options); dispatch to static or watch mode. | `System.CommandLine`, `StaticMode`, `WatchMode` |
-| `StaticMode` / `WatchMode` | The two run paths: render-to-file-and-open, and run a live session until cancelled. Watch mode also resolves the serve root before starting. | `CompilationVisualizer`, `LiveVisualizationServer`, `ServeRootResolver`, `DocumentWatcher` |
+| `StaticMode` / `WatchMode` | The two run paths: render-to-file-and-open, and run a live session until canceled. Watch mode also resolves the serve root before starting. | `CompilationVisualizer`, `LiveVisualizationServer`, `ServeRootResolver`, `DocumentWatcher` |
 | `DocumentValidation` | Reject a missing file or wrong extension with a clear message. | — |
 | `ServeRootResolver` / `IHostConsent` / `ConsoleHostConsent` | Decide the serve root: the document's folder by default, the longest common ancestor of the document and any outside images with consent, or an explicit `--render-root`. `ConsoleHostConsent` is the opt-in prompt (auto-declines off a terminal). | `CompilationVisualizer.LocalImageReferences`, `ServeRoot` |
 | `LiveVisualizationServer` | Build and run the loopback web app; host the serve root's static files, serve the report at its sub-path, map the endpoints, and stream SSE. | ASP.NET, `LiveSession`, `ServeRoot`, `SseBroadcaster` |

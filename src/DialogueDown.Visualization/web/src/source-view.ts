@@ -8,7 +8,7 @@ import {
     rectangularSelection,
     crosshairCursor,
 } from "@codemirror/view";
-import { EditorState, EditorSelection, Prec } from "@codemirror/state";
+import { EditorState, EditorSelection, Prec, Compartment } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import {
@@ -87,22 +87,60 @@ const formatKeymap = [
 const MIN_RATIO = 0.2;
 const MAX_RATIO = 0.8;
 
-/** How the Source tab behaves — read-only in Static/Watch, an editor in Live Edit. */
+/** How the Source tab behaves — read-only in View, an editor in Edit. */
 export interface SourceViewOptions {
-    /** When true the source pane is an editable editor (Live Edit); otherwise read-only. */
+    /** When true the source pane starts editable (Edit mode); otherwise read-only (View). */
     editable?: boolean;
-    /** Called (Live Edit) with the new buffer on every edit — for the preview and dirty state. */
+    /** Called with the new buffer on every edit — for the preview and dirty state. */
     onChange?: (value: string) => void;
+}
+
+/** A handle to a live source view, letting the mode controller reconfigure it in place. */
+export interface SourceViewHandle {
+    /** The source-view element (editor + divider + preview) to mount. */
+    readonly element: HTMLElement;
+    /** Switch the editor between editable (Edit) and read-only (View) without a rebuild. */
+    setEditable(editable: boolean): void;
+    /** Replace the buffer (a View-mode hot-reload), keeping the one editor instance. */
+    setContent(source: string): void;
+}
+
+const editability = new Compartment();
+
+/**
+ * The extensions that depend on whether the editor is editable: read-only vs editable,
+ * the content's accessibility attributes, and the authoring aids (close-brackets,
+ * emphasis auto-surround, and the format shortcuts) that only make sense in Edit. Kept in
+ * a {@link Compartment} so the mode controller can flip them at runtime — the document,
+ * cursor, scroll, and undo history survive the switch.
+ */
+function editableConfig(editable: boolean) {
+    return [
+        // Read-only (View) keeps the editor focusable and selectable — it just rejects
+        // edits — so the scrollable pane stays keyboard-accessible.
+        EditorState.readOnly.of(!editable),
+        EditorView.contentAttributes.of(
+            editable
+                ? { "aria-label": "Document source editor", tabindex: "0" }
+                : { "aria-label": "Document source", "aria-readonly": "true", tabindex: "0" },
+        ),
+        ...(editable
+            ? [closeBrackets(), emphasisSurround, Prec.high(keymap.of(formatKeymap))]
+            : []),
+    ];
 }
 
 /**
  * The Source tab: a CodeMirror editor of the document (left) beside a live rendered
  * preview (right), split like an editor's side-by-side preview. The editor is read-only
- * in Static and Watch and editable in Live Edit, so the tab looks the same in every mode.
- * A draggable divider re-proportions the two panes; preview anchor links scroll to their
- * headings (see {@link renderDocument}).
+ * in View and editable in Edit — the same instance, reconfigured via {@link editability}
+ * — so the tab looks the same in every mode. A draggable divider re-proportions the two
+ * panes; preview anchor links scroll to their headings (see {@link renderDocument}).
  */
-export function createSourceView(source: string, options: SourceViewOptions = {}): HTMLElement {
+export function createSourceView(
+    source: string,
+    options: SourceViewOptions = {},
+): SourceViewHandle {
     const { editable = false, onChange } = options;
 
     const container = document.createElement("div");
@@ -124,8 +162,8 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
     preview.setAttribute("aria-label", "Preview");
     preview.innerHTML = renderDocument(source);
 
-    // Re-render the preview and report the new buffer on every edit (Live Edit only —
-    // a read-only editor never fires a doc change).
+    // Re-render the preview and report the new buffer on every change (edits in Edit, or
+    // a programmatic View-mode reload). The mode controller decides what to do with it.
     const onEdit = EditorView.updateListener.of((update) => {
         if (update.docChanged) {
             const value = update.state.doc.toString();
@@ -134,7 +172,7 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
         }
     });
 
-    new EditorView({
+    const view = new EditorView({
         parent: sourcePane,
         state: EditorState.create({
             doc: source,
@@ -156,22 +194,7 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
                 markdown(),
                 syntaxHighlighting(markdownHighlightStyle),
                 EditorView.lineWrapping,
-                // Read-only (Static/Watch) keeps the editor focusable and selectable — it
-                // just rejects edits — so the scrollable pane stays keyboard-accessible.
-                EditorState.readOnly.of(!editable),
-                EditorView.contentAttributes.of(
-                    editable
-                        ? { "aria-label": "Document source editor", tabindex: "0" }
-                        : {
-                              "aria-label": "Document source",
-                              "aria-readonly": "true",
-                              tabindex: "0",
-                          },
-                ),
-                // Authoring aids only make sense when editable.
-                ...(editable
-                    ? [closeBrackets(), emphasisSurround, Prec.high(keymap.of(formatKeymap))]
-                    : []),
+                editability.of(editableConfig(editable)),
                 keymap.of([
                     ...closeBracketsKeymap,
                     ...defaultKeymap,
@@ -186,7 +209,14 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
 
     container.append(sourcePane, divider, preview);
     initSplitDivider(container, sourcePane, divider);
-    return container;
+
+    return {
+        element: container,
+        setEditable: (next) =>
+            view.dispatch({ effects: editability.reconfigure(editableConfig(next)) }),
+        setContent: (next) =>
+            view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }),
+    };
 }
 
 /** Wire the divider so dragging it re-proportions the source pane. */

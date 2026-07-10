@@ -47,7 +47,7 @@ describe("initLauncher", () => {
         const container = document.createElement("div");
         const p = ports();
 
-        initLauncher(container, { root: "/proj", source: null, mode: "static" }, p);
+        initLauncher(container, { root: "/proj", source: null, mode: "view" }, p);
         await flush();
 
         expect(container.querySelector(".launcher-root-path")?.textContent).toBe("/proj");
@@ -58,7 +58,7 @@ describe("initLauncher", () => {
     it("browses into a directory when it is clicked", async () => {
         const container = document.createElement("div");
         const p = ports();
-        initLauncher(container, { root: "/", source: null, mode: "static" }, p);
+        initLauncher(container, { root: "/", source: null, mode: "view" }, p);
         await flush();
 
         (container.querySelector(".launcher-item.dir") as HTMLElement).click();
@@ -71,7 +71,7 @@ describe("initLauncher", () => {
     it("selects a source, enabling and driving Open", async () => {
         const container = document.createElement("div");
         const p = ports();
-        initLauncher(container, { root: "/", source: null, mode: "watch" }, p);
+        initLauncher(container, { root: "/", source: null, mode: "view" }, p);
         await flush();
         const open = container.querySelector(".launcher-open") as HTMLButtonElement;
 
@@ -81,7 +81,7 @@ describe("initLauncher", () => {
 
         open.click();
         await flush();
-        expect(p.open).toHaveBeenCalledWith("a.dialogue.md", "watch");
+        expect(p.open).toHaveBeenCalledWith("a.dialogue.md", "view");
         expect(p.navigate).toHaveBeenCalledWith("http://127.0.0.1:1/r/proj/");
     });
 
@@ -89,7 +89,7 @@ describe("initLauncher", () => {
         const container = document.createElement("div");
         const p = ports({ browse: vi.fn(async () => projListing) });
 
-        initLauncher(container, { root: "/", source: "proj/scene.dialogue.md", mode: "static" }, p);
+        initLauncher(container, { root: "/", source: "proj/scene.dialogue.md", mode: "view" }, p);
         await flush();
 
         expect(p.browse).toHaveBeenCalledWith("proj");
@@ -101,15 +101,15 @@ describe("initLauncher", () => {
         );
     });
 
-    it("offers the Live Edit mode and defaults to static", async () => {
+    it("offers the View and Edit modes and defaults to View", async () => {
         const container = document.createElement("div");
-        initLauncher(container, { root: "/", source: null, mode: "static" }, ports());
+        initLauncher(container, { root: "/", source: null, mode: "view" }, ports());
         await flush();
 
-        expect((container.querySelector('input[value="live"]') as HTMLInputElement).disabled).toBe(
+        expect((container.querySelector('input[value="edit"]') as HTMLInputElement).disabled).toBe(
             false,
         );
-        expect((container.querySelector('input[value="static"]') as HTMLInputElement).checked).toBe(
+        expect((container.querySelector('input[value="view"]') as HTMLInputElement).checked).toBe(
             true,
         );
     });
@@ -117,7 +117,7 @@ describe("initLauncher", () => {
     it("shows a parent row that browses up", async () => {
         const container = document.createElement("div");
         const p = ports({ browse: vi.fn(async () => projListing) });
-        initLauncher(container, { root: "/", source: null, mode: "static" }, p);
+        initLauncher(container, { root: "/", source: null, mode: "view" }, p);
         await flush();
 
         const up = container.querySelector(".launcher-item.up") as HTMLElement;

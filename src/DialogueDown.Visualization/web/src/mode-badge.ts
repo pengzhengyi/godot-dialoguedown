@@ -13,15 +13,15 @@ export const MODE_INFO: Record<VisualizationMode, ModeInfo> = {
         description:
             "A one-shot, self-contained report. It will not change if the source file is edited.",
     },
-    watch: {
-        label: "Hot Reload",
+    view: {
+        label: "View",
         description:
-            "Served by a local server watching the file. Save the file in your editor and the report updates automatically.",
+            "Served, read-only, and auto-updating. Save the file in your editor and the report updates.",
     },
-    live: {
-        label: "Live",
+    edit: {
+        label: "Edit",
         description:
-            "Served by a local server with in-browser editing. Edit here and save to update the file and the report.",
+            "Served with in-browser editing. Edit here and save to update the file and the report.",
     },
 };
 

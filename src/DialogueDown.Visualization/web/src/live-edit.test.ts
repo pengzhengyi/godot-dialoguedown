@@ -102,4 +102,18 @@ describe("createLiveEdit", () => {
         expect(calls.updated).toEqual([]);
         expect(live.dirty).toBe(false);
     });
+
+    it("discard clears dirty and the disk chip without saving (leaving Edit)", () => {
+        const save = vi.fn(async () => STAGES);
+        const { ports, calls } = fakePorts({ save });
+        const live = createLiveEdit(ports);
+
+        live.onEdit("# New");
+        live.discard();
+
+        expect(live.dirty).toBe(false);
+        expect(calls.setDirty).toEqual([true, false]);
+        expect(calls.diskChanged).toEqual([false]);
+        expect(save).not.toHaveBeenCalled();
+    });
 });

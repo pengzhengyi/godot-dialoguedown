@@ -8,7 +8,7 @@ const LONG_PATH =
     "/Users/pengzhengyi/Documents/Dev/PersonalProjects/Game/DialogueDown/very/deep/nested/folders/scene.dialogue.md";
 
 const REPORT_WITH_PATH: Report = {
-    mode: "watch",
+    mode: "view",
     path: LONG_PATH,
     source: SAMPLE_SOURCE,
     stages: SAMPLE_STAGES,

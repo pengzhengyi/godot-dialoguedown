@@ -1,7 +1,7 @@
 import type { Report, Stage } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
-import { createSourceView } from "./source-view";
+import { createSourceView, type SourceViewHandle } from "./source-view";
 import { initResizer } from "./resizer";
 import { initTooltips, initTabTooltips } from "./tooltips";
 import { setHelp } from "./help";
@@ -10,17 +10,22 @@ import { setHelp } from "./help";
 // tip is a constant here rather than a field on the model.
 const SOURCE_TIP = "The document as written, beside a live Markdown preview.";
 
-/** Live Edit wiring for the Source tab: edits mark the session dirty, Cmd/Ctrl+S saves. */
-export interface LiveWiring {
-    onEdit(buffer: string): void;
+/** How the Source tab's editor is wired for a served session. */
+export interface SourceOptions {
+    /** Start editable (Edit) or read-only (View); toggled later via {@link AppController.setEditable}. */
+    editable: boolean;
+    /** Called with the new buffer on every editor change (edits, or a View-mode reload). */
+    onChange(buffer: string): void;
 }
 
-/** Controls a running report: swap in fresh data, or show/clear a status banner. */
+/** Controls a running report: swap in fresh data, reconfigure the editor, or show a banner. */
 export interface AppController {
-    /** Re-render the report with new data, keeping the active tab where possible. */
-    rerender(report: Report): void;
     /** Replace only the graph tabs with recompiled stages, leaving the Source tab (editor) intact. */
     updateStages(stages: Stage[]): void;
+    /** Switch the Source editor between editable (Edit) and read-only (View) in place. */
+    setEditable(editable: boolean): void;
+    /** Replace the Source buffer (a View-mode hot-reload), keeping the one editor instance. */
+    setContent(source: string): void;
     /** Show a status message (e.g. a live compile error), or clear it with `null`. */
     showBanner(message: string | null): void;
 }
@@ -29,7 +34,7 @@ export interface AppController {
  * Build the tabs — an optional Source tab followed by one per stage — wire the
  * shared interactions, and return a controller for live updates.
  */
-export function runApp(report: Report, live?: LiveWiring): AppController {
+export function runApp(report: Report, source?: SourceOptions): AppController {
     const tabsEl = document.getElementById("tabs")!;
     const stagesEl = document.getElementById("stages")!;
     const appEl = document.getElementById("app")!;
@@ -40,6 +45,7 @@ export function runApp(report: Report, live?: LiveWiring): AppController {
     let views: (TreeView | null)[] = [];
     let activeIndex = 0;
     let sourcePresent = false;
+    let sourceHandle: SourceViewHandle | null = null;
 
     build(report);
 
@@ -54,12 +60,9 @@ export function runApp(report: Report, live?: LiveWiring): AppController {
     initTabTooltips(tabsEl);
 
     return {
-        rerender(next) {
-            const previous = activeIndex;
-            build(next);
-            if (views.length > 0) activate(Math.min(previous, views.length - 1));
-        },
         updateStages,
+        setEditable: (editable) => sourceHandle?.setEditable(editable),
+        setContent: (next) => sourceHandle?.setContent(next),
         showBanner(message) {
             bannerEl.textContent = message ?? "";
             bannerEl.hidden = message === null;
@@ -75,17 +78,11 @@ export function runApp(report: Report, live?: LiveWiring): AppController {
         if (report.source != null) {
             const section = document.createElement("section");
             section.className = "stage source-stage";
-            section.appendChild(
-                createSourceView(
-                    report.source,
-                    live
-                        ? {
-                              editable: true,
-                              onChange: (value) => live.onEdit(value),
-                          }
-                        : {},
-                ),
+            sourceHandle = createSourceView(
+                report.source,
+                source ? { editable: source.editable, onChange: source.onChange } : {},
             );
+            section.appendChild(sourceHandle.element);
             addTab("Source", section, null, SOURCE_TIP);
         }
         for (const stage of report.stages) {

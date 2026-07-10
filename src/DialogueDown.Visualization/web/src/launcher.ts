@@ -34,15 +34,14 @@ interface ModeOption {
 }
 
 const MODES: readonly ModeOption[] = [
-    { value: "static", label: "Static", help: "Render the report once and open it." },
     {
-        value: "watch",
-        label: "Watch",
-        help: "Serve the report and refresh it whenever the file changes on disk.",
+        value: "view",
+        label: "View",
+        help: "Read-only and auto-updating: the report refreshes when the file changes on disk.",
     },
     {
-        value: "live",
-        label: "Live Edit",
+        value: "edit",
+        label: "Edit",
         help: "Edit the script in the browser and save it back to disk.",
     },
 ];
@@ -168,7 +167,7 @@ function renderModes(initialMode: string): { element: HTMLElement; value: () => 
 
     return {
         element: group,
-        value: () => group.querySelector<HTMLInputElement>("input:checked")?.value ?? "static",
+        value: () => group.querySelector<HTMLInputElement>("input:checked")?.value ?? "view",
     };
 }
 

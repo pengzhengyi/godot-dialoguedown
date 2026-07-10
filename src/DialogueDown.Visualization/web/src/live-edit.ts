@@ -25,6 +25,8 @@ export interface LiveEditController {
     save(): Promise<void>;
     /** The file changed on disk (external edit) — show the passive chip, never reload. */
     onDiskChange(): void;
+    /** Leaving Edit — drop any unsaved-dirty state and the disk chip (no save). */
+    discard(): void;
     /** Whether the buffer has unsaved edits. */
     readonly dirty: boolean;
 }
@@ -63,6 +65,10 @@ export function createLiveEdit(ports: LiveEditPorts, initialBuffer = ""): LiveEd
         },
         onDiskChange() {
             ports.setDiskChanged(true);
+        },
+        discard() {
+            if (dirty) setDirty(false);
+            ports.setDiskChanged(false);
         },
     };
 }

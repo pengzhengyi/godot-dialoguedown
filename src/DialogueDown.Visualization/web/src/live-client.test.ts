@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { startLiveClient } from "./live-client";
-import type { AppController } from "./app";
+import { watchServerEvents } from "./live-client";
 
 /** A stand-in for the browser's EventSource (jsdom has none). */
 class FakeEventSource {
@@ -14,34 +13,30 @@ class FakeEventSource {
 }
 
 function setup() {
-    const controller: AppController = {
-        rerender: vi.fn(),
-        updateStages: vi.fn(),
-        showBanner: vi.fn(),
-    };
+    const handlers = { onReload: vi.fn(), onProblem: vi.fn() };
     const source = new FakeEventSource();
-    const returned = startLiveClient(controller, () => source as unknown as EventSource);
-    return { controller, source, returned };
+    const returned = watchServerEvents(handlers, () => source as unknown as EventSource);
+    return { handlers, source, returned };
 }
 
-describe("startLiveClient", () => {
-    it("re-renders with the pushed report and clears the banner on a reload event", () => {
-        const { controller, source } = setup();
+describe("watchServerEvents", () => {
+    it("routes a reload event's report to onReload", () => {
+        const { handlers, source } = setup();
         const report = { path: "s.dialogue.md", source: "# Hi", stages: [] };
 
         source.emit("reload", JSON.stringify(report));
 
-        expect(controller.showBanner).toHaveBeenCalledWith(null);
-        expect(controller.rerender).toHaveBeenCalledWith(report);
+        expect(handlers.onReload).toHaveBeenCalledWith(report);
+        expect(handlers.onProblem).not.toHaveBeenCalled();
     });
 
-    it("shows the banner and does not re-render on a problem event", () => {
-        const { controller, source } = setup();
+    it("routes a problem event's message to onProblem", () => {
+        const { handlers, source } = setup();
 
         source.emit("problem", JSON.stringify({ message: "compile error at line 3" }));
 
-        expect(controller.showBanner).toHaveBeenCalledWith("compile error at line 3");
-        expect(controller.rerender).not.toHaveBeenCalled();
+        expect(handlers.onProblem).toHaveBeenCalledWith("compile error at line 3");
+        expect(handlers.onReload).not.toHaveBeenCalled();
     });
 
     it("returns the event source it connected to", () => {
@@ -60,7 +55,7 @@ describe("startLiveClient", () => {
             addEventListener(): void {}
         };
         try {
-            startLiveClient({ rerender: vi.fn(), updateStages: vi.fn(), showBanner: vi.fn() });
+            watchServerEvents({ onReload: vi.fn(), onProblem: vi.fn() });
             expect(created).toEqual(["/api/events"]);
         } finally {
             globalThis.EventSource = RealEventSource;

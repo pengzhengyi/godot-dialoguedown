@@ -20,7 +20,6 @@ const server = spawn(
         "--",
         "visualize",
         LIVE_DOC,
-        "--watch",
         "--root",
         dirname(LIVE_DOC),
         "--port",

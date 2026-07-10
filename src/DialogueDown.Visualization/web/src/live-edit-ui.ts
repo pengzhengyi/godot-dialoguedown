@@ -3,18 +3,24 @@ import type { LiveEditPorts } from "./live-edit";
 import type { Report } from "./model";
 
 const SAVE_URL = "/api/save";
-const EVENTS_URL = "/api/events";
+
+/** The Live Edit ports plus a switch to show or hide the Save button (Edit only). */
+export interface LiveEditUi extends LiveEditPorts {
+    /** Show or hide the Save button as the session enters or leaves Edit. */
+    setSaveVisible(visible: boolean): void;
+}
 
 /**
  * The browser-side ports for the Live Edit state machine: it saves the buffer over
  * `POST /api/save`, applies the recompiled graphs, toggles the Source tab's dirty
  * marker and the "file changed on disk" chip, and arms a `beforeunload` guard so a
- * refresh/close with unsaved edits prompts first.
+ * refresh/close with unsaved edits prompts first. The Save button and shortcut only act
+ * in Edit; the button is shown/hidden via {@link LiveEditUi.setSaveVisible}.
  */
-export function initLiveEditUi(app: AppController, requestSave: () => void): LiveEditPorts {
+export function initLiveEditUi(app: AppController, requestSave: () => void): LiveEditUi {
     const tabsEl = document.getElementById("tabs")!;
     const chip = createDiskChip();
-    const setSaveEnabled = createSaveButton(requestSave);
+    const saveButton = createSaveButton(requestSave);
     installSaveShortcut(requestSave);
     let unloadHandler: ((event: BeforeUnloadEvent) => void) | null = null;
 
@@ -35,7 +41,7 @@ export function initLiveEditUi(app: AppController, requestSave: () => void): Liv
         updateStages: (stages) => app.updateStages(stages),
         setDirty: (dirty) => {
             tabsEl.querySelector(".tab")?.classList.toggle("dirty", dirty);
-            setSaveEnabled(dirty);
+            saveButton.setEnabled(dirty);
         },
         setDiskChanged: (changed) => {
             chip.hidden = !changed;
@@ -52,17 +58,8 @@ export function initLiveEditUi(app: AppController, requestSave: () => void): Liv
                 unloadHandler = null;
             }
         },
+        setSaveVisible: saveButton.setVisible,
     };
-}
-
-/**
- * Subscribe to the disk stream in Live Edit: an external change raises the passive
- * chip (never a reload, so the editor is never clobbered).
- */
-export function watchDiskChanges(onDiskChange: () => void): EventSource {
-    const events = new EventSource(EVENTS_URL);
-    events.addEventListener("reload", () => onDiskChange());
-    return events;
 }
 
 /** A passive, clickable chip in the header: the file diverged on disk — click to refresh. */
@@ -80,27 +77,36 @@ function createDiskChip(): HTMLElement {
 
 /**
  * A Save button in the status bar (the explicit affordance beside the keyboard
- * shortcut). It is enabled only while there are unsaved edits. Returns a setter to
- * reflect that state.
+ * shortcut). It is shown only in Edit and enabled only while there are unsaved edits.
  */
-function createSaveButton(onSave: () => void): (enabled: boolean) => void {
+function createSaveButton(onSave: () => void): {
+    setEnabled(enabled: boolean): void;
+    setVisible(visible: boolean): void;
+} {
     const button = document.createElement("button");
     button.className = "save-button";
     button.type = "button";
     button.textContent = "Save";
     button.title = "Save changes to the file (Ctrl+S / ⌘S)";
     button.disabled = true;
+    button.hidden = true;
     button.addEventListener("click", onSave);
     document.querySelector(".status-bar")?.appendChild(button);
-    return (enabled) => {
-        button.disabled = !enabled;
+    return {
+        setEnabled: (enabled) => {
+            button.disabled = !enabled;
+        },
+        setVisible: (visible) => {
+            button.hidden = !visible;
+        },
     };
 }
 
 /**
  * Install the Save shortcut on the whole document so it works from any tab and
  * regardless of focus (not only when the editor is focused). Intercepting both
- * Ctrl+S and ⌘S prevents the browser's own "save page" dialog either way.
+ * Ctrl+S and ⌘S prevents the browser's own "save page" dialog either way. (In View the
+ * buffer is never dirty, so a save is a no-op.)
  */
 function installSaveShortcut(onSave: () => void): void {
     document.addEventListener("keydown", (event) => {

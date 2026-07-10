@@ -706,12 +706,57 @@ svg.tree {
     background: var(--pico-muted-color);
 }
 
-.mode-badge.mode-watch {
+.mode-badge.mode-view {
     background: #0ea5e9;
 }
 
-.mode-badge.mode-live {
+.mode-badge.mode-edit {
     background: #22c55e;
+}
+
+/* The View/Edit segmented control (replaces the mode badge on a served session). */
+.mode-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: auto; /* override Pico's full-width [role=group] button group */
+    overflow: hidden;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+/* `.mode-toggle .` beats Pico's `[role=group] button` (which sets flex: 1). */
+.mode-toggle .mode-toggle-option {
+    /* Pico makes buttons full-width with its own colors; keep them inline and ours. */
+    --pico-color: inherit;
+
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: auto;
+    margin: 0;
+    padding: 0.12rem 0.6rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-size: 0.74rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.mode-toggle .mode-toggle-option + .mode-toggle-option {
+    border-left: 1px solid var(--pico-muted-border-color);
+}
+
+.mode-toggle .mode-toggle-option:hover {
+    color: var(--pico-color);
+}
+
+.mode-toggle .mode-toggle-option[aria-pressed="true"] {
+    background: var(--pico-primary);
+    color: var(--pico-primary-inverse);
 }
 
 /* The explicit Save affordance beside ⌘/Ctrl+S, enabled only while there are unsaved

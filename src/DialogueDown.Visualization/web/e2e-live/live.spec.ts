@@ -18,12 +18,15 @@ test.beforeEach(async ({ page }) => {
     await expect(page.locator(".source-pane .cm-content")).toContainText("Original Scene");
 });
 
-test("serves a live report bound to the document", async ({ page }) => {
-    // The payload is marked live, so the tabs render and the Source tab is present.
+test("serves a view report bound to the document", async ({ page }) => {
+    // The payload is a served session, so the tabs render and the Source tab is present.
     await expect(page.locator(".tab")).toHaveCount(3);
     await expect(page.locator(".tab").first()).toHaveText("Source");
-    // The mode badge reflects watch mode.
-    await expect(page.locator("#mode-badge")).toHaveText("Hot Reload");
+    // The View/Edit toggle is shown, starting in View.
+    await expect(page.locator('.mode-toggle-option[data-mode="view"]')).toHaveAttribute(
+        "aria-pressed",
+        "true",
+    );
     // The document path is shown in the status bar.
     await expect(page.locator("#doc-path")).toBeVisible();
 });
@@ -71,4 +74,32 @@ test("shows a banner when the document is deleted", async ({ page }) => {
 
     await expect(page.locator("#live-banner")).toBeVisible();
     await expect(page.locator("#live-banner")).toContainText("not found");
+});
+
+test("toggles to Edit and back to View, reconfiguring the one editor in place", async ({
+    page,
+}) => {
+    const view = page.locator('.mode-toggle-option[data-mode="view"]');
+    const edit = page.locator('.mode-toggle-option[data-mode="edit"]');
+
+    // Starts in View: read-only (edits are rejected) and no Save button.
+    await expect(view).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".save-button")).toBeHidden();
+    await page.locator(".cm-content").click();
+    await page.keyboard.type("XX");
+    await expect(page.locator(".source-pane .cm-content")).not.toContainText("XX");
+
+    // Switch to Edit: editable and the Save button appears; the buffer is unchanged.
+    await edit.click();
+    await expect(edit).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".save-button")).toBeVisible();
+    await page.locator(".cm-content").click();
+    await page.keyboard.type("YY");
+    await expect(page.locator(".source-pane .cm-content")).toContainText("YY"); // edits land now
+
+    // Switch back to View (accepting the discard prompt) — read-only again.
+    page.once("dialog", (dialog) => void dialog.accept());
+    await view.click();
+    await expect(view).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".save-button")).toBeHidden();
 });

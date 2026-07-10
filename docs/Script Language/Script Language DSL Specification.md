@@ -559,9 +559,30 @@ dialogue.
 => [Meet Bob](chapter-02.md#meet-bob)
 ```
 
-A jump cannot appear **inside a heading**. A heading marks a scene, which is
-itself a jump *target*, so jumping from within one is meaningless. A `=>` written
-in a heading is read as plain text, not a jump.
+> [!NOTE]
+> **A jump cannot appear inside a heading.** A heading marks a scene, which is
+> itself a jump *target*, so jumping from within one is meaningless.
+>
+> ```markdown
+> ## => [Play tennis](#play-tennis)
+> ```
+>
+> The `=>` becomes plain heading text and the link stays an ordinary link — the
+> heading reads as "`=>` Play tennis", not a jump.
+
+<!-- Separate the two adjacent callouts (MD028). -->
+
+> [!NOTE]
+> **A jump must be written on a single line.** The `=>` and its link may be
+> separated by spaces, but a line break between them ends the jump.
+>
+> ```markdown
+> =>
+> [Play tennis](#play-tennis)
+> ```
+>
+> The `=>` becomes plain text and the link stays an ordinary link — two separate
+> pieces, not a jump.
 
 Example:
 

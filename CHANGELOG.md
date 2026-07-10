@@ -21,6 +21,8 @@ changes easy to categorize.
   markers, choices, inline styling, game calls, tags, and jump indicators —
   behind the `IScriptTranspiler` seam.
 - Initial OSS community files and CI configuration.
+- Project logo and favicon: a chat-bubble Markdown "M" mark, with an expanded
+  variant showing a choice branching into options and scenes.
 
 ### Changed
 

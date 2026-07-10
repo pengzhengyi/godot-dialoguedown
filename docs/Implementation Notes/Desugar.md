@@ -14,12 +14,10 @@
   - [Ubiquitous language](#ubiquitous-language)
   - [Functionality checklist](#functionality-checklist)
   - [Interfaces and abstractions](#interfaces-and-abstractions)
-  - [The traversal foundation](#the-traversal-foundation)
-    - [Rewriter — clone by default, override a few](#rewriter--clone-by-default-override-a-few)
-    - [Read traversal — enumerate descendants](#read-traversal--enumerate-descendants)
+  - [The rewriter foundation](#the-rewriter-foundation)
   - [Key design decisions](#key-design-decisions)
     - [DD1 — Local rewrite; do only what the transpiler deferred](#dd1--local-rewrite-do-only-what-the-transpiler-deferred)
-    - [DD2 — A reusable rewriter and read traversal](#dd2--a-reusable-rewriter-and-read-traversal)
+    - [DD2 — A reusable, complete-hook rewriter](#dd2--a-reusable-complete-hook-rewriter)
     - [DD3 — Rules are named functions behind typed hooks](#dd3--rules-are-named-functions-behind-typed-hooks)
     - [DD4 — Jump assembly is a fragment-sequence transform](#dd4--jump-assembly-is-a-fragment-sequence-transform)
     - [DD5 — Default speaker is a sentinel; silent commands fold in](#dd5--default-speaker-is-a-sentinel-silent-commands-fold-in)
@@ -49,10 +47,11 @@ It does two things:
    **`DefaultSpeaker`** sentinel. A lone command line is just a speaker-less line,
    so this same fill also covers the DSL's **silent command**.
 
-Alongside these, this component builds a small **reusable traversal foundation**
-— an immutable tree rewriter and a read-only descendant walk — because the next
-component, **semantic analysis**, will reuse it (for example, to gather every
-speaker into a table).
+Alongside these, this component builds a small **reusable rewriter foundation** —
+an immutable clone-by-default tree transformer with a complete set of typed hooks.
+The next component, **semantic analysis**, reuses it and adds a read-only walk of
+its own (to gather every speaker, validate references, and compile the graph); that
+read traversal is deferred until it has a real consumer to shape its hooks.
 
 **Out of scope**, left to **semantic analysis**: resolving `DefaultSpeaker` to a
 concrete speaker (or the system speaker), merging a `PartialSpeakerDeclaration`'s
@@ -83,7 +82,6 @@ through unchanged.
 | **Desugar**                 | the stage that composes and normalizes the Dialogue AST.               |
 | **Rewriter**                | an immutable tree transformer: clone by default, override a few nodes. |
 | **Rule**                    | one small, named transform (`FillDefaultSpeaker`, `AssembleJumps`).    |
-| **Descendants**             | a read-only walk yielding every node beneath a node.                   |
 | **Jump**                    | an assembled jump fragment: a label and an unresolved target.          |
 | **DefaultSpeaker**          | the sentinel for "the default speaker", resolved later.                |
 | **DesugaredScriptDocument** | the desugared tree, wrapped as a distinct pipeline-stage type.         |
@@ -98,8 +96,8 @@ through unchanged.
 - [ ] **Keep a bare `Link`** (no preceding `=>`) as an inline link.
 - [ ] **Fill `DefaultSpeaker`** on a `Line` that names no speaker.
 - [ ] **Cover silent commands** by the same default-speaker fill.
-- [ ] **Reusable rewriter**: clone by default, typed hooks to override a node.
-- [ ] **Reusable read traversal**: `Descendants` / `DescendantsAndSelf`.
+- [ ] **Reusable rewriter**: clone by default, a complete set of typed hooks
+      (blocks, line, speaker, tag, and every fragment sequence).
 - [ ] **Invariants after Desugar**: no `JumpIndicator` survives; no `Line` has a
       null speaker.
 - [ ] **Wrap the result** in a `DesugaredScriptDocument` stage marker.
@@ -107,42 +105,48 @@ through unchanged.
 
 ## Interfaces and abstractions
 
-| Type                        | Responsibility                                                                                                                      | Collaborators                               |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `IScriptDesugarer`          | public seam: `DesugaredScriptDocument Desugar(ScriptDocument, string source)`; `source` is validated only, held for future warnings | `ScriptDocument`, `DesugaredScriptDocument` |
-| `Desugarer`                 | the default desugarer — a `DialogueAstRewriter` wired with the rules                                                                | rewriter, rules                             |
-| `DialogueAstRewriter`       | immutable clone-by-default tree rewrite with typed override hooks                                                                   | `ScriptNode`                                |
-| `AstTraversal` (extensions) | `Descendants()` / `DescendantsAndSelf()` read walk                                                                                  | `ScriptNode`                                |
-| `FillDefaultSpeaker`        | rule: a `Line` with no speaker gets a `DefaultSpeaker`                                                                              | `Line`, `DefaultSpeaker`                    |
-| `AssembleJumps`             | rule: fold `JumpIndicator · Link` into `Jump`; degrade dangling                                                                     | `InlineFragment` list                       |
-| `Jump` (AST)                | assembled jump fragment: label + unresolved target                                                                                  | `InlineFragment`                            |
-| `DefaultSpeaker` (AST)      | the default-speaker sentinel                                                                                                        | `Speaker`                                   |
-| `DesugaredScriptDocument`   | thin wrapper marking a desugared tree, so stages type-check in order                                                                | `ScriptDocument`                            |
+| Type                      | Responsibility                                                                                                                      | Collaborators                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `IScriptDesugarer`        | public seam: `DesugaredScriptDocument Desugar(ScriptDocument, string source)`; `source` is validated only, held for future warnings | `ScriptDocument`, `DesugaredScriptDocument` |
+| `Desugarer`               | the default desugarer — a `DialogueAstRewriter` wired with the rules                                                                | rewriter, rules                             |
+| `DialogueAstRewriter`     | immutable clone-by-default tree rewrite with a complete set of typed hooks                                                          | `ScriptNode`                                |
+| `FillDefaultSpeaker`      | rule: a `Line` with no speaker gets a `DefaultSpeaker`                                                                              | `Line`, `DefaultSpeaker`                    |
+| `AssembleJumps`           | rule: fold `JumpIndicator · Link` into `Jump`; degrade dangling                                                                     | `InlineFragment` list                       |
+| `Jump` (AST)              | assembled jump fragment: label + unresolved target                                                                                  | `InlineFragment`                            |
+| `DefaultSpeaker` (AST)    | the default-speaker sentinel                                                                                                        | `Speaker`                                   |
+| `DesugaredScriptDocument` | thin wrapper marking a desugared tree, so stages type-check in order                                                                | `ScriptDocument`                            |
 
-## The traversal foundation
+## The rewriter foundation
 
 Desugar is an immutable rewrite that **clones every node except a few**. Rather
 than hand-write that clone-recursion once here and again for semantic analysis,
-this component builds a small, reusable foundation modelled on Roslyn's
+this component builds a small, reusable rewriter modelled on Roslyn's
 `CSharpSyntaxRewriter`.
 
-### Rewriter — clone by default, override a few
-
 `DialogueAstRewriter` walks the tree and, for each node, **rebuilds it with its
-rewritten children** — an identity transform by default. Each node kind has a
-`protected virtual` hook, so a subclass customizes only the nodes it cares about,
-never the traversal:
+rewritten children** — an identity transform by default. Every node kind that
+holds children has a `protected virtual` hook, so a subclass customizes only the
+nodes it cares about, never the traversal:
 
 ```text
 DialogueAstRewriter
-  Rewrite(ScriptDocument)            -> ScriptDocument            # entry
-  virtual RewriteBlock(ScriptBlock)  -> ScriptBlock               # dispatch: Line / Choices / SceneHeading
-  virtual RewriteLine(Line)          -> Line                      # default: rebuild with rewritten speech
-  virtual RewriteChoices(Choices)    -> Choices
-  virtual RewriteSceneHeading(...)   -> SceneHeading
-  virtual RewriteFragments(list)     -> list                      # default: rewrite each fragment
-  virtual RewriteFragment(frag)      -> frag                      # dispatch: StyledText / Image / Link / leaf
+  Rewrite(ScriptDocument)             -> ScriptDocument   # entry
+  virtual RewriteBlock(ScriptBlock)   -> ScriptBlock      # dispatch: Line / Choices / SceneHeading
+  virtual RewriteLine(Line)           -> Line             # rebuild with rewritten speaker + speech
+  virtual RewriteSpeaker(Speaker)     -> Speaker          # declarations recurse into their tags
+  virtual RewriteSceneHeading(...)    -> SceneHeading
+  virtual RewriteChoices(Choices)     -> Choices
+  virtual RewriteFragments(list)      -> list             # default: rewrite each fragment
+  virtual RewriteFragment(frag)       -> frag             # dispatch: StyledText / Image / Link / Jump / Tag / leaf
+  virtual RewriteTag(Tag)             -> Tag              # tags in speech or a speaker prefix
 ```
+
+The hooks cover **every** child slot — blocks, a line's speaker and speech,
+a speaker declaration's tags, a heading title, choice bodies, and every nested
+fragment sequence — so a subclass can transform any node kind and the clone reaches
+the whole tree. A tag routes through `RewriteTag` wherever it sits (speech or a
+speaker prefix), and a null speaker is handled at the `Line` so `RewriteSpeaker`
+only ever sees a present one.
 
 Desugar overrides just two hooks; each delegates to a separate, pure **rule**, so
 the two transforms stay independent and are never interleaved during traversal:
@@ -158,20 +162,9 @@ A **configurable rule pipeline** (registering rules dynamically) is a deliberate
 and a sequence transform) do not need a registry, and the typed hooks already
 keep them separate.
 
-### Read traversal — enumerate descendants
-
-Semantic analysis needs to *read* the tree, not rewrite it — for example, to
-collect every speaker. `AstTraversal` exposes a lazy walk over the same child
-structure:
-
-```text
-doc.Descendants().OfType<Speaker>()        # every speaker, for a speaker table
-line.DescendantsAndSelf().OfType<Jump>()   # jumps within a line
-```
-
-The rewriter (rebuild) and the traversal (enumerate) are two faces of one piece
-of structural knowledge: *what a node's children are*. Adding a new AST node
-updates that knowledge in one place.
+A read-only walk (enumerating descendants for collection and validation) is
+**deferred to semantic analysis**, where a real consumer will shape its hooks; the
+rewriter is the only traversal this component needs.
 
 ## Key design decisions
 
@@ -184,19 +177,21 @@ merging referenced tags, nesting scenes, validating targets — is **semantic
 analysis**. This keeps the stage a pure, total `ScriptDocument → ScriptDocument`
 function.
 
-### DD2 — A reusable rewriter and read traversal
+### DD2 — A reusable, complete-hook rewriter
 
-The clone-by-default rewriter and the descendant walk are built once and reused
-by semantic analysis. This is justified infrastructure (two confirmed consumers),
-not speculation. The rewriter gives the "default handling for everything, special
-handling for some" seam; the traversal gives read passes a uniform enumeration.
+The clone-by-default rewriter is built once and reused by semantic analysis. This
+is justified infrastructure (a confirmed second consumer), not speculation. It
+gives the "default handling for everything, special handling for some" seam, and
+its hooks cover every child slot so any later pass can rewrite any node kind. The
+read-only descendant walk semantic analysis will also want is deferred to that
+component, so its hooks are shaped by a real consumer rather than guessed here.
 
 ### DD3 — Rules are named functions behind typed hooks
 
 Each desugar operation is a separate, independently tested **rule** invoked from a
 rewriter hook. This separates concerns (no rule logic tangled into traversal) and
 composes cleanly. A dynamic rule **registry** is left as a documented seam — see
-[the foundation](#the-traversal-foundation).
+[the foundation](#the-rewriter-foundation).
 
 ### DD4 — Jump assembly is a fragment-sequence transform
 
@@ -343,7 +338,7 @@ classDiagram
 - **Downstream — Semantic analysis:** receives a `DesugaredScriptDocument`
   (jumps composed, default speakers filled) and resolves references, merges
   partial-declaration tags, nests scenes, and validates jump targets — reusing
-  the rewriter and `Descendants` traversal from this component.
+  the `DialogueAstRewriter` from this component and adding its own read walk.
 - **Compiler seam:** the CLI's `IScriptCompiler` will chain front-end → transpiler
   → **Desugar** → semantic analysis → graph; Desugar plugs in as one link via
   `IScriptDesugarer`.
@@ -356,10 +351,9 @@ classDiagram
   line). A shared Object Mother builds AST inputs; `DialogueAstAssert` grows
   `AssertJump` / `AssertDefaultSpeaker` helpers.
 - **Rewriter** is tested by a trivial subclass (identity clone leaves the tree
-  equal) and one that changes a single node (everything else is structurally
-  unchanged).
-- **Traversal** is tested by asserting the descendant order and by `OfType<T>`
-  gathering.
+  equal, across every fragment sequence and speaker form) and small subclasses
+  that change one node kind (text, tags) to confirm the hook reaches everywhere
+  while the rest stays unchanged.
 - **Desugarer** is tested end to end on small `ScriptDocument`s built through the
   transpiler, asserting the invariants (no `JumpIndicator`, no null speaker) and
   the composed shapes. Tests run in parallel with thread-safe fakers.
@@ -369,6 +363,6 @@ classDiagram
 | Concern                                  | Namespace                     |
 | ---------------------------------------- | ----------------------------- |
 | New AST nodes (`Jump`, `DefaultSpeaker`) | `DialogueDown.Script.Ast`     |
-| Rewriter + traversal foundation          | `DialogueDown.Script.Ast`     |
+| `DialogueAstRewriter`                    | `DialogueDown.Script.Ast`     |
 | Desugarer, rules, `IScriptDesugarer`     | `DialogueDown.Script.Desugar` |
 | `DesugaredScriptDocument`                | `DialogueDown.Script.Desugar` |

@@ -35,10 +35,13 @@ if (report.mode === "live") {
     // the disk stream only raises a passive chip, never a reload over your edits. The
     // wiring closures reference `live` only when invoked (after it is created below).
     const app = runApp(report, {
-        onEdit: () => live.onEdit(),
-        onSave: (buffer) => void live.onSave(buffer),
+        onEdit: (buffer) => live.onEdit(buffer),
+        onSave: () => void live.save(),
     });
-    const live = createLiveEdit(initLiveEditUi(app));
+    const live = createLiveEdit(
+        initLiveEditUi(app, () => void live.save()),
+        report.source ?? "",
+    );
     watchDiskChanges(() => live.onDiskChange());
     if (header) initBackToLauncher(header, window.location.pathname);
 } else {

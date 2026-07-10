@@ -11,9 +11,10 @@ const EVENTS_URL = "/api/events";
  * marker and the "file changed on disk" chip, and arms a `beforeunload` guard so a
  * refresh/close with unsaved edits prompts first.
  */
-export function initLiveEditUi(app: AppController): LiveEditPorts {
+export function initLiveEditUi(app: AppController, requestSave: () => void): LiveEditPorts {
     const tabsEl = document.getElementById("tabs")!;
     const chip = createDiskChip();
+    const setSaveEnabled = createSaveButton(requestSave);
     let unloadHandler: ((event: BeforeUnloadEvent) => void) | null = null;
 
     return {
@@ -31,7 +32,10 @@ export function initLiveEditUi(app: AppController): LiveEditPorts {
             return ((await response.json()) as Report).stages;
         },
         updateStages: (stages) => app.updateStages(stages),
-        setDirty: (dirty) => tabsEl.querySelector(".tab")?.classList.toggle("dirty", dirty),
+        setDirty: (dirty) => {
+            tabsEl.querySelector(".tab")?.classList.toggle("dirty", dirty);
+            setSaveEnabled(dirty);
+        },
         setDiskChanged: (changed) => {
             chip.hidden = !changed;
         },
@@ -71,4 +75,22 @@ function createDiskChip(): HTMLElement {
     chip.addEventListener("click", () => window.location.reload());
     document.querySelector(".app-header")?.appendChild(chip);
     return chip;
+}
+
+/**
+ * A Save button in the status bar (the explicit affordance beside ⌘/Ctrl+S). It is
+ * enabled only while there are unsaved edits. Returns a setter to reflect that state.
+ */
+function createSaveButton(onSave: () => void): (enabled: boolean) => void {
+    const button = document.createElement("button");
+    button.className = "save-button";
+    button.type = "button";
+    button.textContent = "Save";
+    button.title = "Save changes to the file (⌘/Ctrl+S)";
+    button.disabled = true;
+    button.addEventListener("click", onSave);
+    document.querySelector(".status-bar")?.appendChild(button);
+    return (enabled) => {
+        button.disabled = !enabled;
+    };
 }

@@ -19,10 +19,10 @@ export interface LiveEditPorts {
 
 /** Drives the Source tab's edit → save → dirty/disk-changed lifecycle in Live Edit. */
 export interface LiveEditController {
-    /** The buffer changed — mark the session dirty and guard against losing edits. */
-    onEdit(): void;
-    /** Save (Cmd/Ctrl+S) — write the buffer, refresh the graphs, and clear dirty. */
-    onSave(buffer: string): Promise<void>;
+    /** The buffer changed — remember it, mark the session dirty, and guard against losing edits. */
+    onEdit(buffer: string): void;
+    /** Save (Cmd/Ctrl+S or the Save button) — write the current buffer, refresh the graphs, clear dirty. */
+    save(): Promise<void>;
     /** The file changed on disk (external edit) — show the passive chip, never reload. */
     onDiskChange(): void;
     /** Whether the buffer has unsaved edits. */
@@ -30,12 +30,14 @@ export interface LiveEditController {
 }
 
 /**
- * The Live Edit state machine. Editing marks the session dirty (and arms the unload
- * guard); Save writes the buffer, applies the recompiled graphs, and clears dirty; a disk
- * change only raises the passive chip — the editor is never reloaded over your edits.
+ * The Live Edit state machine. Editing records the buffer and marks the session dirty
+ * (and arms the unload guard); Save writes the current buffer, applies the recompiled
+ * graphs, and clears dirty; a disk change only raises the passive chip — the editor is
+ * never reloaded over your edits.
  */
-export function createLiveEdit(ports: LiveEditPorts): LiveEditController {
+export function createLiveEdit(ports: LiveEditPorts, initialBuffer = ""): LiveEditController {
     let dirty = false;
+    let buffer = initialBuffer;
 
     function setDirty(next: boolean): void {
         dirty = next;
@@ -47,10 +49,12 @@ export function createLiveEdit(ports: LiveEditPorts): LiveEditController {
         get dirty() {
             return dirty;
         },
-        onEdit() {
+        onEdit(next) {
+            buffer = next;
             if (!dirty) setDirty(true);
         },
-        async onSave(buffer) {
+        async save() {
+            if (!dirty) return; // nothing changed since the last save
             const stages = await ports.save(buffer);
             if (stages === null) return; // a failed save keeps the buffer dirty
             ports.updateStages(stages);

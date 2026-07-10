@@ -568,6 +568,41 @@ svg.tree {
     background: #22c55e;
 }
 
+/* The explicit Save affordance beside ⌘/Ctrl+S, enabled only while there are unsaved
+   edits (the same dirty state shows as a dot on the Source tab). */
+.save-button {
+    /* Pico redefines --pico-color to white on buttons; keep our own colors instead. */
+    --pico-color: #fff;
+
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.12rem 0.7rem;
+    border: 1px solid #166534;
+    border-radius: var(--pico-border-radius);
+    background: #15803d; /* green-700: ~5:1 contrast with white text */
+    color: #fff;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.save-button:hover:not(:disabled) {
+    background: #166534; /* green-800 */
+    border-color: #14532d;
+}
+
+.save-button:disabled {
+    --pico-color: var(--pico-muted-color);
+
+    background: var(--pico-muted-border-color);
+    border-color: var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+    cursor: not-allowed;
+}
+
 /* The document path: filename always visible, the directory middle ellipsised. */
 .doc-path {
     /* Pico redefines --pico-color to its inverse (white) on buttons; reset it so

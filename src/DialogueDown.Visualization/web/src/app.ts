@@ -12,8 +12,8 @@ const SOURCE_TIP = "The document as written, beside a live Markdown preview.";
 
 /** Live Edit wiring for the Source tab: edits mark the session dirty, Cmd/Ctrl+S saves. */
 export interface LiveWiring {
-    onEdit(): void;
-    onSave(buffer: string): void;
+    onEdit(buffer: string): void;
+    onSave(): void;
 }
 
 /** Controls a running report: swap in fresh data, or show/clear a status banner. */
@@ -82,8 +82,8 @@ export function runApp(report: Report, live?: LiveWiring): AppController {
                     live
                         ? {
                               editable: true,
-                              onChange: () => live.onEdit(),
-                              onSave: (b) => live.onSave(b),
+                              onChange: (value) => live.onEdit(value),
+                              onSave: () => live.onSave(),
                           }
                         : {},
                 ),

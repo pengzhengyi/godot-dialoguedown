@@ -15,8 +15,8 @@ export interface SourceViewOptions {
     editable?: boolean;
     /** Called (Live Edit) with the new buffer on every edit — for the preview and dirty state. */
     onChange?: (value: string) => void;
-    /** Called (Live Edit) with the current buffer when Save (Cmd/Ctrl+S) is pressed. */
-    onSave?: (value: string) => void;
+    /** Called (Live Edit) when Save (Cmd/Ctrl+S) is pressed. */
+    onSave?: () => void;
 }
 
 /**
@@ -48,14 +48,14 @@ export function createSourceView(source: string, options: SourceViewOptions = {}
     preview.setAttribute("aria-label", "Preview");
     preview.innerHTML = renderDocument(source);
 
-    // Save (Cmd/Ctrl+S): hand the current buffer to the caller and swallow the
-    // browser's own save dialog.
+    // Save (Cmd/Ctrl+S): trigger a save (the live-edit state machine holds the buffer)
+    // and swallow the browser's own save dialog.
     const saveKeymap = keymap.of([
         {
             key: "Mod-s",
             preventDefault: true,
-            run: (view) => {
-                onSave?.(view.state.doc.toString());
+            run: () => {
+                onSave?.();
                 return true;
             },
         },

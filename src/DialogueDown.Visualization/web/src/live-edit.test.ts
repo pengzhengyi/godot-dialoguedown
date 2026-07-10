@@ -27,7 +27,7 @@ describe("createLiveEdit", () => {
         const { ports, calls } = fakePorts();
         const live = createLiveEdit(ports);
 
-        live.onEdit();
+        live.onEdit("# Edited");
 
         expect(live.dirty).toBe(true);
         expect(calls.setDirty).toEqual([true]);
@@ -38,19 +38,19 @@ describe("createLiveEdit", () => {
         const { ports, calls } = fakePorts();
         const live = createLiveEdit(ports);
 
-        live.onEdit();
-        live.onEdit();
+        live.onEdit("# One");
+        live.onEdit("# Two");
 
         expect(calls.setDirty).toEqual([true]); // dirty is set once
     });
 
-    it("save writes the buffer, applies the recompiled stages, and clears dirty", async () => {
+    it("save writes the current buffer, applies the recompiled stages, and clears dirty", async () => {
         const save = vi.fn(async () => STAGES);
         const { ports, calls } = fakePorts({ save });
         const live = createLiveEdit(ports);
 
-        live.onEdit();
-        await live.onSave("# New");
+        live.onEdit("# New");
+        await live.save();
 
         expect(save).toHaveBeenCalledWith("# New");
         expect(calls.updated).toEqual([STAGES]);
@@ -59,12 +59,34 @@ describe("createLiveEdit", () => {
         expect(calls.unloadGuard).toEqual([true, false]);
     });
 
+    it("save uses the latest edited buffer", async () => {
+        const save = vi.fn(async () => STAGES);
+        const { ports } = fakePorts({ save });
+        const live = createLiveEdit(ports, "# Seed");
+
+        live.onEdit("# One");
+        live.onEdit("# Two");
+        await live.save();
+
+        expect(save).toHaveBeenCalledWith("# Two");
+    });
+
+    it("save is a no-op when there are no unsaved edits", async () => {
+        const save = vi.fn(async () => STAGES);
+        const { ports } = fakePorts({ save });
+        const live = createLiveEdit(ports, "# Seed");
+
+        await live.save();
+
+        expect(save).not.toHaveBeenCalled();
+    });
+
     it("a failed save keeps the buffer dirty and leaves the graphs alone", async () => {
         const { ports, calls } = fakePorts({ save: vi.fn(async () => null) });
         const live = createLiveEdit(ports);
 
-        live.onEdit();
-        await live.onSave("# New");
+        live.onEdit("# New");
+        await live.save();
 
         expect(live.dirty).toBe(true);
         expect(calls.updated).toEqual([]);

@@ -1,5 +1,5 @@
-using DialogueDown.Cli.Compilation;
 using DialogueDown.Cli.Tests.Support;
+using DialogueDown.Compilation;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 

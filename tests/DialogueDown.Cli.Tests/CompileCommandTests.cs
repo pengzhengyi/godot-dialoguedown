@@ -1,6 +1,6 @@
 using DialogueDown.Cli.Commands;
-using DialogueDown.Cli.Compilation;
 using DialogueDown.Cli.Tests.Support;
+using DialogueDown.Compilation;
 using NSubstitute;
 
 namespace DialogueDown.Cli.Tests;
@@ -8,15 +8,14 @@ namespace DialogueDown.Cli.Tests;
 public sealed class CompileCommandTests
 {
     [Fact]
-    public void Compile_ValidScript_ReportsNotImplemented()
+    public void Compile_ValidScript_Succeeds()
     {
         using var script = new TempScript("# Scene");
         var tester = CliTester.Create();
 
         var result = tester.Run("compile", script.Path);
 
-        Assert.Equal(ExitCodes.NotImplemented, result.ExitCode);
-        Assert.Contains("not implemented", result.Output, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(ExitCodes.Success, result.ExitCode);
     }
 
     [Fact]
@@ -29,7 +28,6 @@ public sealed class CompileCommandTests
             """;
         using var script = new TempScript(source);
         var compiler = Substitute.For<IScriptCompiler>();
-        compiler.Compile(Arg.Any<string>()).Returns(new CompilationResult(source));
         var tester = CliTester.Create(compiler);
 
         var result = tester.Run("compile", script.Path);

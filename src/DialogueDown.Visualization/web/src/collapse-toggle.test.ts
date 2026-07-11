@@ -1,0 +1,121 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createCollapseToggle, initCollapsiblePanel } from "./collapse-toggle";
+
+/** A throwaway in-memory Storage so persistence is testable without touching the DOM one. */
+function memoryStorage(): Storage {
+    const map = new Map<string, string>();
+    return {
+        get length() {
+            return map.size;
+        },
+        clear: () => map.clear(),
+        getItem: (k) => map.get(k) ?? null,
+        key: (i) => [...map.keys()][i] ?? null,
+        removeItem: (k) => map.delete(k),
+        setItem: (k, v) => void map.set(k, v),
+    };
+}
+
+describe("createCollapseToggle", () => {
+    it("renders a button carrying both the collapse and expand icons", () => {
+        const button = createCollapseToggle(vi.fn());
+        expect(button.tagName).toBe("BUTTON");
+        expect(button.classList.contains("collapse-toggle")).toBe(true);
+        expect(button.querySelector(".icon-collapse")).not.toBeNull();
+        expect(button.querySelector(".icon-expand")).not.toBeNull();
+    });
+
+    it("runs the toggle handler on click", () => {
+        const onToggle = vi.fn();
+        createCollapseToggle(onToggle).click();
+        expect(onToggle).toHaveBeenCalledOnce();
+    });
+
+    it("swallows mousedown so a divider drag never starts from the toggle", () => {
+        const button = createCollapseToggle(vi.fn());
+        const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+        const spy = vi.spyOn(event, "stopPropagation");
+        button.dispatchEvent(event);
+        expect(spy).toHaveBeenCalled();
+    });
+});
+
+describe("initCollapsiblePanel", () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        container = document.createElement("div");
+    });
+
+    function setup(storage = memoryStorage()) {
+        const panel = initCollapsiblePanel({
+            container,
+            collapsedClass: "is-collapsed",
+            storageKey: "dd-test",
+            name: "inspector",
+            storage,
+        });
+        return { panel, storage };
+    }
+
+    it("starts expanded and toggles the collapsed class", () => {
+        const { panel } = setup();
+        expect(panel.isCollapsed()).toBe(false);
+        expect(container.classList.contains("is-collapsed")).toBe(false);
+
+        panel.toggle();
+        expect(panel.isCollapsed()).toBe(true);
+        expect(container.classList.contains("is-collapsed")).toBe(true);
+
+        panel.toggle();
+        expect(container.classList.contains("is-collapsed")).toBe(false);
+    });
+
+    it("reflects the state on the button (label + aria-expanded)", () => {
+        const { panel } = setup();
+        expect(panel.button.getAttribute("aria-expanded")).toBe("true");
+        expect(panel.button.getAttribute("aria-label")).toBe("Hide inspector");
+
+        panel.toggle();
+        expect(panel.button.getAttribute("aria-expanded")).toBe("false");
+        expect(panel.button.getAttribute("aria-label")).toBe("Show inspector");
+    });
+
+    it("persists the collapsed state and clears it when re-expanded", () => {
+        const { panel, storage } = setup();
+        panel.toggle();
+        expect(storage.getItem("dd-test")).toBe("1");
+        panel.toggle();
+        expect(storage.getItem("dd-test")).toBeNull();
+    });
+
+    it("restores a remembered collapsed state on init", () => {
+        const storage = memoryStorage();
+        storage.setItem("dd-test", "1");
+        const { panel } = setup(storage);
+        expect(panel.isCollapsed()).toBe(true);
+        expect(container.classList.contains("is-collapsed")).toBe(true);
+        expect(panel.button.getAttribute("aria-label")).toBe("Show inspector");
+    });
+
+    it("survives a throwing storage without breaking the toggle", () => {
+        const throwing: Storage = {
+            length: 0,
+            clear: () => {},
+            getItem: () => {
+                throw new Error("blocked");
+            },
+            key: () => null,
+            removeItem: () => {
+                throw new Error("blocked");
+            },
+            setItem: () => {
+                throw new Error("blocked");
+            },
+        };
+        const { panel } = setup(throwing);
+        expect(panel.isCollapsed()).toBe(false);
+        expect(() => panel.toggle()).not.toThrow();
+        expect(panel.isCollapsed()).toBe(true);
+    });
+});

@@ -10,6 +10,9 @@ export function initResizer(): void {
     let rightEdge = window.innerWidth;
 
     resizer.addEventListener("mousedown", (event) => {
+        // A collapsed inspector has nothing to resize — the divider is just its re-open
+        // handle, so ignore drags (the toggle itself already swallows its own mousedown).
+        if (detail.parentElement?.classList.contains("detail-collapsed")) return;
         dragging = true;
         // The detail panel's right edge is the reference for the width: with the content
         // area padded, that edge is inset from the window, so measure it rather than

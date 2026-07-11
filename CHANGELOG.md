@@ -10,6 +10,11 @@ changes easy to categorize.
 
 ### Added
 
+- **Collapsible side panels** in the visualization: hide the graph's node-details
+  inspector, or the Source tab's preview, to give the graph or editor the full
+  width. A hide/show handle sits on each panel's divider — doubling as the
+  always-present re-open control once the panel is gone — and the choice is
+  remembered across reloads.
 - A **full-screen mode** for the visualization: a maximize button in each graph's
   zoom cluster — and on the Source tab — fills the window with the active tab and
   hides the header, tabs, and status bar. Toggle it with the button or <kbd>f</kbd>,

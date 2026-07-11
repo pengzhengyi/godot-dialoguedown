@@ -10,6 +10,11 @@ changes easy to categorize.
 
 ### Added
 
+- A **live demo** of the visualization report, published to GitHub Pages: an
+  interactive, read-only export of a sample script
+  ([`examples/gallery.dialogue.md`](examples/gallery.dialogue.md)), rebuilt on
+  every merge to `main` at
+  <https://pengzhengyi.github.io/godot-dialoguedown/>.
 - Script compiler facade: one public `IScriptCompiler.Compile(source)` seam that
   runs the stages (parse → transpile → desugar, deliberately incomplete) and
   returns a `CompilationResult`. Wire it into a container with `AddDialogueDown()`

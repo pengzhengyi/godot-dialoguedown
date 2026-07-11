@@ -92,6 +92,11 @@ CI fails if line coverage drops below 90% and emits a warning when it is below
   <img src="assets/logo-pipeline.svg" alt="A choice node branching to two options that each lead to a scene" width="132" height="132" />
 </p>
 
+> [!TIP]
+> **[▶ Try the live demo](https://pengzhengyi.github.io/godot-dialoguedown/)** — an
+> interactive, read-only report for a sample script, served from GitHub Pages and
+> rebuilt on every merge to `main`.
+
 DialogueDown aims to be **transparent end to end**: you can *see* what the
 compiler produced at each stage. The optional
 [`DialogueDown.Visualization`](src/DialogueDown.Visualization/) project renders the

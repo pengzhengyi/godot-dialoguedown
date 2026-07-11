@@ -51,6 +51,12 @@ internal sealed class MarkdigToMarkdownAstConverter
 
     private static SourceSpan ConvertSpan(MarkdigSpan span) => new(span.Start, span.Length);
 
+    // A literal's Content is a slice into the source that already sits past any leading
+    // escape (Markdig strips the backslash but keeps the slice's true offset), so it
+    // anchors the unescaped text at its real position.
+    private static SourceSpan ContentSpanOf(MarkdigLiteralInline literal) =>
+        new(literal.Content.Start, literal.Content.Length);
+
     private static EmphasisKind EmphasisKindFor(MarkdigEmphasisInline emphasis) =>
         (emphasis.DelimiterChar, emphasis.DelimiterCount) switch
         {
@@ -149,7 +155,8 @@ internal sealed class MarkdigToMarkdownAstConverter
 
     private MarkdownInline? ConvertInline(MarkdigInline inline) => inline switch
     {
-        MarkdigLiteralInline literal => new TextInline(literal.Content.ToString(), ConvertSpan(literal.Span)),
+        MarkdigLiteralInline literal => new TextInline(
+            literal.Content.ToString(), ConvertSpan(literal.Span), ContentSpanOf(literal)),
         MarkdigEmphasisInline emphasis => ConvertEmphasis(emphasis),
         MarkdigLinkInline link when !link.IsImage => ConvertLink(link),
         MarkdigLinkInline image => ConvertImage(image),

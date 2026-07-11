@@ -38,3 +38,6 @@ coverage-report/
 
 # --- Node (frontend quality tooling for the visualization report) ---
 node_modules/
+
+# Generated GitHub Pages demo site (built by .github/workflows/pages.yml)
+/site/

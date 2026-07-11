@@ -1,9 +1,9 @@
 # Visualize CLI — Emit Mermaid and DOT
 
-> [!IMPORTANT]
-> Status: **approved — in progress**. A `dialoguedown visualize --emit <format>`
-> option that writes each stage's graph as **Mermaid** or **Graphviz DOT** text,
-> reusing the renderers that already exist. No frontend change.
+> [!NOTE]
+> Status: **implemented**. A `dialoguedown visualize --emit <format>` option that
+> writes each stage's graph as **Mermaid** or **Graphviz DOT** text, reusing the
+> renderers that already exist. No frontend change.
 
 ## Table of contents
 
@@ -49,17 +49,17 @@ Out of scope:
 
 ## Functionality checklist
 
-- [ ] `visualize <script> --emit mermaid` writes every stage as Mermaid to stdout.
-- [ ] `visualize <script> --emit dot` writes every stage as DOT to stdout.
-- [ ] `--emit … -o <file>` writes the same text to a file instead of stdout.
-- [ ] Stages are separated by a clear, format-appropriate delimiter (a comment
+- [x] `visualize <script> --emit mermaid` writes every stage as Mermaid to stdout.
+- [x] `visualize <script> --emit dot` writes every stage as DOT to stdout.
+- [x] `--emit … -o <file>` writes the same text to a file instead of stdout.
+- [x] Stages are separated by a clear, format-appropriate delimiter (a comment
       header naming the stage).
-- [ ] An unknown `--emit` value fails validation with a helpful message.
-- [ ] `--emit` requires a `<script>` (no launcher), and rejects combining with
+- [x] An unknown `--emit` value fails validation with a helpful message.
+- [x] `--emit` requires a `<script>` (no launcher), and rejects combining with
       report-only options that do not apply.
-- [ ] `MermaidRenderer` emits per-category `classDef`s and tags each node, matching
+- [x] `MermaidRenderer` emits per-category `classDef`s and tags each node, matching
       the report palette.
-- [ ] A bad document exits non-zero with the validation message (same as `-o`).
+- [x] A bad document exits non-zero with the validation message (same as `-o`).
 
 ## Ubiquitous language
 

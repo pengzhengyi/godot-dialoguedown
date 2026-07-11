@@ -83,7 +83,9 @@ internal sealed class InlineBuilder(
 
     private void AppendText(TextInline text, IInlinePolicy policy, List<InlineFragment> fragments)
     {
-        var input = new ParseInput(text.Text, text.Span.Start);
+        // Anchor at ContentSpan: the tokenizer walks the unescaped Text, whose source
+        // position sits past any stripped leading backslash.
+        var input = new ParseInput(text.Text, text.ContentSpan.Start);
         var leaves = InlineLeafTokenizer.Tokenize(input, allowJumps: policy.SupportsJumps);
         foreach (var leaf in leaves)
         {

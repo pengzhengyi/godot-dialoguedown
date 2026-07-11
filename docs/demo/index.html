@@ -11,7 +11,7 @@
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZD0iTTYgMmgyMGE1IDUgMCAwIDEgNSA1djE1YTUgNSAwIDAgMS01IDVIMTJsLTUgNCAuNi00SDZhNSA1IDAgMCAxLTUtNVY3YTUgNSAwIDAgMSA1LTVaIiBmaWxsPSIjMGYxNzJhIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMS4yODAgLTEuOTIwKSBzY2FsZSgwLjkyKSI+PHBhdGggZD0iTTggMjVWMTJoMy4yTDE2IDE4bDQuOC02SDI0djEzaC0zLjJ2LThMMTYgMjJsLTQuOC01djhaIiBmaWxsPSIjZjhmYWZjIi8+PC9nPjwvc3ZnPg=="
+      href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHN0eWxlPi5ie2ZpbGw6IzBmMTcyYX0ubXtmaWxsOiNmOGZhZmN9QG1lZGlhKHByZWZlcnMtY29sb3Itc2NoZW1lOmRhcmspey5ie2ZpbGw6I2UyZThmMH0ubXtmaWxsOiMwZjE3MmF9fTwvc3R5bGU+PHBhdGggY2xhc3M9ImIiIGQ9Ik02IDJoMjBhNSA1IDAgMCAxIDUgNXYxNWE1IDUgMCAwIDEtNSA1SDEybC01IDQgLjYtNEg2YTUgNSAwIDAgMS01LTVWN2E1IDUgMCAwIDEgNS01WiIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEuMjgwIC0xLjkyMCkgc2NhbGUoMC45MikiPjxwYXRoIGNsYXNzPSJtIiBkPSJNOCAyNVYxMmgzLjJMMTYgMThsNC44LTZIMjR2MTNoLTMuMnYtOEwxNiAyMmwtNC44LTV2OFoiLz48L2c+PC9zdmc+"
     />
     <style>
       :root {
@@ -80,6 +80,17 @@
       }
       .brand:hover .brand-logo-pipeline {
         opacity: 1;
+      }
+      /* This page is always dark, so invert the brand mark (light bubble + navy "M" and
+         navy pipeline outlines) — the navy-on-dark default would vanish into the card. */
+      .brand-logo [fill="#0f172a"] {
+        fill: #e2e8f0;
+      }
+      .brand-logo [fill="#f8fafc"] {
+        fill: #0f172a;
+      }
+      .brand-logo [stroke="#f8fafc"] {
+        stroke: #0f172a;
       }
       h1 {
         margin: 0;

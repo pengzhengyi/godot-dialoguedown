@@ -1,3 +1,5 @@
+import { createMaximizeButton } from "./maximize-button";
+
 // Factor each zoom-in/out button press multiplies (or divides) the scale by.
 export const ZOOM_STEP = 1.3;
 
@@ -11,6 +13,8 @@ export interface ZoomHandlers {
     onSetZoom(percent: number): void;
     /** Reset this graph to the default framing and drop its remembered position. */
     onRevert(): void;
+    /** Maximize the graph to fill the window (or restore it) — the trailing toggle. */
+    onToggleFullscreen(): void;
 }
 
 export interface ZoomControls {
@@ -19,7 +23,7 @@ export interface ZoomControls {
     setRatio(scale: number): void;
 }
 
-/** The "− [editable %] + ↺" zoom widget: step, type a percentage, or revert to default. */
+/** The "− [editable %] + ↺ ⤢" zoom widget: step, type a percentage, revert, or maximize. */
 export function createZoomControls(handlers: ZoomHandlers): ZoomControls {
     const container = document.createElement("div");
     container.className = "zoom-controls";
@@ -29,6 +33,7 @@ export function createZoomControls(handlers: ZoomHandlers): ZoomControls {
     container.append(input.field);
     container.append(controlButton("+", "Zoom in", handlers.onZoomIn));
     container.append(controlButton(REVERT_GLYPH, "Revert to default view", handlers.onRevert));
+    container.append(createMaximizeButton(handlers.onToggleFullscreen));
 
     return {
         element: container,

@@ -67,4 +67,21 @@ public sealed class ScriptTranspilerTests
         AssertSpeechText(AssertChoiceLine(choices.Options[0]), "Go left");
         AssertSpeechText(AssertChoiceLine(choices.Options[1]), "Go right");
     }
+
+    [Fact]
+    public void Transpile_SpeechWithAnEscape_AnchorsTheTextSpanAtTheRealSource()
+    {
+        // "A: x \* y" — the backslash (index 5) escapes the star. Markdig splits the
+        // speech into "x " and "* y"; the second fragment must anchor at the star's real
+        // position (index 6), not drift onto the backslash.
+        var source = @"A: x \* y";
+        var document = MarkdownParserFactory.MarkdownParser().Parse(source);
+
+        var script = _transpiler.Transpile(document, source);
+
+        var speech = AssertLine(Assert.Single(script.Body)).Speech;
+        var star = AssertText(speech[^1], "* y");
+        Assert.Equal(source.IndexOf('*'), star.Span.Start);
+        Assert.Equal('*', source[star.Span.Start]);
+    }
 }

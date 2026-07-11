@@ -141,16 +141,17 @@ public sealed class InlineBuilderTests
         Assert.Equal(4, AssertText(Assert.Single(speech), "hi").Span.Start);
     }
 
-    [Fact(Skip = "TODO: escape span drift — a stripped backslash shifts a literal's sub-token "
-        + "spans by <=1 char (see the note's boundary cases); we accept it for now.")]
-    public void Build_TextFromAnEscapedLiteral_AnchorsAtTheTrueSource()
+    [Fact]
+    public void Build_TextFromAnEscapedLiteral_AnchorsAtTheContentSpan()
     {
-        // Source "\\* b" -> Markdig content "* b" with a span of length 4 (the '\\' counted).
-        var text = new DialogueDown.Markdown.TextInline("* b", SourceSpanFactory.Span(2, 4));
+        // Source "\* b": Markdig yields content "* b" with a raw span [2,6) that counts
+        // the backslash, and a ContentSpan [3,6) that starts past it. The built text must
+        // anchor at the content, not the raw span.
+        var text = new DialogueDown.Markdown.TextInline(
+            "* b", SourceSpanFactory.Span(2, 4), SourceSpanFactory.Span(3, 3));
 
         var speech = _builder.Build([text]);
 
-        // After the fix the text should start past the stripped backslash, at 3, not 2.
         Assert.Equal(3, AssertText(Assert.Single(speech), "* b").Span.Start);
     }
 

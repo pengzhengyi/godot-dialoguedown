@@ -79,6 +79,21 @@ public sealed class LineBuilderTests
     }
 
     [Fact]
+    public void EscapedLeadingText_AnchorsSpeakerAndSpeechAtTheContentSpan()
+    {
+        // Mimics a leading literal whose backslash was stripped: the raw span starts at 0
+        // (counting the '\'), but the content "Alice: hi" starts at 1. The speaker and the
+        // leftover speech must anchor from the content, not the raw span.
+        var leading = new TextInline("Alice: hi", Span(0, 10), Span(1, 9));
+
+        var line = _builder.Build([leading]);
+
+        var speaker = AssertSpeakerNameReference(line.Speaker!, "Alice");
+        Assert.Equal(1, speaker.Span.Start); // "Alice" starts at the content, not at 0
+        Assert.Equal(8, AssertText(Assert.Single(line.Speech), "hi").Span.Start); // 1 + "Alice: "
+    }
+
+    [Fact]
     public void EmptyGroup_Throws() =>
         Assert.Throws<ArgumentException>(() => _builder.Build([]));
 

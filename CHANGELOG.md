@@ -55,6 +55,9 @@ changes easy to categorize.
 - The `visualize` servers now compress responses (gzip), cutting the report page's
   transfer roughly threefold when it is viewed over a LAN or VPN; the hot-reload SSE
   stream is left uncompressed so events keep streaming.
+- Each stage's graph now keeps its zoom, pan, and collapsed branches when you
+  switch tabs and when the report hot-reloads, instead of snapping back to the
+  default fit.
 - The `visualize` report's compilation stages are now sourced through the
   `IScriptCompiler` seam instead of the visualizer wiring the parser and transpiler
   by hand.

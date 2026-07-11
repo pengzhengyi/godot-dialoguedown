@@ -1,7 +1,7 @@
 # Graph Position Preservation
 
 > [!NOTE]
-> Status: **proposed** (an enhancement to
+> Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md)). Each stage's
 > graph remembers where the reader left it — its zoom, pan, and which branches are
 > collapsed — so switching tabs and hot-reloading no longer snap every graph back
@@ -157,14 +157,14 @@ The Source tab has no graph and no camera, so it is skipped throughout.
 
 ## Implementation checklist
 
-- [ ] `GraphCameraStore` (pure module) with `save` / `load`, plus the
+- [x] `GraphCameraStore` (pure module) with `save` / `load`, plus the
       `CameraTransform` / `GraphViewState` types.
-- [ ] `TreeView.getState()` / `TreeView.restore()` and an optional `initialState`
+- [x] `TreeView.getState()` / `TreeView.restore()` and an optional `initialState`
       on `createTreeView`.
-- [ ] `runApp` snapshots on tab switch and before `updateStages`, and restores (or
+- [x] `runApp` snapshots on tab switch and before `updateStages`, and restores (or
       fits) on activate and rebuild.
-- [ ] Vitest coverage for the store.
-- [ ] Playwright e2e for zoom-kept-across-tab-switch and zoom-kept-across-reload.
-- [ ] Rebuild the committed report bundle; confirm no unexpected drift.
-- [ ] Crosscheck: flip status to implemented, reconcile deviations, add the index
+- [x] Vitest coverage for the store.
+- [x] Playwright e2e for zoom-kept-across-tab-switch and zoom-kept-across-reload.
+- [x] Rebuild the committed report bundle; confirm no unexpected drift.
+- [x] Crosscheck: flip status to implemented, reconcile deviations, add the index
       row.

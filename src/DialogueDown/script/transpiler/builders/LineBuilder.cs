@@ -61,7 +61,9 @@ internal sealed class LineBuilder(SpeakerBuilder speakerBuilder, InlineBuilder i
             return false;
         }
 
-        var input = new ParseInput(leading.Text, leading.Span.Start);
+        // Anchor at ContentSpan: the speaker prefix is parsed from the unescaped Text,
+        // whose source position sits past any stripped leading backslash.
+        var input = new ParseInput(leading.Text, leading.ContentSpan.Start);
         var result = speakerBuilder.Build(input);
         if (!result.Success)
         {

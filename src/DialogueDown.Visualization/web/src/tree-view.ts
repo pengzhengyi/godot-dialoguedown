@@ -12,6 +12,7 @@ import {
     type Selection,
 } from "d3";
 import type { DisplayEdge, DisplayNode, Stage } from "./model";
+import type { CameraTransform, GraphViewState } from "./graph-camera";
 import { colorOf } from "./palette";
 import { ellipsize, MAX_INLINE_TEXT, tooltipHtml } from "./text";
 import { createLegend } from "./legend";
@@ -32,12 +33,23 @@ export interface TreeView {
     /** Re-fit the tree to its container. Call after the tab becomes visible, so
      *  the fit uses real (non-zero) dimensions. */
     fit(): void;
+    /** Snapshot the current camera (zoom/pan) and fold state, to restore later. */
+    getState(): GraphViewState;
+    /** Restore a snapshot: re-fold to the saved set and re-apply the saved camera
+     *  (falling back to a fit when the snapshot has no camera yet). */
+    restore(state: GraphViewState): void;
 }
 
 const NAVIGATION_KEYS = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " "];
 
-/** Render one stage as an interactive, collapsible D3 tree with legend + zoom. */
-export function createTreeView(stage: Stage, onSelect: (node: DisplayNode) => void): TreeView {
+/** Render one stage as an interactive, collapsible D3 tree with legend + zoom.
+ *  When `initialState` is given (a rebuilt stage inheriting its predecessor's
+ *  position), the tree restores that camera and fold instead of auto-fitting. */
+export function createTreeView(
+    stage: Stage,
+    onSelect: (node: DisplayNode) => void,
+    initialState?: GraphViewState,
+): TreeView {
     const referenceEdges = stage.edges.filter((edge) => edge.kind === "Reference");
     const root = buildHierarchy(stage);
     root.each((node) => {
@@ -94,8 +106,12 @@ export function createTreeView(stage: Stage, onSelect: (node: DisplayNode) => vo
         .x((node) => node.y)
         .y((node) => node.x);
 
-    update();
-    fitToViewport();
+    if (initialState) {
+        restore(initialState);
+    } else {
+        update();
+        fitToViewport();
+    }
 
     return {
         svg: svg.node()!,
@@ -107,6 +123,8 @@ export function createTreeView(stage: Stage, onSelect: (node: DisplayNode) => vo
             applySelection();
         },
         fit: fitToViewport,
+        getState,
+        restore,
     };
 
     /* --- hierarchy --- */
@@ -340,6 +358,64 @@ export function createTreeView(stage: Stage, onSelect: (node: DisplayNode) => vo
             svg.call(zoomBehavior.transform, zoomIdentity.translate(tx, ty).scale(transform.k));
         } catch {
             /* centring is optional */
+        }
+    }
+
+    /* --- position memory (camera + fold) --- */
+
+    function getState(): GraphViewState {
+        return { transform: currentTransform(), collapsed: collapsedIds() };
+    }
+
+    function restore(state: GraphViewState): void {
+        setFold(state.collapsed);
+        update();
+        if (state.transform) applyTransform(state.transform);
+        else fitToViewport();
+    }
+
+    function currentTransform(): CameraTransform | null {
+        try {
+            const transform = zoomTransform(svg.node()!);
+            return { k: transform.k, x: transform.x, y: transform.y };
+        } catch {
+            return null;
+        }
+    }
+
+    /** The ids of nodes that are collapsed (have hidden children) and currently visible. */
+    function collapsedIds(): string[] {
+        const ids: string[] = [];
+        root.each((node) => {
+            const treeNode = node as TreeNode;
+            if (!treeNode.children && treeNode._children) ids.push(treeNode.data.id);
+        });
+        return ids;
+    }
+
+    /** Reset every node to expanded, then collapse exactly the ids that still exist. */
+    function setFold(collapsed: readonly string[]): void {
+        const wanted = new Set(collapsed);
+        eachOriginal(root, (node) => {
+            node.children = node._children;
+            if (wanted.has(node.data.id)) node.children = undefined;
+        });
+    }
+
+    /** Visit every node of the original (pre-collapse) hierarchy, top-down. */
+    function eachOriginal(node: TreeNode, visit: (node: TreeNode) => void): void {
+        visit(node);
+        for (const child of node._children ?? []) eachOriginal(child, visit);
+    }
+
+    function applyTransform(transform: CameraTransform): void {
+        try {
+            svg.call(
+                zoomBehavior.transform,
+                zoomIdentity.translate(transform.x, transform.y).scale(transform.k),
+            );
+        } catch {
+            /* leave the tree at its default position */
         }
     }
 

@@ -618,7 +618,7 @@ IReadOnlyList<InlineFragment> speech = inlineBuilder.Build(inlines);
 All three grammars are simple and unambiguous, the sweet spot for Superpower.
 They operate on text the front-end hands over verbatim — a code span's `Content`
 already has its backticks stripped. Formats follow the
-[DSL spec](../Script%20Language/Script%20Language%20DSL%20Specification.md): a
+[DSL spec](../../guide/script-language.md): a
 `Name` or tag name is an `Identifier` **or** a quoted `String` (so `Old Man` and
 `#"speaker tone"` are valid).
 

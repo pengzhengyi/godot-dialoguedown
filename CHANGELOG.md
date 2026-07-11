@@ -52,3 +52,11 @@ changes easy to categorize.
 
 - The `--watch`, `--live`, and `--mode` flags — superseded by the default served
   session (View), `--edit` (start in Edit), and `-o` (static export).
+
+### Fixed
+
+- Escaped inline punctuation (for example `\*`) no longer shifts the source spans
+  of the text that follows it. A stripped leading backslash was drifting a
+  literal's re-parsed spans by one character; the transpiler now anchors on the
+  content's true source position, so spans stay exact for diagnostics and the
+  visualizer.

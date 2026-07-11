@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using DialogueDown.Markdown;
 using Ast = DialogueDown.Tests.Support.MarkdownAstFactory;
 
@@ -15,6 +16,26 @@ public sealed class TextInlineTests
         Assert.Equal("hello", inline.Text);
         Assert.Equal(span, inline.Span);
         Assert.IsAssignableFrom<MarkdownInline>(inline);
+    }
+
+    [Fact]
+    public void Constructor_ContentSpan_DefaultsToSpan()
+    {
+        var span = new SourceSpan(2, 4);
+
+        var inline = new TextInline("* b", span);
+
+        Assert.Equal(span, inline.ContentSpan);
+    }
+
+    [Fact]
+    public void Constructor_ContentSpan_IsExposedWhenGivenDistinctly()
+    {
+        // An escaped literal: the raw span covers the backslash, the content span does not.
+        var inline = new TextInline("* b", new SourceSpan(2, 4), new SourceSpan(3, 3));
+
+        Assert.Equal(new SourceSpan(2, 4), inline.Span);
+        Assert.Equal(new SourceSpan(3, 3), inline.ContentSpan);
     }
 
     [Fact]

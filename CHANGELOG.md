@@ -30,6 +30,10 @@ changes easy to categorize.
   saves back to the file — with search, section folding, Markdown formatting
   shortcuts (bold/italic/link and emphasis auto-surround), and a **System / Light /
   Dark** theme toggle.
+- A **Desugared AST** tab in the `visualize` report — the desugarer's normalized
+  Dialogue AST as a third graph stage after the Dialogue AST. Synthetic nodes the
+  desugarer inserts (a default speaker on a speaker-less line) render as
+  "inserted — no source" rather than a blank source block.
 - Initial OSS community files and CI configuration.
 - Project logo and favicon: a chat-bubble Markdown "M" mark, with an expanded
   variant showing a choice branching into options and scenes.
@@ -47,6 +51,12 @@ changes easy to categorize.
 - The `visualize` servers now compress responses (gzip), cutting the report page's
   transfer roughly threefold when it is viewed over a LAN or VPN; the hot-reload SSE
   stream is left uncompressed so events keep streaming.
+- The `visualize` report's compilation stages are now sourced through the
+  `IScriptCompiler` seam instead of the visualizer wiring the parser and transpiler
+  by hand.
+- The `visualize` report's **View / Edit** toggle is now frozen on the read-only
+  graph tabs (it governs only the Source editor), so it no longer hints that a graph
+  is editable.
 
 ### Removed
 

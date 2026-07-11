@@ -1,5 +1,5 @@
+using DialogueDown.Compilation;
 using DialogueDown.Markdown;
-using DialogueDown.Script.Transpiler;
 
 namespace DialogueDown.Visualization;
 
@@ -10,43 +10,39 @@ namespace DialogueDown.Visualization;
 /// the same facade to render and serialize a document.
 /// </summary>
 /// <remarks>
-/// <see cref="BuildStages"/> projects two stages: the parsed Markdown AST and the
-/// Dialogue AST the transpiler derives from it. Each is one projection over the shared
-/// walk, model, and renderers.
+/// <see cref="BuildStages"/> projects the stages the <see cref="IScriptCompiler"/> seam
+/// produces — the parsed Markdown AST, the transpiled Dialogue AST, and the desugarer's
+/// normalized Desugared AST — each one projection over the shared walk, model, and
+/// renderers.
 /// </remarks>
 public sealed class CompilationVisualizer
 {
-    private readonly IMarkdownParser _parser;
-    private readonly IScriptTranspiler _transpiler;
+    private readonly IScriptCompiler _compiler;
 
-    /// <summary>Creates a visualizer using the default Markdig-based parser.</summary>
+    /// <summary>Creates a visualizer using the default compiler pipeline.</summary>
     public CompilationVisualizer()
-        : this(new MarkdigMarkdownParser())
+        : this(ScriptCompilerFactory.CreateDefault())
     {
     }
 
-    /// <summary>Creates a visualizer over a specific <paramref name="parser"/>.</summary>
-    internal CompilationVisualizer(IMarkdownParser parser)
-        : this(parser, ScriptTranspilerFactory.CreateDefault())
+    /// <summary>Creates a visualizer over a specific <paramref name="compiler"/>.</summary>
+    internal CompilationVisualizer(IScriptCompiler compiler)
     {
-    }
-
-    /// <summary>Creates a visualizer over a specific parser and transpiler.</summary>
-    internal CompilationVisualizer(IMarkdownParser parser, IScriptTranspiler transpiler)
-    {
-        ArgumentNullException.ThrowIfNull(parser);
-        ArgumentNullException.ThrowIfNull(transpiler);
-        _parser = parser;
-        _transpiler = transpiler;
+        ArgumentNullException.ThrowIfNull(compiler);
+        _compiler = compiler;
     }
 
     /// <summary>Compiles the source and projects each stage into a display graph.</summary>
     public IReadOnlyList<DisplayGraph> BuildStages(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        var markdown = _parser.Parse(source);
-        var dialogue = _transpiler.Transpile(markdown, source);
-        return [markdown.ToDisplayGraph(source), dialogue.ToDisplayGraph(source)];
+        var result = _compiler.Compile(source);
+        return
+        [
+            result.Markdown.ToDisplayGraph(source),
+            result.Script.ToDisplayGraph(source),
+            result.Desugared.ToDisplayGraph(source),
+        ];
     }
 
     /// <summary>
@@ -61,7 +57,7 @@ public sealed class CompilationVisualizer
         ArgumentNullException.ThrowIfNull(source);
         var projection = new MarkdownAstProjection(source);
         var references = new List<string>();
-        CollectLocalImages(_parser.Parse(source), projection, references);
+        CollectLocalImages(_compiler.Compile(source).Markdown, projection, references);
         return references;
     }
 

@@ -1,13 +1,16 @@
 using DialogueDown.Common;
+using DialogueDown.Compilation;
 using DialogueDown.Markdown;
-using DialogueDown.Visualization.Tests.Support;
+using DialogueDown.Script.Ast;
+using DialogueDown.Script.Desugar;
+using NSubstitute;
 
 namespace DialogueDown.Visualization.Tests;
 
 public sealed class CompilationVisualizerTests
 {
     [Fact]
-    public void Constructor_NullParser_Throws()
+    public void Constructor_NullCompiler_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => new CompilationVisualizer(null!));
     }
@@ -19,28 +22,50 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
-    public void BuildStages_ProducesMarkdownAndDialogueStagesFromInjectedParser()
+    public void BuildStages_ProjectsTheStagesFromTheCompilerSeam()
     {
-        var document = new MarkdownDocument(
+        var markdown = new MarkdownDocument(
         [
             new Paragraph([new TextInline("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
         ]);
-        var parser = new StubMarkdownParser(document);
-        var visualizer = new CompilationVisualizer(parser);
+        var script = new ScriptDocument(
+        [
+            new Line(null, [new Text("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
+        ]);
+        var compiler = Substitute.For<IScriptCompiler>();
+        compiler.Compile("script source").Returns(
+            new CompilationResult("script source", markdown, script, new DesugaredScriptDocument(script)));
+        var visualizer = new CompilationVisualizer(compiler);
 
         var stages = visualizer.BuildStages("script source");
 
+        compiler.Received(1).Compile("script source");
         Assert.Collection(
             stages,
-            markdown => Assert.Equal("Markdown AST", markdown.Title),
-            dialogue => Assert.Equal("Dialogue AST", dialogue.Title));
-        Assert.Equal("script source", parser.ReceivedSource);
+            markdownStage => Assert.Equal("Markdown AST", markdownStage.Title),
+            dialogueStage => Assert.Equal("Dialogue AST", dialogueStage.Title),
+            desugaredStage => Assert.Equal("Desugared AST", desugaredStage.Title));
         Assert.Contains(stages[0].Nodes, n => n.Label == "Paragraph");
-        Assert.Contains(stages[1].Nodes, n => n.Label == "Line"); // the paragraph becomes a line
+        Assert.Contains(stages[1].Nodes, n => n.Label == "Line");
+        Assert.Contains(stages[2].Nodes, n => n.Label == "Line");
     }
 
     [Fact]
-    public void BuildStages_RealParser_ProducesDialogueStageWithSpeakersChoicesAndCalls()
+    public void BuildStages_RealCompiler_DesugaredStageFillsADefaultSpeakerOnASpeakerlessLine()
+    {
+        var stages = new CompilationVisualizer().BuildStages("The room is quiet.");
+
+        var desugared = stages[2];
+        Assert.Equal("Desugared AST", desugared.Title);
+        Assert.False(string.IsNullOrWhiteSpace(desugared.Description));
+        // The speaker-less line has no speaker in the Dialogue AST, but the desugarer
+        // fills a synthetic default speaker, so only the Desugared stage shows it.
+        Assert.DoesNotContain(stages[1].Nodes, n => n.Label == "Speaker (default)");
+        Assert.Contains(desugared.Nodes, n => n.Label == "Speaker (default)");
+    }
+
+    [Fact]
+    public void BuildStages_RealCompiler_ProducesDialogueStageWithSpeakersChoicesAndCalls()
     {
         var stages = new CompilationVisualizer().BuildStages(
             """
@@ -63,7 +88,7 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
-    public void RenderHtmlReport_RealParser_ProducesSelfContainedReportWithStageAndLabels()
+    public void RenderHtmlReport_RealCompiler_ProducesSelfContainedReportWithStageAndLabels()
     {
         var visualizer = new CompilationVisualizer();
 

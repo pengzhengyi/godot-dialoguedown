@@ -28,20 +28,42 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
     private const string BreakCategory = "break";
     private const string TagCategory = "tag";
 
-    private readonly string _source;
+    private const string DialogueTitle = "Dialogue AST";
 
-    public DialogueAstProjection(string source)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        _source = source;
-    }
-
-    public string Title => "Dialogue AST";
-
-    public string Description =>
+    private const string DialogueDescription =
         "The dialogue tree the transpiler derives from the Markdown — its lines and " +
         "speakers, choices, styled text, links, game calls, and tags, each tied to the " +
         "text it came from.";
+
+    private readonly string _source;
+    private readonly string _title;
+    private readonly string _description;
+
+    /// <summary>The Dialogue AST projection — the transpiler's output stage.</summary>
+    public DialogueAstProjection(string source)
+        : this(source, DialogueTitle, DialogueDescription)
+    {
+    }
+
+    /// <summary>
+    /// Projects the same Dialogue AST node vocabulary under a given tab
+    /// <paramref name="title"/> and <paramref name="description"/>, so one class renders
+    /// both the Dialogue AST and the Desugared AST tabs (the desugared tree is the same
+    /// vocabulary with a default speaker filled and jumps assembled).
+    /// </summary>
+    public DialogueAstProjection(string source, string title, string description)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentException.ThrowIfNullOrEmpty(title);
+        ArgumentException.ThrowIfNullOrEmpty(description);
+        _source = source;
+        _title = title;
+        _description = description;
+    }
+
+    public string Title => _title;
+
+    public string Description => _description;
 
     public NodeDescription Describe(object node)
     {
@@ -81,6 +103,11 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
                 [new("id", speaker.Id), SpanAttribute(speaker.Span)],
                 Slice(speaker.Span),
                 SpeechCategory),
+            DefaultSpeaker speaker => new(
+                "Speaker (default)",
+                [SpanAttribute(speaker.Span)],
+                Slice(speaker.Span),
+                SpeechCategory),
             Text text => new(
                 "Text", [new("text", text.Content), SpanAttribute(text.Span)], Slice(text.Span), TextCategory),
             StyledText styled => new(
@@ -107,7 +134,13 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
                 CallCategory),
             Query query => new(
                 "Query", [new("key", query.Key), SpanAttribute(query.Span)], Slice(query.Span), CallCategory),
-            JumpIndicator jump => new("Jump", [SpanAttribute(jump.Span)], Slice(jump.Span), JumpCategory),
+            JumpIndicator jump => new(
+                "Jump indicator", [SpanAttribute(jump.Span)], Slice(jump.Span), JumpCategory),
+            Jump jump => new(
+                "Jump",
+                [new("target", jump.Target), new("label", InlineText(jump.Label)), SpanAttribute(jump.Span)],
+                Slice(jump.Span),
+                JumpCategory),
             LineBreak lineBreak => new(
                 "Line break", [SpanAttribute(lineBreak.Span)], Slice(lineBreak.Span), BreakCategory),
             ReservedTag tag => new(
@@ -139,6 +172,7 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
             PartialSpeakerDeclaration speaker => speaker.Tags,
             StyledText styled => styled.Children,
             Link link => link.Label,
+            Jump jump => jump.Label,
             Image image => image.Alt,
             _ => [],
         };
@@ -175,15 +209,23 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
         Text text => text.Content,
         StyledText styled => InlineText(styled.Children),
         Link link => InlineText(link.Label),
+        Jump jump => InlineText(jump.Label),
         Image image => InlineText(image.Alt),
         LineBreak => " ",
         _ => string.Empty,
     };
 
     // Spans come from the Markdown source locations; clamp defensively so a diagnostics
-    // view never throws on a stray span.
-    private string Slice(SourceSpan span)
+    // view never throws on a stray span. An empty span yields no source: the node marks a
+    // position rather than a range of text — it was inserted by a stage (a filled default
+    // speaker), so it has nothing to slice.
+    private string? Slice(SourceSpan span)
     {
+        if (span.IsEmpty)
+        {
+            return null;
+        }
+
         var start = Math.Clamp(span.Start, 0, _source.Length);
         var end = Math.Clamp(span.End, start, _source.Length);
         return _source[start..end];

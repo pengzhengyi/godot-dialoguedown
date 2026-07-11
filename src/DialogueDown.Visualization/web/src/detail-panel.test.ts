@@ -66,10 +66,12 @@ describe("createDetailPanel", () => {
         expect(body.querySelector(".preview")?.innerHTML).toContain("<h1>Scene</h1>");
     });
 
-    it("omits the source section when there is no source", () => {
-        panel.show({ id: "n1", label: "Text", attributes: [] });
-        expect(body.textContent).not.toContain("Source");
+    it("shows an inserted note instead of a source section when there is no source", () => {
+        panel.show({ id: "n1", label: "Speaker (default)", attributes: [] });
         expect(body.querySelector("pre")).toBeNull();
+        expect(body.querySelector(".inserted-note")?.textContent).toContain(
+            "Inserted by the compiler",
+        );
     });
 
     it("escapes the source so it cannot inject markup", () => {

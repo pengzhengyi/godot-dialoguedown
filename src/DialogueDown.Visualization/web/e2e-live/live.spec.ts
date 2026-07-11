@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 
 test("serves a view report bound to the document", async ({ page }) => {
     // The payload is a served session, so the tabs render and the Source tab is present.
-    await expect(page.locator(".tab")).toHaveCount(3);
+    await expect(page.locator(".tab")).toHaveCount(4); // Source + Markdown/Dialogue/Desugared AST
     await expect(page.locator(".tab").first()).toHaveText("Source");
     // The View/Edit toggle is shown, starting in View.
     await expect(page.locator('.mode-toggle-option[data-mode="view"]')).toHaveAttribute(
@@ -135,4 +135,25 @@ test("accents blue in View and green in Edit, and keeps the footer on one aligne
     });
     expect(Math.abs(centers.toggle - centers.path)).toBeLessThan(2);
     expect(Math.abs(centers.toggle - centers.help)).toBeLessThan(2);
+});
+
+test("freezes the View/Edit toggle on read-only graph tabs and thaws it on Source", async ({
+    page,
+}) => {
+    const toggle = page.locator(".mode-toggle");
+    const view = page.locator('.mode-toggle-option[data-mode="view"]');
+
+    // Source tab is active first: the toggle is interactive.
+    await expect(toggle).toHaveAttribute("aria-disabled", "false");
+    await expect(view).toBeEnabled();
+
+    // A graph tab is read-only, so the toggle is frozen.
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await expect(toggle).toHaveAttribute("aria-disabled", "true");
+    await expect(view).toBeDisabled();
+
+    // Back on Source it is interactive again.
+    await page.locator(".tab", { hasText: "Source" }).click();
+    await expect(toggle).toHaveAttribute("aria-disabled", "false");
+    await expect(view).toBeEnabled();
 });

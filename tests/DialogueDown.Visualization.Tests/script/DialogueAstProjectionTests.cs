@@ -105,4 +105,65 @@ public sealed class DialogueAstProjectionTests
     {
         Assert.Empty(_projection.Neighbors(new Text("Hi", new SourceSpan(0, 2))));
     }
+
+    [Fact]
+    public void Describe_DefaultSpeaker_LabelsItDefaultWithSpeechCategory()
+    {
+        var description = _projection.Describe(new DefaultSpeaker(SourceSpan.EmptyAt(3)));
+
+        Assert.Equal("Speaker (default)", description.Label);
+        Assert.Equal("speech", description.Category);
+        Assert.Contains(description.Attributes, a => a.Name == "span");
+    }
+
+    [Fact]
+    public void Describe_EmptySpanNode_HasNoSource()
+    {
+        // A synthetic node (a filled default speaker) marks a zero-width position, so it
+        // has no source to slice — null, not an empty string that renders as a blank block.
+        var description = _projection.Describe(new DefaultSpeaker(SourceSpan.EmptyAt(3)));
+
+        Assert.Null(description.Source);
+    }
+
+    [Fact]
+    public void Describe_JumpIndicator_KeepsItsOwnLabelDistinctFromAnAssembledJump()
+    {
+        // The pre-desugar `=>` marker and the assembled Jump are different nodes; the
+        // indicator keeps its own name so it stands out from the Jump it becomes.
+        var indicator = _projection.Describe(new JumpIndicator(new SourceSpan(0, 2)));
+
+        Assert.Equal("Jump indicator", indicator.Label);
+        Assert.Equal("jump", indicator.Category);
+    }
+
+    [Fact]
+    public void Describe_Jump_LabelsItWithTargetAndLabel()
+    {
+        var span = new SourceSpan(0, 8);
+        var jump = _projection.Describe(new Jump("scene-2", [new Text("Go", span)], span));
+
+        Assert.Equal("Jump", jump.Label);
+        Assert.Equal("jump", jump.Category);
+        Assert.Contains(jump.Attributes, a => a.Name == "target" && a.Value == "scene-2");
+        Assert.Contains(jump.Attributes, a => a.Name == "label" && a.Value == "Go");
+    }
+
+    [Fact]
+    public void Neighbors_Jump_YieldsItsLabelFragments()
+    {
+        var span = new SourceSpan(0, 2);
+        var label = new Text("Go", span);
+
+        Assert.Equal(new object[] { label }, _projection.Neighbors(new Jump("t", [label], span)));
+    }
+
+    [Fact]
+    public void Constructor_UsesGivenTitleAndDescription()
+    {
+        var projection = new DialogueAstProjection("Hi there", "Desugared AST", "the normalized tree");
+
+        Assert.Equal("Desugared AST", projection.Title);
+        Assert.Equal("the normalized tree", projection.Description);
+    }
 }

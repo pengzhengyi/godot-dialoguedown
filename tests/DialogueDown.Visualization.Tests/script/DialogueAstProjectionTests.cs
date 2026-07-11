@@ -117,6 +117,16 @@ public sealed class DialogueAstProjectionTests
     }
 
     [Fact]
+    public void Describe_EmptySpanNode_HasNoSource()
+    {
+        // A synthetic node (a filled default speaker) marks a zero-width position, so it
+        // has no source to slice — null, not an empty string that renders as a blank block.
+        var description = _projection.Describe(new DefaultSpeaker(SourceSpan.EmptyAt(3)));
+
+        Assert.Null(description.Source);
+    }
+
+    [Fact]
     public void Describe_Jump_LabelsItWithTargetAndLabel()
     {
         var span = new SourceSpan(0, 8);

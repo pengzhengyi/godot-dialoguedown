@@ -215,9 +215,16 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
     };
 
     // Spans come from the Markdown source locations; clamp defensively so a diagnostics
-    // view never throws on a stray span.
-    private string Slice(SourceSpan span)
+    // view never throws on a stray span. An empty span yields no source: the node marks a
+    // position rather than a range of text — it was inserted by a stage (a filled default
+    // speaker), so it has nothing to slice.
+    private string? Slice(SourceSpan span)
     {
+        if (span.IsEmpty)
+        {
+            return null;
+        }
+
         var start = Math.Clamp(span.Start, 0, _source.Length);
         var end = Math.Clamp(span.End, start, _source.Length);
         return _source[start..end];

@@ -714,6 +714,15 @@ svg.tree {
     border-left: 3px solid var(--pico-muted-border-color);
 }
 
+/* Shown for a synthetic node (a stage-inserted default speaker): it has no source, so
+   the detail panel says so instead of an empty Source block. */
+#detail-body .inserted-note {
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--pico-muted-color);
+}
+
 .frontmatter-label {
     margin: 0 0 0.35rem;
     font-size: 0.72rem;

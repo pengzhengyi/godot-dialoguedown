@@ -44,7 +44,11 @@ export function createDetailPanel(): DetailPanel {
     }
 
     function sourceSection(source: string | undefined): string {
-        if (typeof source !== "string") return "";
+        // A node with no source is synthetic — a stage inserted it (a filled default
+        // speaker), so it maps to no text. Say so, instead of an empty Source block.
+        if (typeof source !== "string") {
+            return `<p class="inserted-note">Inserted by the compiler — no source.</p>`;
+        }
         return (
             `<h4>Source</h4><pre><code>${escapeHtml(source)}</code></pre>` +
             `<h4>Preview</h4><div class="preview">${renderMarkdown(source)}</div>`

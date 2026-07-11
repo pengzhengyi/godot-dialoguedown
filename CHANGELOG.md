@@ -34,6 +34,10 @@ changes easy to categorize.
   Dialogue AST as a third graph stage after the Dialogue AST. Synthetic nodes the
   desugarer inserts (a default speaker on a speaker-less line) render as
   "inserted — no source" rather than a blank source block.
+- A `visualize <script> --emit mermaid|dot` option that writes each stage's graph
+  as portable **Mermaid** or **Graphviz DOT** text to `--output` or standard
+  output, for embedding a graph elsewhere. Emitted Mermaid is colored by the same
+  cross-stage categories as the interactive report.
 - Initial OSS community files and CI configuration.
 - Project logo and favicon: a chat-bubble Markdown "M" mark, with an expanded
   variant showing a choice branching into options and scenes.

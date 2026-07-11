@@ -222,4 +222,35 @@ public sealed class CompilationVisualizerTests
 
         Assert.Empty(references);
     }
+
+    [Fact]
+    public void RenderText_NullSource_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => new CompilationVisualizer().RenderText(null!, EmitFormat.Mermaid));
+    }
+
+    [Fact]
+    public void RenderText_Mermaid_EmitsEveryStageUnderAHeaderAsFlowchart()
+    {
+        var text = new CompilationVisualizer().RenderText("# Scene\n\nAlice: Hi.", EmitFormat.Mermaid);
+
+        Assert.Contains("%% Markdown AST", text);
+        Assert.Contains("%% Dialogue AST", text);
+        Assert.Contains("%% Desugared AST", text);
+        Assert.Contains("flowchart TD", text);
+        // Colored: a categorized node carries its class.
+        Assert.Contains(":::cat", text);
+    }
+
+    [Fact]
+    public void RenderText_Dot_EmitsEveryStageUnderAHeaderAsDigraph()
+    {
+        var text = new CompilationVisualizer().RenderText("# Scene\n\nAlice: Hi.", EmitFormat.Dot);
+
+        Assert.Contains("// Markdown AST", text);
+        Assert.Contains("// Dialogue AST", text);
+        Assert.Contains("// Desugared AST", text);
+        Assert.Contains("digraph", text);
+    }
 }

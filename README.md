@@ -123,6 +123,10 @@ dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --edit 
 
 # Export a self-contained report to a file (no server, no browser)
 dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md -o report.html
+
+# Emit each stage's graph as portable Mermaid or Graphviz DOT text (to stdout or -o)
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --emit mermaid
+dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --emit dot -o scene.dot
 ```
 
 > [!NOTE]

@@ -44,6 +44,9 @@ changes easy to categorize.
   marks a caret at its position instead of borrowing a neighbor's range.
 - `visualize <script>` now opens a **served session** (read-only **View** by default)
   instead of a one-shot static file; the offline snapshot is written with `-o`.
+- The `visualize` servers now compress responses (gzip), cutting the report page's
+  transfer roughly threefold when it is viewed over a LAN or VPN; the hot-reload SSE
+  stream is left uncompressed so events keep streaming.
 
 ### Removed
 

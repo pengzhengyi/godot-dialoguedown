@@ -12,7 +12,7 @@ import {
     type Selection,
 } from "d3";
 import type { DisplayEdge, DisplayNode, Stage } from "./model";
-import type { CameraTransform, GraphViewState } from "./graph-camera";
+import type { CameraTransform } from "./graph-camera";
 import { colorOf } from "./palette";
 import { ellipsize, MAX_INLINE_TEXT, tooltipHtml } from "./text";
 import { createLegend } from "./legend";
@@ -30,26 +30,57 @@ export interface TreeView {
     controls: HTMLElement;
     handleKey(event: KeyboardEvent): void;
     clearSelection(): void;
-    /** Re-fit the tree to its container. Call after the tab becomes visible, so
-     *  the fit uses real (non-zero) dimensions. */
-    fit(): void;
-    /** Snapshot the current camera (zoom/pan) and fold state, to restore later. */
-    getState(): GraphViewState;
-    /** Restore a snapshot: re-fold to the saved set and re-apply the saved camera
-     *  (falling back to a fit when the snapshot has no camera yet). */
-    restore(state: GraphViewState): void;
+    /**
+     * Show the given camera and fold. A `null` camera uses the default (root-centered)
+     * framing. Call after the tab becomes visible so the framing uses real dimensions.
+     */
+    applyView(camera: CameraTransform | null, fold: string[]): void;
+}
+
+/** Hooks that let the app remember and restore a graph's position across tabs. */
+export interface TreeViewOptions {
+    /**
+     * The camera to apply on creation: a pinned override, the inherited shared
+     * camera, or `null` for the default (root-centered) framing.
+     */
+    initialCamera?: CameraTransform | null;
+    /** The collapsed node ids to restore on creation. */
+    initialFold?: string[];
+    /**
+     * Fired when the camera changes; `byUser` is true for reader gestures (wheel,
+     * drag, the zoom controls) and false for programmatic applies (a reveal, the
+     * default framing).
+     */
+    onCameraChange?(transform: CameraTransform, byUser: boolean): void;
+    /** Fired when the reader collapses or expands a node. */
+    onFoldChange?(collapsed: string[]): void;
+    /** Fired when the reader clicks Revert, so the caller can drop remembered state. */
+    onRevert?(): void;
 }
 
 const NAVIGATION_KEYS = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " "];
 
+// Default framing: a readable 100% zoom with the root anchored near the left edge and
+// vertically centered, so the reader starts at the root with its subtree filling the
+// viewport rightward — rather than a whole-graph fit that shrinks large trees.
+const DEFAULT_ZOOM = 1;
+const ROOT_ANCHOR_X = 0.2;
+
 /** Render one stage as an interactive, collapsible D3 tree with legend + zoom.
- *  When `initialState` is given (a rebuilt stage inheriting its predecessor's
- *  position), the tree restores that camera and fold instead of auto-fitting. */
+ *  `options` supply the initial camera/fold and hooks so the app can remember a
+ *  graph's position across tab switches and hot-reloads. */
 export function createTreeView(
     stage: Stage,
     onSelect: (node: DisplayNode) => void,
-    initialState?: GraphViewState,
+    options: TreeViewOptions = {},
 ): TreeView {
+    const {
+        initialCamera = null,
+        initialFold = [],
+        onCameraChange,
+        onFoldChange,
+        onRevert,
+    } = options;
     const referenceEdges = stage.edges.filter((edge) => edge.kind === "Reference");
     const root = buildHierarchy(stage);
     root.each((node) => {
@@ -58,6 +89,13 @@ export function createTreeView(
 
     let selected: TreeNode | null = null;
     const dimmed = new Set<string>();
+    // Set while a control-driven (user) zoom is applied, so the zoom handler can tell
+    // reader gestures from programmatic applies even when both lack a DOM sourceEvent.
+    let userGesture = false;
+    // Bumped by every applyView so a stale async default-framing retry (scheduled by an
+    // earlier applyView, e.g. this tab's hidden construction) aborts instead of clobbering
+    // a camera a later applyView (e.g. the reveal) has since applied.
+    let viewToken = 0;
 
     const svg = create<SVGSVGElement>("svg").attr("class", "tree");
     const viewport = svg.append("g");
@@ -79,13 +117,18 @@ export function createTreeView(
         .on("zoom", (event) => {
             viewport.attr("transform", event.transform.toString());
             controls.setRatio(event.transform.k);
+            const byUser = userGesture || Boolean(event.sourceEvent);
+            const { k, x, y } = event.transform;
+            onCameraChange?.({ k, x, y }, byUser);
         });
     svg.call(zoomBehavior);
 
     const controls: ZoomControls = createZoomControls({
-        onZoomIn: () => svg.call(zoomBehavior.scaleBy, ZOOM_STEP),
-        onZoomOut: () => svg.call(zoomBehavior.scaleBy, 1 / ZOOM_STEP),
-        onReset: () => applyFit(),
+        onZoomIn: () => userAction(() => svg.call(zoomBehavior.scaleBy, ZOOM_STEP)),
+        onZoomOut: () => userAction(() => svg.call(zoomBehavior.scaleBy, 1 / ZOOM_STEP)),
+        onSetZoom: (percent) =>
+            userAction(() => svg.call(zoomBehavior.scaleTo, clampScale(percent / 100))),
+        onRevert: () => revert(),
     });
 
     const legend = createLegend(stage, {
@@ -106,12 +149,7 @@ export function createTreeView(
         .x((node) => node.y)
         .y((node) => node.x);
 
-    if (initialState) {
-        restore(initialState);
-    } else {
-        update();
-        fitToViewport();
-    }
+    applyView(initialCamera, initialFold);
 
     return {
         svg: svg.node()!,
@@ -122,9 +160,7 @@ export function createTreeView(
             selected = null;
             applySelection();
         },
-        fit: fitToViewport,
-        getState,
-        restore,
+        applyView,
     };
 
     /* --- hierarchy --- */
@@ -174,12 +210,14 @@ export function createTreeView(
     function toggle(node: TreeNode): void {
         node.children = node.children ? undefined : node._children;
         update();
+        onFoldChange?.(collapsedIds());
     }
 
     function expand(node: TreeNode): void {
         if (!node.children && node._children) {
             node.children = node._children;
             update();
+            onFoldChange?.(collapsedIds());
         }
     }
 
@@ -191,7 +229,7 @@ export function createTreeView(
 
         if (!selected) {
             select(root);
-            fitToViewport();
+            scheduleDefaultView(++viewToken);
             return;
         }
         if (event.key === "Enter" || event.key === " ") {
@@ -326,27 +364,51 @@ export function createTreeView(
 
     /* --- camera --- */
 
-    function fitToViewport(): void {
-        requestAnimationFrame(() => applyFit());
+    /** Run a reader-initiated camera change so the zoom handler pins it (not just notes it). */
+    function userAction(change: () => void): void {
+        userGesture = true;
+        try {
+            change();
+        } finally {
+            userGesture = false;
+        }
     }
 
-    function applyFit(): void {
-        // Never let an environment quirk (an SVG engine without getBBox or zoom
-        // support) break an otherwise-good tree — auto-fit is only a nicety.
-        try {
-            const bounds = viewport.node()!.getBBox();
-            if (!bounds.width || !bounds.height) return;
-            const size = viewportSize();
-            const scale = Math.min(
-                1,
-                0.9 / Math.max(bounds.width / size.width, bounds.height / size.height),
-            );
-            const tx = size.width / 2 - scale * (bounds.x + bounds.width / 2);
-            const ty = size.height / 2 - scale * (bounds.y + bounds.height / 2);
-            svg.call(zoomBehavior.transform, zoomIdentity.translate(tx, ty).scale(scale));
-        } catch {
-            /* leave the tree at its default position */
+    /** Show a camera and fold; a `null` camera uses the default (root-centered) framing. */
+    function applyView(camera: CameraTransform | null, fold: string[]): void {
+        const token = ++viewToken;
+        setFold(fold);
+        update();
+        if (camera) applyTransform(camera);
+        else scheduleDefaultView(token);
+    }
+
+    /** Revert this graph to defaults: drop remembered state, expand all, re-frame. */
+    function revert(): void {
+        onRevert?.();
+        applyView(null, []);
+    }
+
+    /**
+     * Frame the default (root-centered) view once the container has a real size. A
+     * just-shown or hidden tab reads zero until it lays out, so retry next frame (capped
+     * so a never-shown tab does not loop forever). The `token` aborts the retry if a later
+     * applyView has superseded this one.
+     */
+    function scheduleDefaultView(token: number, attempt = 0): void {
+        if (token !== viewToken) return;
+        const parent = svg.node()?.parentElement;
+        const width = parent?.clientWidth ?? 0;
+        const height = parent?.clientHeight ?? 0;
+        if (!width || !height) {
+            if (attempt < 30) requestAnimationFrame(() => scheduleDefaultView(token, attempt + 1));
+            return;
         }
+        const rootX = (root as TreeNode).x ?? 0; // vertical position after layout
+        const rootY = (root as TreeNode).y ?? 0; // horizontal position (0 at the root)
+        const tx = width * ROOT_ANCHOR_X - DEFAULT_ZOOM * rootY;
+        const ty = height / 2 - DEFAULT_ZOOM * rootX;
+        applyTransform({ k: DEFAULT_ZOOM, x: tx, y: ty });
     }
 
     function centerOn(node: TreeNode): void {
@@ -361,27 +423,22 @@ export function createTreeView(
         }
     }
 
-    /* --- position memory (camera + fold) --- */
-
-    function getState(): GraphViewState {
-        return { transform: currentTransform(), collapsed: collapsedIds() };
+    function clampScale(scale: number): number {
+        return Math.max(0.1, Math.min(3, scale));
     }
 
-    function restore(state: GraphViewState): void {
-        setFold(state.collapsed);
-        update();
-        if (state.transform) applyTransform(state.transform);
-        else fitToViewport();
-    }
-
-    function currentTransform(): CameraTransform | null {
+    function applyTransform(transform: CameraTransform): void {
         try {
-            const transform = zoomTransform(svg.node()!);
-            return { k: transform.k, x: transform.x, y: transform.y };
+            svg.call(
+                zoomBehavior.transform,
+                zoomIdentity.translate(transform.x, transform.y).scale(transform.k),
+            );
         } catch {
-            return null;
+            /* leave the tree at its default position */
         }
     }
+
+    /* --- fold --- */
 
     /** The ids of nodes that are collapsed (have hidden children) and currently visible. */
     function collapsedIds(): string[] {
@@ -406,17 +463,6 @@ export function createTreeView(
     function eachOriginal(node: TreeNode, visit: (node: TreeNode) => void): void {
         visit(node);
         for (const child of node._children ?? []) eachOriginal(child, visit);
-    }
-
-    function applyTransform(transform: CameraTransform): void {
-        try {
-            svg.call(
-                zoomBehavior.transform,
-                zoomIdentity.translate(transform.x, transform.y).scale(transform.k),
-            );
-        } catch {
-            /* leave the tree at its default position */
-        }
     }
 
     function viewportSize(): { width: number; height: number } {

@@ -648,10 +648,36 @@ svg.tree {
     background: var(--pico-muted-border-color);
 }
 
-.zoom-controls .zoom-ratio {
-    min-width: 3.6rem;
+.zoom-controls .zoom-field {
+    display: flex;
+    align-items: center;
     border-inline: 1px solid var(--pico-muted-border-color);
+}
+
+.zoom-controls .zoom-input {
+    appearance: textfield;
+    width: 2.4rem;
+    height: auto;
+    margin: 0;
+    padding: 0.25rem 0 0.25rem 0.45rem;
+    color: inherit;
+    background: transparent;
+    border: none;
+    text-align: right;
+    font-size: inherit;
     font-variant-numeric: tabular-nums;
+}
+
+/* Hide the native number spinner so the compact toolbar stays clean. */
+.zoom-controls .zoom-input::-webkit-inner-spin-button,
+.zoom-controls .zoom-input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+
+.zoom-controls .zoom-suffix {
+    padding-right: 0.45rem;
+    color: var(--pico-muted-color);
 }
 
 .dot {

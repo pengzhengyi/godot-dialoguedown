@@ -72,23 +72,52 @@ test("keeps a graph's zoom across a hot reload", async ({ page }) => {
     const viewport = page.locator("section.stage.active svg.tree > g").first();
     const zoomIn = page.locator("section.stage.active .zoom-controls button", { hasText: "+" });
 
-    // Reading the transform first lets the initial auto-fit settle before we zoom.
-    const fitted = await viewport.getAttribute("transform");
+    // Reading the transform first lets the initial default framing settle before we zoom.
+    const framed = await viewport.getAttribute("transform");
     await zoomIn.click();
     await zoomIn.click();
     const zoomed = await viewport.getAttribute("transform");
-    expect(zoomed).not.toEqual(fitted);
+    expect(zoomed).not.toEqual(framed);
 
     // A disk change rebuilds the graph tabs in place (View mode auto-updates).
     writeFileSync(LIVE_DOC, "# Zoom Scene\n\nAlice: The graph is rebuilt but stays put.\n");
     await expect(page.locator(".source-preview")).toContainText("stays put");
 
     // The rebuilt Markdown AST graph kept the zoom it had before the reload, rather
-    // than snapping back to the default fit.
+    // than snapping back to the default framing.
     await expect(page.locator("section.stage.active svg.tree > g").first()).toHaveAttribute(
         "transform",
         zoomed ?? "",
     );
+});
+
+test("an untouched graph inherits the current zoom; an adjusted one keeps its own", async ({
+    page,
+}) => {
+    const zoom = () => page.locator("section.stage.active .zoom-input");
+
+    // Set the Markdown AST graph to a distinct zoom (pins its own camera).
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await zoom().fill("150");
+    await zoom().press("Enter");
+    await expect(zoom()).toHaveValue("150");
+
+    // The untouched Dialogue AST tab inherits the current 150%; then give it its own 80%.
+    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+    await expect(zoom()).toHaveValue("150");
+    await zoom().fill("80");
+    await zoom().press("Enter");
+    await expect(zoom()).toHaveValue("80");
+
+    // Coming straight from Dialogue, the untouched Desugared AST inherits the current 80%.
+    await page.locator(".tab", { hasText: "Desugared AST" }).click();
+    await expect(zoom()).toHaveValue("80");
+
+    // Each adjusted graph kept its own: Markdown 150%, Dialogue 80%.
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await expect(zoom()).toHaveValue("150");
+    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+    await expect(zoom()).toHaveValue("80");
 });
 
 test("shows a banner when the document is deleted", async ({ page }) => {

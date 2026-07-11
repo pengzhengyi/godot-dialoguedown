@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { SAMPLE_REPORT, writeReport } from "./report";
 
@@ -14,6 +14,25 @@ test.beforeEach(async ({ page }) => {
 async function showAst(page: Page): Promise<void> {
     await page.locator(".tab", { hasText: "Markdown AST" }).click();
     await expect(page.locator("section.stage.active g.node")).toHaveCount(nodeCount);
+}
+
+/** Read the zoom scale from a viewport's `transform` attribute. */
+async function scaleOf(viewport: Locator): Promise<number> {
+    const transform = (await viewport.getAttribute("transform")) ?? "";
+    const match = transform.match(/scale\(([\d.]+)/);
+    return match ? Number(match[1]) : Number.NaN;
+}
+
+/**
+ * Click a node by label. Overlays (legend, zoom controls, detail panel) sit above the
+ * SVG and can cover a node, so disable their pointer-events first — the same approach
+ * the hover test uses — so the click reaches the node beneath.
+ */
+async function clickNodeInView(page: Page, label: string): Promise<void> {
+    await page.addStyleTag({
+        content: ".legend, .zoom-controls, .detail { pointer-events: none !important; }",
+    });
+    await page.locator("section.stage.active g.node", { hasText: label }).first().click();
 }
 
 // --- Source tab (first) ---
@@ -121,7 +140,7 @@ test("renders every node with a colored circle and a legend of counts", async ({
 
 test("clicking a node shows its source and a rendered preview", async ({ page }) => {
     await showAst(page);
-    await page.locator("g.node", { hasText: "Image" }).first().click();
+    await clickNodeInView(page, "Image");
     await expect(page.locator("#detail-title")).toContainText("Image");
     await expect(page.locator("#detail-body .preview img")).toHaveAttribute("src", "x.jpg");
 });
@@ -172,12 +191,59 @@ test("clicking a legend entry dims that category's nodes", async ({ page }) => {
     await expect(page.locator("section.stage.active g.node.dimmed")).toHaveCount(1);
 });
 
-test("the zoom controls change and reset the ratio", async ({ page }) => {
+test("the default view frames the root node in the left portion, near the vertical center", async ({
+    page,
+}) => {
     await showAst(page);
-    const ratio = page.locator("section.stage.active .zoom-ratio");
-    const before = await ratio.textContent();
+    const rootCircle = page
+        .locator("section.stage.active g.node", { hasText: "Document" })
+        .locator("circle")
+        .first();
+    const stageLoc = page.locator("section.stage.active");
+
+    // The default framing applies on the next frame; poll until the root settles near
+    // the vertical center of the stage.
+    await expect
+        .poll(async () => {
+            const circle = await rootCircle.boundingBox();
+            const stage = await stageLoc.boundingBox();
+            if (!circle || !stage) return Number.POSITIVE_INFINITY;
+            const rootCenterY = circle.y + circle.height / 2;
+            const stageCenterY = stage.y + stage.height / 2;
+            return Math.abs(rootCenterY - stageCenterY) / stage.height;
+        })
+        .toBeLessThan(0.1);
+
+    // The root sits in the left portion, so its subtree fills the viewport rightward.
+    const circle = (await rootCircle.boundingBox())!;
+    const stage = (await stageLoc.boundingBox())!;
+    expect(circle.x - stage.x).toBeLessThan(stage.width * 0.45);
+});
+
+test("the zoom input reflects, sets, and reverts the zoom", async ({ page }) => {
+    await showAst(page);
+    const input = page.locator("section.stage.active .zoom-input");
+    const viewport = page.locator("section.stage.active svg.tree > g").first();
+    const revert = page.locator(
+        "section.stage.active .zoom-controls button[aria-label='Revert to default view']",
+    );
+
+    // The default framing is a readable 100%.
+    await expect(input).toHaveValue("100");
+
+    // Stepping with + raises the zoom.
     await page.locator("section.stage.active .zoom-controls button", { hasText: "+" }).click();
-    await expect(ratio).not.toHaveText(before ?? "");
+    await expect(input).not.toHaveValue("100");
+
+    // Typing a percentage sets the zoom directly.
+    await input.fill("150");
+    await input.press("Enter");
+    await expect(input).toHaveValue("150");
+    await expect.poll(() => scaleOf(viewport)).toBeCloseTo(1.5, 1);
+
+    // Revert returns to the default framing (100%).
+    await revert.click();
+    await expect(input).toHaveValue("100");
 });
 
 test("a stage keeps its zoom when you leave the tab and come back", async ({ page }) => {
@@ -185,18 +251,18 @@ test("a stage keeps its zoom when you leave the tab and come back", async ({ pag
     const viewport = page.locator("section.stage.active svg.tree > g").first();
     const zoomIn = page.locator("section.stage.active .zoom-controls button", { hasText: "+" });
 
-    // Reading the transform first lets the initial auto-fit settle before we zoom.
-    const fitted = await viewport.getAttribute("transform");
+    // Reading the transform first lets the initial default framing settle before we zoom.
+    const framed = await viewport.getAttribute("transform");
     await zoomIn.click();
     await zoomIn.click();
     const zoomed = await viewport.getAttribute("transform");
-    expect(zoomed).not.toEqual(fitted);
+    expect(zoomed).not.toEqual(framed);
 
     // Leave for the Source tab, then return to the graph.
     await page.locator(".tab", { hasText: "Source" }).click();
     await showAst(page);
 
-    // The graph is exactly where we left it — not re-fitted to the default.
+    // The graph is exactly where we left it — its own pinned camera, not re-framed.
     await expect(page.locator("section.stage.active svg.tree > g").first()).toHaveAttribute(
         "transform",
         zoomed ?? "",

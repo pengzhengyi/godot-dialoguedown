@@ -4,6 +4,7 @@ import { createTreeView, type TreeView } from "./tree-view";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
 import { initResizer } from "./resizer";
+import { initFullscreen } from "./fullscreen";
 import { initTooltips, initTabTooltips } from "./tooltips";
 import { setHelp } from "./help";
 
@@ -59,6 +60,10 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     let sourcePresent = false;
     let sourceHandle: SourceViewHandle | null = null;
 
+    // The whole-window maximize mode (graphs and the source split), toggled from each
+    // tab's maximize button or the `f` / Escape keys. Wired once for the app's lifetime.
+    const fullscreen = initFullscreen();
+
     build(report);
 
     // One-time wiring that outlives a re-render (the containers persist).
@@ -91,10 +96,10 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         if (report.source != null) {
             const section = document.createElement("section");
             section.className = "stage source-stage";
-            sourceHandle = createSourceView(
-                report.source,
-                source ? { editable: source.editable, onChange: source.onChange } : {},
-            );
+            sourceHandle = createSourceView(report.source, {
+                onToggleFullscreen: fullscreen.toggle,
+                ...(source ? { editable: source.editable, onChange: source.onChange } : {}),
+            });
             section.appendChild(sourceHandle.element);
             addTab("Source", section, null, SOURCE_TIP, null);
         }
@@ -137,6 +142,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                         : cameras.noteCamera(transform),
                 onFoldChange: (collapsed) => cameras.setFold(stage.title, collapsed),
                 onRevert: () => cameras.reset(stage.title),
+                onToggleFullscreen: fullscreen.toggle,
             });
             section.appendChild(view.svg);
             section.appendChild(view.legend);

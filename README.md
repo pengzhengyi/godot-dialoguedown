@@ -114,7 +114,10 @@ each stage: **Markdown AST**, **Dialogue AST**, and the desugarer's **Desugared
 AST**, each with pan and zoom and click-to-collapse. Graphs remember where you
 left them — an adjusted graph keeps its own view while an untouched one inherits
 the current one — and open on a readable, root-centered default; the zoom toolbar
-takes a typed percentage or a one-click revert. A served report toggles
+takes a typed percentage or a one-click revert. Any tab can go **full screen** — a
+maximize button (or the <kbd>f</kbd> key) fills the window with the active graph or
+source split and hides the header, tabs, and status bar; <kbd>f</kbd> or <kbd>Esc</kbd>
+restores it. A served report toggles
 between **View** (read-only, auto-updating) and **Edit** (an in-browser editor that
 saves back to the file). Click a node to inspect **the source it was produced
 from**, with a rendered Markdown preview, in a resizable side panel. Nodes are

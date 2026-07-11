@@ -10,6 +10,10 @@ changes easy to categorize.
 
 ### Added
 
+- A **full-screen mode** for the visualization: a maximize button in each graph's
+  zoom cluster — and on the Source tab — fills the window with the active tab and
+  hides the header, tabs, and status bar. Toggle it with the button or <kbd>f</kbd>,
+  and leave it with <kbd>f</kbd> or <kbd>Esc</kbd>.
 - A **documentation site** built with [DocFX](https://dotnet.github.io/docfx/) and
   published to GitHub Pages from `docs/` on every merge to `main`: a writer
   **Guide**, a **Contributing** section with the per-stage design notes, and a
@@ -86,6 +90,10 @@ changes easy to categorize.
 
 ### Fixed
 
+- The brand mark now stays visible on dark backgrounds. Its navy speech bubble used
+  to disappear into a dark page; on dark it now inverts to a light bubble with a navy
+  mark — across the report and launcher header, the favicon (following the OS color
+  scheme), and the Pages demo.
 - Escaped inline punctuation (for example `\*`) no longer shifts the source spans
   of the text that follows it. A stripped leading backslash was drifting a
   literal's re-parsed spans by one character; the transpiler now anchors on the

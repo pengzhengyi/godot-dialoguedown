@@ -11,6 +11,9 @@ const SOURCE_HELP = `
      <kbd>⌘/Ctrl-I</kbd> (italic) and <kbd>⌘/Ctrl-K</kbd> (link), or type <kbd>*</kbd>
      around a selection to emphasize it. To learn more about how to use the editor,
      check out <a href="https://codemirror.net/" target="_blank" rel="noopener noreferrer">CodeMirror</a>.</p>
+  <p><strong>Full screen</strong> (bottom-right ⤢, or press <kbd>f</kbd> outside the
+     editor): fill the window with the source and preview; <kbd>f</kbd> or <kbd>Esc</kbd>
+     to leave.</p>
 `;
 
 const GRAPH_HELP = `
@@ -21,6 +24,8 @@ const GRAPH_HELP = `
      <strong>drag the divider</strong> to resize the detail panel.</p>
   <p><strong>Zoom controls</strong> (bottom-right): <kbd>+</kbd> / <kbd>−</kbd> to
      zoom, and click the percentage to reset the view.</p>
+  <p><strong>Full screen</strong> (the bottom-right ⤢ button, or press <kbd>f</kbd>):
+     fill the window with the graph; <kbd>f</kbd> or <kbd>Esc</kbd> to leave.</p>
   <p><strong>Hover a legend entry</strong> (top-right) to highlight its nodes;
      <strong>click</strong> it to dim or show that type. The count shows how many
      are present.</p>

@@ -24,6 +24,7 @@ import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/sea
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { tags } from "@lezer/highlight";
 import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
+import { createMaximizeButton } from "./maximize-button";
 import { renderDocument } from "./text";
 
 /**
@@ -93,6 +94,8 @@ export interface SourceViewOptions {
     editable?: boolean;
     /** Called with the new buffer on every edit — for the preview and dirty state. */
     onChange?: (value: string) => void;
+    /** Toggle the whole-window maximize mode; when set, a maximize button is shown. */
+    onToggleFullscreen?: () => void;
 }
 
 /** A handle to a live source view, letting the mode controller reconfigure it in place. */
@@ -141,11 +144,10 @@ export function createSourceView(
     source: string,
     options: SourceViewOptions = {},
 ): SourceViewHandle {
-    const { editable = false, onChange } = options;
+    const { editable = false, onChange, onToggleFullscreen } = options;
 
     const container = document.createElement("div");
     container.className = "source-view";
-
     const sourcePane = document.createElement("div");
     sourcePane.className = "source-pane";
 
@@ -209,6 +211,15 @@ export function createSourceView(
 
     container.append(sourcePane, divider, preview);
     initSplitDivider(container, sourcePane, divider);
+
+    // A maximize toggle in a small pill (bottom-right), matching the graph's zoom
+    // cluster, so the Source tab can fill the window like the graphs.
+    if (onToggleFullscreen) {
+        const controls = document.createElement("div");
+        controls.className = "source-controls";
+        controls.appendChild(createMaximizeButton(onToggleFullscreen));
+        container.appendChild(controls);
+    }
 
     return {
         element: container,

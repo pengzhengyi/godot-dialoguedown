@@ -1,13 +1,13 @@
 # Desugared AST Visualization Tab
 
-> [!IMPORTANT]
-> Status: **approved — in progress** (an enhancement to
+> [!NOTE]
+> Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md) and the successor to
 > [Dialogue AST Visualization Tab](./Dialogue%20AST%20Visualization%20Tab.md)). The
-> desugarer and the [`IScriptCompiler` facade](./Script%20Compiler%20Facade.md) have
-> landed on `main`, so the report can now show the **desugared** Dialogue AST as a
-> third graph tab — sourced through the compiler seam instead of the visualizer
-> wiring the stages by hand.
+> report shows the **desugared** Dialogue AST as a third graph tab, sourced through
+> the [`IScriptCompiler`](./Script%20Compiler%20Facade.md) seam; synthetic
+> zero-width-span nodes render as inserted; and the View/Edit toggle is frozen on the
+> read-only graph tabs.
 >
 > Like the rest of the visualization tooling, this surface is "vibe-coded" (see the
 > visualization note's maturity caveat); the core engine stays the reviewed surface.
@@ -63,17 +63,17 @@ Out of scope:
 
 ## Functionality checklist
 
-- [ ] `CompilationVisualizer` obtains stages through `IScriptCompiler.Compile`, not
+- [x] `CompilationVisualizer` obtains stages through `IScriptCompiler.Compile`, not
       a hand-wired parser/transpiler.
-- [ ] `LocalImageReferences` uses the same seam (one dependency, no direct parser).
-- [ ] A third stage, **Desugared AST**, appears after Dialogue AST.
-- [ ] The Dialogue AST projection labels the two desugar-only nodes —
+- [x] `LocalImageReferences` uses the same seam (one dependency, no direct parser).
+- [x] A third stage, **Desugared AST**, appears after Dialogue AST.
+- [x] The Dialogue AST projection labels the two desugar-only nodes —
       `DefaultSpeaker` and `Jump` — and yields a `Jump`'s label children.
-- [ ] A zero-width-span node carries **no** source and shows an **inserted** note in
+- [x] A zero-width-span node carries **no** source and shows an **inserted** note in
       the detail panel instead of an empty Source/Preview block.
-- [ ] A speaker-less line in the sample source produces a visible synthetic default
+- [x] A speaker-less line in the sample source produces a visible synthetic default
       speaker in the Desugared AST tab.
-- [ ] The View/Edit toggle is **disabled** on every graph tab and re-enables on the
+- [x] The View/Edit toggle is **disabled** on every graph tab and re-enables on the
       Source tab, with a tooltip explaining that editing applies to the Source tab.
 
 ## Ubiquitous language

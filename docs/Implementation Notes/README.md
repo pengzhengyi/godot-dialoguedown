@@ -40,6 +40,7 @@ that every component shares — starting with the error model.
 | [Visualize on the CLI](./Visualize%20on%20the%20CLI.md) | Wire `dialoguedown visualize` to the engine; retire the hand-rolled CLI | Implemented |
 | [Compiler Stage Tooltips](./Compiler%20Stage%20Tooltips.md) | Per-stage hover tips on the report tabs, from a description on each stage | Implemented |
 | [Dialogue AST Visualization Tab](./Dialogue%20AST%20Visualization%20Tab.md) | The transpiler's Dialogue AST as a second graph tab in the report | Implemented |
+| [Desugared AST Visualization Tab](./Desugared%20AST%20Visualization%20Tab.md) | The desugarer's normalized AST as a third tab (via the `IScriptCompiler` seam); synthetic nodes render as inserted; the toggle freezes on read-only tabs | Implemented |
 
 ## Error model
 

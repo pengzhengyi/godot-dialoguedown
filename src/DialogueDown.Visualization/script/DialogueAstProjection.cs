@@ -134,7 +134,8 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
                 CallCategory),
             Query query => new(
                 "Query", [new("key", query.Key), SpanAttribute(query.Span)], Slice(query.Span), CallCategory),
-            JumpIndicator jump => new("Jump", [SpanAttribute(jump.Span)], Slice(jump.Span), JumpCategory),
+            JumpIndicator jump => new(
+                "Jump indicator", [SpanAttribute(jump.Span)], Slice(jump.Span), JumpCategory),
             Jump jump => new(
                 "Jump",
                 [new("target", jump.Target), new("label", InlineText(jump.Label)), SpanAttribute(jump.Span)],

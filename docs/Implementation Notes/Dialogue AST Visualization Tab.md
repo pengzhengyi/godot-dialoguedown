@@ -92,7 +92,7 @@ color across stages (a Markdown code span and the `call` it becomes are both red
 | `Text` | Text | text |
 | `StyledText` | Styled text (*style*) | styling |
 | `Link` | Link | jump |
-| `JumpIndicator` | Jump | jump |
+| `JumpIndicator` | Jump indicator | jump |
 | `Image` | Image | media |
 | `DefaultCommand` / `CustomCommand` / `Query` | Command / Query | call |
 | `LineBreak` | Line break | break |

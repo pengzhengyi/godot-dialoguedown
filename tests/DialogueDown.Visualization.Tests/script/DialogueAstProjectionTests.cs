@@ -127,6 +127,17 @@ public sealed class DialogueAstProjectionTests
     }
 
     [Fact]
+    public void Describe_JumpIndicator_KeepsItsOwnLabelDistinctFromAnAssembledJump()
+    {
+        // The pre-desugar `=>` marker and the assembled Jump are different nodes; the
+        // indicator keeps its own name so it stands out from the Jump it becomes.
+        var indicator = _projection.Describe(new JumpIndicator(new SourceSpan(0, 2)));
+
+        Assert.Equal("Jump indicator", indicator.Label);
+        Assert.Equal("jump", indicator.Category);
+    }
+
+    [Fact]
     public void Describe_Jump_LabelsItWithTargetAndLabel()
     {
         var span = new SourceSpan(0, 8);

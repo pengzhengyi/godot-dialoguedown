@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
 
 test("serves a view report bound to the document", async ({ page }) => {
     // The payload is a served session, so the tabs render and the Source tab is present.
-    await expect(page.locator(".tab")).toHaveCount(3);
+    await expect(page.locator(".tab")).toHaveCount(4); // Source + Markdown/Dialogue/Desugared AST
     await expect(page.locator(".tab").first()).toHaveText("Source");
     // The View/Edit toggle is shown, starting in View.
     await expect(page.locator('.mode-toggle-option[data-mode="view"]')).toHaveAttribute(

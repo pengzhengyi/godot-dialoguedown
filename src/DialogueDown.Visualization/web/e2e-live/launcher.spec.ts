@@ -22,7 +22,7 @@ test("opens a root script (static) and returns via Back to launcher", async ({ p
 
     // The open POST answers 303 to the report under the /r/ mount.
     await expect(page).toHaveURL(/\/r\//);
-    await expect(page.locator(".tab")).toHaveCount(3); // Source + Markdown AST + Dialogue AST
+    await expect(page.locator(".tab")).toHaveCount(4); // Source + Markdown/Dialogue/Desugared AST
     await expect(page.locator(".tab").first()).toHaveText("Source");
 
     await page.locator("a.back-to-launcher").click();
@@ -40,5 +40,5 @@ test("browses into a sub-folder and opens a nested script in View", async ({ pag
     await page.locator(".launcher-open").click();
 
     await expect(page).toHaveURL(/\/r\//);
-    await expect(page.locator(".tab")).toHaveCount(3);
+    await expect(page.locator(".tab")).toHaveCount(4);
 });

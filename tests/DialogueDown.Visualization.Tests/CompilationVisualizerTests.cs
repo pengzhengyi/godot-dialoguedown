@@ -43,9 +43,25 @@ public sealed class CompilationVisualizerTests
         Assert.Collection(
             stages,
             markdownStage => Assert.Equal("Markdown AST", markdownStage.Title),
-            dialogueStage => Assert.Equal("Dialogue AST", dialogueStage.Title));
+            dialogueStage => Assert.Equal("Dialogue AST", dialogueStage.Title),
+            desugaredStage => Assert.Equal("Desugared AST", desugaredStage.Title));
         Assert.Contains(stages[0].Nodes, n => n.Label == "Paragraph");
         Assert.Contains(stages[1].Nodes, n => n.Label == "Line");
+        Assert.Contains(stages[2].Nodes, n => n.Label == "Line");
+    }
+
+    [Fact]
+    public void BuildStages_RealCompiler_DesugaredStageFillsADefaultSpeakerOnASpeakerlessLine()
+    {
+        var stages = new CompilationVisualizer().BuildStages("The room is quiet.");
+
+        var desugared = stages[2];
+        Assert.Equal("Desugared AST", desugared.Title);
+        Assert.False(string.IsNullOrWhiteSpace(desugared.Description));
+        // The speaker-less line has no speaker in the Dialogue AST, but the desugarer
+        // fills a synthetic default speaker, so only the Desugared stage shows it.
+        Assert.DoesNotContain(stages[1].Nodes, n => n.Label == "Speaker (default)");
+        Assert.Contains(desugared.Nodes, n => n.Label == "Speaker (default)");
     }
 
     [Fact]

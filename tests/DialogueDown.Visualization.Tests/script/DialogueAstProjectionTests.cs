@@ -105,4 +105,44 @@ public sealed class DialogueAstProjectionTests
     {
         Assert.Empty(_projection.Neighbors(new Text("Hi", new SourceSpan(0, 2))));
     }
+
+    [Fact]
+    public void Describe_DefaultSpeaker_LabelsItDefaultWithSpeechCategory()
+    {
+        var description = _projection.Describe(new DefaultSpeaker(SourceSpan.EmptyAt(3)));
+
+        Assert.Equal("Speaker (default)", description.Label);
+        Assert.Equal("speech", description.Category);
+        Assert.Contains(description.Attributes, a => a.Name == "span");
+    }
+
+    [Fact]
+    public void Describe_Jump_LabelsItWithTargetAndLabel()
+    {
+        var span = new SourceSpan(0, 8);
+        var jump = _projection.Describe(new Jump("scene-2", [new Text("Go", span)], span));
+
+        Assert.Equal("Jump", jump.Label);
+        Assert.Equal("jump", jump.Category);
+        Assert.Contains(jump.Attributes, a => a.Name == "target" && a.Value == "scene-2");
+        Assert.Contains(jump.Attributes, a => a.Name == "label" && a.Value == "Go");
+    }
+
+    [Fact]
+    public void Neighbors_Jump_YieldsItsLabelFragments()
+    {
+        var span = new SourceSpan(0, 2);
+        var label = new Text("Go", span);
+
+        Assert.Equal(new object[] { label }, _projection.Neighbors(new Jump("t", [label], span)));
+    }
+
+    [Fact]
+    public void Constructor_UsesGivenTitleAndDescription()
+    {
+        var projection = new DialogueAstProjection("Hi there", "Desugared AST", "the normalized tree");
+
+        Assert.Equal("Desugared AST", projection.Title);
+        Assert.Equal("the normalized tree", projection.Description);
+    }
 }

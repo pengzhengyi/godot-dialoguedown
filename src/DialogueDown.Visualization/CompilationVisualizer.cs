@@ -11,8 +11,9 @@ namespace DialogueDown.Visualization;
 /// </summary>
 /// <remarks>
 /// <see cref="BuildStages"/> projects the stages the <see cref="IScriptCompiler"/> seam
-/// produces — the parsed Markdown AST and the transpiled Dialogue AST — each one
-/// projection over the shared walk, model, and renderers.
+/// produces — the parsed Markdown AST, the transpiled Dialogue AST, and the desugarer's
+/// normalized Desugared AST — each one projection over the shared walk, model, and
+/// renderers.
 /// </remarks>
 public sealed class CompilationVisualizer
 {
@@ -36,7 +37,12 @@ public sealed class CompilationVisualizer
     {
         ArgumentNullException.ThrowIfNull(source);
         var result = _compiler.Compile(source);
-        return [result.Markdown.ToDisplayGraph(source), result.Script.ToDisplayGraph(source)];
+        return
+        [
+            result.Markdown.ToDisplayGraph(source),
+            result.Script.ToDisplayGraph(source),
+            result.Desugared.ToDisplayGraph(source),
+        ];
     }
 
     /// <summary>

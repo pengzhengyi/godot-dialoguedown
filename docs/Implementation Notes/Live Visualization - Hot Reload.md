@@ -250,9 +250,10 @@ On a push, the client re-runs the report render against the new payload and
 restores the previously active tab index, rather than doing a full
 `location.reload()`. You keep your place (Source vs a stage tab) across saves,
 which is the point of a live loop. Finer per-graph state — zoom/pan and which
-nodes are expanded — resets on reload; preserving it is deferred (a possible
-Component 2 refinement). A full reload remains the fallback if a rebuild ever
-throws.
+nodes are expanded — also survives the rebuild: see
+[Graph Position Preservation](./Graph%20Position%20Preservation.md), which
+remembers each graph's camera and fold and re-applies them after a reload. A full
+reload remains the fallback if a rebuild ever throws.
 
 ### D6 — Debounce the watcher; the session re-reads on each change
 

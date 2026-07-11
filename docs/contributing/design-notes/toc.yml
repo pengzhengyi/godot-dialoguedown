@@ -18,6 +18,8 @@
   href: Markdown to Dialogue AST Transpiler.md
 - name: Desugar
   href: Desugar.md
+- name: Semantic Analyzer
+  href: Semantic Analyzer.md
 - name: Script Compiler Facade
   href: Script Compiler Facade.md
 - name: Command-Line Interface

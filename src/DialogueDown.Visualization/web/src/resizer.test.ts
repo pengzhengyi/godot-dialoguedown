@@ -30,6 +30,14 @@ describe("initResizer", () => {
         expect(detail.style.flexBasis).toBe("280px");
     });
 
+    it("measures the detail's right edge so content padding doesn't offset the divider", () => {
+        // The content area is padded, so the panel's right edge is inset from the window.
+        detail.getBoundingClientRect = () => ({ right: 1000 }) as DOMRect;
+        resizer.dispatchEvent(new MouseEvent("mousedown"));
+        drag(600);
+        expect(detail.style.flexBasis).toBe("400px"); // 1000 − 600, not innerWidth − 600
+    });
+
     it("does nothing until a drag starts and after it ends", () => {
         drag(window.innerWidth - 400);
         expect(detail.style.flexBasis).toBe("");

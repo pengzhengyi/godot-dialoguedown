@@ -266,6 +266,11 @@ button.tab.dirty::after {
     flex: 1 1 auto;
     display: flex;
     min-height: 0;
+
+    /* Inset the content area to the same gutter as the header and footer, with a little
+       vertical breathing room, so the whole document reads as one connected surface
+       rather than the graph/editor running flush to the window edges. */
+    padding: 0.85rem 1.25rem;
 }
 
 #stages {

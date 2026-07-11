@@ -15,6 +15,14 @@ public interface IVisualizeRunner
     int RunStatic(string file, string? output, bool noOpen);
 
     /// <summary>
+    /// Renders every stage of <paramref name="file"/> as text in the given
+    /// <paramref name="format"/> (Mermaid or DOT) and writes it to
+    /// <paramref name="output"/>, or to standard output when null. A non-interactive
+    /// emit — no server, no browser. Returns a process exit code.
+    /// </summary>
+    int RunEmit(string file, EmitFormat format, string? output);
+
+    /// <summary>
     /// Serves an interactive report for <paramref name="file"/> on a loopback port and
     /// keeps it up until <paramref name="cancellationToken"/> is canceled. The reader
     /// toggles View/Edit in the browser; <paramref name="mode"/> is the initial side

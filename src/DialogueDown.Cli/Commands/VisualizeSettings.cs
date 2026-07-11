@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using DialogueDown.Visualization;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -27,6 +28,10 @@ internal sealed class VisualizeSettings : CommandSettings
     [Description("Write a self-contained report to this path (a non-interactive export; requires a script).")]
     public string? Output { get; init; }
 
+    [CommandOption("--emit <format>")]
+    [Description("Emit each stage's graph as text instead of a report: 'mermaid' or 'dot' (requires a script; writes to --output or stdout).")]
+    public string? Emit { get; init; }
+
     [CommandOption("--port <port>")]
     [Description("The loopback port for the server (default: an ephemeral port).")]
     public int? Port { get; init; }
@@ -35,12 +40,45 @@ internal sealed class VisualizeSettings : CommandSettings
     [Description("Do not open the report or launcher in the browser.")]
     public bool NoOpen { get; init; }
 
+    /// <summary>
+    /// Parses an <c>--emit</c> value (case-insensitively) into an <see cref="EmitFormat"/>.
+    /// Returns false for an unknown format.
+    /// </summary>
+    public static bool TryParseEmitFormat(string value, out EmitFormat format)
+    {
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "mermaid":
+                format = EmitFormat.Mermaid;
+                return true;
+            case "dot":
+                format = EmitFormat.Dot;
+                return true;
+            default:
+                format = default;
+                return false;
+        }
+    }
+
     /// <inheritdoc />
     public override ValidationResult Validate()
     {
         if (Output is not null && string.IsNullOrWhiteSpace(Script))
         {
             return ValidationResult.Error("--output requires a <script> to export.");
+        }
+
+        if (Emit is not null)
+        {
+            if (string.IsNullOrWhiteSpace(Script))
+            {
+                return ValidationResult.Error("--emit requires a <script>.");
+            }
+
+            if (!TryParseEmitFormat(Emit, out _))
+            {
+                return ValidationResult.Error($"Unknown --emit format '{Emit}'. Use 'mermaid' or 'dot'.");
+            }
         }
 
         if (Root is not null && !Directory.Exists(Root))

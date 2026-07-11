@@ -29,14 +29,14 @@ test("opens a root script (static) and returns via Back to launcher", async ({ p
     await expect(page.locator(".launcher-title")).toHaveText("Open a script");
 });
 
-test("browses into a sub-folder and opens a nested script with watch", async ({ page }) => {
+test("browses into a sub-folder and opens a nested script in View", async ({ page }) => {
     await page.locator(".launcher-item.dir", { hasText: "sub" }).click();
     await expect(page.locator(".launcher-item.up")).toBeVisible(); // ".."
     const nested = page.locator(".launcher-item.src", { hasText: "nested.dialogue.md" });
     await expect(nested).toBeVisible();
 
     await nested.click();
-    await page.locator('input[name="launcher-mode"][value="watch"]').check();
+    await page.locator('input[name="launcher-mode"][value="view"]').check();
     await page.locator(".launcher-open").click();
 
     await expect(page).toHaveURL(/\/r\//);

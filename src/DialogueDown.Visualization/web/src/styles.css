@@ -1,11 +1,49 @@
 :root {
     --dd-reference: #cf222e;
+
+    /* Markdown editor syntax colors (CodeMirror reads these live, so the editor
+       follows the theme). Light values here; dark overrides below. */
+    --md-heading: #0550ae;
+    --md-link: #0969da;
+    --md-code: #0550ae;
+    --md-muted: #6e7781;
+    --cm-selection: rgb(20 100 210 / 22%);
+
+    /* Mode accent: View is blue (the framework primary), Edit is green (matching the
+       Save button). It is driven by data-served-mode on <html> (set from the mode
+       controller) and tints the active tab and the pressed toggle, so the whole UI
+       standardizes on one accent per mode. A static export has no served mode and so
+       keeps the blue default. */
+    --mode-accent: var(--pico-primary);
+    --mode-accent-contrast: var(--pico-primary-inverse);
 }
 
+/* System dark (unless the reader forced light). */
 @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
         --dd-reference: #f85149;
+        --md-heading: #79c0ff;
+        --md-link: #79c0ff;
+        --md-code: #a5d6ff;
+        --md-muted: #8b949e;
+        --cm-selection: rgb(100 165 255 / 35%);
     }
+}
+
+/* Forced dark (the toggle), regardless of the OS preference. */
+[data-theme="dark"] {
+    --dd-reference: #f85149;
+    --md-heading: #79c0ff;
+    --md-link: #79c0ff;
+    --md-code: #a5d6ff;
+    --md-muted: #8b949e;
+    --cm-selection: rgb(100 165 255 / 35%);
+}
+
+/* Edit mode: switch the accent from blue to green (matching the Save button). */
+[data-served-mode="edit"] {
+    --mode-accent: #15803d;
+    --mode-accent-contrast: #fff;
 }
 
 html,
@@ -26,11 +64,17 @@ body {
     border-bottom: 1px solid var(--pico-muted-border-color);
 }
 
-/* GitHub link, pinned to the top-right of the header. */
-.repo-link {
+/* GitHub link and theme toggle, pinned together to the top-right of the header. */
+.header-controls {
     position: absolute;
-    top: 0.6rem;
+    top: 0.5rem;
     right: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.repo-link {
     display: inline-flex;
     line-height: 0;
     color: var(--pico-muted-color);
@@ -39,6 +83,29 @@ body {
 
 .repo-link:hover {
     color: var(--pico-color);
+}
+
+/* Theme control: a leading icon (sun/moon/monitor) beside the System/Light/Dark select. */
+.theme-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--pico-muted-color);
+}
+
+.theme-icon {
+    display: inline-flex;
+    line-height: 0;
+}
+
+/* Compact System/Light/Dark selector in the header controls. */
+.theme-select {
+    width: auto;
+    margin: 0;
+    padding: 0.15rem 1.75rem 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    height: auto;
 }
 
 /* "Back to launcher" link, shown only on a launcher-served report (see back-link.ts). */
@@ -56,18 +123,70 @@ body {
 
 .app-header hgroup {
     margin-bottom: 0.5rem;
-    padding-right: 2rem;
+    padding-right: 8.5rem; /* keep the brand clear of the top-right controls */
 }
 
-.app-header h1 {
-    font-size: 1.15rem;
+/* Brand: the logo mark alone by default; on hover it morphs to the compilation-pipeline
+   mark and reveals the "DialogueDown" wordmark. The name stays in the DOM (only visually
+   clipped) so the <h1> keeps its accessible text. */
+.brand {
+    display: inline-flex;
+    align-items: center;
     margin: 0;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: default;
 }
 
-.app-header hgroup p {
-    margin: 0.25rem 0 0;
-    font-size: 0.8rem;
-    color: var(--pico-muted-color);
+.brand-mark {
+    position: relative;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+}
+
+.brand-logo {
+    position: absolute;
+    inset: 0;
+    display: inline-flex;
+    transition: opacity 0.25s ease;
+}
+
+.brand-logo svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.brand-logo-pipeline {
+    opacity: 0;
+}
+
+.brand:hover .brand-logo-default {
+    opacity: 0;
+}
+
+.brand:hover .brand-logo-pipeline {
+    opacity: 1;
+}
+
+.brand-name {
+    max-width: 0;
+    margin-left: 0;
+    overflow: hidden;
+    opacity: 0;
+    white-space: nowrap;
+    font-weight: 700;
+    transition:
+        max-width 0.3s ease,
+        margin-left 0.3s ease,
+        opacity 0.25s ease;
+}
+
+.brand:hover .brand-name {
+    max-width: 12rem;
+    margin-left: 0.55rem;
+    opacity: 1;
 }
 
 nav.tabs {
@@ -89,14 +208,44 @@ button.tab {
 }
 
 button.tab:hover {
-    color: var(--pico-primary);
+    color: var(--mode-accent);
     background: transparent;
 }
 
 button.tab.active {
-    color: var(--pico-primary);
-    border-bottom-color: var(--pico-primary);
+    color: var(--mode-accent);
+    border-bottom-color: var(--mode-accent);
     font-weight: 600;
+}
+
+/* A dot on the Source tab marks unsaved edits in Live Edit. */
+button.tab.dirty::after {
+    content: "";
+    display: inline-block;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    border-radius: 50%;
+    background: var(--mode-accent);
+}
+
+/* The passive "file changed on disk" chip in the header (Live Edit). */
+.disk-chip {
+    width: auto;
+    margin: 0 0 0 auto;
+    padding: 0.15rem 0.7rem;
+    align-self: center;
+    font-size: 0.75rem;
+    color: #fff;
+    background: #d97706;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.disk-chip:hover {
+    background: #b45309;
 }
 
 /* Live status banner (compile error / missing document); hidden until needed. */
@@ -117,6 +266,11 @@ button.tab.active {
     flex: 1 1 auto;
     display: flex;
     min-height: 0;
+
+    /* Inset the content area to the same gutter as the header and footer, with a little
+       vertical breathing room, so the whole document reads as one connected surface
+       rather than the graph/editor running flush to the window edges. */
+    padding: 0.85rem 1.25rem;
 }
 
 #stages {
@@ -159,22 +313,125 @@ section.stage.error {
 .source-pane {
     flex: 0 0 50%;
     min-width: 0;
-    overflow: auto;
-    padding: 0.75rem 1rem;
+    overflow: hidden;
+    display: flex;
 }
 
-.source-pane pre {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
+/* The CodeMirror editor fills the pane and scrolls internally; it blends with the
+   pane background and inherits the theme's foreground rather than a block background. */
+.source-pane .cm-editor {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    background: transparent;
     font-size: 0.82rem;
 }
 
-/* Use highlight.js only for token colors; let the code blend with the pane
-   background rather than carry the theme's own block background. */
-.source-pane .hljs {
+.source-pane .cm-editor.cm-focused {
+    outline: none;
+}
+
+.source-pane .cm-scroller {
+    font-family: var(--pico-font-family-monospace);
+}
+
+.source-pane .cm-gutters {
     background: transparent;
-    padding: 0;
+    border-right: 1px solid var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+}
+
+.source-pane .cm-content {
+    color: var(--pico-color);
+    caret-color: var(--pico-color);
+}
+
+/* A prominent caret and a readable selection in both themes (drawSelection draws its
+   own cursor/selection, so the native caret-color above is only a fallback). */
+.source-pane .cm-cursor,
+.source-pane .cm-dropCursor {
+    border-left-width: 2px;
+    border-left-color: var(--pico-color);
+}
+
+/* The drawn selection (from drawSelection) is our own element, not the OS selection,
+   so its color is stable across browsers/platforms. !important beats CodeMirror's
+   high-specificity default focused-selection rule; the semi-transparent tint keeps the
+   selected text readable in both themes. */
+.source-pane .cm-selectionBackground,
+.source-pane .cm-focused .cm-selectionBackground {
+    background-color: var(--cm-selection) !important;
+}
+
+.source-pane ::selection {
+    background-color: var(--cm-selection);
+}
+
+/* Fold markers in the gutter, and the placeholder shown for a folded section. */
+.source-pane .cm-foldGutter .cm-gutterElement {
+    color: var(--pico-muted-color);
+    cursor: pointer;
+}
+
+.source-pane .cm-foldPlaceholder {
+    margin: 0 0.2rem;
+    padding: 0 0.35rem;
+    border: none;
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+}
+
+/* Subtle, theme-neutral highlights for the active line and other matches of the selection. */
+.source-pane .cm-activeLine,
+.source-pane .cm-activeLineGutter {
+    background: rgb(128 128 128 / 10%);
+}
+
+.source-pane .cm-selectionMatch {
+    background: rgb(120 160 255 / 25%);
+}
+
+/* The search/replace panel, themed to match the page instead of CodeMirror's light default. */
+.source-pane .cm-panels {
+    background: var(--pico-card-background-color);
+    color: var(--pico-color);
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+
+.source-pane .cm-panel.cm-search {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.78rem;
+}
+
+.source-pane .cm-panel.cm-search label {
+    color: var(--pico-color);
+    font-size: 0.76rem;
+}
+
+.source-pane .cm-panel.cm-search input,
+.source-pane .cm-panel.cm-search button {
+    margin: 0 0.15rem;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid var(--pico-form-element-border-color);
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-form-element-background-color);
+    color: var(--pico-color);
+    font-size: 0.76rem;
+}
+
+.source-pane .cm-panel.cm-search button {
+    cursor: pointer;
+}
+
+.source-pane .cm-panel.cm-search button:hover:not(:disabled) {
+    border-color: var(--pico-primary);
+}
+
+.source-pane .cm-panel.cm-search button[name="close"] {
+    border: none;
+    background: transparent;
+    color: var(--pico-muted-color);
 }
 
 .source-divider {
@@ -482,13 +739,17 @@ svg.tree {
 .app-footer {
     flex: 0 0 auto;
     display: flex;
-    flex-wrap: nowrap; /* keep the status bar and the help on one row (the help shrinks
-       and wraps its own text) so the help never drops to a line below the status bar */
-    align-items: flex-start; /* status bar sticks to the top, not centered against the taller expanded help */
-    gap: 0.4rem 1rem;
-    padding: 0.4rem 1.25rem;
+    flex-direction: column; /* the status line, then the expandable help below it */
     border-top: 1px solid var(--pico-muted-border-color);
     font-size: 0.8rem;
+}
+
+/* The status line: the status bar (left) and the "How to use" toggle (right). */
+.status-line {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem 1rem;
+    padding: 0.4rem 1.25rem;
 }
 
 /* Left status bar: the mode badge and the document path. */
@@ -516,12 +777,93 @@ svg.tree {
     background: var(--pico-muted-color);
 }
 
-.mode-badge.mode-watch {
+.mode-badge.mode-view {
     background: #0ea5e9;
 }
 
-.mode-badge.mode-live {
+.mode-badge.mode-edit {
     background: #22c55e;
+}
+
+/* The View/Edit segmented control (replaces the mode badge on a served session). */
+.mode-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: auto; /* override Pico's full-width [role=group] button group */
+    margin: 0; /* drop Pico's [role=group] bottom margin so it centers in the status bar */
+    overflow: hidden;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+/* `.mode-toggle .` beats Pico's `[role=group] button` (which sets flex: 1). */
+.mode-toggle .mode-toggle-option {
+    /* Pico makes buttons full-width with its own colors; keep them inline and ours. */
+    --pico-color: inherit;
+
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: auto;
+    margin: 0;
+    padding: 0.12rem 0.6rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-size: 0.74rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.mode-toggle .mode-toggle-option + .mode-toggle-option {
+    border-left: 1px solid var(--pico-muted-border-color);
+}
+
+.mode-toggle .mode-toggle-option:hover {
+    color: var(--pico-color);
+}
+
+.mode-toggle .mode-toggle-option[aria-pressed="true"] {
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
+}
+
+/* The explicit Save affordance beside ⌘/Ctrl+S, enabled only while there are unsaved
+   edits (the same dirty state shows as a dot on the Source tab). */
+.save-button {
+    /* Pico redefines --pico-color to white on buttons; keep our own colors instead. */
+    --pico-color: #fff;
+
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.12rem 0.7rem;
+    border: 1px solid #166534;
+    border-radius: var(--pico-border-radius);
+    background: #15803d; /* green-700: ~5:1 contrast with white text */
+    color: #fff;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.save-button:hover:not(:disabled) {
+    background: #166534; /* green-800 */
+    border-color: #14532d;
+}
+
+.save-button:disabled {
+    --pico-color: var(--pico-muted-color);
+
+    background: var(--pico-muted-border-color);
+    border-color: var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+    cursor: not-allowed;
 }
 
 /* The document path: filename always visible, the directory middle ellipsised. */
@@ -577,25 +919,45 @@ svg.tree {
     font-weight: 600;
 }
 
-.app-footer .help {
-    flex: 0 1 auto;
-    min-width: 0; /* let the help shrink and wrap its shortcut lines in place instead of
-       the whole block dropping below the status bar, so its summary stays on the top
-       row — level with the status bar and path — at every width */
+/* The "How to use" disclosure toggle on the status line. */
+.app-footer .help-toggle {
+    /* Reset Pico's full-width button so it sits inline at the right of the status line. */
+    --pico-color: inherit;
+    --pico-background-color: transparent;
 
-    /* On a wide row the status bar's flex-grow pushes this to the right; when space is
-       tight the help shrinks in place and its lines wrap. */
-    margin-left: auto;
-    max-width: 100%;
-}
-
-.app-footer summary {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: auto;
+    margin: 0 0 0 auto;
+    padding: 0.1rem 0.3rem;
+    border: none;
+    background: transparent;
     color: var(--pico-muted-color);
+    font-size: 0.8rem;
     cursor: pointer;
 }
 
+.app-footer .help-toggle:hover {
+    color: var(--pico-color);
+}
+
+.app-footer .help-caret::before {
+    content: "›";
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.app-footer .help-toggle[aria-expanded="true"] .help-caret::before {
+    transform: rotate(90deg);
+}
+
+/* The shortcut panel, shown full width below the status line when expanded. */
 .app-footer .shortcuts {
-    padding: 0.4rem 0 0.2rem;
+    padding: 0.5rem 1.25rem 0.6rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+    background: var(--pico-card-background-color);
 }
 
 .app-footer .shortcuts p {
@@ -647,8 +1009,8 @@ svg.tree {
         align-items: stretch;
     }
 
-    .app-footer .help {
-        margin-left: 0;
+    .app-footer .help-toggle {
+        margin-left: auto;
     }
 }
 

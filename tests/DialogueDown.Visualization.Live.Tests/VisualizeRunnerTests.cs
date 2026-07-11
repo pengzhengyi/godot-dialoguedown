@@ -43,14 +43,14 @@ public sealed class VisualizeRunnerTests
     }
 
     [Fact]
-    public async Task RunWatchAsync_ServesAndOpensAUrl_ThenStopsOnCancel()
+    public async Task RunServedAsync_ServesAndOpensAUrl_ThenStopsOnCancel()
     {
         using var doc = new TempDocument("# Scene");
         var browser = new FakeBrowserLauncher();
         var runner = new VisualizeRunner(browser);
         using var stop = new CancellationTokenSource();
 
-        var task = runner.RunWatchAsync(doc.Path, port: 0, noOpen: false, renderRoot: null, stop.Token);
+        var task = runner.RunServedAsync(doc.Path, port: 0, noOpen: false, renderRoot: null, VisualizationMode.View, stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
         Assert.StartsWith("http://127.0.0.1:", browser.Opened[0]);

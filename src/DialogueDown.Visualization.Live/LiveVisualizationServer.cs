@@ -6,8 +6,9 @@ namespace DialogueDown.Visualization.Live;
 
 /// <summary>
 /// A loopback-only web server that serves a document's live report and streams
-/// hot-reload events over Server-Sent Events. Read-only: it exposes no write
-/// routes. Binds <c>127.0.0.1</c> on an ephemeral port unless one is given.
+/// hot-reload events over Server-Sent Events. In Live Edit mode it also exposes a
+/// single write route (<c>POST /api/save</c>) that writes the edited buffer back to
+/// the document. Binds <c>127.0.0.1</c> on an ephemeral port unless one is given.
 /// </summary>
 internal sealed class LiveVisualizationServer : IAsyncDisposable
 {
@@ -28,6 +29,7 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.Logging.ClearProviders();
+        builder.AddLoopbackCompression();
         _app = builder.Build();
         Configure(_app);
     }
@@ -55,6 +57,10 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
 
     private void Configure(WebApplication app)
     {
+        // Compress the large report page before anything else runs; the SSE stream
+        // (text/event-stream) is not a compressible type, so it passes through.
+        app.UseResponseCompression();
+
         // Serve the resolved root folder as static files so the report's relative
         // image and resource links resolve. Hosting is minimal and consent-gated:
         // the document's own folder by default, a broader ancestor only when the
@@ -84,6 +90,10 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
             "/api/document",
             () => Results.Content(_session.CurrentDocumentJson(), "application/json; charset=utf-8"));
         app.MapGet("/api/events", HandleEventsAsync);
+
+        // A served session always accepts the write route; the client only calls it in
+        // Edit. (The offline export has no server, so it can never reach this.)
+        app.MapPost("/api/save", (SaveRequest request) => Save(request));
     }
 
     private async Task HandleEventsAsync(HttpContext context, CancellationToken cancellationToken)
@@ -106,4 +116,21 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
             await context.Response.Body.FlushAsync(cancellationToken);
         }
     }
+
+    // Saves the posted buffer to the document and returns the recompiled payload; a
+    // write failure surfaces as a 400 with a message rather than a 500.
+    private IResult Save(SaveRequest request)
+    {
+        try
+        {
+            var json = _session.Save(request.Source ?? string.Empty);
+            return Results.Content(json, "application/json; charset=utf-8");
+        }
+        catch (IOException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private sealed record SaveRequest(string? Source);
 }

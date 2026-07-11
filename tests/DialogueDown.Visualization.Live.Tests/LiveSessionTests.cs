@@ -13,18 +13,18 @@ public sealed class LiveSessionTests
         var html = session.RenderInitialHtml();
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"mode\":\"watch\"", html); // watch is the default session mode
+        Assert.Contains("\"mode\":\"view\"", html); // view is the default session mode
     }
 
     [Fact]
-    public void Mode_DefaultsToWatch_AndIsCarriedIntoThePayload()
+    public void Mode_Explicit_IsCarriedIntoThePayload()
     {
         using var doc = new TempDocument("# Scene");
 
-        var session = new LiveSession(doc.Path, "live");
+        var session = new LiveSession(doc.Path, "edit");
 
-        Assert.Equal("live", session.Mode);
-        Assert.Contains("\"mode\":\"live\"", session.CurrentDocumentJson());
+        Assert.Equal("edit", session.Mode);
+        Assert.Contains("\"mode\":\"edit\"", session.CurrentDocumentJson());
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class LiveSessionTests
     [Fact]
     public void Refresh_MissingDocument_BroadcastsAProblem()
     {
-        var session = new LiveSession("/tmp/missing-live.dialogue.md");
+        var session = new LiveSession("/tmp/missing-edit.dialogue.md");
         using var subscription = session.Broadcaster.Subscribe(out var reader);
 
         session.Refresh();
@@ -66,5 +66,47 @@ public sealed class LiveSessionTests
         Assert.True(reader.TryRead(out var received));
         Assert.Equal("problem", received!.Event);
         Assert.Contains("not found", received.Data, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Save_WritesTheBufferToDiskAndReturnsCompiledStages()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "edit");
+
+        var json = session.Save("# New\n\nAlice: Hi");
+
+        Assert.Equal("# New\n\nAlice: Hi", File.ReadAllText(doc.Path));
+        Assert.Contains("\"source\":\"# New", json);
+        Assert.Contains("\"stages\":[", json);
+    }
+
+    [Fact]
+    public void Refresh_AfterSave_SuppressesTheSelfTriggeredReload()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "edit");
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        session.Save("# Saved");
+        session.Refresh(); // the watcher firing for the browser's own write
+
+        Assert.False(reader.TryRead(out _));
+    }
+
+    [Fact]
+    public void Refresh_ExternalChangeAfterSave_StillBroadcasts()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "edit");
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        session.Save("# Saved");
+        File.WriteAllText(doc.Path, "# External");
+        session.Refresh();
+
+        Assert.True(reader.TryRead(out var received));
+        Assert.Equal("reload", received!.Event);
+        Assert.Contains("# External", received.Data);
     }
 }

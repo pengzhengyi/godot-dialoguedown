@@ -24,16 +24,74 @@ test("the Source tab is first and active, showing the document beside a preview"
     await expect(page.locator(".tab").first()).toHaveText("Source");
     const active = page.locator("section.stage.active");
     await expect(active).toHaveClass(/source-stage/);
-    await expect(active.locator(".source-pane pre")).toContainText("# Scene");
+    await expect(active.locator(".source-pane .cm-content")).toContainText("# Scene");
     await expect(active.locator(".source-preview")).toBeVisible();
     // The node-detail panel is only for graph tabs; it is hidden here.
     await expect(page.locator("#detail")).toBeHidden();
+});
+
+test("the header brand shows the logo and reveals the name on hover", async ({ page }) => {
+    const name = page.locator(".brand-name");
+    // The wordmark stays in the DOM (so the <h1> keeps accessible text) but is clipped by default.
+    await expect(name).toHaveText("DialogueDown");
+    expect(await name.evaluate((el) => el.getBoundingClientRect().width)).toBeLessThan(1);
+    // Hovering the brand expands the wordmark into view.
+    await page.locator(".brand").hover();
+    await expect
+        .poll(async () => name.evaluate((el) => el.getBoundingClientRect().width))
+        .toBeGreaterThan(20);
 });
 
 test("clicking a preview anchor link scrolls to its heading", async ({ page }) => {
     await page.locator('.source-preview a[href="#the-market"]').click();
     await expect(page).toHaveURL(/#the-market$/);
     await expect(page.locator("#the-market")).toBeInViewport();
+});
+
+test("the theme toggle forces light/dark and returns to following the system", async ({ page }) => {
+    const html = page.locator("html");
+    await expect(page.locator(".theme-select")).toBeVisible();
+
+    await page.selectOption(".theme-select", "dark");
+    await expect(html).toHaveAttribute("data-theme", "dark");
+
+    await page.selectOption(".theme-select", "light");
+    await expect(html).toHaveAttribute("data-theme", "light");
+
+    // "System" removes the override so the page follows prefers-color-scheme again.
+    await page.selectOption(".theme-select", "system");
+    await expect(html).not.toHaveAttribute("data-theme");
+});
+
+test("the editor supports search and code folding (read-only)", async ({ page }) => {
+    await page.locator(".cm-content").click();
+
+    // Search panel opens with the shortcut and closes with Escape.
+    await page.keyboard.press("ControlOrMeta+f");
+    await expect(page.locator(".cm-panel.cm-search")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".cm-panel.cm-search")).toHaveCount(0);
+
+    // Folding a section from the gutter chevron collapses it to a placeholder.
+    await page.locator(".cm-foldGutter .cm-gutterElement", { hasText: "⌄" }).first().click();
+    await expect(page.locator(".cm-foldPlaceholder")).toBeVisible();
+});
+
+test("the editor selection uses the themed color when focused, not CodeMirror's default", async ({
+    page,
+}) => {
+    await page.locator(".cm-content").click();
+    await page.keyboard.press("ControlOrMeta+a"); // focused selection — the historic bug's case
+    const bg = await page
+        .locator(".cm-selectionBackground")
+        .first()
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    // CodeMirror's default focused selection is an opaque lavender (rgb(215, 212, 240));
+    // ours is a themed, semi-transparent tint (alpha < 1) so the text stays readable.
+    expect(bg).not.toBe("rgb(215, 212, 240)");
+    const alpha = Number(bg.match(/[\d.]+/g)?.[3] ?? "1");
+    expect(alpha).toBeLessThan(1);
 });
 
 test("switching from Source to the Markdown AST tab shows the graph and detail panel", async ({

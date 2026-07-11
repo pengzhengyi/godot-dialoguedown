@@ -11,7 +11,7 @@ import { initLauncher, type BrowseListing, type LaunchSelection } from "./launch
 function resolveSelection(): LaunchSelection {
     const raw = (window as unknown as { __DD_LAUNCHER__?: unknown }).__DD_LAUNCHER__;
     if (raw && typeof raw === "object") return raw as LaunchSelection;
-    return { root: ".", source: null, mode: "static" };
+    return { root: ".", source: null, mode: "view" };
 }
 
 const ports = {

@@ -1,30 +1,35 @@
-import type { AppController } from "./app";
 import type { Report } from "./model";
 
-/** Where the live server pushes hot-reload events. */
+/** Where the served session pushes hot-reload and problem events. */
 const EVENTS_URL = "/api/events";
 
+/** Handlers for the served session's event stream. */
+export interface ServerEventHandlers {
+    /** A recompiled report was pushed (the file changed on disk). */
+    onReload(report: Report): void;
+    /** A compile error or a missing document — a message to surface. */
+    onProblem(message: string): void;
+}
+
 /**
- * Connect a live report to its server. Subscribes to the server's event stream
- * and, on each push, re-renders the report in place (`reload`) or shows a status
- * banner (`problem` — a compile error or a missing document). The browser's
+ * Subscribe to the served session's event stream. On each push it routes a `reload`
+ * (a recompiled report) or a `problem` (a message) to the handlers; the mode controller
+ * decides what to do with a reload (View re-syncs, Edit chips). The browser's
  * `EventSource` reconnects on its own if the connection drops.
  */
-export function startLiveClient(
-    controller: AppController,
+export function watchServerEvents(
+    handlers: ServerEventHandlers,
     createSource: () => EventSource = () => new EventSource(EVENTS_URL),
 ): EventSource {
     const events = createSource();
 
     events.addEventListener("reload", (event) => {
-        const report = JSON.parse((event as MessageEvent).data) as Report;
-        controller.showBanner(null);
-        controller.rerender(report);
+        handlers.onReload(JSON.parse((event as MessageEvent).data) as Report);
     });
 
     events.addEventListener("problem", (event) => {
         const { message } = JSON.parse((event as MessageEvent).data) as { message: string };
-        controller.showBanner(message);
+        handlers.onProblem(message);
     });
 
     return events;

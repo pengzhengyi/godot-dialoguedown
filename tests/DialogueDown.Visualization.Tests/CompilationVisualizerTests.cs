@@ -89,10 +89,10 @@ public sealed class CompilationVisualizerTests
     {
         var visualizer = new CompilationVisualizer();
 
-        var html = visualizer.RenderLiveReport("scene.dialogue.md", "# Hello", "watch");
+        var html = visualizer.RenderLiveReport("scene.dialogue.md", "# Hello", "view");
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"mode\":\"watch\"", html);
+        Assert.Contains("\"mode\":\"view\"", html);
         Assert.Contains("\"path\":\"scene.dialogue.md\"", html);
         Assert.Contains("\"title\":\"Markdown AST\"", html);
     }
@@ -105,7 +105,7 @@ public sealed class CompilationVisualizerTests
         var html = visualizer.RenderHtmlReport("# Hello");
 
         Assert.Contains("\"mode\":\"static\"", html);
-        Assert.DoesNotContain("\"mode\":\"watch\"", html);
+        Assert.DoesNotContain("\"mode\":\"view\"", html);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public sealed class CompilationVisualizerTests
     public void RenderLiveReport_NullDocumentPath_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => new CompilationVisualizer().RenderLiveReport(null!, "# Hello", "watch"));
+            () => new CompilationVisualizer().RenderLiveReport(null!, "# Hello", "view"));
     }
 
     [Fact]
@@ -131,9 +131,9 @@ public sealed class CompilationVisualizerTests
     {
         var visualizer = new CompilationVisualizer();
 
-        var json = visualizer.SerializeDocument("scene.dialogue.md", "# Hello", "watch");
+        var json = visualizer.SerializeDocument("scene.dialogue.md", "# Hello", "view");
 
-        Assert.Contains("\"mode\":\"watch\"", json);
+        Assert.Contains("\"mode\":\"view\"", json);
         Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
         Assert.Contains("\"source\":\"# Hello\"", json);
         Assert.Contains("\"stages\":[", json);
@@ -144,7 +144,7 @@ public sealed class CompilationVisualizerTests
     public void SerializeDocument_NullDocumentPath_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => new CompilationVisualizer().SerializeDocument(null!, "# Hello", "watch"));
+            () => new CompilationVisualizer().SerializeDocument(null!, "# Hello", "view"));
     }
 
     [Fact]

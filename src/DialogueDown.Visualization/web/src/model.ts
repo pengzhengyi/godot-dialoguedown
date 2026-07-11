@@ -49,4 +49,7 @@ export interface Report {
 }
 
 /** The mode a report is shown in (mirrors the .NET `VisualizationMode`). */
-export type VisualizationMode = "static" | "watch" | "live";
+export type VisualizationMode = "static" | "view" | "edit";
+
+/** The two interactive modes of a served session, toggled in the browser (Vim-like). */
+export type ServedMode = "view" | "edit";

@@ -1,4 +1,0 @@
-/* highlight.js token colors, matched to the OS light/dark preference (Pico
-   follows prefers-color-scheme too, so the code pane tracks the page theme). */
-@import "highlight.js/styles/github.css" (prefers-color-scheme: light);
-@import "highlight.js/styles/github-dark.css" (prefers-color-scheme: dark);

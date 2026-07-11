@@ -28,3 +28,8 @@ export const LAUNCHER_TOP_DOC = join(LAUNCHER_TREE, "top.dialogue.md");
 export const LAUNCHER_SUB_DOC = join(LAUNCHER_TREE, "sub", "nested.dialogue.md");
 export const LAUNCHER_TOP_SOURCE = "# Top Scene\n\nAlice: The script at the root.\n";
 export const LAUNCHER_SUB_SOURCE = "# Nested Scene\n\nBob: The script in a sub-folder.\n";
+
+// A live-edit server: the browser edits the buffer and saves it back to this file.
+export const LIVE_EDIT_PORT = 5180;
+export const LIVE_EDIT_DOC = join(here, ".live-edit-doc.dialogue.md");
+export const LIVE_EDIT_SOURCE = "# Scene\n\nAlice: The first line.\n";

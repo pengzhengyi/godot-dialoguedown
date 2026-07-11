@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using DialogueDown.Visualization.Live;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -16,20 +15,12 @@ internal sealed class VisualizeSettings : CommandSettings
     [Description("The folder the launcher browses and serves (the security boundary). Default: the current directory.")]
     public string? Root { get; init; }
 
-    [CommandOption("--mode <mode>")]
-    [Description("How to open the script: static, watch, or live (live is not yet available).")]
-    public LaunchMode? Mode { get; init; }
-
-    [CommandOption("--watch")]
-    [Description("Shorthand for --mode watch: serve the report and hot-reload it on file changes.")]
-    public bool Watch { get; init; }
-
-    [CommandOption("--live")]
-    [Description("Shorthand for --mode live (not yet available; opens the launcher).")]
-    public bool Live { get; init; }
+    [CommandOption("--edit")]
+    [Description("Open the report in Edit mode (editable, saves back to the file). Default: View (read-only, auto-updating).")]
+    public bool Edit { get; init; }
 
     [CommandOption("--pick")]
-    [Description("Always open the launcher, even when the script, mode, and root are all given.")]
+    [Description("Always open the launcher, even when the script and root are given.")]
     public bool Pick { get; init; }
 
     [CommandOption("-o|--output <path>")]

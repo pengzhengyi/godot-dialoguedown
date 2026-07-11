@@ -1,34 +1,153 @@
+import {
+    EditorView,
+    keymap,
+    lineNumbers,
+    highlightActiveLine,
+    highlightActiveLineGutter,
+    drawSelection,
+    rectangularSelection,
+    crosshairCursor,
+} from "@codemirror/view";
+import { EditorState, EditorSelection, Prec, Compartment } from "@codemirror/state";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { markdown } from "@codemirror/lang-markdown";
+import {
+    syntaxHighlighting,
+    HighlightStyle,
+    bracketMatching,
+    foldGutter,
+    codeFolding,
+    foldKeymap,
+    foldService,
+} from "@codemirror/language";
+import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { tags } from "@lezer/highlight";
+import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
 import { renderDocument } from "./text";
-import { highlightMarkdown } from "./highlight";
+
+/**
+ * Markdown syntax highlighting driven by CSS variables (`--md-*`), so the editor
+ * follows the page's light/dark theme live — the colors resolve in the document, so
+ * switching the theme re-colors the editor without rebuilding it. Strong and emphasis
+ * keep the foreground color and lean on weight/slant, which reads in both themes.
+ */
+const markdownHighlightStyle = HighlightStyle.define([
+    { tag: tags.heading, color: "var(--md-heading)", fontWeight: "600" },
+    { tag: tags.strong, fontWeight: "700" },
+    { tag: tags.emphasis, fontStyle: "italic" },
+    { tag: [tags.link, tags.url], color: "var(--md-link)", textDecoration: "underline" },
+    { tag: tags.monospace, color: "var(--md-code)" },
+    { tag: tags.quote, color: "var(--md-muted)" },
+    {
+        tag: [tags.processingInstruction, tags.list, tags.contentSeparator],
+        color: "var(--md-muted)",
+    },
+]);
+
+/**
+ * Fold Markdown sections: a heading folds everything down to the next heading of the
+ * same or higher level (so a scene collapses to its `##` line). See
+ * {@link headingFoldEndLine}.
+ */
+const foldHeadings = foldService.of((state, lineStart) => {
+    const line = state.doc.lineAt(lineStart);
+    const endLine = headingFoldEndLine((n) => state.doc.line(n).text, state.doc.lines, line.number);
+    return endLine == null ? null : { from: line.to, to: state.doc.line(endLine).to };
+});
+
+/** Emphasis markers that surround a selection when typed over it (auto-surround). */
+const EMPHASIS_MARKS = new Set(["*", "_", "~"]);
+
+/**
+ * Type `*`, `_`, or `~` over a selection to wrap it (e.g. select a word, press `*` →
+ * `*word*`). Typing with no selection is left alone, so a lone marker stays literal.
+ */
+const emphasisSurround = EditorView.inputHandler.of((view, from, to, text) => {
+    if (from === to || !EMPHASIS_MARKS.has(text)) return false;
+    const selected = view.state.sliceDoc(from, to);
+    view.dispatch(
+        view.state.update({
+            changes: { from, to, insert: `${text}${selected}${text}` },
+            selection: EditorSelection.range(from + text.length, to + text.length),
+            userEvent: "input",
+        }),
+    );
+    return true;
+});
+
+/** VS Code-style Markdown formatting shortcuts (bold, italic, link). */
+const formatKeymap = [
+    { key: "Mod-b", run: toggleWrap("**"), preventDefault: true },
+    { key: "Mod-i", run: toggleWrap("*"), preventDefault: true },
+    { key: "Mod-k", run: insertLink, preventDefault: true },
+];
 
 /** Bounds for the draggable split, as a fraction of the container width. */
 const MIN_RATIO = 0.2;
 const MAX_RATIO = 0.8;
 
+/** How the Source tab behaves — read-only in View, an editor in Edit. */
+export interface SourceViewOptions {
+    /** When true the source pane starts editable (Edit mode); otherwise read-only (View). */
+    editable?: boolean;
+    /** Called with the new buffer on every edit — for the preview and dirty state. */
+    onChange?: (value: string) => void;
+}
+
+/** A handle to a live source view, letting the mode controller reconfigure it in place. */
+export interface SourceViewHandle {
+    /** The source-view element (editor + divider + preview) to mount. */
+    readonly element: HTMLElement;
+    /** Switch the editor between editable (Edit) and read-only (View) without a rebuild. */
+    setEditable(editable: boolean): void;
+    /** Replace the buffer (a View-mode hot-reload), keeping the one editor instance. */
+    setContent(source: string): void;
+}
+
+const editability = new Compartment();
+
 /**
- * The Source tab: the whole source document as raw Markdown (left) beside a live
- * rendered preview (right), split down the middle like an editor's side-by-side
- * preview. A draggable divider re-proportions the two panes. Anchor links in the
- * preview (`[text](#slug)`) scroll to their headings, which carry GitHub-style
- * ids (see {@link renderDocument}).
+ * The extensions that depend on whether the editor is editable: read-only vs editable,
+ * the content's accessibility attributes, and the authoring aids (close-brackets,
+ * emphasis auto-surround, and the format shortcuts) that only make sense in Edit. Kept in
+ * a {@link Compartment} so the mode controller can flip them at runtime — the document,
+ * cursor, scroll, and undo history survive the switch.
  */
-export function createSourceView(source: string): HTMLElement {
+function editableConfig(editable: boolean) {
+    return [
+        // Read-only (View) keeps the editor focusable and selectable — it just rejects
+        // edits — so the scrollable pane stays keyboard-accessible.
+        EditorState.readOnly.of(!editable),
+        EditorView.contentAttributes.of(
+            editable
+                ? { "aria-label": "Document source editor", tabindex: "0" }
+                : { "aria-label": "Document source", "aria-readonly": "true", tabindex: "0" },
+        ),
+        ...(editable
+            ? [closeBrackets(), emphasisSurround, Prec.high(keymap.of(formatKeymap))]
+            : []),
+    ];
+}
+
+/**
+ * The Source tab: a CodeMirror editor of the document (left) beside a live rendered
+ * preview (right), split like an editor's side-by-side preview. The editor is read-only
+ * in View and editable in Edit — the same instance, reconfigured via {@link editability}
+ * — so the tab looks the same in every mode. A draggable divider re-proportions the two
+ * panes; preview anchor links scroll to their headings (see {@link renderDocument}).
+ */
+export function createSourceView(
+    source: string,
+    options: SourceViewOptions = {},
+): SourceViewHandle {
+    const { editable = false, onChange } = options;
+
     const container = document.createElement("div");
     container.className = "source-view";
 
     const sourcePane = document.createElement("div");
     sourcePane.className = "source-pane";
-    // A scrollable region needs keyboard access (focusable) and a label.
-    sourcePane.tabIndex = 0;
-    sourcePane.setAttribute("role", "region");
-    sourcePane.setAttribute("aria-label", "Markdown source");
-    const pre = document.createElement("pre");
-    const code = document.createElement("code");
-    code.className = "hljs language-markdown";
-    // highlight.js escapes the source, so assigning its HTML is safe.
-    code.innerHTML = highlightMarkdown(source);
-    pre.appendChild(code);
-    sourcePane.appendChild(pre);
 
     const divider = document.createElement("div");
     divider.className = "source-divider";
@@ -43,9 +162,61 @@ export function createSourceView(source: string): HTMLElement {
     preview.setAttribute("aria-label", "Preview");
     preview.innerHTML = renderDocument(source);
 
+    // Re-render the preview and report the new buffer on every change (edits in Edit, or
+    // a programmatic View-mode reload). The mode controller decides what to do with it.
+    const onEdit = EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+            const value = update.state.doc.toString();
+            preview.innerHTML = renderDocument(value);
+            onChange?.(value);
+        }
+    });
+
+    const view = new EditorView({
+        parent: sourcePane,
+        state: EditorState.create({
+            doc: source,
+            extensions: [
+                lineNumbers(),
+                highlightActiveLineGutter(),
+                foldGutter(),
+                foldHeadings,
+                codeFolding(),
+                drawSelection(),
+                EditorState.allowMultipleSelections.of(true),
+                rectangularSelection(),
+                crosshairCursor(),
+                highlightActiveLine(),
+                highlightSelectionMatches(),
+                bracketMatching(),
+                search(),
+                history(),
+                markdown(),
+                syntaxHighlighting(markdownHighlightStyle),
+                EditorView.lineWrapping,
+                editability.of(editableConfig(editable)),
+                keymap.of([
+                    ...closeBracketsKeymap,
+                    ...defaultKeymap,
+                    ...historyKeymap,
+                    ...searchKeymap,
+                    ...foldKeymap,
+                ]),
+                onEdit,
+            ],
+        }),
+    });
+
     container.append(sourcePane, divider, preview);
     initSplitDivider(container, sourcePane, divider);
-    return container;
+
+    return {
+        element: container,
+        setEditable: (next) =>
+            view.dispatch({ effects: editability.reconfigure(editableConfig(next)) }),
+        setContent: (next) =>
+            view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }),
+    };
 }
 
 /** Wire the divider so dragging it re-proportions the source pane. */

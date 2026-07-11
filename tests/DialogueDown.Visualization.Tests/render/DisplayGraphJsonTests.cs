@@ -98,9 +98,9 @@ public sealed class DisplayGraphJsonTests
     {
         var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);
 
-        var json = DisplayGraphJson.SerializeReport("watch", "scene.dialogue.md", "# Hi", [graph]);
+        var json = DisplayGraphJson.SerializeReport("view", "scene.dialogue.md", "# Hi", [graph]);
 
-        Assert.Contains("\"mode\":\"watch\"", json);
+        Assert.Contains("\"mode\":\"view\"", json);
         Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
         Assert.Contains("\"source\":\"# Hi\"", json);
     }
@@ -120,9 +120,9 @@ public sealed class DisplayGraphJsonTests
     {
         var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);
 
-        var json = DisplayGraphJson.SerializeDocument("watch", "scene.dialogue.md", "# Hi", [graph]);
+        var json = DisplayGraphJson.SerializeDocument("view", "scene.dialogue.md", "# Hi", [graph]);
 
-        Assert.Contains("\"mode\":\"watch\"", json);
+        Assert.Contains("\"mode\":\"view\"", json);
         Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
         Assert.Contains("\"source\":\"# Hi\"", json);
         Assert.Contains("\"stages\":[", json);

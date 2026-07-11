@@ -8,7 +8,7 @@ const LONG_PATH =
     "/Users/pengzhengyi/Documents/Dev/PersonalProjects/Game/DialogueDown/very/deep/nested/folders/scene.dialogue.md";
 
 const REPORT_WITH_PATH: Report = {
-    mode: "watch",
+    mode: "view",
     path: LONG_PATH,
     source: SAMPLE_SOURCE,
     stages: SAMPLE_STAGES,
@@ -33,26 +33,31 @@ test("the document path stays legible on hover (not white-on-white)", async ({ p
     expect(luminance).toBeLessThan(180);
 });
 
-test("on a narrow screen the help wraps below the status bar, not over the path", async ({
+test("the help expands full-width below the status bar, clear of the status line", async ({
     page,
 }) => {
-    await page.setViewportSize({ width: 360, height: 720 });
     await page.goto(writeReport(REPORT_WITH_PATH));
 
-    // Expand the contextual help — its widest state.
-    await page.locator("#help-summary").click();
+    const toggle = page.locator("#help-toggle");
+    const content = page.locator("#help-content");
 
+    // Collapsed by default.
+    await expect(content).toBeHidden();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    await toggle.click();
+    await expect(content).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    // The expanded help sits below the status line — not overlapping the document path.
     const pathBox = (await page.locator("#doc-path").boundingBox())!;
-    const helpBox = (await page.locator(".app-footer .help").boundingBox())!;
+    const helpBox = (await content.boundingBox())!;
+    expect(helpBox.y).toBeGreaterThan(pathBox.y + pathBox.height - 1);
 
-    const overlaps =
-        pathBox.x < helpBox.x + helpBox.width &&
-        pathBox.x + pathBox.width > helpBox.x &&
-        pathBox.y < helpBox.y + helpBox.height &&
-        pathBox.y + pathBox.height > helpBox.y;
-    expect(overlaps).toBe(false);
-    // The help sits on its own line, below the status bar.
-    expect(helpBox.y).toBeGreaterThan(pathBox.y + 2);
+    // Collapsing hides it again.
+    await toggle.click();
+    await expect(content).toBeHidden();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
 });
 
 test("the document path is a compact ellipsised chip, not a full-width block", async ({ page }) => {

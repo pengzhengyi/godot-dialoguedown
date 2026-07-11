@@ -1,15 +1,16 @@
+using System.Net.Http.Json;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
 
-public sealed class WatchModeTests
+public sealed class ServeModeTests
 {
     [Fact]
     public async Task RunAsync_BadDocument_ReturnsOne()
     {
         var error = new StringWriter();
 
-        var code = await WatchMode.RunAsync(
+        var code = await ServeMode.RunAsync(
             "/tmp/missing.dialogue.md",
             port: null,
             noOpen: true,
@@ -31,7 +32,7 @@ public sealed class WatchModeTests
         var browser = new FakeBrowserLauncher();
         using var stop = new CancellationTokenSource();
 
-        var task = WatchMode.RunAsync(
+        var task = ServeMode.RunAsync(
             doc.Path, port: 0, noOpen: false, renderRoot: null, browser, new FakeHostConsent(allow: false),
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
@@ -52,7 +53,7 @@ public sealed class WatchModeTests
         var browser = new FakeBrowserLauncher();
         using var stop = new CancellationTokenSource();
 
-        var task = WatchMode.RunAsync(
+        var task = ServeMode.RunAsync(
             doc.Path, port: 0, noOpen: false, renderRoot: null, browser, new FakeHostConsent(allow: false),
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
@@ -100,7 +101,7 @@ public sealed class WatchModeTests
         var consent = new FakeHostConsent(allow: false);
         using var stop = new CancellationTokenSource();
 
-        var task = WatchMode.RunAsync(
+        var task = ServeMode.RunAsync(
             documentPath, port: 0, noOpen: false, renderRoot: tree.Root, browser, consent,
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
@@ -124,7 +125,7 @@ public sealed class WatchModeTests
         var browser = new FakeBrowserLauncher();
         var error = new StringWriter();
 
-        var code = await WatchMode.RunAsync(
+        var code = await ServeMode.RunAsync(
             documentPath, port: 0, noOpen: false, renderRoot: elsewhere, browser,
             new FakeHostConsent(allow: false), new StringWriter(), error, CancellationToken.None);
 
@@ -149,7 +150,7 @@ public sealed class WatchModeTests
         var browser = new FakeBrowserLauncher();
         using var stop = new CancellationTokenSource();
 
-        var task = WatchMode.RunAsync(
+        var task = ServeMode.RunAsync(
             documentPath, port: 0, noOpen: false, renderRoot: null, browser, consent,
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
@@ -160,6 +161,53 @@ public sealed class WatchModeTests
         using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
         var response = await client.GetAsync("/shared/pic.png");
         Assert.False(response.IsSuccessStatusCode);
+
+        stop.Cancel();
+        await task;
+    }
+
+    [Fact]
+    public async Task RunAsync_EditMode_SaveWritesTheBufferAndReturnsStages()
+    {
+        using var doc = new TempDocument("# First");
+        var browser = new FakeBrowserLauncher();
+        using var stop = new CancellationTokenSource();
+
+        var task = ServeMode.RunAsync(
+            doc.Path, port: 0, noOpen: false, renderRoot: null, browser, new FakeHostConsent(allow: false),
+            new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.Edit);
+        await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
+
+        using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved\n\nAlice: Hi" });
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("# Saved\n\nAlice: Hi", await File.ReadAllTextAsync(doc.Path));
+        Assert.Contains("\"stages\":[", await response.Content.ReadAsStringAsync());
+
+        stop.Cancel();
+        await task;
+    }
+
+    [Fact]
+    public async Task RunAsync_ViewMode_AlsoServesTheSaveRoute()
+    {
+        // A served session always exposes /api/save (one server for View and Edit); the
+        // client just never calls it in View. Starting in View, a save still succeeds.
+        using var doc = new TempDocument("# First");
+        var browser = new FakeBrowserLauncher();
+        using var stop = new CancellationTokenSource();
+
+        var task = ServeMode.RunAsync(
+            doc.Path, port: 0, noOpen: false, renderRoot: null, browser, new FakeHostConsent(allow: false),
+            new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.View);
+        await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
+
+        using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved" });
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("# Saved", await File.ReadAllTextAsync(doc.Path));
 
         stop.Cancel();
         await task;

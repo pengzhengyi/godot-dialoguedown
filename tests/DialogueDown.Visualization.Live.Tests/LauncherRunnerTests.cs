@@ -14,7 +14,7 @@ public sealed class LauncherRunnerTests
         var code = await runner.RunAsync(
             Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}"),
             source: null,
-            LaunchMode.Static,
+            LaunchMode.View,
             port: null,
             noOpen: true,
             new StringWriter(),
@@ -35,7 +35,7 @@ public sealed class LauncherRunnerTests
         using var stop = new CancellationTokenSource();
 
         var task = runner.RunAsync(
-            tree.Root, source: null, LaunchMode.Static, port: 0, noOpen: false,
+            tree.Root, source: null, LaunchMode.View, port: 0, noOpen: false,
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 

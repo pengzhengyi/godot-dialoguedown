@@ -1,13 +1,11 @@
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { LIVE_DOC, LIVE_PORT, INITIAL_SOURCE } from "./fixture.mjs";
+import { LIVE_EDIT_DOC, LIVE_EDIT_PORT, LIVE_EDIT_SOURCE } from "./fixture.mjs";
 
-// The Playwright webServer for the live e2e. Writes a fresh temp document (so the
-// server has something to watch before it binds), then runs the real .NET live
-// server against it on the fixed loopback port. Playwright waits for the URL to
-// respond, then runs the specs; on teardown it terminates this process tree.
-writeFileSync(LIVE_DOC, INITIAL_SOURCE);
+// The Playwright webServer for the Live Edit e2e: write a fresh temp document, then run
+// the real .NET server in --edit (editable) mode against it on the fixed loopback port.
+writeFileSync(LIVE_EDIT_DOC, LIVE_EDIT_SOURCE);
 
 const server = spawn(
     "dotnet",
@@ -19,11 +17,12 @@ const server = spawn(
         "Release",
         "--",
         "visualize",
-        LIVE_DOC,
+        LIVE_EDIT_DOC,
+        "--edit",
         "--root",
-        dirname(LIVE_DOC),
+        dirname(LIVE_EDIT_DOC),
         "--port",
-        String(LIVE_PORT),
+        String(LIVE_EDIT_PORT),
         "--no-open",
     ],
     { stdio: "inherit" },

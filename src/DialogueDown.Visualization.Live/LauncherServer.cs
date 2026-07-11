@@ -38,6 +38,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.Logging.ClearProviders();
+        builder.AddLoopbackCompression();
         _app = builder.Build();
         Configure(_app);
     }
@@ -66,8 +67,8 @@ internal sealed class LauncherServer : IAsyncDisposable
     {
         parsed = mode?.ToLowerInvariant() switch
         {
-            null or "" or VisualizationMode.Static => VisualizationMode.Static,
-            VisualizationMode.Watch => VisualizationMode.Watch,
+            null or "" or VisualizationMode.View => VisualizationMode.View,
+            VisualizationMode.Edit => VisualizationMode.Edit,
             _ => string.Empty,
         };
         return parsed.Length != 0;
@@ -75,6 +76,10 @@ internal sealed class LauncherServer : IAsyncDisposable
 
     private void Configure(WebApplication app)
     {
+        // Compress the large report pages; text/event-stream is not compressible, so the
+        // SSE hot-reload stream passes through untouched.
+        app.UseResponseCompression();
+
         // Assets for the active source resolve under the launch root at /r/... . Static
         // files runs before routing (explicit UseRouting below) so it serves an existing
         // asset even though the catch-all report route would also match its path.
@@ -89,6 +94,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         app.MapGet("/api/browse", (string? path) => Browse(path ?? string.Empty));
         app.MapPost("/api/open", (OpenRequest request, HttpContext context) => Open(request, context));
         app.MapGet("/api/document", Document);
+        app.MapPost("/api/save", (SaveRequest request) => Save(request));
         app.MapGet("/api/events", HandleEventsAsync);
         app.MapGet(ReportMount, () => Report(string.Empty));
         app.MapGet(ReportMount + "/{**path}", (string? path) => Report(path ?? string.Empty));
@@ -116,7 +122,9 @@ internal sealed class LauncherServer : IAsyncDisposable
         var sourceDirectory = Path.GetDirectoryName(source)!;
         var reportPath = ServeRoot.For(_root.RootDirectory, sourceDirectory).ReportPath;
         var session = _sessionFactory(source, mode);
-        var watcher = mode == VisualizationMode.Watch ? new DocumentWatcher(source, session.Refresh) : null;
+        // A served session always watches the file: View hot-reloads the report, Edit
+        // surfaces a passive "changed on disk" chip.
+        var watcher = new DocumentWatcher(source, session.Refresh);
 
         lock (_gate)
         {
@@ -145,6 +153,28 @@ internal sealed class LauncherServer : IAsyncDisposable
         return active is null
             ? Results.NotFound()
             : Results.Content(active.Session.CurrentDocumentJson(), "application/json; charset=utf-8");
+    }
+
+    // Saves the edited buffer to the active document. A served session always accepts
+    // this (the client only calls it in Edit); there is just nothing active before a
+    // script is opened.
+    private IResult Save(SaveRequest request)
+    {
+        var active = Active();
+        if (active is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            var json = active.Session.Save(request.Source ?? string.Empty);
+            return Results.Content(json, "application/json; charset=utf-8");
+        }
+        catch (IOException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private async Task HandleEventsAsync(HttpContext context, CancellationToken cancellationToken)
@@ -181,4 +211,6 @@ internal sealed class LauncherServer : IAsyncDisposable
     private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher);
 
     private sealed record OpenRequest(string? Source, string? Mode);
+
+    private sealed record SaveRequest(string? Source);
 }

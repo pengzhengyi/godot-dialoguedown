@@ -16,7 +16,7 @@ public sealed class LiveVisualizationServerTests
         var html = await client.GetStringAsync("/");
 
         Assert.StartsWith("<!doctype html", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("\"mode\":\"watch\"", html);
+        Assert.Contains("\"mode\":\"view\"", html);
     }
 
     [Fact]
@@ -105,6 +105,42 @@ public sealed class LiveVisualizationServerTests
 
         Assert.True(sawReload);
         Assert.True(sawContent);
+    }
+
+    [Fact]
+    public async Task Report_IsCompressed_WhenTheClientAcceptsEncoding()
+    {
+        using var doc = new TempDocument("# Scene");
+        await using var server = new LiveVisualizationServer(new LiveSession(doc.Path));
+        await server.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+        client.DefaultRequestHeaders.AcceptEncoding.ParseAdd("br, gzip");
+
+        using var response = await client.GetAsync("/");
+
+        // The report is a large self-contained page; compress it for the client.
+        Assert.Contains(response.Content.Headers.ContentEncoding, e => e is "br" or "gzip");
+    }
+
+    [Fact]
+    public async Task Events_AreNeverCompressed_SoTheStreamIsNotBuffered()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var doc = new TempDocument("# Scene");
+        await using var server = new LiveVisualizationServer(new LiveSession(doc.Path));
+        await server.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+        client.DefaultRequestHeaders.AcceptEncoding.ParseAdd("br, gzip");
+
+        using var response = await client.GetAsync(
+            "/api/events",
+            HttpCompletionOption.ResponseHeadersRead,
+            timeout.Token);
+
+        // text/event-stream must pass through uncompressed or the compressor would
+        // buffer hot-reload events instead of streaming them.
+        Assert.Equal("text/event-stream", response.Content.Headers.ContentType?.MediaType);
+        Assert.Empty(response.Content.Headers.ContentEncoding);
     }
 
     [Fact]

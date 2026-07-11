@@ -11,6 +11,10 @@
 > **choosing a different root inside the modal** are deferred — the mode option shows
 > Live Edit disabled, and the root is set when the launcher starts.
 >
+> The mode options are now **View / Edit** (both enabled) — the two sides of the
+> served session's runtime toggle; see the
+> [View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) note.
+>
 > Unlike the core library, this component is part of the "vibe-coded" visualization
 > tooling (see the visualization note's maturity caveat); the core engine remains the
 > carefully-reviewed surface.

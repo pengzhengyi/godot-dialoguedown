@@ -25,6 +25,11 @@ changes easy to categorize.
   Markdown into dialogue nodes — speaker/speech lines, flat scene-heading
   markers, choices, inline styling, game calls, tags, and jump indicators —
   behind the `IScriptTranspiler` seam.
+- An interactive **`visualize`** report with a runtime **View ⇄ Edit** toggle: a
+  read-only, auto-updating **View** and an in-browser CodeMirror **Edit** mode that
+  saves back to the file — with search, section folding, Markdown formatting
+  shortcuts (bold/italic/link and emphasis auto-surround), and a **System / Light /
+  Dark** theme toggle.
 - Initial OSS community files and CI configuration.
 - Project logo and favicon: a chat-bubble Markdown "M" mark, with an expanded
   variant showing a choice branching into options and scenes.
@@ -37,3 +42,13 @@ changes easy to categorize.
 - `SourceSpan` now allows a zero-width range (`SourceSpan.EmptyAt`, `IsEmpty`) so
   a synthetic node with no source text — such as a filled-in default speaker —
   marks a caret at its position instead of borrowing a neighbor's range.
+- `visualize <script>` now opens a **served session** (read-only **View** by default)
+  instead of a one-shot static file; the offline snapshot is written with `-o`.
+- The `visualize` servers now compress responses (gzip), cutting the report page's
+  transfer roughly threefold when it is viewed over a LAN or VPN; the hot-reload SSE
+  stream is left uncompressed so events keep streaming.
+
+### Removed
+
+- The `--watch`, `--live`, and `--mode` flags — superseded by the default served
+  session (View), `--edit` (start in Edit), and `-o` (static export).

@@ -6,6 +6,11 @@ const SOURCE_HELP = `
      the right pane is a live Markdown preview.</p>
   <p><strong>Preview links</strong> jump to their headings within the preview.</p>
   <p><strong>Drag the divider</strong> between the panes to re-proportion them.</p>
+  <p><strong>Editor.</strong> Find with <kbd>⌘/Ctrl-F</kbd> and fold a section from the
+     gutter arrow. In Live Edit, format the selection with <kbd>⌘/Ctrl-B</kbd> (bold),
+     <kbd>⌘/Ctrl-I</kbd> (italic) and <kbd>⌘/Ctrl-K</kbd> (link), or type <kbd>*</kbd>
+     around a selection to emphasize it. To learn more about how to use the editor,
+     check out <a href="https://codemirror.net/" target="_blank" rel="noopener noreferrer">CodeMirror</a>.</p>
 `;
 
 const GRAPH_HELP = `
@@ -44,4 +49,19 @@ export function setHelp(context: HelpContext): void {
     const content = document.getElementById("help-content");
     if (summary) summary.textContent = SUMMARY[context];
     if (content) content.innerHTML = CONTENT[context];
+}
+
+/**
+ * Wire the footer's "How to use" disclosure: the toggle stays on the status line, and
+ * clicking it shows or hides the shortcut panel below the status bar (full width).
+ */
+export function initHelpToggle(): void {
+    const toggle = document.getElementById("help-toggle");
+    const content = document.getElementById("help-content");
+    if (!toggle || !content) return;
+    toggle.addEventListener("click", () => {
+        const open = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", String(!open));
+        content.hidden = open;
+    });
 }

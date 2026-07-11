@@ -7,8 +7,8 @@ describe("initModeBadge", () => {
     });
 
     it("shows the human label for the mode", () => {
-        initModeBadge("watch");
-        expect(document.getElementById("mode-badge")!.textContent).toBe("Hot Reload");
+        initModeBadge("view");
+        expect(document.getElementById("mode-badge")!.textContent).toBe("View");
     });
 
     it("adds a mode-specific class and an accessible description", () => {
@@ -17,15 +17,15 @@ describe("initModeBadge", () => {
         expect(badge.getAttribute("aria-label")).toContain(MODE_INFO.static.description);
     });
 
-    it("labels live mode", () => {
-        initModeBadge("live");
-        expect(document.getElementById("mode-badge")!.textContent).toBe("Live");
+    it("labels edit mode", () => {
+        initModeBadge("edit");
+        expect(document.getElementById("mode-badge")!.textContent).toBe("Edit");
     });
 });
 
 describe("MODE_INFO", () => {
     it("has a distinct label and description for every mode", () => {
-        const modes = ["static", "watch", "live"] as const;
+        const modes = ["static", "view", "edit"] as const;
         const labels = modes.map((m) => MODE_INFO[m].label);
         expect(new Set(labels).size).toBe(modes.length);
         for (const mode of modes) {

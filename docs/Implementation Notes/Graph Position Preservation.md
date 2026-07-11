@@ -3,10 +3,12 @@
 > [!NOTE]
 > Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md)). Each stage's
-> graph remembers where the reader left it — its zoom, pan, and which branches are
-> collapsed — so switching tabs and hot-reloading no longer snap every graph back
-> to the default fit. The memory lives entirely in the browser; nothing new is
-> serialized or sent to the server.
+> graph remembers where the reader left it. A graph the reader has adjusted keeps
+> its own zoom, pan, and collapsed branches; a graph they have not yet positioned
+> **inherits the current view**, so switching tabs stays at roughly the same place.
+> Graphs open on a **root-centered default framing**, and the zoom toolbar takes a
+> **typed percentage** or a one-click **revert**. The memory lives entirely in the
+> browser; nothing new is serialized or sent to the server.
 >
 > Like the rest of the visualization tooling, this surface is "vibe-coded" (see
 > the visualization note's maturity caveat); the core engine stays the reviewed
@@ -33,17 +35,24 @@ routine actions throw that work away today:
   from scratch, so the reader's zoom, pan, and fold state vanish on every edit —
   exactly when staying put matters most.
 
-Make each stage's graph **spatially stable**: remember its camera (zoom + pan) and
-fold state, and re-apply them across tab switches and hot-reloads. A stage the
-reader has never opened still auto-fits on first reveal; only a stage with a
-remembered position keeps it.
+Make each stage's graph **spatially stable**, with a hybrid memory that favors
+continuity by default. A graph the reader has adjusted keeps its own camera and
+fold across tab switches and hot-reloads. A graph they have not positioned inherits
+the **current** camera — wherever they are now — so moving between tabs does not
+jump the view around. Graphs open on a readable, root-centered default rather than
+a whole-graph shrink-to-fit, and the reader can dial in an exact zoom or revert a
+graph to its default.
 
 In scope:
 
-- Per-stage memory of the graph **camera** (zoom scale + pan translation).
-- Per-stage memory of **fold state** (which nodes are collapsed).
-- Re-applying both when a tab is re-activated and when the graphs are rebuilt on
-  hot-reload, instead of re-fitting.
+- A **hybrid camera**: a per-graph override once a graph is adjusted, otherwise the
+  shared **current** camera an untouched graph inherits.
+- Per-graph **fold state** (which nodes are collapsed), independent of other graphs.
+- Re-applying both across tab switches and hot-reloads, instead of re-framing.
+- A **default framing** that anchors the root near the left, vertically centered, at
+  a readable 100%.
+- A zoom toolbar that accepts a **typed percentage** and a **Revert** control that
+  restores the default and drops the graph's remembered position.
 
 Out of scope:
 
@@ -57,114 +66,142 @@ Out of scope:
 
 | Term | Meaning |
 | --- | --- |
-| **Camera** | A graph's current zoom scale and pan translation — the D3 zoom transform `{ k, x, y }` applied to the viewport. |
-| **Fold state** | The set of node ids currently collapsed (their children hidden) in a stage's tree. |
-| **Graph view state** | A camera plus a fold state — everything needed to restore where a reader left one stage's graph. |
-| **Camera store** | The in-browser memory that maps a stage (by its title) to its last graph view state. |
-| **Fit** | (Existing.) Auto-scaling and centring a graph to its container. The default a stage falls back to when it has no remembered position. |
-| **Stage title** | (Existing.) The stable tab label (`Markdown AST`, `Dialogue AST`, …) used as the camera store's key. |
+| **Camera** | A graph's zoom scale and pan translation — the D3 zoom transform `{ k, x, y }` applied to the viewport. |
+| **Override** | A camera a graph pins for itself the moment the reader adjusts it; it survives tab switches and hot-reloads regardless of the shared camera. |
+| **Current camera** | The shared camera reflecting wherever the reader is now. An untouched graph inherits it, so switching tabs stays at roughly the same view. |
+| **Fold state** | The set of node ids currently collapsed (their children hidden) in a graph's tree; always per-graph. |
+| **Default framing** | The camera an untouched graph falls back to when there is no override or current camera: a readable 100% with the root anchored near the left and vertically centered. |
+| **Camera store** | The in-browser memory holding each graph's override and fold, plus the one shared current camera. |
+| **Stage title** | (Existing.) The stable tab label (`Markdown AST`, `Dialogue AST`, …) used as the store's per-graph key. |
 
 ## Design
 
-The tree view already owns its camera (a D3 zoom behavior) and its fold state
-(per-node `_children`). This enhancement adds two capabilities to it and a small
-memory beside the tabs.
+The tree view owns its camera (a D3 zoom behavior) and its fold state (per-node
+`_children`). This enhancement lets it apply a given camera/fold and report the
+reader's own adjustments, and adds a small hybrid memory beside the tabs.
 
 ```text
-  on switch-away / before rebuild        on re-activate / after rebuild
-            │ getState()                          │ load(title)
-            ▼                                     ▼
-    ┌───────────────┐   save(title, state)   ┌─────────────┐
-    │   TreeView    │ ─────────────────────▶ │ CameraStore │
-    │ (zoom + fold) │ ◀───────────────────── │ title→state │
-    └───────────────┘     restore(state)     └─────────────┘
-                        (or fit if no memory)
+   reader gesture (pin)        reveal a tab / rebuild
+        │ onCameraChange(t, true)     │ cameraFor(title) = override ?? current ?? default
+        ▼                             ▼
+   ┌───────────────┐   adjustCamera / setFold   ┌──────────────────────────┐
+   │   TreeView    │ ─────────────────────────▶ │       CameraStore        │
+   │ (zoom + fold) │ ◀───────────────────────── │ overrides · folds ·      │
+   └───────────────┘   applyView(camera, fold)  │ one shared current       │
+                                                └──────────────────────────┘
 ```
 
-### Tree view: read and restore its own position
+### Tree view: apply a view, report adjustments
 
-`createTreeView` gains two methods on the returned `TreeView`:
+`createTreeView` takes an initial camera/fold and a set of hooks, and exposes one
+method:
 
-- `getState(): GraphViewState` — snapshots the live D3 transform (`{ k, x, y }`)
-  and the collapsed node ids.
-- `restore(state): void` — collapses the named nodes, re-lays-out, and applies the
-  transform (skipping the auto-fit).
+- `applyView(camera, fold)` — set the fold (best-effort by id), re-lay-out, and
+  apply the camera; a `null` camera uses the default framing.
+- `onCameraChange(transform, byUser)` — fired on every zoom; `byUser` is true for
+  reader gestures (wheel, drag, the zoom controls) and false for programmatic
+  applies (a reveal, the default framing).
+- `onFoldChange(collapsed)` — fired when the reader collapses or expands a node.
+- `onRevert()` — fired when the reader clicks Revert.
 
-It also accepts an optional `initialState` at construction: when a rebuilt graph
-is handed its predecessor's state, it restores instead of fitting, so a
-hot-reload never flashes through the default view.
+Reader gestures are distinguished from programmatic applies with the D3 event's
+`sourceEvent` plus a flag the zoom controls set, so the app can pin an override
+only for real adjustments.
 
-Restoring fold state is **best-effort by node id**: only ids that still exist in
-the rebuilt graph are collapsed; ids that changed (because the source changed) are
-ignored. The camera is always restorable — it is absolute and does not depend on
-node identity.
+### Camera store: a hybrid memory
 
-### Camera store: remember each stage
+`GraphCameraStore` holds a per-graph **override** map, a per-graph **fold** map, and
+one shared **current** camera. `cameraFor(title)` returns the graph's override, else
+the current camera, else `null` (use the default framing). `adjustCamera` pins an
+override and moves the current camera; `noteCamera` moves only the current camera
+(for programmatic applies); `reset` drops a graph's override and fold. It is pure,
+with no DOM or D3 dependency, so it is unit-tested directly.
 
-A small `GraphCameraStore` (a `Map` keyed by stage title) holds each stage's last
-graph view state. It is pure and has no DOM or D3 dependency, so it is unit-tested
-directly. The app owns one store for the life of the page.
+### App wiring: record live, apply on reveal
 
-### App wiring: snapshot then restore
+`runApp` wires each graph's callbacks to the store and applies the store on reveal:
 
-`runApp` drives the store around the two loss points:
+- **Reader adjusts a graph** → `onCameraChange(byUser)` pins an override
+  (`adjustCamera`) or, for programmatic applies, only moves the current camera
+  (`noteCamera`); `onFoldChange` records the fold; `onRevert` resets the graph.
+- **Reveal / hot-reload** → `applyView(cameraFor(title), foldFor(title))` shows the
+  graph's own override, the inherited current camera, or the default framing.
 
-- **Tab switch.** Before changing the active tab, snapshot the outgoing graph view
-  into the store. After revealing the new tab, restore its remembered state if the
-  store has one; otherwise fit (first reveal). Activating a tab no longer
-  unconditionally re-fits.
-- **Hot-reload (`updateStages`).** Snapshot every existing graph view into the
-  store before tearing the tabs down, then pass each rebuilt stage its remembered
-  state so it restores on construction.
+Because every adjustment is recorded live, there is no snapshot-before-teardown
+step: a rebuilt graph simply reads its remembered state from the store. The Source
+tab has no graph and no camera, so it is skipped throughout.
 
-The Source tab has no graph and no camera, so it is skipped throughout.
+### Default framing and the zoom toolbar
+
+The default framing anchors the root near the left edge and vertically centered at
+a readable 100%, so the reader starts at the root with its subtree filling the
+viewport rightward — rather than a whole-graph fit that shrinks large trees. It is
+applied once the tab's container has a real size (a just-shown tab reads zero until
+it lays out), retried per frame and capped, and guarded by a generation token so a
+stale retry cannot clobber a camera a later reveal has applied.
+
+The zoom toolbar's ratio becomes a number input the reader types a percentage into
+(clamped to the zoom extent), alongside the `−`/`+` steppers and a **Revert** button
+that restores the default framing and clears the graph's remembered position.
 
 ## Key design decisions
 
-- **D1 — Key the memory by stage title.** Titles (`Markdown AST`, `Dialogue AST`,
-  …) are stable across rebuilds and unique per report, so they map a rebuilt stage
-  back to its predecessor's position without threading ids through the payload.
-- **D2 — In-browser, per page load.** The camera store is plain in-memory state.
-  Position survives tab switches and hot-reloads (the two cases that lose it today)
-  but resets on a full page reload, like the report's other view state. No
-  `localStorage`, no payload change — the offline single-file report stays
-  self-contained.
-- **D3 — Fold state is best-effort; the camera is exact.** After an edit the tree's
-  node ids can change, so only still-present collapsed ids are re-collapsed. The
-  camera transform is identity-independent and always re-applies, which is the part
-  a reader notices most.
-- **D4 — Restore replaces fit, it does not fight it.** A stage fits only when it
-  has no remembered camera (a first reveal, or a brand-new stage). Once
-  remembered, the stage restores. This keeps the existing "fit on first reveal"
-  behavior for never-opened tabs while making revisited tabs stable.
-- **D5 — A pure store module for testability.** The memory is a dependency-free
-  module so it is covered by fast unit tests; the DOM/D3 glue that reads and
-  applies a position stays in the Playwright-tested tree view and app, matching
-  how the rest of the browser-integration code is verified.
+- **D1 — Hybrid: inherit by default, pin on adjust.** An untouched graph inherits
+  the shared current camera so switching tabs stays at roughly the same view;
+  adjusting a graph pins its own override so it keeps its place. This favors
+  continuity while still letting each graph diverge, which is the balance the reader
+  asked for.
+- **D2 — Fold stays per-graph.** Collapsed node ids only make sense within one
+  graph (nodes differ between stages), so fold is never shared — only the camera is.
+- **D3 — Key overrides and fold by stage title.** Titles are stable across rebuilds
+  and unique per report, so they map a rebuilt stage back to its remembered state
+  without threading ids through the payload.
+- **D4 — In-browser, per page load.** The store is plain in-memory state. Position
+  survives tab switches and hot-reloads but resets on a full page reload, like the
+  report's other view state. No `localStorage`, no payload change — the offline
+  single-file report stays self-contained.
+- **D5 — Record adjustments live, not on teardown.** The tree view reports camera
+  and fold changes through callbacks as they happen, so the store is always current
+  and a rebuild simply reads it — no snapshot-before-teardown step, and reader
+  gestures are told apart from programmatic applies so only real adjustments pin.
+- **D6 — Root-centered default over shrink-to-fit.** A whole-graph fit makes large
+  trees tiny; anchoring the root at a readable 100% starts the reader where the
+  graph begins. The tradeoff — deep nodes start off screen — is acceptable because
+  the reader pans and zooms to explore, and a typed percentage plus Revert make
+  moving around and resetting easy.
+- **D7 — A pure store module for testability.** The hybrid memory is a
+  dependency-free module covered by fast unit tests; the DOM/D3 glue that applies a
+  view and reports adjustments stays in the Playwright-tested tree view and app,
+  matching how the rest of the browser-integration code is verified.
 
 ## Testability
 
-- **Unit (Vitest).** The `GraphCameraStore` is covered directly: save then load
-  a stage's state, overwrite it, and miss on an unknown stage. Being pure, it
-  reaches full coverage without a DOM.
-- **End-to-end (Playwright).** The camera-and-restore glue lives in `tree-view.ts`
-  and `app.ts`, which are browser-integration modules exercised in a real browser.
-  New e2e assertions:
-  - Zoom a stage, switch tabs, switch back — the graph keeps its zoom (does not
-    reset to fit).
-  - Zoom a stage in a served session, trigger a hot-reload — the graph keeps its
-    zoom after the rebuild.
+- **Unit (Vitest).** `GraphCameraStore` is covered directly: an untouched graph
+  falls back to the default, an override pins and is shared as the current camera,
+  an adjusted graph keeps its own while others inherit the latest, `noteCamera`
+  moves the current without pinning, fold is per-graph, and `reset` drops the
+  override and fold. The zoom controls are covered too: rendering the input and
+  Revert, committing a typed percentage on change and Enter, ignoring an invalid
+  value, and reflecting the scale unless the input is focused.
+- **End-to-end (Playwright).** The apply-and-report glue lives in `tree-view.ts`
+  and `app.ts`, exercised in a real browser:
+  - The default view frames the root in the left portion, near the vertical center.
+  - The zoom input reflects, sets, and reverts the zoom.
+  - A stage keeps its zoom when you leave the tab and come back.
+  - A graph keeps its zoom across a hot reload.
+  - An untouched graph inherits the current zoom while an adjusted one keeps its own.
 
 ## Implementation checklist
 
-- [x] `GraphCameraStore` (pure module) with `save` / `load`, plus the
-      `CameraTransform` / `GraphViewState` types.
-- [x] `TreeView.getState()` / `TreeView.restore()` and an optional `initialState`
-      on `createTreeView`.
-- [x] `runApp` snapshots on tab switch and before `updateStages`, and restores (or
-      fits) on activate and rebuild.
-- [x] Vitest coverage for the store.
-- [x] Playwright e2e for zoom-kept-across-tab-switch and zoom-kept-across-reload.
-- [x] Rebuild the committed report bundle; confirm no unexpected drift.
-- [x] Crosscheck: flip status to implemented, reconcile deviations, add the index
-      row.
+- [x] `GraphCameraStore` (pure hybrid module): `cameraFor` / `foldFor` /
+      `adjustCamera` / `noteCamera` / `setFold` / `reset`, plus `CameraTransform`.
+- [x] `TreeView.applyView`, the `onCameraChange` / `onFoldChange` / `onRevert`
+      hooks and initial camera/fold on `createTreeView`, with reader-gesture
+      detection.
+- [x] Root-centered default framing (real-size retry, generation-token guarded).
+- [x] Zoom toolbar: editable percentage input and a Revert button.
+- [x] `runApp` records adjustments live and applies the store on reveal / rebuild.
+- [x] Vitest coverage for the store and the zoom controls.
+- [x] Playwright e2e for default framing, the zoom input + revert, tab-switch and
+      hot-reload persistence, and the inherit-vs-pinned hybrid.
+- [x] Rebuild the committed report bundle; confirm it is deterministic.

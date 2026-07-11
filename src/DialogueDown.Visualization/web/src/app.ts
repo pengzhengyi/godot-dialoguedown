@@ -105,10 +105,10 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     }
 
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
-    // editor — and the reader's cursor — untouched. Each graph's camera and fold are
-    // snapshotted first, then handed back to its rebuilt stage so the reload stays put.
+    // editor — and the reader's cursor — untouched. Each graph's remembered camera and
+    // fold are recorded live (as the reader adjusts them), so a rebuilt stage restores
+    // its position from the store.
     function updateStages(stages: Stage[]): void {
-        snapshotCameras();
         const keep = sourcePresent ? 1 : 0;
         while (tabsEl.children.length > keep) tabsEl.lastElementChild!.remove();
         while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
@@ -125,8 +125,19 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         section.className = "stage";
         let view: TreeView | null = null;
         try {
-            // A rebuilt stage inherits its predecessor's remembered position (if any).
-            view = createTreeView(stage, panel.show, cameras.load(stage.title));
+            // A stage shows its own pinned camera, else the shared current one it
+            // inherits, else the default framing; its fold is always its own. Reader
+            // adjustments are recorded live through the callbacks below.
+            view = createTreeView(stage, panel.show, {
+                initialCamera: cameras.cameraFor(stage.title),
+                initialFold: cameras.foldFor(stage.title),
+                onCameraChange: (transform, byUser) =>
+                    byUser
+                        ? cameras.adjustCamera(stage.title, transform)
+                        : cameras.noteCamera(transform),
+                onFoldChange: (collapsed) => cameras.setFold(stage.title, collapsed),
+                onRevert: () => cameras.reset(stage.title),
+            });
             section.appendChild(view.svg);
             section.appendChild(view.legend);
             section.appendChild(view.controls);
@@ -158,8 +169,6 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     }
 
     function activate(index: number): void {
-        // Remember where the reader left the tab we are leaving, before switching.
-        snapshotActive();
         activeIndex = index;
         Array.from(tabsEl.children).forEach((el, i) => el.classList.toggle("active", i === index));
         Array.from(stagesEl.children).forEach((el, i) =>
@@ -171,37 +180,22 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         appEl.classList.toggle("no-detail", isSource);
         setHelp(isSource ? "source" : "graph");
         source?.onActiveTabChange?.(isSource);
-        // Restore the tab's remembered position, or fit it the first time it is shown
-        // (a tree built while hidden had a zero-size container, so its first fit was a
-        // no-op). Restoring — instead of always re-fitting — keeps a stage spatially
-        // stable as the reader moves between tabs.
-        revealCamera(index);
+        // Frame the tab now that it is visible (a tree built while hidden had a
+        // zero-size container). Applying its remembered position — instead of always
+        // re-framing — keeps a stage spatially stable as the reader moves between tabs.
+        revealView(index);
         for (const view of views) view?.clearSelection();
         panel.clear();
     }
 
-    /** Remember the active graph tab's camera + fold before switching away from it. */
-    function snapshotActive(): void {
-        const key = keys[activeIndex];
-        const view = views[activeIndex];
-        if (key && view) cameras.save(key, view.getState());
-    }
-
-    /** Remember every graph tab's camera + fold before a rebuild replaces the views. */
-    function snapshotCameras(): void {
-        views.forEach((view, i) => {
-            const key = keys[i];
-            if (key && view) cameras.save(key, view.getState());
-        });
-    }
-
-    /** Restore a tab's remembered position, or fit it on its first reveal. */
-    function revealCamera(index: number): void {
+    /**
+     * Show a tab's position now that it is visible: its own pinned camera, the shared
+     * current camera it inherits, or the default framing — plus its remembered fold.
+     */
+    function revealView(index: number): void {
         const view = views[index];
-        if (!view) return;
         const key = keys[index];
-        const saved = key ? cameras.load(key) : undefined;
-        if (saved) view.restore(saved);
-        else view.fit();
+        if (!view || !key) return;
+        view.applyView(cameras.cameraFor(key), cameras.foldFor(key));
     }
 }

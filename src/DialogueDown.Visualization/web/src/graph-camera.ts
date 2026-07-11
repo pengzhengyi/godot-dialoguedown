@@ -6,32 +6,62 @@ export interface CameraTransform {
 }
 
 /**
- * Everything needed to restore where a reader left one stage's graph: its camera
- * (zoom + pan) and its fold state (the ids of collapsed nodes).
- */
-export interface GraphViewState {
-    /** The zoom/pan transform, or `null` when the graph has not been positioned yet. */
-    transform: CameraTransform | null;
-    /** The ids of nodes whose children are collapsed. */
-    collapsed: string[];
-}
-
-/**
- * Remembers each stage's graph view state across tab switches and hot-reloads,
- * keyed by the stage's (stable, unique) title. Purely in-memory for the life of
- * the page — nothing is serialized or sent to the server, so the offline
- * single-file report stays self-contained.
+ * Remembers graph positions with a hybrid policy:
+ *
+ * - a shared **current** camera that untouched graphs inherit, so switching to a
+ *   graph you have not positioned keeps you at roughly the same view;
+ * - a per-graph **override** that a graph pins the moment the reader adjusts it, so
+ *   an adjusted graph keeps its own camera regardless of the shared one;
+ * - per-graph **fold** state (which nodes are collapsed), always independent
+ *   because nodes differ between graphs.
+ *
+ * Purely in-memory for the life of the page — nothing is serialized or sent to the
+ * server, so the offline single-file report stays self-contained.
  */
 export class GraphCameraStore {
-    private readonly byStage = new Map<string, GraphViewState>();
+    private readonly overrides = new Map<string, CameraTransform>();
+    private readonly folds = new Map<string, string[]>();
+    private current: CameraTransform | null = null;
 
-    /** Remembers `state` as the latest position for the stage titled `title`. */
-    save(title: string, state: GraphViewState): void {
-        this.byStage.set(title, state);
+    /**
+     * The camera a graph should show: its own pinned override, else the shared
+     * current camera, else `null` (meaning "use the default framing").
+     */
+    cameraFor(title: string): CameraTransform | null {
+        return this.overrides.get(title) ?? this.current;
     }
 
-    /** The remembered state for `title`, or `undefined` if the stage has none yet. */
-    load(title: string): GraphViewState | undefined {
-        return this.byStage.get(title);
+    /** The collapsed node ids remembered for a graph (empty when untouched). */
+    foldFor(title: string): string[] {
+        return this.folds.get(title) ?? [];
+    }
+
+    /**
+     * Record a reader-driven camera change: pin the graph's override and make it the
+     * shared current camera that other untouched graphs inherit.
+     */
+    adjustCamera(title: string, transform: CameraTransform): void {
+        this.overrides.set(title, transform);
+        this.current = transform;
+    }
+
+    /**
+     * Track the live camera — including programmatic applies (a reveal, the default
+     * framing) — so the shared current camera reflects wherever the reader is now,
+     * without pinning an override.
+     */
+    noteCamera(transform: CameraTransform): void {
+        this.current = transform;
+    }
+
+    /** Remember a reader-driven fold change for a graph. */
+    setFold(title: string, collapsed: string[]): void {
+        this.folds.set(title, collapsed);
+    }
+
+    /** Revert a graph to defaults: drop its camera override and its fold memory. */
+    reset(title: string): void {
+        this.overrides.delete(title);
+        this.folds.delete(title);
     }
 }

@@ -120,7 +120,9 @@ source split and hides the header, tabs, and status bar; <kbd>f</kbd> or <kbd>Es
 restores it. A served report toggles
 between **View** (read-only, auto-updating) and **Edit** (an in-browser editor that
 saves back to the file). Click a node to inspect **the source it was produced
-from**, with a rendered Markdown preview, in a resizable side panel. Nodes are
+from**, with a rendered Markdown preview, in a resizable side panel — which,
+like the Source tab's preview, can be **collapsed** to give the graph or editor
+the full width. Nodes are
 **color-coded by a cross-stage category** (a code span and the game call it
 becomes share a color), with a legend and arrow-key navigation. The report is a
 **single self-contained HTML file** — D3, CodeMirror, Pico.css, marked, and

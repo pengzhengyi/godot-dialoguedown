@@ -5,6 +5,7 @@ import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
 import { initResizer } from "./resizer";
 import { initFullscreen } from "./fullscreen";
+import { initCollapsiblePanel } from "./collapse-toggle";
 import { initTooltips, initTabTooltips } from "./tooltips";
 import { setHelp } from "./help";
 
@@ -73,6 +74,19 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         views[activeIndex]?.handleKey(event);
     });
     initResizer();
+    // The node-details inspector can be hidden to give the graph the full width. Its
+    // toggle lives on the resize divider, doubling as the always-present re-open handle
+    // once the panel is gone; the choice is remembered across reloads.
+    const resizerEl = document.getElementById("resizer");
+    if (resizerEl) {
+        const inspector = initCollapsiblePanel({
+            container: appEl,
+            collapsedClass: "detail-collapsed",
+            storageKey: "dd-inspector-collapsed",
+            name: "inspector",
+        });
+        resizerEl.appendChild(inspector.button);
+    }
     initTooltips(stagesEl);
     initTabTooltips(tabsEl);
 

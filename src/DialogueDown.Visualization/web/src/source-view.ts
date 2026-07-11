@@ -25,6 +25,7 @@ import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { tags } from "@lezer/highlight";
 import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
 import { createMaximizeButton } from "./maximize-button";
+import { initCollapsiblePanel } from "./collapse-toggle";
 import { renderDocument } from "./text";
 
 /**
@@ -153,8 +154,8 @@ export function createSourceView(
 
     const divider = document.createElement("div");
     divider.className = "source-divider";
-    divider.setAttribute("role", "separator");
-    divider.setAttribute("aria-orientation", "vertical");
+    // A pointer-only resize handle (no keyboard resize), so it carries no separator role;
+    // the meaningful, keyboard-accessible action is the labeled hide/show toggle it hosts.
     divider.title = "Drag to resize";
 
     const preview = document.createElement("div");
@@ -210,7 +211,18 @@ export function createSourceView(
     });
 
     container.append(sourcePane, divider, preview);
-    initSplitDivider(container, sourcePane, divider);
+    initSplitDivider(container, divider);
+
+    // The preview can be hidden to give the editor the full width. Its toggle lives on the
+    // split divider, doubling as the always-present re-open handle; the choice is
+    // remembered across reloads.
+    const previewPanel = initCollapsiblePanel({
+        container,
+        collapsedClass: "preview-collapsed",
+        storageKey: "dd-preview-collapsed",
+        name: "preview",
+    });
+    divider.appendChild(previewPanel.button);
 
     // A maximize toggle in a small pill (bottom-right), matching the graph's zoom
     // cluster, so the Source tab can fill the window like the graphs.
@@ -230,15 +242,14 @@ export function createSourceView(
     };
 }
 
-/** Wire the divider so dragging it re-proportions the source pane. */
-function initSplitDivider(
-    container: HTMLElement,
-    sourcePane: HTMLElement,
-    divider: HTMLElement,
-): void {
+/** Wire the divider so dragging it re-proportions the source pane (via `--source-split`). */
+function initSplitDivider(container: HTMLElement, divider: HTMLElement): void {
     let dragging = false;
 
     divider.addEventListener("mousedown", (event) => {
+        // A collapsed preview has nothing to resize — the divider is just its re-open
+        // handle, so ignore drags (the toggle itself already swallows its own mousedown).
+        if (container.classList.contains("preview-collapsed")) return;
         dragging = true;
         document.body.style.userSelect = "none";
         event.preventDefault();
@@ -250,7 +261,7 @@ function initSplitDivider(
         if (bounds.width === 0) return;
         const ratio = (event.clientX - bounds.left) / bounds.width;
         const clamped = Math.max(MIN_RATIO, Math.min(MAX_RATIO, ratio));
-        sourcePane.style.flexBasis = `${(clamped * 100).toFixed(2)}%`;
+        container.style.setProperty("--source-split", `${(clamped * 100).toFixed(2)}%`);
     });
 
     document.addEventListener("mouseup", () => {

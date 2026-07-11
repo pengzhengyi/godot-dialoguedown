@@ -22,14 +22,16 @@
     ],
     "resource": [
       {
-        "files": ["guide/assets/**"]
+        "files": ["guide/assets/**", "logo.svg", "logo-pipeline.svg"]
       }
     ],
     "output": "_site",
-    "template": ["default", "modern"],
+    "template": ["default", "modern", "template"],
     "globalMetadata": {
       "_appName": "DialogueDown",
       "_appTitle": "DialogueDown docs",
+      "_appLogoPath": "logo.svg",
+      "_appFaviconPath": "logo.svg",
       "_enableSearch": true,
       "_disableContribution": false,
       "_gitContribute": {

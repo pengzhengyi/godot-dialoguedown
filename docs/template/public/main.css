@@ -1,0 +1,53 @@
+/*
+ * Brand the DocFX navbar with our two-state logo — the chat-bubble "M" that
+ * cross-fades to the branching-pipeline graph on hover, matching the visualization
+ * report and the demo landing. Pure CSS: the default logo <img id="logo"> is sized
+ * and given a gap before the wordmark, and the pipeline graph is an overlay drawn by
+ * .navbar-brand::before, positioned exactly over the logo and revealed on hover.
+ *
+ * This file lives at a fixed path (public/main.css), so the ../ image URL always
+ * resolves to the site-root logo regardless of which page loads it.
+ */
+.navbar-brand {
+  position: relative;
+}
+
+.navbar-brand > #logo {
+  width: 24px;
+  height: 24px;
+  margin-right: 0.55rem;
+  transition: opacity 0.25s ease;
+}
+
+.navbar-brand::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translateY(-50%);
+  background: url("../logo-pipeline.svg") center / contain no-repeat;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.navbar-brand:hover > #logo {
+  opacity: 0;
+}
+
+.navbar-brand:hover::before {
+  opacity: 1;
+}
+
+/*
+ * A cozier, more centered reading width than DocFX modern's very wide default
+ * (max-width 1768px on large screens) — closer to MDN's feel: shorter lines and
+ * more breathing room on the sides. Applies to the navbar too, so it stays aligned.
+ */
+@media (min-width: 1400px) {
+  .container-xxl {
+    max-width: 1320px;
+  }
+}

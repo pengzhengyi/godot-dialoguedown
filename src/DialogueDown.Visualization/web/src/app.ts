@@ -16,6 +16,12 @@ export interface SourceOptions {
     editable: boolean;
     /** Called with the new buffer on every editor change (edits, or a View-mode reload). */
     onChange(buffer: string): void;
+    /**
+     * Called when the active tab changes, with whether the Source tab is now active. The
+     * mode toggle governs only the Source editor, so the served wiring freezes it on the
+     * read-only graph tabs and thaws it on Source.
+     */
+    onActiveTabChange?(isSource: boolean): void;
 }
 
 /** Controls a running report: swap in fresh data, reconfigure the editor, or show a banner. */
@@ -144,6 +150,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         const isSource = views[index] === null;
         appEl.classList.toggle("no-detail", isSource);
         setHelp(isSource ? "source" : "graph");
+        source?.onActiveTabChange?.(isSource);
         // Re-fit now that the section is visible: a tree built while its tab was
         // hidden had a zero-size container, so its first fit was a no-op.
         views[index]?.fit();

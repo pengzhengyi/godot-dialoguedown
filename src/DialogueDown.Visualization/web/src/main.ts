@@ -41,13 +41,15 @@ if (report.mode === "view" || report.mode === "edit") {
     // Edit (editable, owns its buffer). The wiring closures reference `live`/`controller`
     // only when invoked (after they are created below).
     const initialMode: ServedMode = report.mode;
+    const toggle = createModeToggle(initialMode, (mode) => controller.switchTo(mode));
     const app = runApp(report, {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
+        // Freeze the toggle on read-only graph tabs; thaw it on the Source tab.
+        onActiveTabChange: (isSource) => toggle.setEnabled(isSource),
     });
     const ui = initLiveEditUi(app, () => void live.save());
     const live = createLiveEdit(ui, report.source ?? "");
-    const toggle = createModeToggle(initialMode, (mode) => controller.switchTo(mode));
     const controller = createModeController(initialMode, {
         app,
         live,

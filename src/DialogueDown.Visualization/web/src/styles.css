@@ -840,6 +840,17 @@ svg.tree {
     color: var(--mode-accent-contrast);
 }
 
+/* Frozen on read-only graph tabs: the mode governs only the Source editor, so the
+   control is dimmed and inert there (the pressed mode stays visible so it is still
+   legible). A tooltip on the group explains how to unfreeze it. */
+.mode-toggle[aria-disabled="true"] {
+    opacity: 0.5;
+}
+
+.mode-toggle[aria-disabled="true"] .mode-toggle-option {
+    cursor: not-allowed;
+}
+
 /* The explicit Save affordance beside ⌘/Ctrl+S, enabled only while there are unsaved
    edits (the same dirty state shows as a dot on the Source tab). */
 .save-button {

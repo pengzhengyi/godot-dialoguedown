@@ -30,6 +30,23 @@ describe("createModeToggle", () => {
         expect(pressed(toggle.element, "edit")).toBe("true");
         expect(pressed(toggle.element, "view")).toBe("false");
     });
+
+    it("setEnabled disables both options and marks the group when frozen", () => {
+        const toggle = createModeToggle("view", vi.fn());
+
+        toggle.setEnabled(false);
+
+        expect(toggle.element.getAttribute("aria-disabled")).toBe("true");
+        expect(button(toggle.element, "view").disabled).toBe(true);
+        expect(button(toggle.element, "edit").disabled).toBe(true);
+        expect(toggle.element.title).not.toBe("");
+
+        toggle.setEnabled(true);
+
+        expect(toggle.element.getAttribute("aria-disabled")).toBe("false");
+        expect(button(toggle.element, "view").disabled).toBe(false);
+        expect(button(toggle.element, "edit").disabled).toBe(false);
+    });
 });
 
 function button(root: HTMLElement, mode: string): HTMLButtonElement {

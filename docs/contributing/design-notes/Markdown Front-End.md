@@ -55,13 +55,12 @@ links, code spans, comments) and nothing about dialogue meaning.
 
 ```mermaid
 flowchart LR
-    Source["raw script string"] --> FE["Markdown front-end<br/>(THIS component)"]
-    FE --> AST["Markdown AST<br/>(our types)"]
-    AST --> TR["Transpiler"]
-    TR --> DS["Desugar"]
-    DS --> SEM["Semantic analysis"]
-    SEM --> G["Dialogue graph"]
-    style FE fill:#2d6,stroke:#0a0,color:#000
+    A[".dialogue.md"] --> B["Markdown front-end (this)<br/>→ Markdown AST"]
+    B --> C["Transpiler<br/>→ Dialogue AST"]
+    C --> D["Desugar<br/>compose + normalize"]
+    D --> E["Semantic analysis<br/>resolve + validate"]
+    E --> F["Dialogue graph → runtime"]
+    style B fill:#2d6,stroke:#0a0,color:#000
 ```
 
 The boundary is deliberate: this component stops at a faithful Markdown tree.

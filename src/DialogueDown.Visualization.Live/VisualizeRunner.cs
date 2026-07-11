@@ -20,6 +20,10 @@ public sealed class VisualizeRunner : IVisualizeRunner
         StaticMode.Run(file, output, noOpen, _browser, Console.Error);
 
     /// <inheritdoc />
+    public int RunEmit(string file, EmitFormat format, string? output) =>
+        EmitMode.Run(file, format, output, Console.Out, Console.Error);
+
+    /// <inheritdoc />
     public Task<int> RunServedAsync(
         string file, int? port, bool noOpen, string? renderRoot, string mode, CancellationToken cancellationToken)
     {

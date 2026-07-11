@@ -11,6 +11,10 @@ internal static class Display
     public static DisplayNode Node(string id, string label, params DisplayAttribute[] attributes) =>
         new(id, label, attributes);
 
+    public static DisplayNode NodeWithCategory(
+        string id, string label, string category, params DisplayAttribute[] attributes) =>
+        new(id, label, attributes, Category: category);
+
     public static DisplayEdge Child(string fromId, string toId) =>
         new(fromId, toId, DisplayEdgeKind.Child);
 

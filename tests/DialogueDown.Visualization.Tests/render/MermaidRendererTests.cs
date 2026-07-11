@@ -66,4 +66,52 @@ public sealed class MermaidRendererTests
 
         Assert.Contains("n0[\"a &lt;b&gt; &amp; &quot;c&quot;\"]", output);
     }
+
+    [Fact]
+    public void Render_CategorizedNode_TagsItAndEmitsAClassDefWithTheCategoryColor()
+    {
+        var graph = MakeGraph("G", [NodeWithCategory("n0", "Line", "speech")], []);
+
+        var output = _renderer.Render(graph);
+
+        Assert.Contains("n0[\"Line\"]:::catspeech", output);
+        Assert.Contains("classDef catspeech fill:#22c55e,color:#fff,stroke:#0f172a", output);
+    }
+
+    [Fact]
+    public void Render_PrefixesClassNames_SoAReservedCategoryLikeCallDoesNotBreakMermaid()
+    {
+        // Mermaid reserves the bare word `call`; the `cat` prefix keeps the class valid.
+        var graph = MakeGraph("G", [NodeWithCategory("n0", "Command", "call")], []);
+
+        var output = _renderer.Render(graph);
+
+        Assert.Contains(":::catcall", output);
+        Assert.DoesNotContain(":::call\n", output);
+    }
+
+    [Fact]
+    public void Render_EmitsEachCategoryClassDefOnce_EvenWithRepeatedNodes()
+    {
+        var graph = MakeGraph(
+            "G",
+            [NodeWithCategory("n0", "a", "text"), NodeWithCategory("n1", "b", "text")],
+            [Child("n0", "n1")]);
+
+        var output = _renderer.Render(graph);
+
+        var occurrences = output.Split("classDef cattext").Length - 1;
+        Assert.Equal(1, occurrences);
+    }
+
+    [Fact]
+    public void Render_UncategorizedNode_StaysPlain()
+    {
+        var graph = MakeGraph("G", [Node("n0", "a")], []);
+
+        var output = _renderer.Render(graph);
+
+        Assert.DoesNotContain(":::", output);
+        Assert.DoesNotContain("classDef", output);
+    }
 }

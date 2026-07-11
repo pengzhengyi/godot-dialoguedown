@@ -32,7 +32,17 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
         ArgumentNullException.ThrowIfNull(settings);
         var hasScript = !string.IsNullOrWhiteSpace(settings.Script);
 
-        // A non-interactive export never opens a server or the launcher.
+        // A non-interactive emit writes stage text (Mermaid/DOT) to --output or stdout,
+        // never a server. Checked before the HTML export so `--emit dot -o x.dot` emits
+        // text rather than an HTML report. The format is validated in settings, so
+        // parsing here always succeeds.
+        if (settings.Emit is not null
+            && VisualizeSettings.TryParseEmitFormat(settings.Emit, out var format))
+        {
+            return Task.FromResult(_runner.RunEmit(settings.Script, format, settings.Output));
+        }
+
+        // A non-interactive HTML export never opens a server or the launcher.
         if (settings.Output is not null)
         {
             return Task.FromResult(_runner.RunStatic(settings.Script, settings.Output, settings.NoOpen));

@@ -79,6 +79,59 @@ public sealed class VisualizeCommandTests
     }
 
     [Fact]
+    public void Visualize_EmitMermaid_RoutesToRunEmitWithTheFormat()
+    {
+        using var script = new TempScript("# Scene");
+        var runner = Substitute.For<IVisualizeRunner>();
+        var tester = CliTester.Create(runner: runner, launcher: Launcher());
+
+        tester.Run("visualize", script.Path, "--emit", "mermaid");
+
+        runner.Received(1).RunEmit(script.Path, EmitFormat.Mermaid, null);
+        runner.DidNotReceive().RunServedAsync(
+            Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<string?>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void Visualize_EmitDotWithOutput_RoutesToRunEmitWithTheFile()
+    {
+        using var script = new TempScript("# Scene");
+        var runner = Substitute.For<IVisualizeRunner>();
+        var tester = CliTester.Create(runner: runner, launcher: Launcher());
+
+        tester.Run("visualize", script.Path, "--emit", "dot", "-o", "scene.dot");
+
+        runner.Received(1).RunEmit(script.Path, EmitFormat.Dot, "scene.dot");
+        runner.DidNotReceive().RunStatic(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<bool>());
+    }
+
+    [Fact]
+    public void Visualize_EmitUnknownFormat_FailsValidationWithoutRunning()
+    {
+        using var script = new TempScript("# Scene");
+        var runner = Substitute.For<IVisualizeRunner>();
+        var tester = CliTester.Create(runner: runner, launcher: Launcher());
+
+        var result = tester.Run("visualize", script.Path, "--emit", "yaml");
+
+        Assert.NotEqual(0, result.ExitCode);
+        runner.DidNotReceive().RunEmit(Arg.Any<string>(), Arg.Any<EmitFormat>(), Arg.Any<string?>());
+    }
+
+    [Fact]
+    public void Visualize_EmitWithoutScript_FailsValidation()
+    {
+        var runner = Substitute.For<IVisualizeRunner>();
+        var tester = CliTester.Create(runner: runner, launcher: Launcher());
+
+        var result = tester.Run("visualize", "--emit", "mermaid");
+
+        Assert.NotEqual(0, result.ExitCode);
+        runner.DidNotReceive().RunEmit(Arg.Any<string>(), Arg.Any<EmitFormat>(), Arg.Any<string?>());
+    }
+
+    [Fact]
     public void Visualize_Pick_OpensTheLauncherEvenWithAScript()
     {
         using var script = new TempScript("# Scene");

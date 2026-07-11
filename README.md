@@ -81,10 +81,18 @@ CI fails if line coverage drops below 90% and emits a warning when it is below
 
 ## Documentation
 
-- [Overview](docs/Overview.md), architecture, representations, and current
+📖 **[Documentation site](https://pengzhengyi.github.io/godot-dialoguedown/)** — the
+writer guide, the contributing docs and per-stage design notes, and the generated
+C# API reference, published from `docs/` on every merge to `main`.
+
+In the repository:
+
+- [Overview](docs/guide/overview.md), architecture, representations, and current
   implementation status.
-- [Script language specification](docs/Script%20Language/Script%20Language%20DSL%20Specification.md)
+- [Script language specification](docs/guide/script-language.md)
   for proposed writer-facing dialogue syntax.
+- [Design notes](docs/contributing/design-notes/README.md) — the goal, key
+  decisions, and tradeoffs behind each compiler stage and component.
 
 ## Compilation visualization
 
@@ -93,7 +101,7 @@ CI fails if line coverage drops below 90% and emits a warning when it is below
 </p>
 
 > [!TIP]
-> **[▶ Try the live demo](https://pengzhengyi.github.io/godot-dialoguedown/)** — an
+> **[▶ Try the live demo](https://pengzhengyi.github.io/godot-dialoguedown/demo/)** — an
 > interactive, read-only report for a sample script, served from GitHub Pages and
 > rebuilt on every merge to `main`.
 
@@ -142,7 +150,7 @@ dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --emit 
 > the core library; its API and abstractions may still change.
 
 See the
-[Compilation Visualization note](docs/Implementation%20Notes/Compilation%20Visualization.md).
+[Compilation Visualization note](docs/contributing/design-notes/Compilation%20Visualization.md).
 
 ## Design intent
 

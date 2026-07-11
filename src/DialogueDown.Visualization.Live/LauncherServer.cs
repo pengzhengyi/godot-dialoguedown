@@ -38,6 +38,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.Logging.ClearProviders();
+        builder.AddLoopbackCompression();
         _app = builder.Build();
         Configure(_app);
     }
@@ -75,6 +76,10 @@ internal sealed class LauncherServer : IAsyncDisposable
 
     private void Configure(WebApplication app)
     {
+        // Compress the large report pages; text/event-stream is not compressible, so the
+        // SSE hot-reload stream passes through untouched.
+        app.UseResponseCompression();
+
         // Assets for the active source resolve under the launch root at /r/... . Static
         // files runs before routing (explicit UseRouting below) so it serves an existing
         // asset even though the catch-all report route would also match its path.

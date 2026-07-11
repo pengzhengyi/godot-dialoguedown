@@ -29,6 +29,7 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
         builder.Logging.ClearProviders();
+        builder.AddLoopbackCompression();
         _app = builder.Build();
         Configure(_app);
     }
@@ -56,6 +57,10 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
 
     private void Configure(WebApplication app)
     {
+        // Compress the large report page before anything else runs; the SSE stream
+        // (text/event-stream) is not a compressible type, so it passes through.
+        app.UseResponseCompression();
+
         // Serve the resolved root folder as static files so the report's relative
         // image and resource links resolve. Hosting is minimal and consent-gated:
         // the document's own folder by default, a broader ancestor only when the

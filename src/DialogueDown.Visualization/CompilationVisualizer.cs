@@ -1,3 +1,4 @@
+using System.Text;
 using DialogueDown.Compilation;
 using DialogueDown.Markdown;
 
@@ -43,6 +44,33 @@ public sealed class CompilationVisualizer
             result.Script.ToDisplayGraph(source),
             result.Desugared.ToDisplayGraph(source),
         ];
+    }
+
+    /// <summary>
+    /// Compiles the source and renders every stage as text in the given
+    /// <paramref name="format"/> (Mermaid or DOT), joined with a per-stage header
+    /// comment so a multi-stage emit is self-describing. For embedding a stage's graph
+    /// elsewhere — the report itself stays HTML.
+    /// </summary>
+    public string RenderText(string source, EmitFormat format)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        var renderer = RendererFor(format);
+        var comment = CommentPrefixFor(format);
+        var builder = new StringBuilder();
+        var stages = BuildStages(source);
+        for (var i = 0; i < stages.Count; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append('\n');
+            }
+
+            builder.Append(comment).Append(' ').Append(stages[i].Title).Append('\n');
+            builder.Append(renderer.Render(stages[i]));
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>
@@ -93,6 +121,21 @@ public sealed class CompilationVisualizer
         ArgumentNullException.ThrowIfNull(mode);
         return DisplayGraphJson.SerializeDocument(mode, documentPath, source, BuildStages(source));
     }
+
+    private static IDisplayRenderer RendererFor(EmitFormat format) => format switch
+    {
+        EmitFormat.Mermaid => new MermaidRenderer(),
+        EmitFormat.Dot => new DotRenderer(),
+        _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown emit format."),
+    };
+
+    // The stage-header comment leader in each format's syntax.
+    private static string CommentPrefixFor(EmitFormat format) => format switch
+    {
+        EmitFormat.Mermaid => "%%",
+        EmitFormat.Dot => "//",
+        _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown emit format."),
+    };
 
     private static void CollectLocalImages(
         object node, MarkdownAstProjection projection, List<string> references)

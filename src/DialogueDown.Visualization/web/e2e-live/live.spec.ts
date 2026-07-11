@@ -91,6 +91,33 @@ test("keeps a graph's zoom across a hot reload", async ({ page }) => {
     );
 });
 
+test("keeps a graph's collapsed nodes across a hot reload", async ({ page }) => {
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    // Overlays (legend, zoom, detail) sit above the SVG; let the collapse click through.
+    await page.addStyleTag({
+        content: ".legend, .zoom-controls, .detail { pointer-events: none !important; }",
+    });
+
+    const nodes = page.locator("section.stage.active g.node");
+    const collapsed = page.locator("section.stage.active g.node.collapsed");
+    await expect(nodes.first()).toBeVisible();
+    await expect(collapsed).toHaveCount(0);
+
+    // Collapse the root Document node, hiding its whole subtree.
+    await nodes.filter({ hasText: "Document" }).first().locator("circle").first().click();
+    await expect(collapsed).toHaveCount(1);
+    await expect(nodes).toHaveCount(1); // only the collapsed root remains
+
+    // A disk change rebuilds the graph tabs in place (View mode auto-updates).
+    writeFileSync(LIVE_DOC, INITIAL_SOURCE + "\n## Added Section\n\nBob: A brand new line.\n");
+    await expect(page.locator(".source-preview")).toContainText("brand new line");
+
+    // The rebuilt graph kept the Document node collapsed rather than expanding every
+    // node on reload — the new section stays hidden under the still-collapsed root.
+    await expect(collapsed).toHaveCount(1);
+    await expect(nodes).toHaveCount(1);
+});
+
 test("an untouched graph inherits the current zoom; an adjusted one keeps its own", async ({
     page,
 }) => {

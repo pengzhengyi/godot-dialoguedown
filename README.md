@@ -98,7 +98,8 @@ compiler produced at each stage. The optional
 compiler's stages as an interactive HTML report — a **Source** tab (the whole
 document beside a live preview, with working anchor links), then a graph tab for
 each stage: **Markdown AST**, **Dialogue AST**, and the desugarer's **Desugared
-AST**, each with pan and zoom and click-to-collapse. A served report toggles
+AST**, each with pan and zoom and click-to-collapse that persist as you switch
+tabs and as the report hot-reloads. A served report toggles
 between **View** (read-only, auto-updating) and **Edit** (an in-browser editor that
 saves back to the file). Click a node to inspect **the source it was produced
 from**, with a rendered Markdown preview, in a resizable side panel. Nodes are

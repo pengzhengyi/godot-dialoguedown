@@ -180,6 +180,29 @@ test("the zoom controls change and reset the ratio", async ({ page }) => {
     await expect(ratio).not.toHaveText(before ?? "");
 });
 
+test("a stage keeps its zoom when you leave the tab and come back", async ({ page }) => {
+    await showAst(page);
+    const viewport = page.locator("section.stage.active svg.tree > g").first();
+    const zoomIn = page.locator("section.stage.active .zoom-controls button", { hasText: "+" });
+
+    // Reading the transform first lets the initial auto-fit settle before we zoom.
+    const fitted = await viewport.getAttribute("transform");
+    await zoomIn.click();
+    await zoomIn.click();
+    const zoomed = await viewport.getAttribute("transform");
+    expect(zoomed).not.toEqual(fitted);
+
+    // Leave for the Source tab, then return to the graph.
+    await page.locator(".tab", { hasText: "Source" }).click();
+    await showAst(page);
+
+    // The graph is exactly where we left it — not re-fitted to the default.
+    await expect(page.locator("section.stage.active svg.tree > g").first()).toHaveAttribute(
+        "transform",
+        zoomed ?? "",
+    );
+});
+
 test("arrow keys move the selection", async ({ page }) => {
     await showAst(page);
     await page.locator("g.node", { hasText: "Document" }).first().click();

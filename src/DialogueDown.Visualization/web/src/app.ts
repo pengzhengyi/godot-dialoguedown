@@ -1,6 +1,7 @@
 import type { Report, Stage } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
+import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
 import { initResizer } from "./resizer";
 import { initTooltips, initTabTooltips } from "./tooltips";
@@ -49,6 +50,11 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     // Per tab: its tree view (graph tabs) or null (the Source tab, which has no
     // node-detail panel and no keyboard tree navigation).
     let views: (TreeView | null)[] = [];
+    // Per tab: its camera-store key — the stage title for a graph tab, or null for
+    // the Source tab (which has no graph and no camera).
+    let keys: (string | null)[] = [];
+    // Remembers each stage's zoom/pan and fold across tab switches and rebuilds.
+    const cameras = new GraphCameraStore();
     let activeIndex = 0;
     let sourcePresent = false;
     let sourceHandle: SourceViewHandle | null = null;
@@ -79,6 +85,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         tabsEl.replaceChildren();
         stagesEl.replaceChildren();
         views = [];
+        keys = [];
         sourcePresent = report.source != null;
 
         if (report.source != null) {
@@ -89,7 +96,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 source ? { editable: source.editable, onChange: source.onChange } : {},
             );
             section.appendChild(sourceHandle.element);
-            addTab("Source", section, null, SOURCE_TIP);
+            addTab("Source", section, null, SOURCE_TIP, null);
         }
         for (const stage of report.stages) {
             addStageTab(stage);
@@ -98,12 +105,15 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     }
 
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
-    // editor — and the reader's cursor — untouched.
+    // editor — and the reader's cursor — untouched. Each graph's camera and fold are
+    // snapshotted first, then handed back to its rebuilt stage so the reload stays put.
     function updateStages(stages: Stage[]): void {
+        snapshotCameras();
         const keep = sourcePresent ? 1 : 0;
         while (tabsEl.children.length > keep) tabsEl.lastElementChild!.remove();
         while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
         views = views.slice(0, keep);
+        keys = keys.slice(0, keep);
         for (const stage of stages) {
             addStageTab(stage);
         }
@@ -115,7 +125,8 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         section.className = "stage";
         let view: TreeView | null = null;
         try {
-            view = createTreeView(stage, panel.show);
+            // A rebuilt stage inherits its predecessor's remembered position (if any).
+            view = createTreeView(stage, panel.show, cameras.load(stage.title));
             section.appendChild(view.svg);
             section.appendChild(view.legend);
             section.appendChild(view.controls);
@@ -123,10 +134,16 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             section.classList.add("error");
             section.textContent = `Failed to render stage: ${(error as Error).message}`;
         }
-        addTab(stage.title, section, view, stage.description);
+        addTab(stage.title, section, view, stage.description, stage.title);
     }
 
-    function addTab(title: string, section: HTMLElement, view: TreeView | null, tip: string): void {
+    function addTab(
+        title: string,
+        section: HTMLElement,
+        view: TreeView | null,
+        tip: string,
+        key: string | null,
+    ): void {
         const index = views.length;
         const tab = document.createElement("button");
         tab.className = "tab";
@@ -137,9 +154,12 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         tabsEl.appendChild(tab);
         stagesEl.appendChild(section);
         views.push(view);
+        keys.push(key);
     }
 
     function activate(index: number): void {
+        // Remember where the reader left the tab we are leaving, before switching.
+        snapshotActive();
         activeIndex = index;
         Array.from(tabsEl.children).forEach((el, i) => el.classList.toggle("active", i === index));
         Array.from(stagesEl.children).forEach((el, i) =>
@@ -151,10 +171,37 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         appEl.classList.toggle("no-detail", isSource);
         setHelp(isSource ? "source" : "graph");
         source?.onActiveTabChange?.(isSource);
-        // Re-fit now that the section is visible: a tree built while its tab was
-        // hidden had a zero-size container, so its first fit was a no-op.
-        views[index]?.fit();
+        // Restore the tab's remembered position, or fit it the first time it is shown
+        // (a tree built while hidden had a zero-size container, so its first fit was a
+        // no-op). Restoring — instead of always re-fitting — keeps a stage spatially
+        // stable as the reader moves between tabs.
+        revealCamera(index);
         for (const view of views) view?.clearSelection();
         panel.clear();
+    }
+
+    /** Remember the active graph tab's camera + fold before switching away from it. */
+    function snapshotActive(): void {
+        const key = keys[activeIndex];
+        const view = views[activeIndex];
+        if (key && view) cameras.save(key, view.getState());
+    }
+
+    /** Remember every graph tab's camera + fold before a rebuild replaces the views. */
+    function snapshotCameras(): void {
+        views.forEach((view, i) => {
+            const key = keys[i];
+            if (key && view) cameras.save(key, view.getState());
+        });
+    }
+
+    /** Restore a tab's remembered position, or fit it on its first reveal. */
+    function revealCamera(index: number): void {
+        const view = views[index];
+        if (!view) return;
+        const key = keys[index];
+        const saved = key ? cameras.load(key) : undefined;
+        if (saved) view.restore(saved);
+        else view.fit();
     }
 }

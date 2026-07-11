@@ -67,6 +67,30 @@ test("keeps the active tab across a hot reload", async ({ page }) => {
     await expect(page.locator("section.stage.active g.node")).not.toHaveCount(0);
 });
 
+test("keeps a graph's zoom across a hot reload", async ({ page }) => {
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    const viewport = page.locator("section.stage.active svg.tree > g").first();
+    const zoomIn = page.locator("section.stage.active .zoom-controls button", { hasText: "+" });
+
+    // Reading the transform first lets the initial auto-fit settle before we zoom.
+    const fitted = await viewport.getAttribute("transform");
+    await zoomIn.click();
+    await zoomIn.click();
+    const zoomed = await viewport.getAttribute("transform");
+    expect(zoomed).not.toEqual(fitted);
+
+    // A disk change rebuilds the graph tabs in place (View mode auto-updates).
+    writeFileSync(LIVE_DOC, "# Zoom Scene\n\nAlice: The graph is rebuilt but stays put.\n");
+    await expect(page.locator(".source-preview")).toContainText("stays put");
+
+    // The rebuilt Markdown AST graph kept the zoom it had before the reload, rather
+    // than snapping back to the default fit.
+    await expect(page.locator("section.stage.active svg.tree > g").first()).toHaveAttribute(
+        "transform",
+        zoomed ?? "",
+    );
+});
+
 test("shows a banner when the document is deleted", async ({ page }) => {
     await expect(page.locator("#live-banner")).toBeHidden();
 

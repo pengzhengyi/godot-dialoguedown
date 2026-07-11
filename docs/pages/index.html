@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DialogueDown — compilation visualization demo</title>
+    <meta
+      name="description"
+      content="A live demo of DialogueDown: explore a dialogue script's compiler stages as interactive graphs."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHBhdGggZD0iTTYgMmgyMGE1IDUgMCAwIDEgNSA1djE1YTUgNSAwIDAgMS01IDVIMTJsLTUgNCAuNi00SDZhNSA1IDAgMCAxLTUtNVY3YTUgNSAwIDAgMSA1LTVaIiBmaWxsPSIjMGYxNzJhIi8+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMS4yODAgLTEuOTIwKSBzY2FsZSgwLjkyKSI+PHBhdGggZD0iTTggMjVWMTJoMy4yTDE2IDE4bDQuOC02SDI0djEzaC0zLjJ2LThMMTYgMjJsLTQuOC01djhaIiBmaWxsPSIjZjhmYWZjIi8+PC9nPjwvc3ZnPg=="
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f172a;
+        --card: #1e293b;
+        --border: #334155;
+        --fg: #e2e8f0;
+        --muted: #94a3b8;
+        --accent: #2563eb;
+        --accent-fg: #ffffff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 2rem 1.25rem;
+        background: radial-gradient(1200px 600px at 50% -10%, #172033, var(--bg));
+        color: var(--fg);
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main {
+        width: 100%;
+        max-width: 46rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2.5rem;
+        box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+        cursor: default;
+      }
+      /* Two-state brand mark (matches the report header): the chat-bubble "M"
+         cross-fades to the branching pipeline graph on hover. */
+      .brand-mark {
+        position: relative;
+        flex: 0 0 auto;
+        width: 44px;
+        height: 44px;
+      }
+      .brand-logo {
+        position: absolute;
+        inset: 0;
+        display: inline-flex;
+        transition: opacity 0.25s ease;
+      }
+      .brand-logo svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .brand-logo-pipeline {
+        opacity: 0;
+      }
+      .brand:hover .brand-logo-default {
+        opacity: 0;
+      }
+      .brand:hover .brand-logo-pipeline {
+        opacity: 1;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.9rem;
+        letter-spacing: -0.02em;
+      }
+      .tagline {
+        margin: 0 0 1.5rem;
+        color: var(--muted);
+        font-size: 1.1rem;
+      }
+      p {
+        margin: 0 0 1rem;
+      }
+      .stages {
+        margin: 1.25rem 0 1.75rem;
+        padding-left: 1.2rem;
+        color: var(--muted);
+      }
+      .stages li {
+        margin: 0.25rem 0;
+      }
+      .stages strong {
+        color: var(--fg);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+      }
+      a.button {
+        display: inline-block;
+        padding: 0.7rem 1.3rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: filter 0.15s ease;
+      }
+      a.button:hover {
+        filter: brightness(1.1);
+      }
+      a.primary {
+        background: var(--accent);
+        color: var(--accent-fg);
+      }
+      a.secondary {
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid var(--border);
+      }
+      footer {
+        margin-top: 2rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      footer a {
+        color: var(--muted);
+      }
+      code {
+        background: #0b1220;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 0.1em 0.4em;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand" title="DialogueDown">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="brand-logo brand-logo-default">
+            <svg viewBox="0 0 32 32" width="30" height="30">
+              <path
+                d="M6 2h20a5 5 0 0 1 5 5v15a5 5 0 0 1-5 5H12l-5 4 .6-4H6a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Z"
+                fill="#0f172a"
+              />
+              <g transform="translate(1.280 -1.920) scale(0.92)">
+                <path d="M8 25V12h3.2L16 18l4.8-6H24v13h-3.2v-8L16 22l-4.8-5v8Z" fill="#f8fafc" />
+              </g>
+            </svg>
+          </span>
+          <span class="brand-logo brand-logo-pipeline">
+            <svg viewBox="0 0 32 32" width="30" height="30">
+              <path
+                d="M6 2h20a5 5 0 0 1 5 5v15a5 5 0 0 1-5 5H12l-5 4 .6-4H6a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Z"
+                fill="#0f172a"
+              />
+              <g transform="translate(4.800 3.900) scale(0.7)">
+                <defs>
+                  <radialGradient id="brandGlow">
+                    <stop offset="0" stop-color="#a855f7" stop-opacity="0.5" />
+                    <stop offset="0.6" stop-color="#a855f7" stop-opacity="0.22" />
+                    <stop offset="1" stop-color="#a855f7" stop-opacity="0" />
+                  </radialGradient>
+                </defs>
+                <circle cx="16" cy="18" r="4.4" fill="url(#brandGlow)" />
+                <line x1="14.46" y1="16.29" x2="10.08" y2="11.42" stroke="#a855f7" stroke-width="1.7" stroke-linecap="round" />
+                <path d="M8.54 9.71 L11.42 10.22 L8.74 12.62 Z" fill="#a855f7" />
+                <line x1="17.54" y1="16.29" x2="21.92" y2="11.42" stroke="#a855f7" stroke-width="1.7" stroke-linecap="round" />
+                <path d="M23.46 9.71 L23.26 12.62 L20.58 10.22 Z" fill="#a855f7" />
+                <line x1="7.00" y1="10.30" x2="7.00" y2="19.40" stroke="#22c55e" stroke-width="1.7" stroke-linecap="round" />
+                <path d="M7.00 21.70 L5.20 19.40 L8.80 19.40 Z" fill="#22c55e" />
+                <line x1="25.00" y1="10.30" x2="25.00" y2="19.40" stroke="#22c55e" stroke-width="1.7" stroke-linecap="round" />
+                <path d="M25.00 21.70 L23.20 19.40 L26.80 19.40 Z" fill="#22c55e" />
+                <circle cx="7" cy="8" r="2.3" fill="#22c55e" stroke="#f8fafc" stroke-width="0.95" />
+                <circle cx="25" cy="8" r="2.3" fill="#22c55e" stroke="#f8fafc" stroke-width="0.95" />
+                <path d="M16 15.0 L19.0 18 L16 21.0 L13.0 18 Z" fill="#a855f7" stroke="#f8fafc" stroke-width="0.95" stroke-linejoin="round" />
+                <rect x="4.20" y="21.70" width="5.6" height="4.6" rx="1.2" fill="#3b82f6" stroke="#f8fafc" stroke-width="0.95" />
+                <g stroke="#f8fafc" stroke-width="0.66" stroke-linecap="round">
+                  <line x1="5.54" y1="23.26" x2="8.46" y2="23.26" />
+                  <line x1="5.54" y1="24.74" x2="7.67" y2="24.74" />
+                </g>
+                <rect x="22.20" y="21.70" width="5.6" height="4.6" rx="1.2" fill="#3b82f6" stroke="#f8fafc" stroke-width="0.95" />
+                <g stroke="#f8fafc" stroke-width="0.66" stroke-linecap="round">
+                  <line x1="23.54" y1="23.26" x2="26.46" y2="23.26" />
+                  <line x1="23.54" y1="24.74" x2="25.67" y2="24.74" />
+                </g>
+              </g>
+            </svg>
+          </span>
+        </span>
+        <h1>DialogueDown</h1>
+      </div>
+
+      <p class="tagline">
+        An engine-agnostic, Markdown-first dialogue compiler — see a script lowered through its
+        compiler stages as interactive graphs.
+      </p>
+
+      <p>
+        This page hosts a live, read-only export of the visualization report for one sample script,
+        <code>examples/gallery.dialogue.md</code>. It runs entirely in your browser — no server.
+      </p>
+
+      <ul class="stages">
+        <li><strong>Source</strong> — the dialogue script beside a live Markdown preview.</li>
+        <li><strong>Markdown AST</strong> — the syntax tree parsed from the source.</li>
+        <li><strong>Dialogue AST</strong> — speakers, choices, game calls, and jump indicators.</li>
+        <li><strong>Desugared AST</strong> — jumps assembled and default speakers filled in.</li>
+      </ul>
+
+      <p>
+        Zoom, pan, and collapse the graphs; click a node to inspect the source it came from; and
+        toggle the light/dark theme. Each graph remembers where you left it.
+      </p>
+
+      <div class="actions">
+        <a class="button primary" href="./gallery.html">Open the live demo →</a>
+        <a class="button secondary" href="https://github.com/pengzhengyi/godot-dialoguedown"
+          >View on GitHub</a
+        >
+      </div>
+
+      <footer>
+        Generated from
+        <a
+          href="https://github.com/pengzhengyi/godot-dialoguedown/blob/main/examples/gallery.dialogue.md"
+          >examples/gallery.dialogue.md</a
+        >
+        by <code>dialoguedown visualize</code>. Rebuilt on every merge to <code>main</code>.
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 # README Shipping-Status Refresh
 
 > [!NOTE]
-> Status: **proposed**. A documentation-only pass to make the README's
+> Status: **implemented**. A documentation-only pass that made the README's
 > visualization section match what actually ships, with no code change.
 
 ## Goal & scope
@@ -29,13 +29,13 @@ Out of scope:
 
 ## Functionality checklist
 
-- [ ] The "Markdown AST ships / Dialogue AST added later" sentence is replaced with
+- [x] The "Markdown AST ships / Dialogue AST added later" sentence is replaced with
       the four shipping tabs.
-- [ ] The "Mermaid and DOT text for quick embedding" claim is removed from the
+- [x] The "Mermaid and DOT text for quick embedding" claim is removed from the
       report description (no stale capability claim).
-- [ ] The bundled-libraries list reflects the current bundle (adds CodeMirror).
-- [ ] A brief View ⇄ Edit mention aligns the prose with the CLI examples.
-- [ ] `markdownlint` shows no new issues; the doc reads cleanly.
+- [x] The bundled-libraries list reflects the current bundle (adds CodeMirror).
+- [x] A brief View ⇄ Edit mention aligns the prose with the CLI examples.
+- [x] `markdownlint` shows no new issues; the doc reads cleanly.
 
 ## Key design decisions
 

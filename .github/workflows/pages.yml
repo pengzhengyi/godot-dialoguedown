@@ -1,7 +1,8 @@
-name: Deploy Pages demo
+name: Deploy Pages (docs + demo)
 
-# Publish a live, read-only visualization report to GitHub Pages on every merge to
-# main. The demo is a static export of examples/gallery.dialogue.md — no server.
+# Publish the DocFX documentation site to GitHub Pages on every merge to main,
+# with the interactive visualization demo served under /demo/. Both are static —
+# no server. The DocFX site (conceptual docs + C# API reference) is the site root.
 on:
   push:
     branches: [main]
@@ -18,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    name: Render demo site
+    name: Build docs + demo
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,17 +32,26 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Restore local tools (DocFX)
+        run: dotnet tool restore
+
       # The CLI embeds the committed dist/report.html (drift-checked by CI), so the
-      # report template is already current — no npm build is needed here.
+      # report template is already current — no npm build is needed for the demo.
       - name: Build the CLI
         run: dotnet build src/DialogueDown.Cli/DialogueDown.Cli.csproj -c Release
 
-      - name: Assemble the site
+      # DocFX renders the conceptual docs and the C# API reference into docs/_site.
+      - name: Build the docs site (DocFX)
+        run: dotnet tool run docfx docs/docfx.json
+
+      - name: Assemble the Pages site
         run: |
           mkdir -p site
-          cp docs/pages/index.html site/index.html
+          cp -r docs/_site/. site/
+          mkdir -p site/demo
+          cp docs/demo/index.html site/demo/index.html
           dotnet run --project src/DialogueDown.Cli -c Release --no-build -- \
-            visualize examples/gallery.dialogue.md -o site/gallery.html
+            visualize examples/gallery.dialogue.md -o site/demo/gallery.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

@@ -53,7 +53,7 @@ Dialogue content moves through three representations:
    can traverse.
 
 For the proposed script syntax, see
-[Script language specification](./Script%20Language/Script%20Language%20DSL%20Specification.md).
+[Script language specification](./script-language.md).
 
 ## Current implementation status
 
@@ -70,7 +70,7 @@ For the proposed script syntax, see
 
 ## Related docs
 
-- [Script language specification](./Script%20Language/Script%20Language%20DSL%20Specification.md)
+- [Script language specification](./script-language.md)
   — proposed writer-facing syntax for dialogue files.
-- [Root README](../README.md) — project purpose, layout, build command, and
-  design intent.
+- [Root README](https://github.com/pengzhengyi/godot-dialoguedown/blob/main/README.md)
+  — project purpose, layout, build command, and design intent.

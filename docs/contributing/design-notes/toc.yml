@@ -1,0 +1,38 @@
+- name: All design notes
+  href: README.md
+- name: Markdown Front-End
+  href: Markdown Front-End.md
+- name: Unmodeled Markdown Handling
+  href: Unmodeled Markdown Handling.md
+- name: Compilation Visualization
+  href: Compilation Visualization.md
+- name: Live Visualization — Hot Reload
+  href: Live Visualization - Hot Reload.md
+- name: Live Visualization — File Launcher
+  href: Live Visualization - File Launcher.md
+- name: Live Visualization — Live Edit
+  href: Live Visualization - Live Edit.md
+- name: Live Visualization — View and Edit Modes
+  href: Live Visualization - View and Edit Modes.md
+- name: Markdown to Dialogue AST Transpiler
+  href: Markdown to Dialogue AST Transpiler.md
+- name: Desugar
+  href: Desugar.md
+- name: Script Compiler Facade
+  href: Script Compiler Facade.md
+- name: Command-Line Interface
+  href: Command-Line Interface.md
+- name: Visualize on the CLI
+  href: Visualize on the CLI.md
+- name: Compiler Stage Tooltips
+  href: Compiler Stage Tooltips.md
+- name: Dialogue AST Visualization Tab
+  href: Dialogue AST Visualization Tab.md
+- name: Desugared AST Visualization Tab
+  href: Desugared AST Visualization Tab.md
+- name: Visualize CLI — Emit Mermaid and DOT
+  href: Visualize CLI - Emit Mermaid and DOT.md
+- name: Graph Position Preservation
+  href: Graph Position Preservation.md
+- name: README Shipping-Status Refresh
+  href: README Shipping-Status Refresh.md

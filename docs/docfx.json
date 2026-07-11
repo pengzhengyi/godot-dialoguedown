@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../src/DialogueDown",
+          "files": ["**/*.csproj"]
+        }
+      ],
+      "dest": "api",
+      "namespaceLayout": "nested",
+      "memberLayout": "separatePages"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["**/*.{md,yml}"],
+        "exclude": ["_site/**", "demo/**", "**/bin/**", "**/obj/**"]
+      }
+    ],
+    "resource": [
+      {
+        "files": ["guide/assets/**"]
+      }
+    ],
+    "output": "_site",
+    "template": ["default", "modern"],
+    "globalMetadata": {
+      "_appName": "DialogueDown",
+      "_appTitle": "DialogueDown docs",
+      "_enableSearch": true,
+      "_disableContribution": false,
+      "_gitContribute": {
+        "repo": "https://github.com/pengzhengyi/godot-dialoguedown",
+        "branch": "main"
+      }
+    }
+  }
+}

@@ -41,3 +41,8 @@ node_modules/
 
 # Generated GitHub Pages demo site (built by .github/workflows/pages.yml)
 /site/
+
+# DocFX generated docs site + API metadata
+docs/_site/
+docs/api/*.yml
+docs/api/.manifest

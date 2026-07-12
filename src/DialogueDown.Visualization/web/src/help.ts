@@ -5,7 +5,9 @@ const SOURCE_HELP = `
   <p><strong>Source &amp; preview.</strong> The left pane is the document as written;
      the right pane is a live Markdown preview.</p>
   <p><strong>Preview links</strong> jump to their headings within the preview.</p>
-  <p><strong>Drag the divider</strong> between the panes to re-proportion them.</p>
+  <p><strong>Drag the divider</strong> between the panes to re-proportion them, or use its
+     <strong>hide handle</strong> to collapse the preview and give the editor the full
+     width (click again to bring it back).</p>
   <p><strong>Editor.</strong> Find with <kbd>⌘/Ctrl-F</kbd> and fold a section from the
      gutter arrow. In Live Edit, format the selection with <kbd>⌘/Ctrl-B</kbd> (bold),
      <kbd>⌘/Ctrl-I</kbd> (italic) and <kbd>⌘/Ctrl-K</kbd> (link), or type <kbd>*</kbd>
@@ -21,7 +23,9 @@ const GRAPH_HELP = `
      was produced from and a rendered preview.</p>
   <p><strong>Click a node's circle</strong> to collapse or expand its children.</p>
   <p><strong>Drag</strong> to pan, <strong>scroll</strong> to zoom, and
-     <strong>drag the divider</strong> to resize the detail panel.</p>
+     <strong>drag the divider</strong> to resize the detail panel — or use its
+     <strong>hide handle</strong> to collapse the panel and give the graph the full width
+     (click again to bring it back).</p>
   <p><strong>Zoom controls</strong> (bottom-right): <kbd>+</kbd> / <kbd>−</kbd> to
      zoom, and click the percentage to reset the view.</p>
   <p><strong>Full screen</strong> (the bottom-right ⤢ button, or press <kbd>f</kbd>):

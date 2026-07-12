@@ -339,10 +339,17 @@ section.stage.error {
 }
 
 .source-pane {
-    flex: 0 0 50%;
+    /* The split ratio is a container variable (set by dragging the divider) so a
+       collapsed preview can override the pane to full width without fighting an inline
+       flex-basis. */
+    flex: 0 0 var(--source-split, 50%);
     min-width: 0;
     overflow: hidden;
     display: flex;
+}
+
+.source-view.preview-collapsed .source-pane {
+    flex-basis: 100%;
 }
 
 /* The CodeMirror editor fills the pane and scrolls internally; it blends with the
@@ -463,6 +470,7 @@ section.stage.error {
 }
 
 .source-divider {
+    position: relative;
     flex: 0 0 7px;
     cursor: col-resize;
     border-left: 1px solid var(--pico-muted-border-color);
@@ -798,6 +806,7 @@ body.maximized #app {
 }
 
 #resizer {
+    position: relative;
     flex: 0 0 6px;
     cursor: col-resize;
     background: transparent;
@@ -806,6 +815,97 @@ body.maximized #app {
 
 #resizer:hover {
     background: var(--pico-primary);
+}
+
+/* --- Collapsible side panels (graph inspector, source preview) --- */
+
+/* The hide/show handle straddles the panel's divider, vertically centered — the standard
+   "collapse handle" affordance. It stays on the divider when the panel is hidden, so it
+   doubles as the always-present re-open control at the content's right edge. */
+.collapse-toggle {
+    /* Pico inverts --pico-color on buttons; reset it so the glyph uses the normal
+       foreground rather than white-on-white. */
+    --pico-color: var(--pico-muted-color);
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 3;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    margin: 0;
+    padding: 0;
+    color: var(--pico-color);
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 50%;
+    box-shadow: 0 1px 5px rgb(0 0 0 / 18%);
+    line-height: 0;
+    cursor: pointer;
+    opacity: 0.55;
+    transition:
+        opacity 0.15s ease,
+        color 0.15s ease,
+        background 0.15s ease;
+}
+
+/* Surface the handle on hover, or whenever its panel is collapsed (so the re-open control
+   is always obvious). */
+.collapse-toggle:hover,
+.collapse-toggle:focus-visible,
+.detail-collapsed .collapse-toggle,
+.preview-collapsed .collapse-toggle {
+    --pico-color: inherit;
+
+    opacity: 1;
+}
+
+.collapse-toggle:hover,
+.collapse-toggle:focus-visible {
+    background: var(--pico-muted-border-color);
+}
+
+.collapse-toggle .collapse-icon {
+    display: block;
+}
+
+/* Show the collapse glyph while open and the expand glyph once hidden — keyed on the
+   container's collapsed class, so a toggle rebuilt while collapsed still reads right. */
+.collapse-toggle .icon-expand {
+    display: none;
+}
+
+.detail-collapsed .collapse-toggle .icon-collapse,
+.preview-collapsed .collapse-toggle .icon-collapse {
+    display: none;
+}
+
+.detail-collapsed .collapse-toggle .icon-expand,
+.preview-collapsed .collapse-toggle .icon-expand {
+    display: block;
+}
+
+/* Collapsed: hide the panel so the main pane fills, and turn the divider into a plain
+   rail (no resize cursor) that still hosts the re-open handle. */
+#app.detail-collapsed #detail {
+    display: none;
+}
+
+.source-view.preview-collapsed .source-preview {
+    display: none;
+}
+
+#app.detail-collapsed #resizer,
+.source-view.preview-collapsed .source-divider {
+    cursor: default;
+}
+
+#app.detail-collapsed #resizer:hover {
+    background: transparent;
 }
 
 #detail {

@@ -99,8 +99,9 @@ both the tree and its resolutions) and lowers it to a flow graph.
       auto-declaring references and merging partial-declaration tags.
 - [ ] The binder asserts the **name invariant**: every speaker symbol ends with a
       name (an `@id` never named is an error).
-- [ ] `##default` marks the default speaker; **at most one** is allowed. The table
-      carries a built-in **system speaker**, so `Resolve` always yields a symbol.
+- [ ] `##default` marks the default speaker; **at most one** is allowed. The binder
+      supplies an **anonymous default** when none is tagged, so `Resolve` always
+      yields a symbol.
 - [ ] A **jump resolver** resolves same-file targets against the anchor table and
       marks cross-file targets external.
 - [ ] A **tag validator** accepts a reserved tag only from the known set
@@ -114,20 +115,20 @@ both the tree and its resolutions) and lowers it to a flow graph.
 
 ## Interfaces and abstractions
 
-| Type                | Visibility | Responsibility                                                            | Collaborators                       |
-| ------------------- | ---------- | ------------------------------------------------------------------------- | ----------------------------------- |
-| `ISemanticAnalyzer` | internal   | seam: `SemanticModel Analyze(DesugaredScriptDocument, string source)`     | `SemanticModel`                     |
-| `SemanticAnalyzer`  | internal   | orchestrates the sub-passes and assembles the model                       | the sub-passes, `DialogueTreeIndex` |
-| `SemanticModel`     | internal   | the analyzed artifact: tree + tables + resolutions                        | all sub-pass outputs                |
-| `DialogueTreeIndex` | internal   | build-once `OfType<T>()` over the tree                                    | `ScriptNode`                        |
-| `SceneBuilder`      | internal   | flat headings → `Scene` tree + `AnchorTable`                              | `SceneHeading`, `Scene`             |
-| `Scene`             | internal   | one nested section (title, anchor, children, blocks)                      | `SceneHeading`                      |
-| `AnchorTable`       | internal   | slug → `Scene`                                                            | `Scene`                             |
-| `SpeakerBinder`     | internal   | AST speakers → `SpeakerTable`; enforces the name invariant                | `Speaker`, `SpeakerSymbol`          |
-| `SpeakerSymbol`     | internal   | resolved speaker identity                                                 | `Tag`                               |
-| `SpeakerTable`      | internal   | name/`@id` → `SpeakerSymbol`; `Resolve(Speaker)` incl. the system speaker | `SpeakerSymbol`                     |
-| `JumpResolver`      | internal   | `Jump` target → `JumpResolution`                                          | `Jump`, `AnchorTable`, `Scene`      |
-| `TagValidator`      | internal   | reserved-tag check against the known set                                  | `ReservedTag`                       |
+| Type                | Visibility | Responsibility                                                               | Collaborators                       |
+| ------------------- | ---------- | ---------------------------------------------------------------------------- | ----------------------------------- |
+| `ISemanticAnalyzer` | internal   | seam: `SemanticModel Analyze(DesugaredScriptDocument, string source)`        | `SemanticModel`                     |
+| `SemanticAnalyzer`  | internal   | orchestrates the sub-passes and assembles the model                          | the sub-passes, `DialogueTreeIndex` |
+| `SemanticModel`     | internal   | the analyzed artifact: tree + tables + resolutions                           | all sub-pass outputs                |
+| `DialogueTreeIndex` | internal   | build-once `OfType<T>()` over the tree                                       | `ScriptNode`                        |
+| `SceneBuilder`      | internal   | flat headings → `Scene` tree + `AnchorTable`                                 | `SceneHeading`, `Scene`             |
+| `Scene`             | internal   | one nested section (title, anchor, children, blocks)                         | `SceneHeading`                      |
+| `AnchorTable`       | internal   | slug → `Scene`                                                               | `Scene`                             |
+| `SpeakerBinder`     | internal   | AST speakers → `SpeakerTable`; enforces the name invariant                   | `Speaker`, `SpeakerSymbol`          |
+| `SpeakerSymbol`     | internal   | resolved speaker identity                                                    | `Tag`                               |
+| `SpeakerTable`      | internal   | name/`@id` → `SpeakerSymbol`; `Resolve(Speaker)` incl. the anonymous default | `SpeakerSymbol`                     |
+| `JumpResolver`      | internal   | `Jump` target → `JumpResolution`                                             | `Jump`, `AnchorTable`, `Scene`      |
+| `TagValidator`      | internal   | reserved-tag check against the known set                                     | `ReservedTag`                       |
 
 ## The analyzer at a glance
 
@@ -137,7 +138,7 @@ Analyze(desugared, source):
 
     # build tables (independent)
     (scenes, anchors) = SceneBuilder.Build(desugared)
-    speakers          = SpeakerBinder.Bind(index)        # asserts the name invariant
+    speakers          = SpeakerBinder.Bind(index.OfType<Speaker>())  # asserts the name invariant
 
     # resolve/validate against the tables
     resolvedJumps     = JumpResolver.Resolve(index.OfType<Jump>(), anchors)
@@ -245,17 +246,22 @@ separates the two ways a bare `@id` reference reaches an undeclared id:
 
 The invariant also states the domain rule precisely: **a stable `@id` is secondary
 to a name; a speaker's identity is ultimately its name.** Conflicts — a name bound
-to two ids, an id bound to two names, two `##default`s, a contradictory partial-
-declaration tag — are errors (per the DSL's "conflicting speaker metadata is a
-compile-time error").
+to two ids, an id bound to two names, two `##default`s, or a declaration that would
+fuse two speakers already used separately — are errors (per the DSL's "conflicting
+speaker metadata is a compile-time error"). Partial declarations only *add* tags, so
+they never conflict here; a same-named tag with a different value is left for the tag
+validator to judge, not the binder.
 
 **Resolution is the table's job.** The `SpeakerTable` exposes a `Resolve(Speaker)`
 method that maps a line's AST speaker to its symbol: a declaration → its own symbol,
-a reference → the symbol it points at, a `DefaultSpeaker` → the `##default` speaker
-or, if none is declared, the **system speaker**. The system speaker is a distinct
-built-in `SpeakerSymbol` the table always carries, so `Resolve` **always** returns a
-symbol — a line is never speaker-less after analysis. Callers ask the table rather
-than reading a precomputed map, so the resolution rules live in one place.
+a reference → the symbol it points at, a `DefaultSpeaker` → the default speaker the
+binder resolved. That default is the one tagged `##default`, or — when the document
+declares none — an **anonymous default**: a nameless, non-referable `SpeakerSymbol`
+the binder mints so a speakerless line still resolves (a screenplay-style action line
+like "The wind blows"). The binder decides the default and hands it to the table, so
+`Resolve` **always** returns a symbol — a line is never speaker-less after analysis.
+Callers ask the table rather than reading a precomputed map, so the resolution rules
+live in one place.
 
 ### DD5 — The scene tree and the anchor table
 

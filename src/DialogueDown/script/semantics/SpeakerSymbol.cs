@@ -42,6 +42,9 @@ internal sealed class SpeakerSymbol
     /// <summary>A new symbol known only by <paramref name="id"/>.</summary>
     public static SpeakerSymbol ForId(string id) => new(name: null, id);
 
+    /// <summary>A new symbol with neither a name nor an id.</summary>
+    public static SpeakerSymbol Anonymous() => new(name: null, id: null);
+
     /// <summary>Attaches a display name to a symbol first seen by its id.</summary>
     public void GiveName(string name) => Name = name;
 
@@ -51,12 +54,15 @@ internal sealed class SpeakerSymbol
     /// <summary>Marks this as the document's default speaker.</summary>
     public void MarkDefault() => IsDefault = true;
 
+    /// <summary>Adds the tag if its (name, value) identity is not already present.</summary>
+    public void MergeTag(Tag tag) => _tags.TryAdd(tag.SemanticKey(), tag);
+
     /// <summary>Adds each tag whose (name, value) identity is not already present.</summary>
     public void MergeTags(IEnumerable<Tag> tags)
     {
         foreach (var tag in tags)
         {
-            _tags.TryAdd(tag.SemanticKey(), tag);
+            MergeTag(tag);
         }
     }
 }

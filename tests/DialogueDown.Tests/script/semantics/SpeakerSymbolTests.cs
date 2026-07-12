@@ -26,6 +26,15 @@ public sealed class SpeakerSymbolTests
     }
 
     [Fact]
+    public void Anonymous_HasNoNameOrId()
+    {
+        var symbol = SpeakerSymbol.Anonymous();
+
+        Assert.Null(symbol.Name);
+        Assert.Null(symbol.Id);
+    }
+
+    [Fact]
     public void NewSymbol_HasNoTagsAndIsNotDefault()
     {
         var symbol = SpeakerSymbol.ForName("Alice");
@@ -64,6 +73,27 @@ public sealed class SpeakerSymbolTests
         symbol.MarkDefault();
 
         Assert.True(symbol.IsDefault);
+    }
+
+    [Fact]
+    public void MergeTag_AddsASingleTag()
+    {
+        var symbol = SpeakerSymbol.ForName("Alice");
+
+        symbol.MergeTag(TagAt("happy", null, 0));
+
+        AssertTags(symbol, ("happy", null));
+    }
+
+    [Fact]
+    public void MergeTag_SkipsATagWithTheSameIdentity()
+    {
+        var symbol = SpeakerSymbol.ForName("Alice");
+
+        symbol.MergeTag(TagAt("happy", null, 0));
+        symbol.MergeTag(TagAt("happy", null, 5));
+
+        AssertTags(symbol, ("happy", null));
     }
 
     [Fact]

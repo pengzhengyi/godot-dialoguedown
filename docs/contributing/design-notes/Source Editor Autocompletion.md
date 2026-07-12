@@ -1,7 +1,7 @@
 # Source Editor Autocompletion
 
-> [!IMPORTANT]
-> Status: **approved — in progress** (an enhancement to
+> [!NOTE]
+> Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md)). As you type in
 > the Source tab's editor, offer **document-aware completions** for the four names
 > a dialogue script repeats: **jump targets** (scene-heading anchors), **speakers**,
@@ -69,21 +69,21 @@ one concept keeps one name across the spec, the code, and the completions.
 
 ## Functionality checklist
 
-- [ ] Typing a jump destination `](#…)` completes the **slug of any scene heading**
+- [x] Typing a jump destination `](#…)` completes the **slug of any scene heading**
       in the document; the completion's detail shows the heading text.
-- [ ] Completed jump slugs are **GitHub-style** and match the preview's anchors
+- [x] Completed jump slugs are **GitHub-style** and match the preview's anchors
       exactly (via `github-slugger`, as the preview does).
-- [ ] Typing `@…` completes **speaker ids** declared or referenced in the document.
-- [ ] Typing a mid-line `#…` completes **tags** used in the document (a line-start
+- [x] Typing `@…` completes **speaker ids** declared or referenced in the document.
+- [x] Typing a mid-line `#…` completes **tags** used in the document (a line-start
       `#` stays a Markdown heading, not a tag).
-- [ ] Typing a line's leading word completes **speaker names** used in the document.
-- [ ] Completions are **Edit-only** — inactive in read-only View and in the static
+- [x] Typing a line's leading word completes **speaker names** used in the document.
+- [x] Completions are **Edit-only** — inactive in read-only View and in the static
       export (they cannot type there anyway).
-- [ ] Symbols come from a **document scan** by default, behind a `DialogueSymbolSource`
+- [x] Symbols come from a **document scan** by default, behind a `DialogueSymbolSource`
       seam that a semantic source can replace without changing the editor glue.
-- [ ] The scan **ignores the YAML front-matter block**, so `title:` is not offered
+- [x] The scan **ignores the YAML front-matter block**, so `title:` is not offered
       as a speaker.
-- [ ] No suggestions and no error on an empty document or one with no matching names.
+- [x] No suggestions and no error on an empty document or one with no matching names.
 
 ## Design
 
@@ -160,6 +160,10 @@ always reflects what the author has typed so far.
   a prose line — unobtrusive: with no matching known speaker, nothing appears.
   *Alternative considered:* make speaker-name completion explicit-only (trigger key).
   Deferred; easy to switch via the source if it proves noisy.
+- **Exclude the half-typed token from its own suggestions.** The scan reads the *current*
+  document, so the token being typed (e.g. `@gu`) is itself scanned as a symbol and would
+  otherwise suggest itself back. Each source drops the option whose label equals the word
+  under the cursor, so the tooltip only offers other, real candidates.
 
 ## Error & boundary cases
 
@@ -169,7 +173,7 @@ always reflects what the author has typed so far.
 | Line-start `#` (a Markdown heading) | The tag source does **not** fire — only a mid-line `#` completes a tag. |
 | YAML front matter (`--- … ---`) | Skipped by the scan, so front-matter keys (`title:`) are never offered as speakers. |
 | Duplicate scene headings | `github-slugger` deduplicates (`slug`, `slug-1`), matching the preview; both are offered. |
-| Quoted speaker name (`"Long Name"`) | v1 scans identifier-form names; quoted names are a known limitation (the seam can address it later). |
+| Quoted speaker name (`"Long Name"`) | Captured — the scan reads both identifier and quoted names, so a quoted speaker is offered like any other. |
 | Read-only View / static export | The extension is absent (Edit-only), so nothing activates. |
 
 ## Integration
@@ -205,17 +209,17 @@ cross-file speakers, canonical ids, and which targets actually exist.
 The seam is ready for it: a `SemanticSymbolSource` implementing `DialogueSymbolSource`
 would read the resolved symbols the report already carries (or a live channel pushes),
 and `main.ts` would pass it to `createSourceView` in place of the default scanner — no
-change to the completion sources. This is tracked as a follow-up issue; see the
-[implementation checklist](#implementation-checklist).
+change to the completion sources. This is tracked as
+[issue #71](https://github.com/pengzhengyi/godot-dialoguedown/issues/71).
 
 ## Implementation checklist
 
-- [ ] `dialogue-symbols.ts`: `DialogueSymbols`, `JumpTarget`, `DialogueSymbolSource`,
+- [x] `dialogue-symbols.ts`: `DialogueSymbols`, `JumpTarget`, `DialogueSymbolSource`,
       `scanDialogueSymbols` (+ front-matter skip); unit tests.
-- [ ] `editor-completions.ts`: the four completion sources + `dialogueAutocompletion`;
+- [x] `editor-completions.ts`: the four completion sources + `dialogueAutocompletion`;
       unit tests via `CompletionContext`.
-- [ ] Promote `github-slugger` to a direct dependency; slug jump targets with it.
-- [ ] Wire into `source-view.ts` (Edit-only) with the `symbols?` seam; rebuild the
+- [x] Promote `github-slugger` to a direct dependency; slug jump targets with it.
+- [x] Wire into `source-view.ts` (Edit-only) with the `symbols?` seam; rebuild the
       committed `dist/report.html`.
-- [ ] Help text + `CHANGELOG` + README touch-ups; Playwright coverage.
-- [ ] File the **semantic symbol source** follow-up issue and add it to the board.
+- [x] Help text + `CHANGELOG` + README touch-ups; Playwright coverage.
+- [x] File the **semantic symbol source** follow-up issue and add it to the board.

@@ -43,7 +43,7 @@ that every component shares — starting with the error model.
 | [Desugared AST Visualization Tab](./Desugared%20AST%20Visualization%20Tab.md) | The desugarer's normalized AST as a third tab (via the `IScriptCompiler` seam); synthetic nodes render as inserted; the toggle freezes on read-only tabs | Implemented |
 | [Visualize CLI — Emit Mermaid and DOT](./Visualize%20CLI%20-%20Emit%20Mermaid%20and%20DOT.md) | `visualize --emit mermaid\|dot` emits each stage's graph as portable text (colored Mermaid); no in-report rendering | Implemented |
 | [Graph Position Preservation](./Graph%20Position%20Preservation.md) | Hybrid per-graph zoom/pan/fold memory (adjusted graphs pin their own, untouched inherit the current view), a root-centered default, and an editable zoom with revert | Implemented |
-| [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions (jump targets, speakers, `@id`s, `#tag`s) behind a symbol-source seam for future semantic symbols | In progress |
+| [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions (jump targets, speakers, `@id`s, `#tag`s) behind a symbol-source seam for future semantic symbols | Implemented |
 
 ## Error model
 

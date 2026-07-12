@@ -16,6 +16,13 @@ changes easy to categorize.
   Completed jump anchors match the preview's headings exactly. Suggestions come
   through a symbol-source seam, so the semantic analyzer's resolved symbols can feed
   the same completions later.
+- **Architecture tests** ([`tests/DialogueDown.Architecture.Tests`](tests/DialogueDown.Architecture.Tests),
+  built on [NetArchTest.eNhancedEdition](https://github.com/NeVeSpl/NetArchTest.eNhancedEdition))
+  that guard the project's dependency direction: the engine-agnostic core must not
+  depend on the CLI, the visualization projects, or any Spectre/Godot/console
+  package; each visualization layer depends only downward; and inside the core the
+  Dialogue AST stays decoupled from Markdown while no pipeline stage calls back into
+  the compilation orchestrator. Exception types are also kept under `*.Errors`.
 - **Collapsible side panels** in the visualization: hide the graph's node-details
   inspector, or the Source tab's preview, to give the graph or editor the full
   width. A hide/show handle sits on each panel's divider — doubling as the

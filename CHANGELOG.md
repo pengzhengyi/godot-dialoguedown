@@ -10,6 +10,13 @@ changes easy to categorize.
 
 ### Added
 
+- **Architecture tests** ([`tests/DialogueDown.Architecture.Tests`](tests/DialogueDown.Architecture.Tests),
+  built on [NetArchTest.eNhancedEdition](https://github.com/NeVeSpl/NetArchTest.eNhancedEdition))
+  that guard the project's dependency direction: the engine-agnostic core must not
+  depend on the CLI, the visualization projects, or any Spectre/Godot/console
+  package; each visualization layer depends only downward; and inside the core the
+  Dialogue AST stays decoupled from Markdown while no pipeline stage calls back into
+  the compilation orchestrator. Exception types are also kept under `*.Errors`.
 - A **full-screen mode** for the visualization: a maximize button in each graph's
   zoom cluster — and on the Source tab — fills the window with the active tab and
   hides the header, tabs, and status bar. Toggle it with the button or <kbd>f</kbd>,

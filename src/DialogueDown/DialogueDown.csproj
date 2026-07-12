@@ -33,6 +33,19 @@
     <PackageReference Include="Superpower" Version="3.2.1" />
   </ItemGroup>
 
+  <!-- Size/complexity guardrails for the core library only. SonarAnalyzer.CSharp
+       is LGPL-superseded by the SONAR Source-Available License v1 at this version;
+       it runs only at build time and is never linked into or shipped with the
+       compiled output. PrivateAssets="all" keeps it a private, non-transitive dev
+       dependency, so it does not affect this package's MIT license or reach
+       consumers. Rule thresholds live in SonarLint.xml (SonarAnalyzer reads
+       parameters only from that AdditionalFile, not .editorconfig); .editorconfig
+       sets the severities and scopes the rules to this project. -->
+  <ItemGroup>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.29.0.143774" PrivateAssets="all" />
+    <AdditionalFiles Include="SonarLint.xml" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>

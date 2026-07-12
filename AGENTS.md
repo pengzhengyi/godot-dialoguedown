@@ -41,7 +41,9 @@ cd src/DialogueDown.Visualization/web && npm ci && npm run check && npm run buil
 - **Design first for non-trivial work:** design notes live in
   [`docs/contributing/design-notes/`](docs/contributing/design-notes/README.md).
 - **American English** in code, comments, docs, and commit messages.
-- **SOLID and composition over inheritance;** comment the *why*, not the *what*.
+- **SOLID and composition over inheritance;** write self-documenting code and
+  reserve comments for public-API docs or a genuine *why* — a comment explaining
+  *what* tangled code does is a signal to refactor it.
 - **Keep the core engine-agnostic:** no Godot or rendering dependency in
   `DialogueDown`.
 - When you change `web/src`, rebuild and commit `web/dist/report.html`.

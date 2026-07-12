@@ -171,3 +171,37 @@ dotnet_naming_symbols.locals_params.applicable_kinds = parameter, local
 dotnet_naming_rule.locals_camel.severity = warning
 dotnet_naming_rule.locals_camel.symbols  = locals_params
 dotnet_naming_rule.locals_camel.style    = camel_case
+
+# ---------------------------------------------------------------------------
+# Size & complexity guardrails — CORE LIBRARY ONLY (src/DialogueDown/**).
+# Enforced by SonarAnalyzer.CSharp, which is referenced only by the core
+# project, so these never fire on the CLI or visualization assemblies.
+# Severities live here; the numeric thresholds live in src/DialogueDown/
+# SonarLint.xml because SonarAnalyzer reads rule parameters only from that
+# AdditionalFile, not from .editorconfig.
+# ---------------------------------------------------------------------------
+[src/DialogueDown/**.cs]
+
+# S138 method lines (<=40), S104 file lines (<=400), S107 params (<=7),
+# S1541 cyclomatic complexity (<=10), S3776 cognitive complexity (<=15).
+dotnet_diagnostic.S138.severity = warning
+dotnet_diagnostic.S104.severity = warning
+dotnet_diagnostic.S107.severity = warning
+dotnet_diagnostic.S1541.severity = warning
+dotnet_diagnostic.S3776.severity = warning
+
+# Focused config: this project adopts SonarAnalyzer ONLY for the size/complexity
+# guardrails above. Referencing the package also activates Sonar's broader default
+# ruleset, so the other defaults that currently surface are silenced here to keep
+# the signal on method/file size and complexity. (A blanket disable is avoided
+# because it would also switch off StyleCop on this project.) If a new Sonar
+# default appears later, either silence it here or adopt it deliberately.
+dotnet_diagnostic.S125.severity = none    # commented-out code
+dotnet_diagnostic.S1135.severity = none   # TODO comments
+dotnet_diagnostic.S1481.severity = none   # unused local (often intentional discards)
+dotnet_diagnostic.S2094.severity = none   # empty record
+dotnet_diagnostic.S2325.severity = none   # method could be static
+dotnet_diagnostic.S3376.severity = none   # type name should end with 'Exception'
+dotnet_diagnostic.S3871.severity = none   # exception should be public
+dotnet_diagnostic.S3903.severity = none   # type should be in a named namespace
+dotnet_diagnostic.S4136.severity = none   # method overloads should be adjacent

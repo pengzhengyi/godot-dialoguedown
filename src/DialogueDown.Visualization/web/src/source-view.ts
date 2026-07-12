@@ -8,7 +8,7 @@ import {
     rectangularSelection,
     crosshairCursor,
 } from "@codemirror/view";
-import { EditorState, EditorSelection, Prec, Compartment } from "@codemirror/state";
+import { EditorState, EditorSelection, Prec, Compartment, type Extension } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import {
@@ -26,6 +26,8 @@ import { tags } from "@lezer/highlight";
 import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
 import { createMaximizeButton } from "./maximize-button";
 import { initCollapsiblePanel } from "./collapse-toggle";
+import { dialogueAutocompletion } from "./editor-completions";
+import { type DialogueSymbolSource, scanDialogueSymbols } from "./dialogue-symbols";
 import { renderDocument } from "./text";
 
 /**
@@ -97,6 +99,12 @@ export interface SourceViewOptions {
     onChange?: (value: string) => void;
     /** Toggle the whole-window maximize mode; when set, a maximize button is shown. */
     onToggleFullscreen?: () => void;
+    /**
+     * Where the editor's autocompletion draws its symbols. Defaults to a document scan
+     * ({@link scanDialogueSymbols}); a later source can supply the semantic analyzer's
+     * resolved symbols without changing the editor.
+     */
+    symbols?: DialogueSymbolSource;
 }
 
 /** A handle to a live source view, letting the mode controller reconfigure it in place. */
@@ -118,7 +126,7 @@ const editability = new Compartment();
  * a {@link Compartment} so the mode controller can flip them at runtime — the document,
  * cursor, scroll, and undo history survive the switch.
  */
-function editableConfig(editable: boolean) {
+function editableConfig(editable: boolean, editableExtras: Extension[] = []) {
     return [
         // Read-only (View) keeps the editor focusable and selectable — it just rejects
         // edits — so the scrollable pane stays keyboard-accessible.
@@ -129,7 +137,12 @@ function editableConfig(editable: boolean) {
                 : { "aria-label": "Document source", "aria-readonly": "true", tabindex: "0" },
         ),
         ...(editable
-            ? [closeBrackets(), emphasisSurround, Prec.high(keymap.of(formatKeymap))]
+            ? [
+                  closeBrackets(),
+                  emphasisSurround,
+                  Prec.high(keymap.of(formatKeymap)),
+                  ...editableExtras,
+              ]
             : []),
     ];
 }
@@ -145,7 +158,16 @@ export function createSourceView(
     source: string,
     options: SourceViewOptions = {},
 ): SourceViewHandle {
-    const { editable = false, onChange, onToggleFullscreen } = options;
+    const {
+        editable = false,
+        onChange,
+        onToggleFullscreen,
+        symbols = scanDialogueSymbols,
+    } = options;
+
+    // The document-aware completions are an Edit-only authoring aid, so they live in the
+    // editability compartment alongside the other Edit-only aids.
+    const completion = dialogueAutocompletion(symbols);
 
     const container = document.createElement("div");
     container.className = "source-view";
@@ -197,7 +219,7 @@ export function createSourceView(
                 markdown(),
                 syntaxHighlighting(markdownHighlightStyle),
                 EditorView.lineWrapping,
-                editability.of(editableConfig(editable)),
+                editability.of(editableConfig(editable, [completion])),
                 keymap.of([
                     ...closeBracketsKeymap,
                     ...defaultKeymap,
@@ -236,7 +258,7 @@ export function createSourceView(
     return {
         element: container,
         setEditable: (next) =>
-            view.dispatch({ effects: editability.reconfigure(editableConfig(next)) }),
+            view.dispatch({ effects: editability.reconfigure(editableConfig(next, [completion])) }),
         setContent: (next) =>
             view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }),
     };

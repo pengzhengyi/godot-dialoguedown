@@ -19,7 +19,34 @@ design live in [`docs/contributing/design-notes/`](../../docs/contributing/desig
 - Use **LINQ** when it is a clear readability win over an explicit loop; keep it
   simple, not clever.
 - Four-space indent, LF line endings, UTF-8.
-- Name for intent; keep methods small. Comment the *why*, not the *what*.
+- **Write self-documenting code.** Let clear names, small methods, and good types
+  carry the meaning so the code reads without narration. Reserve comments for
+  public-API doc comments (`///`) and the occasional *why* — intent, a non-obvious
+  tradeoff, or a subtle edge case — never to restate *what* the code already says.
+  Don't be afraid to comment when it genuinely aids understanding, but treat the
+  urge to explain a tangled block as a signal to refactor it instead.
+
+## Size and complexity
+
+The **core library** (`src/DialogueDown`) enforces size and complexity guardrails
+through **SonarAnalyzer.CSharp** (referenced only by the core project, so the CLI
+and visualization assemblies are unaffected):
+
+| Guardrail | Limit | Rule |
+| --- | --- | --- |
+| Method lines of code | 40 | S138 |
+| File lines of code | 400 | S104 |
+| Method parameters | 7 | S107 |
+| Cyclomatic complexity | 10 | S1541 |
+| Cognitive complexity | 15 | S3776 |
+
+These are advisory **warnings**, not build errors — treat them as a prompt to
+split a method, introduce a parameter object, or simplify branching. Thresholds
+live in [`src/DialogueDown/SonarLint.xml`](../../src/DialogueDown/SonarLint.xml)
+(SonarAnalyzer reads rule parameters only from that file); severities and the
+core-only scope live in [`.editorconfig`](../../.editorconfig). The analyzer is a
+build-time-only dev dependency (`PrivateAssets="all"`), so its source-available
+license does not affect the library's MIT license or reach consumers.
 
 ## Design and errors
 

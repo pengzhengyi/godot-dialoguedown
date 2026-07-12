@@ -10,6 +10,12 @@ changes easy to categorize.
 
 ### Added
 
+- **Size and complexity guardrails** for the core library, enforced by
+  SonarAnalyzer.CSharp (a build-time-only, core-scoped dev dependency): methods
+  ≤40 lines (S138) and ≤7 parameters (S107); files ≤400 lines (S104); cyclomatic
+  complexity ≤10 (S1541) and cognitive complexity ≤15 (S3776). Thresholds live in
+  `src/DialogueDown/SonarLint.xml`; severities and scope in `.editorconfig`. They
+  surface as advisory warnings and do not affect the library's MIT license.
 - **Autocomplete in the Source editor** (Live Edit): as you type, the editor
   suggests names drawn from the document itself — a **jump target** after `](#`, a
   **speaker id** after `@`, a **`#`tag**, or a **speaker** at the start of a line.

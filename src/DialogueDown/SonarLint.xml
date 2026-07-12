@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Size and complexity thresholds for the core library.
+
+  SonarAnalyzer.CSharp reads rule *parameters* only from this SonarLint.xml
+  (referenced as an AdditionalFile by DialogueDown.csproj); .editorconfig can set
+  a rule's severity but not its thresholds. This file therefore holds the numbers,
+  while .editorconfig sets the severity and scopes the rules to the core project.
+-->
+<AnalysisInput>
+  <Rules>
+    <!-- S138: a method should not exceed 40 lines of code. -->
+    <Rule>
+      <Key>S138</Key>
+      <Parameters>
+        <Parameter>
+          <Key>max</Key>
+          <Value>40</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+
+    <!-- S104: a file should not exceed 400 lines of code. -->
+    <Rule>
+      <Key>S104</Key>
+      <Parameters>
+        <Parameter>
+          <Key>maximumFileLocThreshold</Key>
+          <Value>400</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+
+    <!-- S107: a method should not take more than 7 parameters. -->
+    <Rule>
+      <Key>S107</Key>
+      <Parameters>
+        <Parameter>
+          <Key>max</Key>
+          <Value>7</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+
+    <!-- S1541: cyclomatic complexity of a method should not exceed 10. -->
+    <Rule>
+      <Key>S1541</Key>
+      <Parameters>
+        <Parameter>
+          <Key>maximumFunctionComplexityThreshold</Key>
+          <Value>10</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+
+    <!-- S3776: cognitive complexity of a method should not exceed 15. -->
+    <Rule>
+      <Key>S3776</Key>
+      <Parameters>
+        <Parameter>
+          <Key>threshold</Key>
+          <Value>15</Value>
+        </Parameter>
+      </Parameters>
+    </Rule>
+  </Rules>
+</AnalysisInput>

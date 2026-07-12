@@ -10,6 +10,12 @@ changes easy to categorize.
 
 ### Added
 
+- **Autocomplete in the Source editor** (Live Edit): as you type, the editor
+  suggests names drawn from the document itself — a **jump target** after `](#`, a
+  **speaker id** after `@`, a **`#`tag**, or a **speaker** at the start of a line.
+  Completed jump anchors match the preview's headings exactly. Suggestions come
+  through a symbol-source seam, so the semantic analyzer's resolved symbols can feed
+  the same completions later.
 - **Architecture tests** ([`tests/DialogueDown.Architecture.Tests`](tests/DialogueDown.Architecture.Tests),
   built on [NetArchTest.eNhancedEdition](https://github.com/NeVeSpl/NetArchTest.eNhancedEdition))
   that guard the project's dependency direction: the engine-agnostic core must not

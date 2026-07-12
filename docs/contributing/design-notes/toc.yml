@@ -34,5 +34,7 @@
   href: Visualize CLI - Emit Mermaid and DOT.md
 - name: Graph Position Preservation
   href: Graph Position Preservation.md
+- name: Source Editor Autocompletion
+  href: Source Editor Autocompletion.md
 - name: README Shipping-Status Refresh
   href: README Shipping-Status Refresh.md

@@ -47,11 +47,15 @@ design live in [`docs/contributing/design-notes/`](../../docs/contributing/desig
   so a constructor change touches one place.
 - **Treat tests as code:** refactor them relentlessly, and follow the testing
   pyramid — many small unit tests, fewer integration tests, minimal end-to-end.
-- **Guard architecture with tests.** Use an established library — **NetArchTest**
-  (simple, fluent) or **ArchUnitNET** (more powerful) — to assert dependency
-  direction rather than hand-rolling reflection. Key invariant: the core
-  `DialogueDown` assembly must not depend on `DialogueDown.Cli`, the
-  `DialogueDown.Visualization*` projects, or any Godot/rendering package.
+- **Guard architecture with tests.** Dependency-direction rules live in
+  [`tests/DialogueDown.Architecture.Tests`](../../tests/DialogueDown.Architecture.Tests),
+  built on **NetArchTest.eNhancedEdition** (the maintained fork of NetArchTest's
+  simple fluent API) rather than hand-rolled reflection. They assert the assembly
+  boundaries (core `DialogueDown` must not depend on `DialogueDown.Cli`, the
+  `DialogueDown.Visualization*` projects, or any Spectre/Godot/console package) and
+  the core's internal layering (the Dialogue AST stays decoupled from Markdown; the
+  pipeline never calls back into the compilation orchestrator). Extend that suite
+  when you add a layer or boundary.
 
 ## Before pushing
 

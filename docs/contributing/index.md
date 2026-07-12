@@ -28,3 +28,21 @@ graph → runtime, in progress)**.
 
 Reading the notes in that order is the fastest way to learn how the compiler fits
 together before making a change.
+
+## Enforced architecture boundaries
+
+The pipeline's shape is not just convention — it is guarded by architecture tests
+in
+[`tests/DialogueDown.Architecture.Tests`](https://github.com/pengzhengyi/godot-dialoguedown/tree/main/tests/DialogueDown.Architecture.Tests)
+(built on NetArchTest.eNhancedEdition). They fail the build if a change breaks the
+intended dependency direction:
+
+- The engine-agnostic core (`DialogueDown`) must not depend on the CLI, the
+  visualization projects, or any Spectre/Godot/console package.
+- Each visualization layer depends only downward
+  (`Visualization.Live → Visualization → core`).
+- Inside the core, the Dialogue AST stays decoupled from Markdown, and no pipeline
+  stage calls back into the compilation orchestrator.
+
+When you add a layer or boundary, extend that suite so the rule travels with the
+code.

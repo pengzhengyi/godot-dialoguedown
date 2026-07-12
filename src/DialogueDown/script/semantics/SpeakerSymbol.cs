@@ -65,4 +65,10 @@ internal sealed class SpeakerSymbol
             MergeTag(tag);
         }
     }
+
+    /// <summary>
+    /// A short label for the speaker: its name, else its <c>@id</c>, else <c>(default)</c>
+    /// for the anonymous default. Used where a diagnostic names the speaker.
+    /// </summary>
+    public override string ToString() => Name ?? (Id is not null ? $"@{Id}" : "(default)");
 }

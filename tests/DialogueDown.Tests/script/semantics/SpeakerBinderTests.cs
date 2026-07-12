@@ -1,6 +1,7 @@
 using DialogueDown.Common;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Semantics;
+using DialogueDown.Script.Semantics.Errors;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 using static DialogueDown.Tests.Support.SpeakerSymbolAssert;
@@ -20,7 +21,7 @@ public sealed class SpeakerBinderTests
     [Fact]
     public void Bind_IdReference_ResolvesById()
     {
-        var table = Bind(SpeakerIdReference("A"));
+        var table = Bind(SpeakerDeclaration("Alice", "A"), SpeakerIdReference("A"));
 
         Assert.Equal("A", table.Resolve(SpeakerIdReference("A")).Id);
     }
@@ -128,6 +129,79 @@ public sealed class SpeakerBinderTests
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => binder.Add(new UnknownSpeaker(SourceSpanFactory.Span())));
+    }
+
+    [Fact]
+    public void Bind_NameBoundToTwoIds_Throws()
+    {
+        var error = Assert.Throws<DialogueSemanticError>(
+            () => Bind(SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Alice", "B")));
+
+        Assert.Contains("@B", error.Message);
+    }
+
+    [Fact]
+    public void Bind_IdBoundToTwoNames_Throws()
+    {
+        var error = Assert.Throws<DialogueSemanticError>(
+            () => Bind(SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Bob", "A")));
+
+        Assert.Contains("Alice", error.Message);
+    }
+
+    [Fact]
+    public void Bind_FusingTwoSeparatelyUsedSpeakers_Throws()
+    {
+        var error = Assert.Throws<DialogueSemanticError>(() => Bind(
+            SpeakerNameReference("Alice"),
+            SpeakerIdReference("A"),
+            SpeakerDeclaration("Alice", "A")));
+
+        Assert.Contains("ambiguous", error.Message);
+    }
+
+    [Fact]
+    public void Bind_TwoDefaultSpeakers_Throws()
+    {
+        var error = Assert.Throws<DialogueSemanticError>(() => Bind(
+            SpeakerDeclaration("Alice", tags: ReservedTag("default")),
+            SpeakerDeclaration("Bob", tags: ReservedTag("default"))));
+
+        Assert.Contains("only one default speaker", error.Message);
+    }
+
+    [Fact]
+    public void Bind_SameSpeakerMarkedDefaultTwice_IsAllowed()
+    {
+        var table = Bind(
+            SpeakerDeclaration("Alice", "A", ReservedTag("default")),
+            new PartialSpeakerDeclaration("A", [ReservedTag("default")], SourceSpanFactory.Span()));
+
+        Assert.True(table.Resolve(SpeakerNameReference("Alice")).IsDefault);
+    }
+
+    [Fact]
+    public void Bind_TwoDefaults_LabelsAnIdOnlyDefaultByItsId()
+    {
+        // The first default is an @id partial (no name yet); the message names both the
+        // established default (@A) and the offending one (Bob), rendering @A via ToString.
+        var error = Assert.Throws<DialogueSemanticError>(() => Bind(
+            new PartialSpeakerDeclaration("A", [ReservedTag("default")], SourceSpanFactory.Span()),
+            SpeakerDeclaration("Bob", tags: ReservedTag("default"))));
+
+        Assert.Contains("@A", error.Message);
+        Assert.Contains("Bob", error.Message);
+    }
+
+    [Fact]
+    public void Bind_IdNeverGivenAName_ViolatesTheNameInvariant()
+    {
+        var reference = new SpeakerIdReference("A", new SourceSpan(7, 2));
+
+        var error = Assert.Throws<DialogueSemanticError>(() => Bind(reference));
+
+        Assert.Contains("@A", error.Message);
+        Assert.Equal(reference.Span, error.Span); // points at where @A was first used
     }
 
     private static SpeakerTable Bind(params Speaker[] speakers) => SpeakerBinder.Bind(speakers);

@@ -44,6 +44,18 @@ public sealed class SpeakerSymbolTests
     }
 
     [Fact]
+    public void ToString_NamedSpeaker_IsTheName() =>
+        Assert.Equal("Alice", SpeakerSymbol.ForName("Alice").ToString());
+
+    [Fact]
+    public void ToString_IdOnlySpeaker_IsTheAtId() =>
+        Assert.Equal("@A", SpeakerSymbol.ForId("A").ToString());
+
+    [Fact]
+    public void ToString_AnonymousSpeaker_IsDefaultLabel() =>
+        Assert.Equal("(default)", SpeakerSymbol.Anonymous().ToString());
+
+    [Fact]
     public void GiveName_NamesAnIdOnlySymbol()
     {
         var symbol = SpeakerSymbol.ForId("A");

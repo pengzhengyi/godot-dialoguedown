@@ -119,7 +119,8 @@ maximize button (or the <kbd>f</kbd> key) fills the window with the active graph
 source split and hides the header, tabs, and status bar; <kbd>f</kbd> or <kbd>Esc</kbd>
 restores it. A served report toggles
 between **View** (read-only, auto-updating) and **Edit** (an in-browser editor that
-saves back to the file). Click a node to inspect **the source it was produced
+saves back to the file, with **document-aware autocomplete** for jump targets,
+speakers, `@id`s, and `#tag`s). Click a node to inspect **the source it was produced
 from**, with a rendered Markdown preview, in a resizable side panel — which,
 like the Source tab's preview, can be **collapsed** to give the graph or editor
 the full width. Nodes are

@@ -10,6 +10,12 @@ changes easy to categorize.
 
 ### Added
 
+- **Autocomplete in the Source editor** (Live Edit): as you type, the editor
+  suggests names drawn from the document itself — a **jump target** after `](#`, a
+  **speaker id** after `@`, a **`#`tag**, or a **speaker** at the start of a line.
+  Completed jump anchors match the preview's headings exactly. Suggestions come
+  through a symbol-source seam, so the semantic analyzer's resolved symbols can feed
+  the same completions later.
 - **Collapsible side panels** in the visualization: hide the graph's node-details
   inspector, or the Source tab's preview, to give the graph or editor the full
   width. A hide/show handle sits on each panel's divider — doubling as the

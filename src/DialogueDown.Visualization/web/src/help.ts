@@ -13,6 +13,10 @@ const SOURCE_HELP = `
      <kbd>⌘/Ctrl-I</kbd> (italic) and <kbd>⌘/Ctrl-K</kbd> (link), or type <kbd>*</kbd>
      around a selection to emphasize it. To learn more about how to use the editor,
      check out <a href="https://codemirror.net/" target="_blank" rel="noopener noreferrer">CodeMirror</a>.</p>
+  <p><strong>Autocomplete</strong> (Live Edit): as you type, the editor suggests names
+     from the document — a jump target after <kbd>](#</kbd>, a speaker id after
+     <kbd>@</kbd>, a <kbd>#</kbd>tag, or a speaker at the start of a line. <kbd>Enter</kbd>
+     or <kbd>Tab</kbd> accepts, <kbd>Esc</kbd> dismisses.</p>
   <p><strong>Full screen</strong> (bottom-right ⤢, or press <kbd>f</kbd> outside the
      editor): fill the window with the source and preview; <kbd>f</kbd> or <kbd>Esc</kbd>
      to leave.</p>

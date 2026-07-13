@@ -14,7 +14,9 @@ export function categoryStats(nodes: DisplayNode[]): Record<string, CategoryStat
         if (!node.category) continue;
         const stat = (stats[node.category] ??= { names: [], count: 0 });
         stat.count += 1;
-        const name = baseLabel(node.label);
+        // A node's explicit type name wins (a scene's label is its title, not its kind);
+        // otherwise the label is the type (an AST node labels itself by type).
+        const name = node.typeName ?? baseLabel(node.label);
         if (!stat.names.includes(name)) stat.names.push(name);
     }
     return stats;

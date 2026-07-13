@@ -9,6 +9,12 @@
     --md-muted: #6e7781;
     --cm-selection: rgb(20 100 210 / 22%);
 
+    /* Cross-link highlight: hovering a scene or speaker in the Semantic tab lights up
+       every place it appears (graph node, table rows/cells). An amber "highlighter"
+       tint reads on both themes and stays clear of the category colors. */
+    --entity-highlight: rgb(250 204 21 / 45%);
+    --entity-highlight-edge: #ca8a04;
+
     /* Mode accent: View is blue (the framework primary), Edit is green (matching the
        Save button). It is driven by data-served-mode on <html> (set from the mode
        controller) and tints the active tab and the pressed toggle, so the whole UI
@@ -35,6 +41,8 @@
         --cm-selection: rgb(100 165 255 / 35%);
         --dd-bubble: #e2e8f0;
         --dd-ink: #0f172a;
+        --entity-highlight: rgb(250 204 21 / 30%);
+        --entity-highlight-edge: #eab308;
     }
 }
 
@@ -48,6 +56,8 @@
     --cm-selection: rgb(100 165 255 / 35%);
     --dd-bubble: #e2e8f0;
     --dd-ink: #0f172a;
+    --entity-highlight: rgb(250 204 21 / 30%);
+    --entity-highlight-edge: #eab308;
 }
 
 /* Edit mode: switch the accent from blue to green (matching the Save button). */
@@ -328,6 +338,166 @@ section.stage.error {
 .no-detail #detail,
 .no-detail #resizer {
     display: none;
+}
+
+/* Semantic tab: the scene-tree graph (left) beside stacked, collapsible tables (right).
+   The graph reuses the tree view, so the column is a positioned box the legend and zoom
+   controls anchor to, exactly as a plain stage. */
+.semantic-view {
+    display: flex;
+    gap: 0.75rem;
+    height: 100%;
+    min-height: 0;
+}
+
+.semantic-graph {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.semantic-tables {
+    flex: 0 0 clamp(18rem, 34%, 26rem);
+    min-width: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding-right: 0.15rem;
+}
+
+/* A collapsible table panel: a header bar (title + row count) over the table body.
+   It keeps its natural height (never shrinks) so the tables column scrolls as a whole
+   rather than each panel clipping its own rows. */
+.table-panel {
+    flex: 0 0 auto;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-card-background-color);
+    overflow: hidden;
+}
+
+.table-panel-header {
+    /* Reset Pico's button chrome so the bar reads as a header, not a form control. */
+    width: 100%;
+    margin: 0;
+    padding: 0.4rem 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: transparent;
+    border: 0;
+    color: var(--pico-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.table-panel-header:hover {
+    background: var(--pico-secondary-background, rgb(128 128 128 / 8%));
+}
+
+.table-panel-caret::before {
+    content: "▾";
+    display: inline-block;
+    font-size: 0.7rem;
+    color: var(--pico-muted-color);
+    transition: transform 0.12s ease;
+}
+
+.table-panel.collapsed .table-panel-caret::before {
+    transform: rotate(-90deg);
+}
+
+.table-panel-title {
+    flex: 1 1 auto;
+    text-align: left;
+}
+
+.table-panel-count {
+    flex: 0 0 auto;
+    min-width: 1.5rem;
+    padding: 0 0.4rem;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--pico-muted-color);
+    background: var(--pico-code-background-color, rgb(128 128 128 / 12%));
+    border-radius: 999px;
+}
+
+.table-panel.collapsed .table-panel-body {
+    display: none;
+}
+
+.table-empty {
+    margin: 0;
+    padding: 0.5rem 0.6rem 0.7rem;
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--pico-muted-color);
+}
+
+.semantic-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.semantic-table th {
+    padding: 0.3rem 0.6rem;
+    text-align: left;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--pico-muted-color);
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+.semantic-table td {
+    padding: 0.3rem 0.6rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+/* A categorized cell wears a thin left accent in its category color. */
+.semantic-table td[data-category] {
+    border-left: 3px solid var(--cell-accent);
+    padding-left: 0.5rem;
+}
+
+/* Cross-linked rows and cells invite a hover; the highlighter (entity-highlight.ts)
+   drives the actual highlight class. */
+.semantic-table tbody tr[data-entity-key],
+.semantic-table td[data-entity-key],
+.semantic-table td[data-ref-key] {
+    cursor: default;
+}
+
+/* The cross-link highlight, shared by table rows/cells and the scene-tree node. */
+.entity-highlight {
+    background: var(--entity-highlight);
+}
+
+tr.entity-highlight td {
+    background: var(--entity-highlight);
+}
+
+/* On an SVG scene node the background does not apply, so pop the circle and bold the
+   label instead, mirroring the legend-hover treatment. */
+g.node.entity-highlight circle {
+    transform: scale(1.4);
+    transform-box: fill-box;
+    transform-origin: center;
+    stroke: var(--entity-highlight-edge);
+    stroke-width: 2.5px;
+    vector-effect: non-scaling-stroke;
+}
+
+g.node.entity-highlight text.label {
+    font-weight: 700;
 }
 
 /* Source tab: raw document (left) beside a live preview (right). */

@@ -1,8 +1,10 @@
 import type { Report, Stage } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
+import type { CameraTransform } from "./graph-camera";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
+import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
 import { initFullscreen } from "./fullscreen";
 import { initCollapsiblePanel } from "./collapse-toggle";
@@ -142,25 +144,37 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     function addStageTab(stage: Stage): void {
         const section = document.createElement("section");
         section.className = "stage";
+        // The Semantic tab has a different shape: a scene-tree graph beside stacked tables.
+        // It is still a graph stage, so it reuses the tree view (camera memory, fold, full
+        // screen) — only the surrounding layout differs.
+        const isSemantic = stage.tables != null;
+        if (isSemantic) section.classList.add("semantic-stage");
         let view: TreeView | null = null;
         try {
-            // A stage shows its own pinned camera, else the shared current one it
-            // inherits, else the default framing; its fold is always its own. Reader
-            // adjustments are recorded live through the callbacks below.
-            view = createTreeView(stage, panel.show, {
+            const treeOptions = {
                 initialCamera: cameras.cameraFor(stage.title),
                 initialFold: cameras.foldFor(stage.title),
-                onCameraChange: (transform, byUser) =>
+                onCameraChange: (transform: CameraTransform, byUser: boolean) =>
                     byUser
                         ? cameras.adjustCamera(stage.title, transform)
                         : cameras.noteCamera(transform),
-                onFoldChange: (collapsed) => cameras.setFold(stage.title, collapsed),
+                onFoldChange: (collapsed: string[]) => cameras.setFold(stage.title, collapsed),
                 onRevert: () => cameras.reset(stage.title),
                 onToggleFullscreen: fullscreen.toggle,
-            });
-            section.appendChild(view.svg);
-            section.appendChild(view.legend);
-            section.appendChild(view.controls);
+            };
+            if (isSemantic) {
+                const semantic = createSemanticView(stage, panel.show, treeOptions);
+                view = semantic.view;
+                section.appendChild(semantic.element);
+            } else {
+                // A stage shows its own pinned camera, else the shared current one it
+                // inherits, else the default framing; its fold is always its own. Reader
+                // adjustments are recorded live through the callbacks above.
+                view = createTreeView(stage, panel.show, treeOptions);
+                section.appendChild(view.svg);
+                section.appendChild(view.legend);
+                section.appendChild(view.controls);
+            }
         } catch (error) {
             section.classList.add("error");
             section.textContent = `Failed to render stage: ${(error as Error).message}`;
@@ -194,11 +208,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         Array.from(stagesEl.children).forEach((el, i) =>
             el.classList.toggle("active", i === index),
         );
-        // The Source tab (no tree view) has no node-detail panel; hide it so the
-        // split source/preview takes the full width.
+        // The Source tab (no tree view) and the Semantic tab (its own tables) have no shared
+        // node-detail inspector; hide it so their content takes the full width.
         const isSource = views[index] === null;
-        appEl.classList.toggle("no-detail", isSource);
-        setHelp(isSource ? "source" : "graph");
+        const section = stagesEl.children[index] as HTMLElement | undefined;
+        const isSemantic = section?.classList.contains("semantic-stage") ?? false;
+        appEl.classList.toggle("no-detail", isSource || isSemantic);
+        setHelp(isSource ? "source" : isSemantic ? "semantic" : "graph");
         source?.onActiveTabChange?.(isSource);
         // Frame the tab now that it is visible (a tree built while hidden had a
         // zero-size container). Applying its remembered position — instead of always

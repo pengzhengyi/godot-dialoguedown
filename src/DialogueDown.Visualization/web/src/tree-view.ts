@@ -317,7 +317,10 @@ export function createTreeView(
         const group = enter
             .append("g")
             .attr("class", "node")
-            .attr("data-tip", (d) => tooltipHtml(d.data));
+            .attr("data-tip", (d) => tooltipHtml(d.data))
+            // A cross-linked node (a scene in the Semantic tab) carries its entity key, so the
+            // entity highlighter can light it up with the matching table rows. Absent elsewhere.
+            .attr("data-entity-key", (d) => d.data.entityKey ?? null);
 
         group
             .append("circle")

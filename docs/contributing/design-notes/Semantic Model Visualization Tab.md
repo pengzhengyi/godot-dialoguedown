@@ -1,7 +1,7 @@
 # Semantic Model Visualization Tab
 
 > [!IMPORTANT]
-> Status: **approved — in progress** (an enhancement to
+> Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md), showing the
 > [Semantic Analyzer](./Semantic%20Analyzer.md)'s output). Unlike the AST stages, the
 > semantic analyzer produces **several outputs, not one graph**: a scene tree plus a
@@ -78,21 +78,21 @@ one name across the analyzer, this tab, and the code.
 
 ## Functionality checklist
 
-- [ ] A **Semantic** tab appears after the Desugared AST tab.
-- [ ] Its main area shows the **scene tree** as an interactive graph (zoom, pan, fold,
+- [x] A **Semantic** tab appears after the Desugared AST tab.
+- [x] Its main area shows the **scene tree** as an interactive graph (zoom, pan, fold,
       full screen, position memory) — reusing the existing tree view.
-- [ ] The right column stacks three **table panels**: speaker, anchor, jump resolution.
-- [ ] Each table panel **collapses to a horizontal bar** (title + row count) and expands
+- [x] The right column stacks three **table panels**: speaker, anchor, jump resolution.
+- [x] Each table panel **collapses to a horizontal bar** (title + row count) and expands
       again; the choice persists across reloads.
-- [ ] **Cross-linking:** hovering a scene row/cell (or a scene node in the graph)
+- [x] **Cross-linking:** hovering a scene row/cell (or a scene node in the graph)
       highlights that scene in the graph, the anchor table, and any jump that resolves to
       it; hovering a speaker highlights it across the tables.
-- [ ] The jump-resolution table shows each jump's **resolution kind** — a scene link, a
+- [x] The jump-resolution table shows each jump's **resolution kind** — a scene link, a
       deferred file target, or unresolved — with the scene link cross-referencing the
       scene entity.
-- [ ] The speaker table marks the **default** speaker and lists each speaker's **tags**.
-- [ ] Empty tables render a clear "none" state, not a blank panel.
-- [ ] The tab is read-only on every mode; the View/Edit toggle stays frozen (as on the
+- [x] The speaker table marks the **default** speaker and lists each speaker's **tags**.
+- [x] Empty tables render a clear "none" state, not a blank panel.
+- [x] The tab is read-only on every mode; the View/Edit toggle stays frozen (as on the
       other graph tabs).
 
 ## Design
@@ -171,19 +171,21 @@ flowchart LR
 | Type / function | Responsibility | Collaborators |
 | --- | --- | --- |
 | `SemanticProjection` (C#) | Project a `SemanticModel` into a scene-tree `DisplayGraph` (with scene entity keys) plus the three `SemanticTable`s. | `SceneTreeProjection`, `GraphWalk` |
-| `SceneTreeProjection : INodeProjection<Scene>` (C#) | Describe/'`Neighbors`' a `Scene` for the graph walk; a scene node carries its `entityKey`. | `GraphWalk` |
+| `SceneTreeProjection : INodeProjection<Scene>` (C#) | Describe/'`Neighbors`' a `Scene` for the graph walk; a scene node carries its `entityKey` and a `TypeName` ("Scene"/"Document"). | `GraphWalk` |
+| `NodeDescription.TypeName` / `DisplayNode.TypeName` (C#) | Optional legend name for a node whose label is content (a scene title) rather than a type; the legend groups by it when present. | `GraphWalk`, `createLegend` |
 | `SemanticTable` / `SemanticRow` / `SemanticCell` (C#) | A serializable table: title, columns, and rows of cells; a cell may carry `entityKey`/`refKey`. | `DisplayGraphJson` |
-| `Stage.tables` (TS + C# payload) | Optional tables riding alongside a stage's graph; absent ⇒ a plain graph tab. | `runApp`, `DisplayGraphJson` |
-| `createSemanticView` (TS) | Build the analytics tab: the scene-tree tree view in the main area + stacked collapsible table panels, wired for cross-link highlight. | `createTreeView`, `initCollapsiblePanel`, `createEntityHighlighter` |
-| `createEntityHighlighter` (TS) | Index elements by entity key and toggle the shared `highlight` class on hover. | — |
+| `Stage.tables` (TS + C# payload) | Optional tables riding alongside a stage's graph; absent ⇒ a plain graph tab. | `addStageTab`, `DisplayGraphJson` |
+| `createSemanticView` (TS) | Build the analytics tab: the scene-tree tree view in the main area + stacked collapsible table panels, wired for cross-link highlight. | `createTreeView`, `createTablePanel`, `createEntityHighlighter` |
+| `createTablePanel` (TS) | Render one `SemanticTable` as a collapsible panel (header bar + table) carrying the cross-link keys. | `initCollapsiblePanel` |
+| `createEntityHighlighter` (TS) | Index elements by entity key and toggle the shared `entity-highlight` class on hover. | — |
 
 ## The three tables
 
 | Table | One row per | Columns | Entity / ref keys |
 | --- | --- | --- | --- |
-| **Speakers** | resolved speaker | Name, `@id`, Tags, Default? | row `entityKey = speaker:<id-or-name>` |
+| **Speakers** | resolved speaker | Name, `@id`, Tags, Default | row `entityKey = speaker:<id-or-name>` |
 | **Anchors** | scene with an anchor | Anchor (`#slug`), Scene (heading text), Level | row `entityKey = scene:<anchor>` |
-| **Jump resolutions** | analyzed jump | Jump (label/target), Resolves to (scene / file — deferred / unresolved) | target cell `refKey = scene:<anchor>` for a scene jump |
+| **Jump resolutions** | analyzed jump | Jump (label), Target (`#slug`), Resolves to (scene / file — deferred / unresolved) | "Resolves to" cell `refKey = scene:<anchor>` for a scene jump |
 
 ## Key design decisions
 
@@ -202,15 +204,20 @@ flowchart LR
   `CompilationResult.Semantics`, so the projection lives on the visualization side with no
   new public surface. The scene-tree graph goes through `GraphWalk` like every other stage.
 - **Hover-to-highlight for v1.** The user's spec is hover-driven; a sticky click-to-pin
-  selection is a possible later enhancement (see [Open questions](#open-questions)).
+  selection is a possible later enhancement (see
+  [Deferred enhancements](#deferred-enhancements)).
+- **A node's legend name can differ from its label.** A scene node labels itself by its
+  **title** (so the tree reads as scenes), which would make the legend list every title.
+  So a node carries an optional `TypeName` ("Scene", "Document") that the legend groups and
+  labels by, falling back to the label for AST stages that label themselves by type.
 
 ## Error & boundary cases
 
 | Case | Behavior |
 | --- | --- |
-| No scenes (flat document, root only) | The scene tree shows just the root; the anchor table shows a "none" row. |
+| No scenes (flat document, root only) | The scene tree shows just the root; the anchor table shows its "No scenes." note. |
 | No speakers beyond the default | The speaker table shows the default speaker row only. |
-| No jumps | The jump-resolution table shows a "none" row. |
+| No jumps | The jump-resolution table shows its "No jumps." note. |
 | Jump resolved to a **file target** (deferred) | Row shows the file/anchor as text with a "deferred" note; **no** scene `refKey`. |
 | **Unresolved** jump (empty target) | Row shows "unresolved"; no `refKey`. |
 | A scene whose heading text is empty after slugging | Cannot happen — the analyzer rejects empty-slug headings upstream; the projection assumes a valid model. |
@@ -221,9 +228,11 @@ flowchart LR
 - **C#:** `CompilationVisualizer.BuildStages` appends the semantic stage after the three
   AST stages, projecting `result.Semantics` through `SemanticProjection`. `DisplayGraphJson`
   serializes the new `tables` field (omitted when null, like other optional payload fields).
-- **TS:** `runApp` routes a stage that has `tables` to `createSemanticView` instead of the
-  plain graph path; the scene tree still uses `createTreeView`, so camera memory, fold, and
-  full screen work unchanged. The tab freezes the View/Edit toggle like the other graph tabs.
+- **TS:** `runApp`'s `addStageTab` routes a stage that has `tables` to `createSemanticView`
+  instead of the plain graph path; the scene tree still uses `createTreeView`, so camera
+  memory, fold, and full screen work unchanged. The tab freezes the View/Edit toggle like
+  the other graph tabs, and hides the shared node-detail inspector (its tables are the
+  detail).
 - The report stays a single self-contained offline file; no new runtime dependency.
 
 ## Testability
@@ -255,12 +264,14 @@ Settled for v1, with these enhancements deliberately deferred:
 
 ## Implementation checklist
 
-- [ ] C#: `SemanticTable`/`SemanticRow`/`SemanticCell` model + `SceneTreeProjection` +
+- [x] C#: `SemanticTable`/`SemanticRow`/`SemanticCell` model + `SceneTreeProjection` +
       `SemanticProjection`; unit tests.
-- [ ] C#: `Stage.tables` in the payload; `DisplayGraphJson` serializes it; `BuildStages`
+- [x] C#: `Stage.tables` in the payload; `DisplayGraphJson` serializes it; `BuildStages`
       appends the semantic stage; tests.
-- [ ] TS: `Stage.tables` type; `createEntityHighlighter`; `createSemanticView` (graph +
-      stacked collapsible tables); `runApp` routing; unit + e2e tests.
-- [ ] Styling for the analytics layout and table panels; help text for the Semantic tab.
-- [ ] Rebuild the committed `dist/report.html`; `CHANGELOG` + README touch-ups.
+- [x] C#: `NodeDescription`/`DisplayNode` `TypeName` for clean scene-tree legend labels;
+      `GraphWalk` copies it; tests.
+- [x] TS: `Stage.tables` type; `createEntityHighlighter`; `createSemanticView` (graph +
+      stacked collapsible tables); `addStageTab` routing; unit + e2e tests.
+- [x] Styling for the analytics layout and table panels; help text for the Semantic tab.
+- [x] Rebuild the committed `dist/report.html`; `CHANGELOG` + README touch-ups.
 - [ ] **Explicit UI-correctness approval** (live preview) before merge.

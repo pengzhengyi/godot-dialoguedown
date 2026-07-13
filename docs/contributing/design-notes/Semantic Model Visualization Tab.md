@@ -45,21 +45,22 @@ resolutions**. A single graph tab cannot represent that well. This component add
 **Semantic** tab with an **analytics layout**:
 
 - the **scene tree** as the graph in the main (left) area, reusing the existing
-  interactive tree view; and
+  interactive tree view — each scene expands to the **script blocks** it owns; and
 - the **speaker table**, **anchor table**, and **jump-resolution table** as
-  **collapsible table panels** stacked down the right column.
+  **collapsible table panels** stacked down the right column, which as a whole is
+  resizable and can be hidden to give the graph full width.
 
-The tab is **cross-linked**: hovering a scene or speaker in any table (or the graph)
-highlights that same entity everywhere it appears — so a reader can see, for example,
-which scene a jump resolves to, or where a speaker is defined.
+The tab is **cross-linked**: hovering a scene, a speaker, or a jump anywhere — a table, a
+scene node, or a script block in the tree — highlights that same entity everywhere it
+appears, so a reader can see which scene a jump resolves to, or every line a speaker speaks.
 
-**In scope:** the C# projection of the semantic model into a scene-tree graph plus the
-three tables with entity keys; the TS analytics-layout tab (graph + stacked collapsible
-tables) with cross-link highlighting; and wiring the tab through the existing report
-payload. **Out of scope:** changing the analyzer or its model; the flow graph
-(succession/choice/jump *edges*, a later component); editing from this tab; and
-speaker-driven autocomplete (the next component, tracked as
-[#71](https://github.com/pengzhengyi/godot-dialoguedown/issues/71)).
+**In scope:** the C# projection of the semantic model into a scene-tree graph (with each
+scene's script blocks) plus the three tables, all sharing cross-link keys; the TS
+analytics-layout tab (graph + resizable, collapsible stacked tables) with cross-link
+highlighting; and wiring the tab through the existing report payload. **Out of scope:**
+changing the analyzer or its model; the flow graph (succession/choice/jump *edges*, a later
+component); editing from this tab; and speaker-driven autocomplete (the next component,
+tracked as [#71](https://github.com/pengzhengyi/godot-dialoguedown/issues/71)).
 
 ## Ubiquitous language
 
@@ -68,12 +69,13 @@ one name across the analyzer, this tab, and the code.
 
 | Term | Meaning |
 | --- | --- |
-| **Scene tree** | The nested scenes, shown as the tab's graph. A scene's node links to its anchor-table row. |
+| **Scene tree** | The nested scenes and, under each, the script blocks it owns — the tab's graph. A scene's node links to its anchor-table row. |
+| **Script block** | A piece of a scene's content (a line, speaker, choice, jump, tag, …), described exactly as on the Desugared AST tab. |
 | **Speaker table** | Rows of resolved speakers (name, `@id`, tags, whether default). |
 | **Anchor table** | Rows mapping a scene's `#slug` anchor to its scene. |
 | **Jump-resolution table** | Rows of each jump and what it resolved to (a scene, a deferred file target, or unresolved). |
 | **Entity** | A cross-referenced thing with a stable identity: a **scene** or a **speaker**. Cross-linking highlights an entity everywhere it appears. |
-| **Entity key** | The stable string identifying an entity across the graph and tables, e.g. `scene:the-market`, `speaker:@guide`. A row *is* an entity (its `entityKey`); a cell may *reference* one (its `refKey`). |
+| **Entity key** | The stable string identifying an entity across the graph and tables, e.g. `scene:the-market`, `speaker:@guide`. A scene node or table row *is* an entity (its `entityKey`); a jump/speaker block node or table cell *references* one (its `refKey`). |
 | **Table panel** | One collapsible container in the right column holding a table; collapses to a labeled horizontal bar. |
 
 ## Functionality checklist
@@ -81,12 +83,16 @@ one name across the analyzer, this tab, and the code.
 - [x] A **Semantic** tab appears after the Desugared AST tab.
 - [x] Its main area shows the **scene tree** as an interactive graph (zoom, pan, fold,
       full screen, position memory) — reusing the existing tree view.
+- [x] Each scene expands to the **script blocks** it owns (lines, speakers, choices, jumps,
+      …), described exactly as on the Desugared AST tab, expandable and collapsible per node.
 - [x] The right column stacks three **table panels**: speaker, anchor, jump resolution.
+- [x] The whole tables column is **resizable** (drag the divider) and **collapsible** (a
+      toggle hides it so the graph fills the width); both choices persist across reloads.
 - [x] Each table panel **collapses to a horizontal bar** (title + row count) and expands
       again; the choice persists across reloads.
-- [x] **Cross-linking:** hovering a scene row/cell (or a scene node in the graph)
-      highlights that scene in the graph, the anchor table, and any jump that resolves to
-      it; hovering a speaker highlights it across the tables.
+- [x] **Cross-linking:** hovering a scene (row/cell or graph node), a **speaker mention** in
+      the tree, or a **jump** highlights the same entity everywhere — the scene in the graph,
+      the anchor table, and its jumps; a speaker across its tree mentions and its speaker row.
 - [x] The jump-resolution table shows each jump's **resolution kind** — a scene link, a
       deferred file target, or unresolved — with the scene link cross-referencing the
       scene entity.
@@ -170,14 +176,15 @@ flowchart LR
 
 | Type / function | Responsibility | Collaborators |
 | --- | --- | --- |
-| `SemanticProjection` (C#) | Project a `SemanticModel` into a scene-tree `DisplayGraph` (with scene entity keys) plus the three `SemanticTable`s. | `SceneTreeProjection`, `GraphWalk` |
-| `SceneTreeProjection : INodeProjection<Scene>` (C#) | Describe/'`Neighbors`' a `Scene` for the graph walk; a scene node carries its `entityKey` and a `TypeName` ("Scene"/"Document"). | `GraphWalk` |
+| `SemanticProjection` (C#) | Project a `SemanticModel` (and the source text) into a scene-tree `DisplayGraph` plus the three `SemanticTable`s, all sharing cross-link keys. | `SceneTreeProjection`, `GraphWalk` |
+| `SceneTreeProjection : INodeProjection<object>` (C#) | Describe/'`Neighbors`' a scene (its blocks then its subscenes) and delegate each script block to the shared `DialogueAstProjection`, adding a `RefKey` on a speaker mention or a scene-resolving jump. | `GraphWalk`, `DialogueAstProjection`, `SpeakerTable`, `JumpResolutionTable` |
 | `NodeDescription.TypeName` / `DisplayNode.TypeName` (C#) | Optional legend name for a node whose label is content (a scene title) rather than a type; the legend groups by it when present. | `GraphWalk`, `createLegend` |
+| `NodeDescription.RefKey` / `DisplayNode.RefKey` (C#) | Optional cross-link key when a node *references* an entity — a jump's target scene, a speaker mention — the symmetric partner of `EntityKey`. | `GraphWalk`, `createEntityHighlighter` |
 | `SemanticTable` / `SemanticRow` / `SemanticCell` (C#) | A serializable table: title, columns, and rows of cells; a cell may carry `entityKey`/`refKey`. | `DisplayGraphJson` |
 | `Stage.tables` (TS + C# payload) | Optional tables riding alongside a stage's graph; absent ⇒ a plain graph tab. | `addStageTab`, `DisplayGraphJson` |
-| `createSemanticView` (TS) | Build the analytics tab: the scene-tree tree view in the main area + stacked collapsible table panels, wired for cross-link highlight. | `createTreeView`, `createTablePanel`, `createEntityHighlighter` |
+| `createSemanticView` (TS) | Build the analytics tab: the scene-tree tree view + stacked table panels, wired for cross-link highlight, with a draggable divider that resizes and hides the tables column. | `createTreeView`, `createTablePanel`, `createEntityHighlighter`, `initCollapsiblePanel` |
 | `createTablePanel` (TS) | Render one `SemanticTable` as a collapsible panel (header bar + table) carrying the cross-link keys. | `initCollapsiblePanel` |
-| `createEntityHighlighter` (TS) | Index elements by entity key and toggle the shared `entity-highlight` class on hover. | — |
+| `createEntityHighlighter` (TS) | Index elements by `entityKey`/`refKey` and toggle the shared `entity-highlight` class on hover. | — |
 
 ## The three tables
 
@@ -192,13 +199,20 @@ flowchart LR
 - **The scene tree is the stage's graph; tables ride in `Stage.tables`.** Reuses the whole
   tree view and keeps one tab model; a table-less stage is unchanged. (See
   [Payload shape](#payload-shape).)
+- **Each scene expands to its script blocks, reusing the Desugared AST projection.**
+  `SceneTreeProjection` is a composite over `object`: a scene yields its blocks then its
+  subscenes, and every block is described by the shared `DialogueAstProjection`, so the tree
+  reads identically to the Desugared AST tab without duplicating that logic.
 - **Cross-link by entity key, not by matching.** The projection emits `scene:<anchor>` and
-  `speaker:<id-or-name>` keys; the UI highlights by exact key. This mirrors the model's own
+  `speaker:<id-or-name>` keys; the UI highlights by exact key. A scene node or table row
+  *is* an entity (`entityKey`); a jump/speaker block node or table cell *references* one
+  (`refKey`) — the highlighter treats the two symmetrically. This mirrors the model's own
   keying and avoids brittle title/position matching. (See
   [Cross-linking](#cross-linking-by-entity-key).)
-- **Reuse the collapsible-panel pattern for the table stack.** The report already has a
-  collapse toggle with persistence; the three table panels reuse it rather than inventing a
-  new affordance.
+- **Reuse the collapsible-panel pattern for both the table stack and the whole column.**
+  Each table panel and the column as a whole reuse the report's collapse toggle (with
+  persistence); a pointer-captured divider resizes the column, mirroring the Source tab's
+  editor/preview split rather than inventing a new affordance.
 - **A dedicated `SemanticProjection`, exposed through the existing friend seam.** The model
   is `internal`; the visualization project already has friend access via
   `CompilationResult.Semantics`, so the projection lives on the visualization side with no
@@ -258,18 +272,19 @@ flowchart LR
 
 ## Deferred enhancements
 
-Settled for v1, with these enhancements deliberately deferred:
+Settled for the current build, with these enhancements deliberately deferred:
 
-1. **Click-to-pin selection.** v1 is **hover-to-highlight** only. A sticky
+1. **Click-to-pin selection.** Cross-linking is **hover-to-highlight** only. A sticky
    click-to-pin selection (so a reader can move the mouse away while comparing) is a
    possible fast follow.
-2. **Speaker ↔ scene links.** Speakers are not scene-tree nodes, so a speaker entity
-   highlights across the **tables only**, not the graph. Tagging each scene node with the
-   speakers that appear in it (so hovering a speaker lights up the scenes they speak in)
-   is deferred — it needs the projection to walk each scene's blocks for speakers.
-3. **A node-detail panel.** This tab has **no separate detail strip** — clicking a scene
-   node cross-highlights its rows, and the tables are the detail. A detail strip could be
-   added later if a scene needs its own source/preview here.
+2. **Scene-to-speaker aggregation.** A speaker cross-links from each of its **mentions** in
+   the tree and its speaker row. Tagging each *scene* node with the speakers that appear in
+   it (so hovering a speaker lights up whole scenes, not just the mentions) is deferred — it
+   needs the projection to aggregate speakers per scene.
+3. **A node-detail panel.** This tab has **no separate detail strip** — the tables are the
+   detail, and hovering a node shows its attribute tooltip. Clicking a script block does not
+   open a source/preview panel as on the AST tabs; a detail strip could be added later if a
+   node needs its own source/preview here.
 
 ## Implementation checklist
 
@@ -277,10 +292,14 @@ Settled for v1, with these enhancements deliberately deferred:
       `SemanticProjection`; unit tests.
 - [x] C#: `Stage.tables` in the payload; `DisplayGraphJson` serializes it; `BuildStages`
       appends the semantic stage; tests.
-- [x] C#: `NodeDescription`/`DisplayNode` `TypeName` for clean scene-tree legend labels;
-      `GraphWalk` copies it; tests.
-- [x] TS: `Stage.tables` type; `createEntityHighlighter`; `createSemanticView` (graph +
-      stacked collapsible tables); `addStageTab` routing; unit + e2e tests.
-- [x] Styling for the analytics layout and table panels; help text for the Semantic tab.
+- [x] C#: composite `SceneTreeProjection` shows each scene's script blocks (reusing
+      `DialogueAstProjection`) and adds `RefKey` cross-links on speaker/jump nodes; tests.
+- [x] C#: `NodeDescription`/`DisplayNode` `TypeName` for clean scene-tree legend labels,
+      and `RefKey` for speaker/jump cross-links; `GraphWalk` copies both; tests.
+- [x] TS: `Stage.tables`/`refKey` types; `createEntityHighlighter`; `createSemanticView`
+      (graph + resizable, collapsible stacked tables); `tree-view` emits `data-ref-key`;
+      `addStageTab` routing; unit + e2e tests.
+- [x] Styling for the analytics layout, the table panels, and the resizable column divider;
+      help text for the Semantic tab.
 - [x] Rebuild the committed `dist/report.html`; `CHANGELOG` + README touch-ups.
 - [ ] **Explicit UI-correctness approval** (live preview) before merge.

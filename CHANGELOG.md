@@ -24,9 +24,9 @@ changes easy to categorize.
   Markdown, Dialogue, and Desugared ASTs, and the **semantic model** shown as a scene tree
   (each scene expandable to its script blocks) beside cross-linked, resizable speaker,
   anchor, and jump-resolution tables — with a runtime **View ⇄ Edit** toggle: a read-only,
-  auto-updating **View** and an in-browser editor that saves back to the file — with search,
-  section folding, Markdown formatting shortcuts, document-aware autocomplete, and a
-  **light/dark** theme.
+  auto-updating **View** and an in-browser editor that saves back to the file — or discards
+  unsaved edits to restore the last saved version — with search, section folding, Markdown
+  formatting shortcuts, document-aware autocomplete, and a **light/dark** theme.
 - **`visualize` report navigation** — collapsible side panels, a full-screen mode,
   and per-graph position memory that keeps each stage's zoom, pan, and collapsed
   branches across tab switches and hot-reloads.

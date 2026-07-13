@@ -20,8 +20,6 @@ namespace DialogueDown.Script.Semantics;
 /// </remarks>
 internal sealed class SpeakerBinder
 {
-    private const string DefaultSpeakerTagName = "default";
-
     private readonly Dictionary<string, SpeakerSymbol> _speakerByName = [];
     private readonly Dictionary<string, SpeakerSymbol> _speakerById = [];
     private readonly Dictionary<SpeakerSymbol, Speaker> _originBySymbol = [];
@@ -147,7 +145,7 @@ internal sealed class SpeakerBinder
         {
             switch (tag)
             {
-                case ReservedTag { Name: DefaultSpeakerTagName } reserved:
+                case ReservedTag { Name: ReservedTagNames.Default } reserved:
                     MarkAsDefault(symbol, reserved.Span);
                     break;
                 case CustomTag custom:

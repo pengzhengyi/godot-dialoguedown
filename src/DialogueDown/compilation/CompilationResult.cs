@@ -1,6 +1,7 @@
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
+using DialogueDown.Script.Semantics;
 
 namespace DialogueDown.Compilation;
 
@@ -17,16 +18,19 @@ public sealed record CompilationResult
         string source,
         MarkdownDocument markdown,
         ScriptDocument script,
-        DesugaredScriptDocument desugared)
+        DesugaredScriptDocument desugared,
+        SemanticModel semantics)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(markdown);
         ArgumentNullException.ThrowIfNull(script);
         ArgumentNullException.ThrowIfNull(desugared);
+        ArgumentNullException.ThrowIfNull(semantics);
         Source = source;
         Markdown = markdown;
         Script = script;
         Desugared = desugared;
+        Semantics = semantics;
     }
 
     /// <summary>The original script text this result was compiled from.</summary>
@@ -40,4 +44,7 @@ public sealed record CompilationResult
 
     /// <summary>The desugared Dialogue AST — the desugar stage's artifact.</summary>
     internal DesugaredScriptDocument Desugared { get; }
+
+    /// <summary>The semantic model — the semantic-analysis stage's artifact.</summary>
+    internal SemanticModel Semantics { get; }
 }

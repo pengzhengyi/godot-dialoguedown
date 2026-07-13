@@ -1,4 +1,5 @@
 using DialogueDown.Compilation;
+using DialogueDown.Script.Semantics;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
 
 namespace DialogueDown.Tests.Compilation;
@@ -12,7 +13,7 @@ public sealed class ScriptCompilerFactoryTests
             """
             # Scene
 
-            Alice: Ready? => [Play](#play)
+            Alice: Ready? => [Play](#scene)
 
             No speaker here.
             """;
@@ -30,9 +31,13 @@ public sealed class ScriptCompilerFactoryTests
 
         var spoken = AssertLine(body[1]);
         AssertSpeakerNameReference(spoken.Speaker!, "Alice");
-        AssertJump(spoken.Speech[^1], "#play");
+        AssertJump(spoken.Speech[^1], "#scene");
 
         var silent = AssertLine(body[2]);
         AssertDefaultSpeaker(silent.Speaker);
+
+        // The semantic model is bound: the heading became a scene the jump resolves to.
+        Assert.True(result.Semantics.Anchors.TryResolve("scene", out _));
+        Assert.IsType<SceneJump>(Assert.Single(result.Semantics.Jumps.Resolutions));
     }
 }

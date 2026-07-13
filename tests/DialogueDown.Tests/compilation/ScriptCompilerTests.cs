@@ -2,8 +2,11 @@ using DialogueDown.Compilation;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
+using DialogueDown.Script.Semantics;
 using DialogueDown.Script.Transpiler;
+using DialogueDown.Tests.Support;
 using NSubstitute;
+using NSubstitute.Extensions;
 
 namespace DialogueDown.Tests.Compilation;
 
@@ -16,25 +19,26 @@ public sealed class ScriptCompilerTests
         var markdown = new MarkdownDocument([]);
         var script = new ScriptDocument([]);
         var desugared = new DesugaredScriptDocument(script);
+        var semantics = SemanticModelFactory.Minimal(desugared);
 
-        var parser = Substitute.For<IMarkdownParser>();
-        var transpiler = Substitute.For<IScriptTranspiler>();
-        var desugarer = Substitute.For<IScriptDesugarer>();
-        parser.Parse(source).Returns(markdown);
-        transpiler.Transpile(markdown, source).Returns(script);
-        desugarer.Desugar(script, source).Returns(desugared);
+        var parser = Substitute<IMarkdownParser, MarkdownDocument>(markdown);
+        var transpiler = Substitute<IScriptTranspiler, ScriptDocument>(script);
+        var desugarer = Substitute<IScriptDesugarer, DesugaredScriptDocument>(desugared);
+        var analyzer = Substitute<ISemanticAnalyzer, SemanticModel>(semantics);
 
-        var result = new ScriptCompiler(parser, transpiler, desugarer).Compile(source);
+        var result = new ScriptCompiler(parser, transpiler, desugarer, analyzer).Compile(source);
 
         Assert.Equal(source, result.Source);
         Assert.Same(markdown, result.Markdown);
         Assert.Same(script, result.Script);
         Assert.Same(desugared, result.Desugared);
+        Assert.Same(semantics, result.Semantics);
         Received.InOrder(() =>
         {
             parser.Parse(source);
             transpiler.Transpile(markdown, source);
             desugarer.Desugar(script, source);
+            analyzer.Analyze(desugared, source);
         });
     }
 
@@ -42,9 +46,10 @@ public sealed class ScriptCompilerTests
     public void Compile_NullSource_Throws()
     {
         var compiler = new ScriptCompiler(
-            Substitute.For<IMarkdownParser>(),
-            Substitute.For<IScriptTranspiler>(),
-            Substitute.For<IScriptDesugarer>());
+            Substitute<IMarkdownParser, MarkdownDocument>(),
+            Substitute<IScriptTranspiler, ScriptDocument>(),
+            Substitute<IScriptDesugarer, DesugaredScriptDocument>(),
+            Substitute<ISemanticAnalyzer, SemanticModel>());
 
         Assert.Throws<ArgumentNullException>(() => compiler.Compile(null!));
     }
@@ -53,13 +58,30 @@ public sealed class ScriptCompilerTests
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
+    [InlineData(3)]
     public void Constructor_NullDependency_Throws(int nullIndex)
     {
-        var parser = nullIndex == 0 ? null! : Substitute.For<IMarkdownParser>();
-        var transpiler = nullIndex == 1 ? null! : Substitute.For<IScriptTranspiler>();
-        var desugarer = nullIndex == 2 ? null! : Substitute.For<IScriptDesugarer>();
+        var parser = nullIndex == 0 ? null! : Substitute<IMarkdownParser, MarkdownDocument>();
+        var transpiler = nullIndex == 1 ? null! : Substitute<IScriptTranspiler, ScriptDocument>();
+        var desugarer = nullIndex == 2 ? null! : Substitute<IScriptDesugarer, DesugaredScriptDocument>();
+        var analyzer = nullIndex == 3 ? null! : Substitute<ISemanticAnalyzer, SemanticModel>();
 
         Assert.Throws<ArgumentNullException>(
-            () => new ScriptCompiler(parser, transpiler, desugarer));
+            () => new ScriptCompiler(parser, transpiler, desugarer, analyzer));
+    }
+
+    // Builds a stage substitute and, when a value is given, has every member that returns
+    // TReturn return it — so a test reads "a parser that yields this markdown" in one line.
+    private static TTarget Substitute<TTarget, TReturn>(TReturn? value = null)
+        where TTarget : class
+        where TReturn : class
+    {
+        var substitute = NSubstitute.Substitute.For<TTarget>();
+        if (value is not null)
+        {
+            substitute.ReturnsForAll(value);
+        }
+
+        return substitute;
     }
 }

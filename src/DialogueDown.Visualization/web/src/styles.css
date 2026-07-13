@@ -354,6 +354,21 @@ section.stage.error {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
+
+    /* Bound the graph's painting to its own box. The other stage graphs each live in an
+       out-of-flow `section.stage` (absolute, inset:0) and repaint cleanly on zoom; this
+       graph is an in-flow flex item beside the scrollable tables, which on some GPUs shares
+       a compositing layer whose previous frame is not fully invalidated — leaving ghost
+       copies of the tree while zooming. `contain` isolates and bounds the repaint; the SVG
+       below is positioned absolutely so it matches the other graphs' clean paint context. */
+    contain: layout paint;
+}
+
+/* Position the scene-tree SVG out of flow, exactly like the other stage graphs, so zooming
+   repaints cleanly instead of trailing ghost copies. */
+.semantic-graph svg.tree {
+    position: absolute;
+    inset: 0;
 }
 
 .semantic-tables {

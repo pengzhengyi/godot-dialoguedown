@@ -13,13 +13,15 @@ public sealed record NodeDescription
         string label,
         IReadOnlyList<DisplayAttribute>? attributes = null,
         string? source = null,
-        string? category = null)
+        string? category = null,
+        string? entityKey = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(label);
         Label = label;
         Attributes = attributes ?? [];
         Source = source;
         Category = category;
+        EntityKey = entityKey;
     }
 
     public string Label { get; }
@@ -35,4 +37,11 @@ public sealed record NodeDescription
     /// different stages share a category, so they share a color.
     /// </summary>
     public string? Category { get; }
+
+    /// <summary>
+    /// A stable key tying this node to a cross-linked entity — a scene shared with the
+    /// semantic tab's tables (for example <c>"scene:the-market"</c>), or null when the
+    /// node is not cross-linked. Hovering it highlights every element sharing the key.
+    /// </summary>
+    public string? EntityKey { get; }
 }

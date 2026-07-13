@@ -1,6 +1,7 @@
 using System.Text;
 using DialogueDown.Compilation;
 using DialogueDown.Markdown;
+using DialogueDown.Visualization.Semantics;
 
 namespace DialogueDown.Visualization;
 
@@ -12,8 +13,9 @@ namespace DialogueDown.Visualization;
 /// </summary>
 /// <remarks>
 /// <see cref="BuildStages"/> projects the stages the <see cref="IScriptCompiler"/> seam
-/// produces — the parsed Markdown AST, the transpiled Dialogue AST, and the desugarer's
-/// normalized Desugared AST — each one projection over the shared walk, model, and
+/// produces — the parsed Markdown AST, the transpiled Dialogue AST, the desugarer's
+/// normalized Desugared AST, and the analyzer's Semantic Model (a scene-tree graph beside
+/// its cross-linked tables) — each one a projection over the shared walk, model, and
 /// renderers.
 /// </remarks>
 public sealed class CompilationVisualizer
@@ -43,6 +45,7 @@ public sealed class CompilationVisualizer
             result.Markdown.ToDisplayGraph(source),
             result.Script.ToDisplayGraph(source),
             result.Desugared.ToDisplayGraph(source),
+            new SemanticProjection().Project(result.Semantics),
         ];
     }
 

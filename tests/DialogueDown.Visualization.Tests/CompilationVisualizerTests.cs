@@ -47,10 +47,12 @@ public sealed class CompilationVisualizerTests
             stages,
             markdownStage => Assert.Equal("Markdown AST", markdownStage.Title),
             dialogueStage => Assert.Equal("Dialogue AST", dialogueStage.Title),
-            desugaredStage => Assert.Equal("Desugared AST", desugaredStage.Title));
+            desugaredStage => Assert.Equal("Desugared AST", desugaredStage.Title),
+            semanticStage => Assert.Equal("Semantic Model", semanticStage.Title));
         Assert.Contains(stages[0].Nodes, n => n.Label == "Paragraph");
         Assert.Contains(stages[1].Nodes, n => n.Label == "Line");
         Assert.Contains(stages[2].Nodes, n => n.Label == "Line");
+        Assert.NotNull(stages[3].Tables);
     }
 
     [Fact]

@@ -202,18 +202,7 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
     // A link label or image alt is a run of inline fragments; flatten it to plain text for
     // the attribute display (the node's own span still points at the exact source).
     private static string InlineText(IReadOnlyList<InlineFragment> fragments) =>
-        string.Concat(fragments.Select(InlineText));
-
-    private static string InlineText(InlineFragment fragment) => fragment switch
-    {
-        Text text => text.Content,
-        StyledText styled => InlineText(styled.Children),
-        Link link => InlineText(link.Label),
-        Jump jump => InlineText(jump.Label),
-        Image image => InlineText(image.Alt),
-        LineBreak => " ",
-        _ => string.Empty,
-    };
+        Visualization.InlineText.Of(fragments);
 
     // Spans come from the Markdown source locations; clamp defensively so a diagnostics
     // view never throws on a stray span. An empty span yields no source: the node marks a

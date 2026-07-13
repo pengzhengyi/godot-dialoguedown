@@ -1,5 +1,5 @@
-/** Which tab's help to show: the Source tab or a stage graph tab. */
-export type HelpContext = "source" | "graph";
+/** Which tab's help to show: the Source tab, a stage graph tab, or the Semantic tab. */
+export type HelpContext = "source" | "graph" | "semantic";
 
 const SOURCE_HELP = `
   <p><strong>Source &amp; preview.</strong> The left pane is the document as written;
@@ -42,14 +42,30 @@ const GRAPH_HELP = `
      <kbd>Space</kbd> collapses or expands.</p>
 `;
 
+const SEMANTIC_HELP = `
+  <p><strong>Semantic model.</strong> The <strong>scene tree</strong> is the graph on the
+     left — each scene expands to the <strong>script blocks</strong> it contains (click a
+     node's circle to collapse or expand). The <strong>speaker</strong>, <strong>anchor</strong>,
+     and <strong>jump-resolution</strong> tables are stacked on the right.</p>
+  <p><strong>Cross-linking:</strong> hover a scene, a speaker, or a jump — in the graph or any
+     table — to highlight it everywhere it appears, so you can see which scene a jump resolves
+     to, or every line a speaker speaks.</p>
+  <p><strong>Tables column:</strong> drag the divider to resize it, or use the handle on the
+     divider to hide the whole column and give the graph full width. Each table also
+     <strong>collapses</strong> to a title strip on its own header bar. The choices persist.</p>
+  <p>The graph pans, zooms, folds, and goes full screen like the other tabs.</p>
+`;
+
 const SUMMARY: Record<HelpContext, string> = {
     source: "Using the Source tab",
     graph: "Using the graph",
+    semantic: "Using the Semantic tab",
 };
 
 const CONTENT: Record<HelpContext, string> = {
     source: SOURCE_HELP,
     graph: GRAPH_HELP,
+    semantic: SEMANTIC_HELP,
 };
 
 /**

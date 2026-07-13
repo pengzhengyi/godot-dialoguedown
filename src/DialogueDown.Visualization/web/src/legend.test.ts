@@ -7,6 +7,10 @@ function node(id: string, label: string, category?: string): DisplayNode {
     return { id, label, category, attributes: [] };
 }
 
+function titledNode(id: string, label: string, typeName: string, category: string): DisplayNode {
+    return { id, label, typeName, category, attributes: [] };
+}
+
 describe("categoryStats", () => {
     it("counts nodes per category and collects distinct type names", () => {
         const nodes = [
@@ -18,6 +22,16 @@ describe("categoryStats", () => {
             structure: { names: ["Heading"], count: 2 },
             call: { names: ["Code span"], count: 1 },
         });
+    });
+
+    it("groups by a node's explicit type name over its (content) label", () => {
+        // Scene-tree nodes label themselves by title, so the legend must read the type name
+        // instead — otherwise three distinct titles would render as three legend rows.
+        const nodes = [
+            titledNode("n1", "The Crossroads", "Scene", "structure"),
+            titledNode("n2", "The Market", "Scene", "structure"),
+        ];
+        expect(categoryStats(nodes).structure).toEqual({ names: ["Scene"], count: 2 });
     });
 
     it("keeps multiple distinct type names within one category", () => {

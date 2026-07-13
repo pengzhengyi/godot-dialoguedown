@@ -45,6 +45,7 @@ that every component shares — starting with the error model.
 | [Graph Position Preservation](./Graph%20Position%20Preservation.md) | Hybrid per-graph zoom/pan/fold memory (adjusted graphs pin their own, untouched inherit the current view), a root-centered default, and an editable zoom with revert | Implemented |
 | [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions (jump targets, speakers, `@id`s, `#tag`s) behind a symbol-source seam for future semantic symbols | Implemented |
 | [Semantic Analyzer](./Semantic%20Analyzer.md) | Desugared Dialogue AST → semantic model (speaker table, scene tree + anchor table, resolved jumps) | Implemented |
+| [Semantic Model Visualization Tab](./Semantic%20Model%20Visualization%20Tab.md) | The semantic model as an analytics tab: scene-tree graph + cross-linked, collapsible speaker/anchor/jump tables | In progress |
 
 ## Error model
 

@@ -13,6 +13,12 @@ export interface DisplayNode {
     source?: string;
     /** A stable, cross-stage semantic category that drives color. */
     category?: string;
+    /** A cross-link key tying the node to a semantic entity (a scene), if any. */
+    entityKey?: string;
+    /** The node's kind for the legend, when its label carries content (e.g. a scene title). */
+    typeName?: string;
+    /** A cross-link key when the node *references* an entity (a jump's scene, a speaker mention). */
+    refKey?: string;
 }
 
 export type DisplayEdgeKind = "Child" | "Reference";
@@ -23,12 +29,43 @@ export interface DisplayEdge {
     kind: DisplayEdgeKind;
 }
 
+/** One cell of a {@link SemanticTable}. */
+export interface SemanticCell {
+    text: string;
+    /** Set when the cell itself is a cross-linked entity. */
+    entityKey?: string;
+    /** Set when the cell references another entity (a jump's resolved scene). */
+    refKey?: string;
+    /** A cross-stage category for color. */
+    category?: string;
+}
+
+/** One row of a {@link SemanticTable}; `entityKey` names the entity the row represents. */
+export interface SemanticRow {
+    cells: SemanticCell[];
+    entityKey?: string;
+}
+
+/** A table shown beside the scene-tree graph in the Semantic tab. */
+export interface SemanticTable {
+    title: string;
+    columns: string[];
+    rows: SemanticRow[];
+    /** Shown when there are no rows. */
+    emptyText: string;
+}
+
 export interface Stage {
     title: string;
     /** A one-line description of what this stage's graph shows (its tab tooltip). */
     description: string;
     nodes: DisplayNode[];
     edges: DisplayEdge[];
+    /**
+     * Optional tables shown beside the graph — the Semantic tab's speaker, anchor, and
+     * jump-resolution tables. Absent for a plain graph stage.
+     */
+    tables?: SemanticTable[];
 }
 
 /**

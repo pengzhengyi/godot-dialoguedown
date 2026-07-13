@@ -13,13 +13,19 @@ public sealed record NodeDescription
         string label,
         IReadOnlyList<DisplayAttribute>? attributes = null,
         string? source = null,
-        string? category = null)
+        string? category = null,
+        string? entityKey = null,
+        string? typeName = null,
+        string? refKey = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(label);
         Label = label;
         Attributes = attributes ?? [];
         Source = source;
         Category = category;
+        EntityKey = entityKey;
+        TypeName = typeName;
+        RefKey = refKey;
     }
 
     public string Label { get; }
@@ -35,4 +41,27 @@ public sealed record NodeDescription
     /// different stages share a category, so they share a color.
     /// </summary>
     public string? Category { get; }
+
+    /// <summary>
+    /// A stable key tying this node to a cross-linked entity — a scene shared with the
+    /// semantic tab's tables (for example <c>"scene:the-market"</c>), or null when the
+    /// node is not cross-linked. Hovering it highlights every element sharing the key.
+    /// </summary>
+    public string? EntityKey { get; }
+
+    /// <summary>
+    /// The human name of this node's kind (for example <c>"Scene"</c>), used to group and
+    /// label it in the legend when its <see cref="Label"/> carries content — such as a scene
+    /// title — rather than a type name. Null when the label already names the type, in which
+    /// case the legend derives the name from the label.
+    /// </summary>
+    public string? TypeName { get; }
+
+    /// <summary>
+    /// A cross-link key when this node <em>references</em> an entity rather than being one —
+    /// a jump's resolved target scene (<c>"scene:the-market"</c>) or a speaker mention
+    /// (<c>"speaker:@guide"</c>). Hovering it highlights the entity everywhere it appears,
+    /// the same key an <see cref="EntityKey"/> or a table cell's ref carries. Null otherwise.
+    /// </summary>
+    public string? RefKey { get; }
 }

@@ -111,7 +111,11 @@ compiler produced at each stage. The optional
 compiler's stages as an interactive HTML report — a **Source** tab (the whole
 document beside a live preview, with working anchor links), then a graph tab for
 each stage: **Markdown AST**, **Dialogue AST**, and the desugarer's **Desugared
-AST**, each with pan and zoom and click-to-collapse. Graphs remember where you
+AST**, each with pan and zoom and click-to-collapse; and a **Semantic Model** tab
+that pairs the resolved scene tree — each scene expandable to the script blocks it
+contains — with cross-linked speaker, anchor, and jump-resolution tables in a
+resizable, collapsible side column, so hovering a scene, speaker, or jump highlights
+it everywhere it appears. Graphs remember where you
 left them — an adjusted graph keeps its own view while an untouched one inherits
 the current one — and open on a readable, root-centered default; the zoom toolbar
 takes a typed percentage or a one-click revert. Any tab can go **full screen** — a

@@ -90,6 +90,28 @@ public sealed class GraphWalkTests
     }
 
     [Fact]
+    public void Walk_CarriesTypeName()
+    {
+        var root = new Cell("root");
+        var projection = new CellProjection().WithTypeName(root, "Scene");
+
+        var node = Assert.Single(GraphWalk.Walk(root, projection).Nodes);
+
+        Assert.Equal("Scene", node.TypeName);
+    }
+
+    [Fact]
+    public void Walk_CarriesRefKey()
+    {
+        var root = new Cell("root");
+        var projection = new CellProjection().WithRefKey(root, "scene:the-market");
+
+        var node = Assert.Single(GraphWalk.Walk(root, projection).Nodes);
+
+        Assert.Equal("scene:the-market", node.RefKey);
+    }
+
+    [Fact]
     public void Walk_Tree_EmitsChildEdgesInPreOrderWithSequentialIds()
     {
         // root ─┬─ a ── c

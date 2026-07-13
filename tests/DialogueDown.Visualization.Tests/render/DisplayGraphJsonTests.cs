@@ -59,6 +59,67 @@ public sealed class DisplayGraphJsonTests
     }
 
     [Fact]
+    public void Serialize_IncludesNodeEntityKeyWhenPresentAndOmitsWhenNull()
+    {
+        var graph = MakeGraph(
+            "G",
+            [new DisplayNode("n0", "The Market", [], null, "structure", "scene:the-market"), Node("n1", "Plain")],
+            []);
+
+        var json = DisplayGraphJson.Serialize([graph]);
+
+        Assert.Contains("\"entityKey\":\"scene:the-market\"", json);
+        var entityKeyCount = json.Split("\"entityKey\":").Length - 1;
+        Assert.Equal(1, entityKeyCount);
+    }
+
+    [Fact]
+    public void Serialize_OmitsTablesWhenNullAndIncludesThemWhenPresent()
+    {
+        var plain = MakeGraph("G", [Node("n0", "Document")], []);
+        Assert.DoesNotContain("\"tables\":", DisplayGraphJson.Serialize([plain]));
+
+        var withTables = plain with
+        {
+            Tables =
+            [
+                new SemanticTable(
+                    "Anchors",
+                    ["Anchor", "Scene"],
+                    [new SemanticRow([new SemanticCell("#the-market"), new SemanticCell("The Market")], "scene:the-market")],
+                    "No scenes."),
+            ],
+        };
+        var json = DisplayGraphJson.Serialize([withTables]);
+
+        Assert.Contains("\"tables\":[", json);
+        Assert.Contains("\"title\":\"Anchors\"", json);
+        Assert.Contains("\"columns\":[\"Anchor\",\"Scene\"]", json);
+        Assert.Contains("\"entityKey\":\"scene:the-market\"", json);
+        Assert.Contains("\"emptyText\":\"No scenes.\"", json);
+    }
+
+    [Fact]
+    public void Serialize_IncludesCellRefKeyForACrossLink()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []) with
+        {
+            Tables =
+            [
+                new SemanticTable(
+                    "Jump resolutions",
+                    ["Resolves to"],
+                    [new SemanticRow([new SemanticCell("\u2192 The Market", RefKey: "scene:the-market")])],
+                    "No jumps."),
+            ],
+        };
+
+        var json = DisplayGraphJson.Serialize([graph]);
+
+        Assert.Contains("\"refKey\":\"scene:the-market\"", json);
+    }
+
+    [Fact]
     public void Serialize_EscapesHtmlSensitiveCharacters_SoScriptCannotBreakOut()
     {
         var graph = MakeGraph("G", [Node("n0", "</script><b>&")], []);

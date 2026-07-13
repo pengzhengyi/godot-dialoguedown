@@ -1,0 +1,231 @@
+import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { writeReport } from "./report";
+import type { Report } from "../src/model";
+
+// A Semantic Model report: a two-scene tree beside the speaker, anchor, and
+// jump-resolution tables, wired with the same cross-link keys the .NET projection
+// emits. Its own fixture so the source-tab suite's tab/node counts are untouched.
+const report: Report = {
+    source: "# The Market\n\nGuide @guide: Welcome.\n\n=> [Leave](#the-square)\n\n# The Square\n",
+    stages: [
+        {
+            title: "Semantic Model",
+            description: "The semantic model the analyzer resolves.",
+            nodes: [
+                {
+                    id: "n0",
+                    label: "Document root",
+                    attributes: [],
+                    category: "document",
+                    typeName: "Document",
+                },
+                {
+                    id: "n1",
+                    label: "The Market",
+                    attributes: [
+                        { name: "anchor", value: "#the-market" },
+                        { name: "level", value: "1" },
+                    ],
+                    category: "structure",
+                    typeName: "Scene",
+                    entityKey: "scene:the-market",
+                },
+                {
+                    id: "n2",
+                    label: "The Square",
+                    attributes: [
+                        { name: "anchor", value: "#the-square" },
+                        { name: "level", value: "1" },
+                    ],
+                    category: "structure",
+                    typeName: "Scene",
+                    entityKey: "scene:the-square",
+                },
+                // A script block under "The Market": a line, its speaker mention, and a jump —
+                // the last two cross-reference the speaker and target-scene entities.
+                {
+                    id: "n3",
+                    label: "Line",
+                    attributes: [{ name: "span", value: "[13, 35)" }],
+                    category: "speech",
+                    source: "Guide @guide: Welcome.",
+                },
+                {
+                    id: "n4",
+                    label: "Speaker (declaration)",
+                    attributes: [{ name: "name", value: "Guide" }],
+                    category: "speech",
+                    refKey: "speaker:@guide",
+                },
+                {
+                    id: "n5",
+                    label: "Jump",
+                    attributes: [{ name: "target", value: "#the-square" }],
+                    category: "jump",
+                    refKey: "scene:the-square",
+                },
+            ],
+            edges: [
+                { fromId: "n0", toId: "n1", kind: "Child" },
+                { fromId: "n0", toId: "n2", kind: "Child" },
+                { fromId: "n1", toId: "n3", kind: "Child" },
+                { fromId: "n3", toId: "n4", kind: "Child" },
+                { fromId: "n1", toId: "n5", kind: "Child" },
+            ],
+            tables: [
+                {
+                    title: "Speakers",
+                    columns: ["Name", "@id", "Tags", "Default"],
+                    emptyText: "No speakers are declared.",
+                    rows: [
+                        {
+                            entityKey: "speaker:@guide",
+                            cells: [
+                                { text: "Guide", entityKey: "speaker:@guide", category: "speech" },
+                                { text: "@guide" },
+                                { text: "" },
+                                { text: "" },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    title: "Anchors",
+                    columns: ["Anchor", "Scene", "Level"],
+                    emptyText: "No anchors appear in this script.",
+                    rows: [
+                        {
+                            entityKey: "scene:the-market",
+                            cells: [
+                                { text: "#the-market", category: "structure" },
+                                { text: "The Market" },
+                                { text: "1" },
+                            ],
+                        },
+                        {
+                            entityKey: "scene:the-square",
+                            cells: [
+                                { text: "#the-square", category: "structure" },
+                                { text: "The Square" },
+                                { text: "1" },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    title: "Jump resolutions",
+                    columns: ["Jump", "Target", "Resolves to"],
+                    emptyText: "No jumps appear in this script.",
+                    rows: [
+                        {
+                            cells: [
+                                { text: "Leave", category: "jump" },
+                                { text: "#the-square" },
+                                {
+                                    text: "→ The Square",
+                                    refKey: "scene:the-square",
+                                    category: "structure",
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+const url = writeReport(report);
+
+test.beforeEach(async ({ page }) => {
+    await page.goto(url);
+    await page.locator(".tab", { hasText: "Semantic Model" }).click();
+});
+
+test("lays the scene-tree graph, its script blocks, and the three stacked tables", async ({
+    page,
+}) => {
+    await expect(page.locator(".semantic-view")).toBeVisible();
+    // The root, two scenes, and the three script-block nodes under "The Market".
+    await expect(page.locator(".semantic-graph g.node")).toHaveCount(6);
+    await expect(page.locator('.semantic-graph g.node:has-text("Line")')).toBeVisible();
+    await expect(page.locator('.semantic-graph g.node:has-text("Jump")')).toBeVisible();
+    await expect(page.locator(".table-panel-title")).toHaveText([
+        "Speakers",
+        "Anchors",
+        "Jump resolutions",
+    ]);
+    // The shared node-detail inspector is hidden — the tab has its own tables.
+    await expect(page.locator("#app")).toHaveClass(/no-detail/);
+    await expect(page.locator("#detail")).toBeHidden();
+});
+
+test("cross-links a scene across the graph, the anchor table, and a jump block", async ({
+    page,
+}) => {
+    const stage = page.locator(".semantic-stage.active");
+    // Hover the anchor row for The Square; the scene node, the anchor row, and the jump block
+    // that resolves to it all light up.
+    await stage.locator('tr[data-entity-key="scene:the-square"]').hover();
+
+    await expect(stage.locator('g.node[data-entity-key="scene:the-square"]')).toHaveClass(
+        /entity-highlight/,
+    );
+    await expect(stage.locator('g.node[data-ref-key="scene:the-square"]')).toHaveClass(
+        /entity-highlight/,
+    );
+    await expect(stage.locator('td[data-ref-key="scene:the-square"]')).toHaveClass(
+        /entity-highlight/,
+    );
+    // A different scene stays unhighlighted.
+    await expect(stage.locator('g.node[data-entity-key="scene:the-market"]')).not.toHaveClass(
+        /entity-highlight/,
+    );
+});
+
+test("cross-links a speaker mention in the tree to its Speakers row", async ({ page }) => {
+    const stage = page.locator(".semantic-stage.active");
+    // Hover the Guide row in the Speakers table (always in view); the speaker mention in the
+    // tree lights up — the cross-link is symmetric.
+    await stage.locator('tr[data-entity-key="speaker:@guide"]').hover();
+
+    await expect(stage.locator('g.node[data-ref-key="speaker:@guide"]')).toHaveClass(
+        /entity-highlight/,
+    );
+});
+
+test("collapses and reopens a table from its header bar", async ({ page }) => {
+    const speakers = page
+        .locator(".table-panel")
+        .filter({ has: page.locator(".table-panel-title", { hasText: "Speakers" }) });
+    const header = speakers.locator(".table-panel-header");
+
+    await expect(speakers.locator("tbody")).toBeVisible();
+    await header.click();
+    await expect(speakers).toHaveClass(/collapsed/);
+    await expect(header).toHaveAttribute("aria-expanded", "false");
+    await expect(speakers.locator("tbody")).toBeHidden();
+
+    await header.click();
+    await expect(speakers).not.toHaveClass(/collapsed/);
+    await expect(speakers.locator("tbody")).toBeVisible();
+});
+
+test("hides and reopens the whole tables column from the divider", async ({ page }) => {
+    const view = page.locator(".semantic-view");
+    const toggle = page.locator(".semantic-divider .collapse-toggle");
+
+    await expect(page.locator(".semantic-tables")).toBeVisible();
+    await toggle.click();
+    await expect(view).toHaveClass(/tables-collapsed/);
+    await expect(page.locator(".semantic-tables")).toBeHidden();
+
+    await toggle.click();
+    await expect(view).not.toHaveClass(/tables-collapsed/);
+    await expect(page.locator(".semantic-tables")).toBeVisible();
+});
+
+test("has no accessibility violations on the Semantic tab", async ({ page }) => {
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});

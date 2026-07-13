@@ -27,6 +27,17 @@ internal static class ScriptNodeExtensions
     }
 
     /// <summary>
+    /// The visible text of a fragment sequence: every <see cref="Text"/> anywhere within the
+    /// fragments, concatenated in document order. A styled run or a link label still
+    /// contributes its words, so this reads a heading title or label as plain text.
+    /// </summary>
+    internal static string PlainText(this IEnumerable<InlineFragment> fragments) =>
+        string.Concat(fragments
+            .SelectMany(fragment => fragment.DescendantsAndSelf())
+            .OfType<Text>()
+            .Select(text => text.Content));
+
+    /// <summary>
     /// The node's direct children in document order. Every node type is handled
     /// explicitly: containers return their child slots and leaves return nothing, so an
     /// unhandled type throws rather than being silently skipped when the AST grows.

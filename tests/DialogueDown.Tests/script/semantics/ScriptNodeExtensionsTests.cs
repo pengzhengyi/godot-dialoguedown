@@ -172,6 +172,35 @@ public sealed class ScriptNodeExtensionsTests
         Assert.Equal([leaf], leaf.DescendantsAndSelf());
     }
 
+    [Fact]
+    public void PlainText_ConcatenatesEveryTextFragment()
+    {
+        IReadOnlyList<InlineFragment> fragments =
+            [Text("Play "), new StyledText(SpeechStyle.Bold, [Text("tennis")], SourceSpanFactory.Span())];
+
+        Assert.Equal("Play tennis", fragments.PlainText());
+    }
+
+    [Fact]
+    public void PlainText_ReadsThroughALinkLabel()
+    {
+        IReadOnlyList<InlineFragment> fragments = [Link("#x", Text("go"))];
+
+        Assert.Equal("go", fragments.PlainText());
+    }
+
+    [Fact]
+    public void PlainText_IgnoresNonTextFragments()
+    {
+        IReadOnlyList<InlineFragment> fragments = [Text("Chapter "), CustomTag("act1")];
+
+        Assert.Equal("Chapter ", fragments.PlainText());
+    }
+
+    [Fact]
+    public void PlainText_EmptySequence_IsEmpty() =>
+        Assert.Equal(string.Empty, Array.Empty<InlineFragment>().PlainText());
+
     // A script node the traversal helpers do not recognize, used to prove Children throws
     // on an unhandled type.
     private sealed record UnknownNode(SourceSpan Span) : ScriptNode(Span);

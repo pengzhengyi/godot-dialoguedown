@@ -138,6 +138,22 @@ public sealed class ScriptNodeExtensionsTests
     }
 
     [Fact]
+    public void Children_UnhandledBlockType_Throws()
+    {
+        var block = new UnknownBlock(SourceSpanFactory.Span());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => block.Children());
+    }
+
+    [Fact]
+    public void Children_UnhandledSpeakerType_Throws()
+    {
+        var speaker = new UnknownSpeaker(SourceSpanFactory.Span());
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => speaker.Children());
+    }
+
+    [Fact]
     public void TypeChainToScriptNode_YieldsConcreteTypeUpToScriptNode()
     {
         var node = SpeakerNameReference("Alice");
@@ -201,7 +217,11 @@ public sealed class ScriptNodeExtensionsTests
     public void PlainText_EmptySequence_IsEmpty() =>
         Assert.Equal(string.Empty, Array.Empty<InlineFragment>().PlainText());
 
-    // A script node the traversal helpers do not recognize, used to prove Children throws
-    // on an unhandled type.
+    // Script nodes the traversal helpers do not recognize, used to prove each category's
+    // dispatch throws on an unhandled type as the AST grows.
     private sealed record UnknownNode(SourceSpan Span) : ScriptNode(Span);
+
+    private sealed record UnknownBlock(SourceSpan Span) : ScriptBlock(Span);
+
+    private sealed record UnknownSpeaker(SourceSpan Span) : Speaker(Span);
 }

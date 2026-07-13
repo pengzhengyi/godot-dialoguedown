@@ -38,36 +38,17 @@ internal static class ScriptNodeExtensions
             .Select(text => text.Content));
 
     /// <summary>
-    /// The node's direct children in document order. Every node type is handled
-    /// explicitly: containers return their child slots and leaves return nothing, so an
-    /// unhandled type throws rather than being silently skipped when the AST grows.
+    /// The node's direct children in document order. Dispatch is split by node category
+    /// (block, speaker, inline fragment) so each switch stays small; every concrete type is
+    /// handled, and an unhandled one throws rather than being silently skipped as the AST
+    /// grows.
     /// </summary>
     internal static IEnumerable<ScriptNode> Children(this ScriptNode node) => node switch
     {
-        // Containers — their child slots, in document order.
-        Line line => LineChildren(line),
-        Choices choices => choices.Options,
+        ScriptBlock block => BlockChildren(block),
         Choice choice => choice.Body,
-        SceneHeading heading => heading.Title,
-        SpeakerDeclaration declaration => declaration.Tags,
-        PartialSpeakerDeclaration partial => partial.Tags,
-        StyledText styled => styled.Children,
-        Image image => image.Alt,
-        Link link => link.Label,
-        Jump jump => jump.Label,
-
-        // Leaves — no children.
-        Text => [],
-        LineBreak => [],
-        JumpIndicator => [],
-        DefaultSpeaker => [],
-        SpeakerNameReference => [],
-        SpeakerIdReference => [],
-        Query => [],
-        DefaultCommand => [],
-        CustomCommand => [],
-        CustomTag => [],
-        ReservedTag => [],
+        Speaker speaker => SpeakerChildren(speaker),
+        InlineFragment fragment => FragmentChildren(fragment),
 
         _ => throw new ArgumentOutOfRangeException(
             nameof(node), node.GetType(), "Unhandled script node type in Children()."),
@@ -89,6 +70,41 @@ internal static class ScriptNodeExtensions
             yield return type;
         }
     }
+
+    // Blocks own the content that follows them: a line's speaker and speech, a choice
+    // set's options, or a heading's title fragments.
+    private static IEnumerable<ScriptNode> BlockChildren(ScriptBlock block) => block switch
+    {
+        Line line => LineChildren(line),
+        Choices choices => choices.Options,
+        SceneHeading heading => heading.Title,
+
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(block), block.GetType(), "Unhandled block type in Children()."),
+    };
+
+    // A declaration (full or partial) carries tags; every other speaker shape is a leaf.
+    private static IEnumerable<ScriptNode> SpeakerChildren(Speaker speaker) => speaker switch
+    {
+        SpeakerDeclaration declaration => declaration.Tags,
+        PartialSpeakerDeclaration partial => partial.Tags,
+        DefaultSpeaker or SpeakerReference => [],
+
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(speaker), speaker.GetType(), "Unhandled speaker type in Children()."),
+    };
+
+    // Only the four inline containers expose nested fragments; every other fragment (text,
+    // breaks, game calls, tags) is a leaf, so an unrecognized one defaults to no children.
+    private static IEnumerable<ScriptNode> FragmentChildren(InlineFragment fragment) => fragment switch
+    {
+        StyledText styled => styled.Children,
+        Image image => image.Alt,
+        Link link => link.Label,
+        Jump jump => jump.Label,
+
+        _ => [],
+    };
 
     // A line's speaker (when present) comes before its speech, so traversal keeps
     // document order.

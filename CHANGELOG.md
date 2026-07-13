@@ -10,112 +10,46 @@ changes easy to categorize.
 
 ### Added
 
-- **Semantic analysis stage** — a new resolve-and-validate step between desugar and
-  the future dialogue-graph builder. It turns the desugared Dialogue AST into a
-  **semantic model**: a unified **speaker table** (keyed by both name and `@id`, with
-  an anonymous default), a nested **scene tree** with a GitHub-style **anchor table**,
-  and **resolved jumps** (a local anchor resolves to a scene; a target that names a
-  file is deferred to future cross-file support). It rejects speaker conflicts,
-  unnamed `@id`s, duplicate anchors, empty-slug headings, unknown reserved tags, and
-  jumps to missing anchors. The compiler now runs it after desugar and exposes the
-  model on the compilation result. Design note:
-  [Semantic Analyzer](docs/contributing/design-notes/Semantic%20Analyzer.md).
-- **Size and complexity guardrails** for the core library, enforced by
-  SonarAnalyzer.CSharp (a build-time-only, core-scoped dev dependency): methods
-  ≤40 lines (S138) and ≤7 parameters (S107); files ≤400 lines (S104); cyclomatic
-  complexity ≤10 (S1541) and cognitive complexity ≤15 (S3776). Thresholds live in
-  `src/DialogueDown/SonarLint.xml`; severities and scope in `.editorconfig`. They
-  surface as advisory warnings and do not affect the library's MIT license.
-- **Autocomplete in the Source editor** (Live Edit): as you type, the editor
-  suggests names drawn from the document itself — a **jump target** after `](#`, a
-  **speaker id** after `@`, a **`#`tag**, or a **speaker** at the start of a line.
-  Completed jump anchors match the preview's headings exactly. Suggestions come
-  through a symbol-source seam, so the semantic analyzer's resolved symbols can feed
-  the same completions later.
-- **Architecture tests** ([`tests/DialogueDown.Architecture.Tests`](tests/DialogueDown.Architecture.Tests),
-  built on [NetArchTest.eNhancedEdition](https://github.com/NeVeSpl/NetArchTest.eNhancedEdition))
-  that guard the project's dependency direction: the engine-agnostic core must not
-  depend on the CLI, the visualization projects, or any Spectre/Godot/console
-  package; each visualization layer depends only downward; and inside the core the
-  Dialogue AST stays decoupled from Markdown while no pipeline stage calls back into
-  the compilation orchestrator. Exception types are also kept under `*.Errors`.
-- **Collapsible side panels** in the visualization: hide the graph's node-details
-  inspector, or the Source tab's preview, to give the graph or editor the full
-  width. A hide/show handle sits on each panel's divider — doubling as the
-  always-present re-open control once the panel is gone — and the choice is
-  remembered across reloads.
-- A **full-screen mode** for the visualization: a maximize button in each graph's
-  zoom cluster — and on the Source tab — fills the window with the active tab and
-  hides the header, tabs, and status bar. Toggle it with the button or <kbd>f</kbd>,
-  and leave it with <kbd>f</kbd> or <kbd>Esc</kbd>.
-- A **documentation site** built with [DocFX](https://dotnet.github.io/docfx/) and
-  published to GitHub Pages from `docs/` on every merge to `main`: a writer
-  **Guide**, a **Contributing** section with the per-stage design notes, and a
-  generated **C# API reference** — at
-  <https://pengzhengyi.github.io/godot-dialoguedown/>. The docs tree is
-  reorganized by audience into `docs/guide/`, `docs/contributing/design-notes/`,
-  and `docs/demo/`.
-- A **live demo** of the visualization report, published to GitHub Pages: an
-  interactive, read-only export of a sample script
-  ([`examples/gallery.dialogue.md`](examples/gallery.dialogue.md)), rebuilt on
-  every merge to `main` at
-  <https://pengzhengyi.github.io/godot-dialoguedown/demo/>.
-- Script compiler facade: one public `IScriptCompiler.Compile(source)` seam that
-  runs the stages (parse → transpile → desugar, deliberately incomplete) and
-  returns a `CompilationResult`. Wire it into a container with `AddDialogueDown()`
-  (stages registered via `TryAdd`, so any one is swappable) or build it
-  container-free with `ScriptCompilerFactory.CreateDefault()`.
-- Desugar stage that normalizes the Dialogue AST between the transpiler and
-  semantic analysis, behind the `IScriptDesugarer` seam: it assembles a
-  single-line jump (`JumpIndicator` + `Link` → `Jump`, degrading a dangling `=>`
-  to plain text) and fills a `DefaultSpeaker` on every speaker-less line, wrapping
-  the result as a `DesugaredScriptDocument`. Built on a reusable, clone-by-default
-  `DialogueAstRewriter`.
-- Dialogue AST and the Markdown-to-Dialogue transpiler that turns the parsed
-  Markdown into dialogue nodes — speaker/speech lines, flat scene-heading
-  markers, choices, inline styling, game calls, tags, and jump indicators —
-  behind the `IScriptTranspiler` seam.
-- An interactive **`visualize`** report with a runtime **View ⇄ Edit** toggle: a
-  read-only, auto-updating **View** and an in-browser CodeMirror **Edit** mode that
-  saves back to the file — with search, section folding, Markdown formatting
-  shortcuts (bold/italic/link and emphasis auto-surround), and a **System / Light /
-  Dark** theme toggle.
-- A **Desugared AST** tab in the `visualize` report — the desugarer's normalized
-  Dialogue AST as a third graph stage after the Dialogue AST. Synthetic nodes the
-  desugarer inserts (a default speaker on a speaker-less line) render as
-  "inserted — no source" rather than a blank source block.
-- A `visualize <script> --emit mermaid|dot` option that writes each stage's graph
-  as portable **Mermaid** or **Graphviz DOT** text to `--output` or standard
-  output, for embedding a graph elsewhere. Emitted Mermaid is colored by the same
-  cross-stage categories as the interactive report.
-- Initial OSS community files and CI configuration.
-- Project logo and favicon: a chat-bubble Markdown "M" mark, with an expanded
-  variant showing a choice branching into options and scenes.
+- **Compiler pipeline behind one `IScriptCompiler` facade** — compiles a Markdown
+  dialogue script through parse → transpile → desugar → semantic analysis: it builds
+  a Dialogue AST, normalizes it (assembling jumps and filling default speakers), and
+  resolves speakers, scenes, and jumps into a validated semantic model, reporting
+  invalid references. Wire it up with `AddDialogueDown()` (DI) or
+  `ScriptCompilerFactory.CreateDefault()`. See the
+  [design notes](docs/contributing/design-notes/README.md).
+- **`dialoguedown` CLI** — `compile` runs the compiler pipeline; `visualize` opens
+  the interactive report or writes a stage's graph as portable **Mermaid** or
+  **Graphviz DOT** text (`--emit`).
+- **Interactive `visualize` report** — explore each compiler stage (the Markdown,
+  Dialogue, and Desugared ASTs) as a graph, with a runtime **View ⇄ Edit** toggle: a
+  read-only, auto-updating **View** and an in-browser editor that saves back to the
+  file — with search, section folding, Markdown formatting shortcuts, document-aware
+  autocomplete, and a **light/dark** theme.
+- **`visualize` report navigation** — collapsible side panels, a full-screen mode,
+  and per-graph position memory that keeps each stage's zoom, pan, and collapsed
+  branches across tab switches and hot-reloads.
+- **Documentation site and live demo** — a
+  [DocFX site](https://pengzhengyi.github.io/godot-dialoguedown/) (a writer Guide, a
+  Contributing section with the design notes, and a generated C# API reference) and a
+  [live, read-only demo](https://pengzhengyi.github.io/godot-dialoguedown/demo/) of
+  the report, both published to GitHub Pages on every merge to `main`.
+- **Development guardrails** — architecture tests that enforce the project's
+  dependency direction (the engine-agnostic core stays free of the CLI, the
+  visualization projects, and any engine/console packages), plus build-time size and
+  complexity limits on the core library.
+- **Project logo and favicon** — a chat-bubble Markdown "M" mark.
+- Initial OSS community files and CI.
 
 ### Changed
 
-- The CLI `compile` command now runs real compilation through the core
-  `IScriptCompiler` facade, replacing the placeholder that reported "not
-  implemented".
-- `SourceSpan` now allows a zero-width range (`SourceSpan.EmptyAt`, `IsEmpty`) so
-  a synthetic node with no source text — such as a filled-in default speaker —
-  marks a caret at its position instead of borrowing a neighbor's range.
 - `visualize <script>` now opens a **served session** (read-only **View** by default)
-  instead of a one-shot static file; the offline snapshot is written with `-o`.
-- The `visualize` servers now compress responses (gzip), cutting the report page's
-  transfer roughly threefold when it is viewed over a LAN or VPN; the hot-reload SSE
-  stream is left uncompressed so events keep streaming.
-- Each stage's graph now remembers where you left it across tab switches and
-  hot-reloads: an adjusted graph keeps its own zoom, pan, and collapsed branches,
-  while an untouched graph inherits the current view so switching tabs stays put.
-  Graphs open on a readable, root-centered default, and the zoom toolbar takes a
-  typed percentage or a one-click revert.
-- The `visualize` report's compilation stages are now sourced through the
-  `IScriptCompiler` seam instead of the visualizer wiring the parser and transpiler
-  by hand.
-- The `visualize` report's **View / Edit** toggle is now frozen on the read-only
-  graph tabs (it governs only the Source editor), so it no longer hints that a graph
-  is editable.
+  instead of a one-shot static file; write an offline snapshot with `-o`.
+- The `visualize` servers now compress responses (gzip), cutting the report's
+  transfer roughly threefold over a LAN or VPN; the hot-reload stream stays
+  uncompressed so events keep streaming.
+- `SourceSpan` now allows a zero-width range (`SourceSpan.EmptyAt`, `IsEmpty`) so a
+  synthetic node with no source text — such as a filled-in default speaker — marks a
+  caret at its position instead of borrowing a neighbor's range.
 
 ### Removed
 
@@ -124,12 +58,7 @@ changes easy to categorize.
 
 ### Fixed
 
-- The brand mark now stays visible on dark backgrounds. Its navy speech bubble used
-  to disappear into a dark page; on dark it now inverts to a light bubble with a navy
-  mark — across the report and launcher header, the favicon (following the OS color
-  scheme), and the Pages demo.
-- Escaped inline punctuation (for example `\*`) no longer shifts the source spans
-  of the text that follows it. A stripped leading backslash was drifting a
-  literal's re-parsed spans by one character; the transpiler now anchors on the
-  content's true source position, so spans stay exact for diagnostics and the
-  visualizer.
+- The brand mark now stays visible on dark backgrounds — it inverts to a light
+  bubble across the report and launcher, the favicon, and the demo.
+- Escaped inline punctuation (for example `\*`) no longer shifts the source spans of
+  the text that follows it, so spans stay exact for diagnostics and the visualizer.

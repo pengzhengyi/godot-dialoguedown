@@ -15,7 +15,8 @@ public sealed record NodeDescription
         string? source = null,
         string? category = null,
         string? entityKey = null,
-        string? typeName = null)
+        string? typeName = null,
+        string? refKey = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(label);
         Label = label;
@@ -24,6 +25,7 @@ public sealed record NodeDescription
         Category = category;
         EntityKey = entityKey;
         TypeName = typeName;
+        RefKey = refKey;
     }
 
     public string Label { get; }
@@ -54,4 +56,12 @@ public sealed record NodeDescription
     /// case the legend derives the name from the label.
     /// </summary>
     public string? TypeName { get; }
+
+    /// <summary>
+    /// A cross-link key when this node <em>references</em> an entity rather than being one —
+    /// a jump's resolved target scene (<c>"scene:the-market"</c>) or a speaker mention
+    /// (<c>"speaker:@guide"</c>). Hovering it highlights the entity everywhere it appears,
+    /// the same key an <see cref="EntityKey"/> or a table cell's ref carries. Null otherwise.
+    /// </summary>
+    public string? RefKey { get; }
 }

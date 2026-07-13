@@ -45,7 +45,7 @@ public sealed class CompilationVisualizer
             result.Markdown.ToDisplayGraph(source),
             result.Script.ToDisplayGraph(source),
             result.Desugared.ToDisplayGraph(source),
-            new SemanticProjection().Project(result.Semantics),
+            new SemanticProjection().Project(result.Semantics, source),
         ];
     }
 

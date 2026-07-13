@@ -7,7 +7,8 @@ namespace DialogueDown.Visualization.Tests.Semantics;
 
 public sealed class SceneTreeProjectionTests
 {
-    private readonly SceneTreeProjection _projection = new();
+    // The scene-description tests never touch the model, so any valid one will do.
+    private readonly SceneTreeProjection _projection = new(Analyzed.Model("Hi."), "Hi.");
 
     [Fact]
     public void Title_IsSemanticModel() => Assert.Equal("Semantic Model", _projection.Title);
@@ -47,13 +48,41 @@ public sealed class SceneTreeProjectionTests
     }
 
     [Fact]
-    public void Neighbors_AreTheChildScenes()
+    public void Describe_ADelegatedBlock_ReadsLikeTheDesugaredTab()
     {
-        var root = Scene.Root();
-        var child = Scene.ForHeading(
-            new SceneHeading([new Text("A", new SourceSpan(0, 1))], 1, new SourceSpan(0, 1)), "a");
-        root.AddChild(child);
+        // A non-scene node is described by the shared Dialogue AST projection.
+        var source = """
+            # A Scene
 
-        Assert.Equal([child], _projection.Neighbors(root));
+            Alice: Hello there.
+            """;
+        var model = Analyzed.Model(source);
+        var projection = new SceneTreeProjection(model, source);
+        var line = model.SceneRoot.Children[0].Blocks[0];
+
+        Assert.Equal("Line", projection.Describe(line).Label);
+    }
+
+    [Fact]
+    public void Neighbors_YieldTheScenesOwnBlocksThenItsChildScenes()
+    {
+        // "A Scene" owns a line, then nests "Deeper" — the tree shows the block before the child.
+        var source = """
+            # A Scene
+
+            Alice: Hello.
+
+            ## Deeper
+
+            Bob: Hi.
+            """;
+        var model = Analyzed.Model(source);
+        var projection = new SceneTreeProjection(model, source);
+        var scene = model.SceneRoot.Children[0];
+
+        var neighbors = projection.Neighbors(scene).ToList();
+
+        Assert.IsAssignableFrom<ScriptBlock>(neighbors[0]);
+        Assert.Equal("deeper", Assert.IsType<Scene>(neighbors[^1]).Anchor);
     }
 }

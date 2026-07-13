@@ -18,10 +18,11 @@ internal sealed class SemanticProjection
     private const string JumpCategory = "jump";
 
     /// <summary>The scene tree as a graph, enriched with the three semantic tables.</summary>
-    public DisplayGraph Project(SemanticModel model)
+    public DisplayGraph Project(SemanticModel model, string source)
     {
         ArgumentNullException.ThrowIfNull(model);
-        var graph = GraphWalk.Walk(model.SceneRoot, new SceneTreeProjection());
+        ArgumentNullException.ThrowIfNull(source);
+        var graph = GraphWalk.Walk<object>(model.SceneRoot, new SceneTreeProjection(model, source));
         var index = DialogueTreeIndex.Build(model.Desugared);
         return graph with
         {

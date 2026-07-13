@@ -6,7 +6,12 @@ public sealed class SemanticProjectionTests
 {
     [Fact]
     public void Project_NullModel_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => new SemanticProjection().Project(null!));
+        Assert.Throws<ArgumentNullException>(() => new SemanticProjection().Project(null!, "Hi."));
+
+    [Fact]
+    public void Project_NullSource_Throws() =>
+        Assert.Throws<ArgumentNullException>(
+            () => new SemanticProjection().Project(Analyzed.Model("Hi."), null!));
 
     [Fact]
     public void Project_TitlesTheStageSemanticModel()
@@ -35,6 +40,68 @@ public sealed class SemanticProjectionTests
         Assert.Null(graph.Nodes[0].EntityKey);
         Assert.Contains(graph.Nodes, node => node.EntityKey == "scene:the-market" && node.Label == "The Market");
         Assert.Contains(graph.Nodes, node => node.EntityKey == "scene:the-forest" && node.Label == "The Forest");
+    }
+
+    [Fact]
+    public void Project_SceneTree_IncludesEachScenesScriptBlocks()
+    {
+        var graph = Project(
+            """
+            # The Market
+
+            Alice: Fresh apples!
+            """);
+
+        // The scene's line block appears in the tree, described like the Desugared AST tab.
+        Assert.Contains(graph.Nodes, node => node.Label == "Line");
+    }
+
+    [Fact]
+    public void Project_SpeakerBlock_CrossLinksToItsSpeaker()
+    {
+        var graph = Project(
+            """
+            # The Market
+
+            Guide @guide: Welcome.
+            """);
+
+        // The speaker mention in the line references the speaker entity the Speakers table lists.
+        Assert.Contains(graph.Nodes, node => node.RefKey == "speaker:@guide");
+        Assert.Contains(Table(graph, "Speakers").Rows, row => row.EntityKey == "speaker:@guide");
+    }
+
+    [Fact]
+    public void Project_JumpBlock_CrossLinksToItsTargetScene()
+    {
+        var graph = Project(
+            """
+            # The Market
+
+            => [east](#the-forest)
+
+            # The Forest
+
+            Bob: Dark.
+            """);
+
+        // The jump block references the same scene key its target scene node and rows carry.
+        Assert.Contains(graph.Nodes, node => node.Label == "Jump" && node.RefKey == "scene:the-forest");
+        Assert.Contains(graph.Nodes, node => node.EntityKey == "scene:the-forest");
+    }
+
+    [Fact]
+    public void Project_UnresolvedJumpBlock_HasNoRefKey()
+    {
+        var graph = Project(
+            """
+            # The Market
+
+            => [nowhere]()
+            """);
+
+        Assert.Contains(graph.Nodes, node => node.Label == "Jump");
+        Assert.DoesNotContain(graph.Nodes, node => node.Label == "Jump" && node.RefKey is not null);
     }
 
     [Fact]
@@ -153,7 +220,7 @@ public sealed class SemanticProjectionTests
     }
 
     private static DisplayGraph Project(string source) =>
-        new SemanticProjection().Project(Analyzed.Model(source));
+        new SemanticProjection().Project(Analyzed.Model(source), source);
 
     private static SemanticTable Table(DisplayGraph graph, string title) =>
         graph.Tables!.Single(table => table.Title == title);

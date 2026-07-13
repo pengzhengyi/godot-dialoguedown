@@ -235,6 +235,15 @@ flowchart LR
   detail).
 - The report stays a single self-contained offline file; no new runtime dependency.
 
+> [!NOTE]
+> **Rendering:** the scene-tree SVG must sit in an **out-of-flow, contained paint
+> context** — `.semantic-graph svg.tree` is `position: absolute; inset: 0` and the column
+> uses `contain: layout paint`, mirroring how every other stage graph lives in an absolute
+> `section.stage`. As an in-flow flex item beside the scrollable tables, Safari's GPU
+> compositor left **ghost copies of the tree while zooming** (the previous frame's layer was
+> not fully invalidated). Headless browsers use software rendering and cannot reproduce it,
+> so verify zoom in real Safari when touching this layout.
+
 ## Testability
 
 - **C# projection** — unit-test `SemanticProjection` against a compiled sample: assert the

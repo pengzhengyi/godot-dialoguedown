@@ -9,6 +9,8 @@ export interface LiveEditPorts {
     save(source: string): Promise<Stage[] | null>;
     /** Applies recompiled stages to the report's graph tabs (leaving the editor alone). */
     updateStages(stages: Stage[]): void;
+    /** Replaces the editor's content — used to restore the last saved version on discard. */
+    setContent(source: string): void;
     /** Shows or hides the Source tab's unsaved (dirty) marker. */
     setDirty(dirty: boolean): void;
     /** Shows or hides the passive "file changed on disk — refresh to sync" chip. */
@@ -27,6 +29,8 @@ export interface LiveEditController {
     onDiskChange(): void;
     /** Leaving Edit — drop any unsaved-dirty state and the disk chip (no save). */
     discard(): void;
+    /** Discard button — restore the editor to the last saved version and clear dirty. */
+    discardChanges(): void;
     /** Whether the buffer has unsaved edits. */
     readonly dirty: boolean;
 }
@@ -35,11 +39,17 @@ export interface LiveEditController {
  * The Live Edit state machine. Editing records the buffer and marks the session dirty
  * (and arms the unload guard); Save writes the current buffer, applies the recompiled
  * graphs, and clears dirty; a disk change only raises the passive chip — the editor is
- * never reloaded over your edits.
+ * never reloaded over your edits. Discarding restores the editor to the last saved
+ * version (the initial source, or the buffer as of the most recent save).
  */
 export function createLiveEdit(ports: LiveEditPorts, initialBuffer = ""): LiveEditController {
     let dirty = false;
     let buffer = initialBuffer;
+    // The last version written to disk (or the initial load). Discard restores to this.
+    let savedBuffer = initialBuffer;
+    // Set while restoring the editor programmatically, so the resulting change is not
+    // mistaken for a user edit that would re-mark the session dirty.
+    let restoring = false;
 
     function setDirty(next: boolean): void {
         dirty = next;
@@ -52,6 +62,7 @@ export function createLiveEdit(ports: LiveEditPorts, initialBuffer = ""): LiveEd
             return dirty;
         },
         onEdit(next) {
+            if (restoring) return; // a programmatic restore, not a user edit
             buffer = next;
             if (!dirty) setDirty(true);
         },
@@ -60,6 +71,7 @@ export function createLiveEdit(ports: LiveEditPorts, initialBuffer = ""): LiveEd
             const stages = await ports.save(buffer);
             if (stages === null) return; // a failed save keeps the buffer dirty
             ports.updateStages(stages);
+            savedBuffer = buffer; // this buffer is now the on-disk baseline
             setDirty(false);
             ports.setDiskChanged(false); // saving overwrites disk, so any earlier chip is stale
         },
@@ -68,6 +80,15 @@ export function createLiveEdit(ports: LiveEditPorts, initialBuffer = ""): LiveEd
         },
         discard() {
             if (dirty) setDirty(false);
+            ports.setDiskChanged(false);
+        },
+        discardChanges() {
+            if (!dirty) return; // nothing to discard
+            restoring = true;
+            ports.setContent(savedBuffer); // restore the editor to the last saved version
+            restoring = false;
+            buffer = savedBuffer;
+            setDirty(false);
             ports.setDiskChanged(false);
         },
     };

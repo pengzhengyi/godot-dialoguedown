@@ -1332,6 +1332,37 @@ body.maximized #app {
     cursor: not-allowed;
 }
 
+/* Discard sits left of Save as the secondary, destructive action: a muted outline that
+   turns the reference/danger red on hover, so it never competes with the green Save. */
+.discard-button {
+    --pico-color: var(--pico-muted-color);
+
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.12rem 0.7rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.discard-button:hover:not(:disabled),
+.discard-button:focus-visible:not(:disabled) {
+    color: var(--dd-reference);
+    border-color: var(--dd-reference);
+}
+
+.discard-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* The document path: filename always visible, the directory middle ellipsised. */
 .doc-path {
     /* Pico redefines --pico-color to its inverse (white) on buttons; reset it so

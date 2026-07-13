@@ -10,6 +10,16 @@ changes easy to categorize.
 
 ### Added
 
+- **Semantic analysis stage** — a new resolve-and-validate step between desugar and
+  the future dialogue-graph builder. It turns the desugared Dialogue AST into a
+  **semantic model**: a unified **speaker table** (keyed by both name and `@id`, with
+  an anonymous default), a nested **scene tree** with a GitHub-style **anchor table**,
+  and **resolved jumps** (a local anchor resolves to a scene; a target that names a
+  file is deferred to future cross-file support). It rejects speaker conflicts,
+  unnamed `@id`s, duplicate anchors, empty-slug headings, unknown reserved tags, and
+  jumps to missing anchors. The compiler now runs it after desugar and exposes the
+  model on the compilation result. Design note:
+  [Semantic Analyzer](docs/contributing/design-notes/Semantic%20Analyzer.md).
 - **Size and complexity guardrails** for the core library, enforced by
   SonarAnalyzer.CSharp (a build-time-only, core-scoped dev dependency): methods
   ≤40 lines (S138) and ≤7 parameters (S107); files ≤400 lines (S104); cyclomatic

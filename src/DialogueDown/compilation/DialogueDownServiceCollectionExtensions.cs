@@ -1,6 +1,7 @@
 using DialogueDown.Compilation;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Desugar;
+using DialogueDown.Script.Semantics;
 using DialogueDown.Script.Transpiler;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -25,10 +26,12 @@ public static class DialogueDownServiceCollectionExtensions
         services.TryAddSingleton<IMarkdownParser>(_ => new MarkdigMarkdownParser());
         services.TryAddSingleton<IScriptTranspiler>(_ => ScriptTranspilerFactory.CreateDefault());
         services.TryAddSingleton<IScriptDesugarer, ScriptDesugarer>();
+        services.TryAddSingleton<ISemanticAnalyzer, SemanticAnalyzer>();
         services.TryAddSingleton<IScriptCompiler>(provider => new ScriptCompiler(
             provider.GetRequiredService<IMarkdownParser>(),
             provider.GetRequiredService<IScriptTranspiler>(),
-            provider.GetRequiredService<IScriptDesugarer>()));
+            provider.GetRequiredService<IScriptDesugarer>(),
+            provider.GetRequiredService<ISemanticAnalyzer>()));
 
         return services;
     }

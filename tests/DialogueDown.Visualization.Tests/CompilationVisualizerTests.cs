@@ -3,6 +3,7 @@ using DialogueDown.Compilation;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
+using DialogueDown.Script.Semantics;
 using NSubstitute;
 
 namespace DialogueDown.Visualization.Tests;
@@ -33,8 +34,10 @@ public sealed class CompilationVisualizerTests
             new Line(null, [new Text("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
         ]);
         var compiler = Substitute.For<IScriptCompiler>();
+        var desugared = new DesugaredScriptDocument(script);
+        var semantics = new SemanticAnalyzer().Analyze(desugared, "script source");
         compiler.Compile("script source").Returns(
-            new CompilationResult("script source", markdown, script, new DesugaredScriptDocument(script)));
+            new CompilationResult("script source", markdown, script, desugared, semantics));
         var visualizer = new CompilationVisualizer(compiler);
 
         var stages = visualizer.BuildStages("script source");

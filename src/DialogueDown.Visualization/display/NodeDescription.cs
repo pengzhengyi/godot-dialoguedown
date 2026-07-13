@@ -14,7 +14,8 @@ public sealed record NodeDescription
         IReadOnlyList<DisplayAttribute>? attributes = null,
         string? source = null,
         string? category = null,
-        string? entityKey = null)
+        string? entityKey = null,
+        string? typeName = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(label);
         Label = label;
@@ -22,6 +23,7 @@ public sealed record NodeDescription
         Source = source;
         Category = category;
         EntityKey = entityKey;
+        TypeName = typeName;
     }
 
     public string Label { get; }
@@ -44,4 +46,12 @@ public sealed record NodeDescription
     /// node is not cross-linked. Hovering it highlights every element sharing the key.
     /// </summary>
     public string? EntityKey { get; }
+
+    /// <summary>
+    /// The human name of this node's kind (for example <c>"Scene"</c>), used to group and
+    /// label it in the legend when its <see cref="Label"/> carries content — such as a scene
+    /// title — rather than a type name. Null when the label already names the type, in which
+    /// case the legend derives the name from the label.
+    /// </summary>
+    public string? TypeName { get; }
 }

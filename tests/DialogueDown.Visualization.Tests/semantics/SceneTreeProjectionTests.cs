@@ -27,6 +27,7 @@ public sealed class SceneTreeProjectionTests
         Assert.Equal("Document root", description.Label);
         Assert.Null(description.EntityKey);
         Assert.Equal("document", description.Category);
+        Assert.Equal("Document", description.TypeName);
     }
 
     [Fact]
@@ -38,6 +39,7 @@ public sealed class SceneTreeProjectionTests
         var description = _projection.Describe(scene);
 
         Assert.Equal("The Market", description.Label);
+        Assert.Equal("Scene", description.TypeName);
         Assert.Equal("structure", description.Category);
         Assert.Equal("scene:the-market", description.EntityKey);
         Assert.Contains(description.Attributes, attribute => attribute is { Name: "anchor", Value: "#the-market" });

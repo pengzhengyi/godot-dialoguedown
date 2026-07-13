@@ -90,6 +90,17 @@ public sealed class GraphWalkTests
     }
 
     [Fact]
+    public void Walk_CarriesTypeName()
+    {
+        var root = new Cell("root");
+        var projection = new CellProjection().WithTypeName(root, "Scene");
+
+        var node = Assert.Single(GraphWalk.Walk(root, projection).Nodes);
+
+        Assert.Equal("Scene", node.TypeName);
+    }
+
+    [Fact]
     public void Walk_Tree_EmitsChildEdgesInPreOrderWithSequentialIds()
     {
         // root ─┬─ a ── c

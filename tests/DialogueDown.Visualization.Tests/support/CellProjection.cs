@@ -20,6 +20,9 @@ internal sealed class CellProjection : INodeProjection<Cell>
     private readonly Dictionary<Cell, string> _categories =
         new(ReferenceEqualityComparer.Instance);
 
+    private readonly Dictionary<Cell, string> _typeNames =
+        new(ReferenceEqualityComparer.Instance);
+
     public string Title { get; init; } = "Cells";
 
     public string Description { get; init; } = "A cell graph.";
@@ -48,12 +51,19 @@ internal sealed class CellProjection : INodeProjection<Cell>
         return this;
     }
 
+    public CellProjection WithTypeName(Cell node, string typeName)
+    {
+        _typeNames[node] = typeName;
+        return this;
+    }
+
     public NodeDescription Describe(Cell node) =>
         new(
             node.Name,
             _attributes.TryGetValue(node, out var attributes) ? attributes : null,
             _sources.TryGetValue(node, out var source) ? source : null,
-            _categories.TryGetValue(node, out var category) ? category : null);
+            _categories.TryGetValue(node, out var category) ? category : null,
+            typeName: _typeNames.TryGetValue(node, out var typeName) ? typeName : null);
 
     public IEnumerable<Cell> Neighbors(Cell node) =>
         _neighbors.TryGetValue(node, out var neighbors) ? neighbors : [];

@@ -27,7 +27,8 @@ internal sealed class SceneTreeProjection : INodeProjection<Scene>
         ArgumentNullException.ThrowIfNull(scene);
         if (scene.Anchor is null)
         {
-            return new NodeDescription("Document root", category: DocumentCategory);
+            return new NodeDescription(
+                "Document root", category: DocumentCategory, typeName: "Document");
         }
 
         return new NodeDescription(
@@ -37,7 +38,8 @@ internal sealed class SceneTreeProjection : INodeProjection<Scene>
                 new DisplayAttribute("level", $"{scene.Level}"),
             ],
             category: StructureCategory,
-            entityKey: SceneEntity.Key(scene));
+            entityKey: SceneEntity.Key(scene),
+            typeName: "Scene");
     }
 
     public IEnumerable<Scene> Neighbors(Scene scene)

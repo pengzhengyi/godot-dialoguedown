@@ -75,12 +75,12 @@ public sealed class JumpResolverTests
 
         var resolutions = JumpResolver.Resolve([scene, external], anchors);
 
-        Assert.IsType<SceneJump>(resolutions[scene]);
-        Assert.IsType<FileScopedJump>(resolutions[external]);
+        Assert.IsType<SceneJump>(resolutions.Resolve(scene));
+        Assert.IsType<FileScopedJump>(resolutions.Resolve(external));
     }
 
     private static JumpResolution ResolveOne(Jump jump, AnchorTable anchors) =>
-        JumpResolver.Resolve([jump], anchors)[jump];
+        JumpResolver.Resolve([jump], anchors).Resolve(jump);
 
     private static AnchorTable AnchorsFor(params ScriptBlock[] blocks)
     {

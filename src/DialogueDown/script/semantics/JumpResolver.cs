@@ -12,9 +12,8 @@ namespace DialogueDown.Script.Semantics;
 internal static class JumpResolver
 {
     /// <summary>Resolves every jump in <paramref name="jumps"/> against <paramref name="anchors"/>.</summary>
-    public static IReadOnlyDictionary<Jump, JumpResolution> Resolve(
-        IEnumerable<Jump> jumps, AnchorTable anchors) =>
-        jumps.ToDictionary(jump => jump, jump => Resolve(jump, anchors));
+    public static JumpResolutionTable Resolve(IEnumerable<Jump> jumps, AnchorTable anchors) =>
+        new(jumps.ToDictionary(jump => jump, jump => Resolve(jump, anchors)));
 
     private static JumpResolution Resolve(Jump jump, AnchorTable anchors)
     {

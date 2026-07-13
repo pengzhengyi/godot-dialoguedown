@@ -1,12 +1,11 @@
 # Implementation note: Semantic analyzer
 
-> [!NOTE]
-> Status: **proposed** — a design draft, not yet implemented. Component 4 of the
-> DialogueDown script compiler, the **resolve-and-validate** stage between desugar
-> and the future dialogue-graph builder. It turns a syntactic, desugared tree into
-> a **semantic model**: a unified speaker table, a nested scene tree with an anchor
-> table, and resolved jump/speaker references — leaving the flow graph to the next
-> component.
+> [!IMPORTANT]
+> Status: **implemented**. Component 4 of the DialogueDown script compiler, the
+> **resolve-and-validate** stage between desugar and the future dialogue-graph
+> builder. It turns a syntactic, desugared tree into a **semantic model**: a unified
+> speaker table, a nested scene tree with an anchor table, and resolved
+> jump/speaker references — leaving the flow graph to the next component.
 
 ## Table of contents
 
@@ -46,14 +45,14 @@ It does four things:
    `@id`, auto-declaring references, merging partial-declaration tags, and honoring
    `##default`.
 3. **Resolve jumps** — resolve each `Jump`'s target against the anchor table
-   (same-file), or mark it external (cross-file, deferred).
+   (a local anchor), or mark it file-scoped (a target that names a file — deferred).
 4. **Validate reserved tags** — check each `##` tag against the known reserved set.
 
 **In scope:** the `SemanticModel`, the four sub-passes, the shared traversal index,
 and the `ISemanticAnalyzer` seam. **Out of scope, deferred to later components:**
 the **flow graph** (succession/choice/jump *edges* — the "compile to nodes and
-edges" step is its own builder), **cross-file** jump resolution (tracked as a
-project item), and **collect-and-continue diagnostics** (this stage throws for now;
+edges" step is its own builder), **cross-file** jump resolution (tracked as
+issue #59), and **collect-and-continue diagnostics** (this stage throws for now;
 see [DD8](#dd8--errors-throw-now-diagnostic-seams-are-marked)). No **semantic
 lint rules** yet — those run over this model in a later pass.
 
@@ -75,60 +74,65 @@ both the tree and its resolutions) and lowers it to a flow graph.
 
 ## Ubiquitous language
 
-| Term                  | Meaning                                                                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Semantic analyzer** | the resolve-and-validate stage; produces the semantic model.                                                                                 |
-| **Semantic model**    | the analyzed artifact: the desugared tree plus its resolved tables and references. Bound to the tree it analyzed (Roslyn's `SemanticModel`). |
-| **Speaker symbol**    | the resolved identity of a speaker (`Name?`, `Id?`, merged `Tags`, `IsDefault`). Distinct from the AST `Speaker` prefix node.                |
-| **Speaker table**     | the unified lookup from a name **or** an `@id` to a speaker symbol.                                                                          |
-| **Scene**             | a semantic section: a heading, its slug **anchor**, its child scenes, and the blocks it contains. Distinct from the AST `SceneHeading`.      |
-| **Anchor**            | a scene's slug, the target a jump resolves against (GitHub-style: `## Play tennis` → `play-tennis`).                                         |
-| **Anchor table**      | the lookup from an anchor slug to its scene.                                                                                                 |
-| **Jump resolution**   | what a `Jump`'s target resolves to: a scene, an external (cross-file) target, or unresolved.                                                 |
-| **Tree index**        | a build-once index of every node by type, so a sub-pass queries `OfType<T>()` instead of walking.                                            |
-| **Sub-pass**          | one isolated analysis step (scene builder, speaker binder, jump resolver, tag validator).                                                    |
+| Term                  | Meaning                                                                                                                                         |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Semantic analyzer** | the resolve-and-validate stage; produces the semantic model.                                                                                    |
+| **Semantic model**    | the analyzed artifact: the desugared tree plus its resolved tables and references. Bound to the tree it analyzed (Roslyn's `SemanticModel`).    |
+| **Speaker symbol**    | the resolved identity of a speaker (`Name?`, `Id?`, merged `Tags`, `IsDefault`). Distinct from the AST `Speaker` prefix node.                   |
+| **Speaker table**     | the unified lookup from a name **or** an `@id` to a speaker symbol.                                                                             |
+| **Scene**             | a semantic section: a heading, its slug **anchor**, its child scenes, and the blocks it contains. Distinct from the AST `SceneHeading`.         |
+| **Anchor**            | a scene's slug, the target a jump resolves against (GitHub-style: `## Play tennis` → `play-tennis`).                                            |
+| **Anchor table**      | the lookup from an anchor slug to its scene.                                                                                                    |
+| **Jump resolution**   | what a `Jump`'s target resolves to: a scene (`SceneJump`), a file-scoped target (`FileScopedJump`, deferred), or unresolved (`UnresolvedJump`). |
+| **Tree index**        | a build-once index of every node by type, so a sub-pass queries `OfType<T>()` instead of walking.                                               |
+| **Sub-pass**          | one isolated analysis step (scene builder, speaker binder, jump resolver, tag validator).                                                       |
 
 ## Functionality checklist
 
-- [ ] A **`DialogueTreeIndex`** walks the tree once and answers `OfType<T>()` in
+- [x] A **`DialogueTreeIndex`** walks the tree once and answers `OfType<T>()` in
       document order, including base-type queries (`OfType<Speaker>()`).
-- [ ] A **scene builder** nests `SceneHeading`s into a `Scene` tree by level
+- [x] A **scene builder** nests `SceneHeading`s into a `Scene` tree by level
       (blocks before the first heading form an implicit root scope) and builds the
       anchor table with GitHub-style slugs.
-- [ ] A **speaker binder** builds the unified `SpeakerTable` (name and `@id`),
+- [x] A **speaker binder** builds the unified `SpeakerTable` (name and `@id`),
       auto-declaring references and merging partial-declaration tags.
-- [ ] The binder asserts the **name invariant**: every speaker symbol ends with a
+- [x] The binder asserts the **name invariant**: every speaker symbol ends with a
       name (an `@id` never named is an error).
-- [ ] `##default` marks the default speaker; **at most one** is allowed. The binder
+- [x] `##default` marks the default speaker; **at most one** is allowed. The binder
       supplies an **anonymous default** when none is tagged, so `Resolve` always
       yields a symbol.
-- [ ] A **jump resolver** resolves same-file targets against the anchor table and
-      marks cross-file targets external.
-- [ ] A **tag validator** accepts a reserved tag only from the known set
+- [x] A **jump resolver** resolves a local anchor against the anchor table and
+      marks a file-scoped target (one that names a file) as deferred.
+- [x] A **tag validator** accepts a reserved tag only from the known set
       (`##default` today) and rejects the rest.
-- [ ] The **`SemanticModel`** carries the desugared tree, the tables, the scene
-      tree, and the node-keyed jump resolutions.
-- [ ] The **`ISemanticAnalyzer`** seam analyzes a `DesugaredScriptDocument` into a
+- [x] The **`SemanticModel`** carries the desugared tree, the tables, the scene
+      tree, and the node-keyed jump resolution table.
+- [x] The **`ISemanticAnalyzer`** seam analyzes a `DesugaredScriptDocument` into a
       `SemanticModel`, threading `source` for future diagnostics.
-- [ ] Every place that will report a diagnostic is a **marked TODO seam** (throws
+- [x] Every place that will report a diagnostic is a **marked TODO seam** (throws
       for now).
 
 ## Interfaces and abstractions
 
-| Type                | Visibility | Responsibility                                                               | Collaborators                       |
-| ------------------- | ---------- | ---------------------------------------------------------------------------- | ----------------------------------- |
-| `ISemanticAnalyzer` | internal   | seam: `SemanticModel Analyze(DesugaredScriptDocument, string source)`        | `SemanticModel`                     |
-| `SemanticAnalyzer`  | internal   | orchestrates the sub-passes and assembles the model                          | the sub-passes, `DialogueTreeIndex` |
-| `SemanticModel`     | internal   | the analyzed artifact: tree + tables + resolutions                           | all sub-pass outputs                |
-| `DialogueTreeIndex` | internal   | build-once `OfType<T>()` over the tree                                       | `ScriptNode`                        |
-| `SceneBuilder`      | internal   | flat headings → `Scene` tree + `AnchorTable`                                 | `SceneHeading`, `Scene`             |
-| `Scene`             | internal   | one nested section (title, anchor, children, blocks)                         | `SceneHeading`                      |
-| `AnchorTable`       | internal   | slug → `Scene`                                                               | `Scene`                             |
-| `SpeakerBinder`     | internal   | AST speakers → `SpeakerTable`; enforces the name invariant                   | `Speaker`, `SpeakerSymbol`          |
-| `SpeakerSymbol`     | internal   | resolved speaker identity                                                    | `Tag`                               |
-| `SpeakerTable`      | internal   | name/`@id` → `SpeakerSymbol`; `Resolve(Speaker)` incl. the anonymous default | `SpeakerSymbol`                     |
-| `JumpResolver`      | internal   | `Jump` target → `JumpResolution`                                             | `Jump`, `AnchorTable`, `Scene`      |
-| `TagValidator`      | internal   | reserved-tag check against the known set                                     | `ReservedTag`                       |
+| Type                  | Visibility | Responsibility                                                               | Collaborators                       |
+| --------------------- | ---------- | ---------------------------------------------------------------------------- | ----------------------------------- |
+| `ISemanticAnalyzer`   | internal   | seam: `SemanticModel Analyze(DesugaredScriptDocument, string source)`        | `SemanticModel`                     |
+| `SemanticAnalyzer`    | internal   | orchestrates the sub-passes and assembles the model                          | the sub-passes, `DialogueTreeIndex` |
+| `SemanticModel`       | internal   | the analyzed artifact: tree + tables + resolutions                           | all sub-pass outputs                |
+| `DialogueTreeIndex`   | internal   | build-once `OfType<T>()` over the tree                                       | `ScriptNode`                        |
+| `SceneBuilder`        | internal   | flat headings → `Scene` tree + `AnchorTable`                                 | `SceneHeading`, `Scene`             |
+| `Scene`               | internal   | one nested section (title, anchor, children, blocks)                         | `SceneHeading`                      |
+| `AnchorTable`         | internal   | slug → `Scene`                                                               | `Scene`                             |
+| `SpeakerBinder`       | internal   | AST speakers → `SpeakerTable`; enforces the name invariant                   | `Speaker`, `SpeakerSymbol`          |
+| `SpeakerSymbol`       | internal   | resolved speaker identity                                                    | `Tag`                               |
+| `SpeakerTable`        | internal   | name/`@id` → `SpeakerSymbol`; `Resolve(Speaker)` incl. the anonymous default | `SpeakerSymbol`                     |
+| `Slug`                | internal   | GitHub-style slug of a heading's plain text (autocomplete parity)            | —                                   |
+| `JumpTarget`          | internal   | parsed `Jump` target: optional file part + optional anchor                   | `Jump`                              |
+| `JumpResolver`        | internal   | `Jump`s → `JumpResolutionTable`                                              | `Jump`, `AnchorTable`, `Scene`      |
+| `JumpResolution`      | internal   | union: `SceneJump` / `FileScopedJump` / `UnresolvedJump`                     | `Scene`                             |
+| `JumpResolutionTable` | internal   | node-keyed `Jump` → `JumpResolution`; `Resolve(Jump)`                        | `JumpResolution`                    |
+| `TagValidator`        | internal   | reserved-tag check against the known set                                     | `ReservedTag`, `ReservedTagNames`   |
+| `ReservedTagNames`    | internal   | the reserved-tag vocabulary (`default` today; the known set)                 | `TagValidator`, `SpeakerBinder`     |
 
 ## The analyzer at a glance
 
@@ -282,7 +286,10 @@ nodes-and-edges component, not this model.
 Slugs are **GitHub-style** (lowercase, drop punctuation, spaces → hyphens), so
 `## Play tennis` → `play-tennis` — matching the DSL example and, crucially, a
 writer's **Markdown preview**, since previewing the script in Markdown is a stated
-goal. A writer's preview anchors and the compiler's anchors line up.
+goal. A writer's preview anchors and the compiler's anchors line up. `Slug` is a
+faithful port of **github-slugger**'s exact rules (its punctuation set, no trimming
+or run-collapsing), so a target a writer autocompletes from the preview matches the
+compiler's anchor character-for-character.
 
 **Anchor collisions** — two scenes slugging the same — are an **error**, not a
 silent GitHub-style `-1` suffix. An anchor is a **jump target**, so identity must
@@ -290,16 +297,27 @@ be unambiguous; silent disambiguation would make `=> [X](#scene)` resolve
 arbitrarily. (This is the one deliberate divergence from GitHub slug behavior, for
 target integrity.)
 
+A heading whose text **slugs to empty** (e.g. `## !!!`) is likewise an **error**,
+raised by the scene builder. Such a heading can never be a valid jump target, so
+failing early is more honest than silently minting an unreachable anchor a writer
+might later try (and fail) to link to.
+
 ### DD6 — Jump resolution against the anchor table
 
-For each `Jump`, its `Target` splits into an optional file part and an anchor part:
+For each `Jump`, a `JumpTarget` parses its `Target` into an optional file part and
+an optional anchor part (split at the first `#`):
 
-- **Same-file** (`#play-tennis`): look the anchor up in the `AnchorTable` → the
-  target **scene**, or an **unresolved-target** error if absent.
-- **Cross-file** (`chapter-02.md#meet-bob`): marked **external** and left
-  unresolved — **not** an error. A future multi-file component owns resolving
-  targets across documents; this is tracked as a project item.
+- **Local anchor** (`#play-tennis`, no file part): look the anchor up in the
+  `AnchorTable` → a `SceneJump` to the target **scene**, or an
+  **unresolved-target** error if absent.
+- **File-scoped** (any target with a file part, e.g. `chapter-02.md#meet-bob`):
+  a `FileScopedJump`, left unresolved — **not** an error. Because this stage has no
+  cross-file support yet, *any* target that names a file is treated as file-scoped,
+  even one that names the current document; a future multi-file component owns
+  resolving targets across documents (tracked as issue #59).
 
+The resolver returns a **`JumpResolutionTable`** — a node-keyed map from each
+`Jump` to its `JumpResolution` (`SceneJump` / `FileScopedJump` / `UnresolvedJump`).
 A jump resolves to a **scene**, not a graph edge — edges are the graph builder's
 job (DD1).
 
@@ -329,19 +347,20 @@ component, in progress on its own branch).
 
 ## Error and boundary cases
 
-| Case                                          | Behavior                                                                                |
-| --------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Empty document                                | an empty model: no scenes, no speakers, no jumps.                                       |
-| No headings                                   | the whole document is one implicit root scope; jumps can only be cross-file/unresolved. |
-| Speaker conflict (name↔two ids, id↔two names) | `DialogueSemanticError` (TODO: diagnostic).                                             |
-| `@id` never given a name                      | fails the name invariant → error (TODO: diagnostic).                                    |
-| Two `##default` speakers                      | `DialogueSemanticError` (TODO: diagnostic).                                             |
-| Anchor collision (duplicate slug)             | `DialogueSemanticError` (TODO: diagnostic).                                             |
-| Same-file jump to a missing anchor            | `DialogueSemanticError` (TODO: diagnostic).                                             |
-| Cross-file jump                               | resolved as **external**, not an error (deferred).                                      |
-| Unknown reserved tag (`##unknown`)            | `DialogueSemanticError` (TODO: diagnostic).                                             |
-| Jump target with an empty anchor              | treated as unresolved (TODO: diagnostic).                                               |
-| `null` document/source                        | `ArgumentNullException` (usage error, not a diagnostic).                                |
+| Case                                          | Behavior                                                                                 |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Empty document                                | an empty model: no scenes, no speakers, no jumps.                                        |
+| No headings                                   | the whole document is one implicit root scope; jumps can only be file-scoped/unresolved. |
+| Speaker conflict (name↔two ids, id↔two names) | `DialogueSemanticError` (TODO: diagnostic).                                              |
+| `@id` never given a name                      | fails the name invariant → error (TODO: diagnostic).                                     |
+| Two `##default` speakers                      | `DialogueSemanticError` (TODO: diagnostic).                                              |
+| Anchor collision (duplicate slug)             | `DialogueSemanticError` (TODO: diagnostic).                                              |
+| Heading that slugs to empty (`## !!!`)        | `DialogueSemanticError` — never a valid jump target (TODO: diagnostic).                  |
+| Local-anchor jump to a missing anchor         | `DialogueSemanticError` (TODO: diagnostic).                                              |
+| File-scoped jump (target names a file)        | resolved as a `FileScopedJump`, not an error (deferred, #59).                            |
+| Unknown reserved tag (`##unknown`)            | `DialogueSemanticError` (TODO: diagnostic).                                              |
+| Jump target with an empty anchor              | treated as unresolved (TODO: diagnostic).                                                |
+| `null` document/source                        | `ArgumentNullException` (usage error, not a diagnostic).                                 |
 
 ## Integration
 
@@ -349,9 +368,9 @@ component, in progress on its own branch).
   index live under a new `DialogueDown.Script.Semantics` namespace. No new
   dependency.
 - **Facade** (`ScriptCompiler`): runs the analyzer after desugar and exposes the
-  `SemanticModel` as the next stage artifact on `CompilationResult` (internal, like
-  the other stage artifacts), threading `source`. The facade's `TODO(semantic-
-  analysis)` seam is where it plugs in.
+  `SemanticModel` as `CompilationResult.Semantics` — the next stage artifact
+  (internal, like the other stage artifacts), threading `source`. The `TODO(graph-
+  build)` seam that follows is where the graph builder will plug in.
 - **Graph builder** (next component): consumes the `SemanticModel` and lowers it to
   the flow graph.
 - **Diagnostics** (later): threads a `DiagnosticBag` into `Analyze`, replacing the

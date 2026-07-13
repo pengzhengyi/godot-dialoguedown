@@ -44,6 +44,7 @@ that every component shares — starting with the error model.
 | [Visualize CLI — Emit Mermaid and DOT](./Visualize%20CLI%20-%20Emit%20Mermaid%20and%20DOT.md) | `visualize --emit mermaid\|dot` emits each stage's graph as portable text (colored Mermaid); no in-report rendering | Implemented |
 | [Graph Position Preservation](./Graph%20Position%20Preservation.md) | Hybrid per-graph zoom/pan/fold memory (adjusted graphs pin their own, untouched inherit the current view), a root-centered default, and an editable zoom with revert | Implemented |
 | [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions (jump targets, speakers, `@id`s, `#tag`s) behind a symbol-source seam for future semantic symbols | Implemented |
+| [Semantic Analyzer](./Semantic%20Analyzer.md) | Desugared Dialogue AST → semantic model (speaker table, scene tree + anchor table, resolved jumps) | Implemented |
 
 ## Error model
 

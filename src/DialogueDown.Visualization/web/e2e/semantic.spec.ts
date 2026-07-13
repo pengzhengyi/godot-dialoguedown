@@ -42,10 +42,36 @@ const report: Report = {
                     typeName: "Scene",
                     entityKey: "scene:the-square",
                 },
+                // A script block under "The Market": a line, its speaker mention, and a jump —
+                // the last two cross-reference the speaker and target-scene entities.
+                {
+                    id: "n3",
+                    label: "Line",
+                    attributes: [{ name: "span", value: "[13, 35)" }],
+                    category: "speech",
+                    source: "Guide @guide: Welcome.",
+                },
+                {
+                    id: "n4",
+                    label: "Speaker (declaration)",
+                    attributes: [{ name: "name", value: "Guide" }],
+                    category: "speech",
+                    refKey: "speaker:@guide",
+                },
+                {
+                    id: "n5",
+                    label: "Jump",
+                    attributes: [{ name: "target", value: "#the-square" }],
+                    category: "jump",
+                    refKey: "scene:the-square",
+                },
             ],
             edges: [
                 { fromId: "n0", toId: "n1", kind: "Child" },
                 { fromId: "n0", toId: "n2", kind: "Child" },
+                { fromId: "n1", toId: "n3", kind: "Child" },
+                { fromId: "n3", toId: "n4", kind: "Child" },
+                { fromId: "n1", toId: "n5", kind: "Child" },
             ],
             tables: [
                 {
@@ -117,9 +143,14 @@ test.beforeEach(async ({ page }) => {
     await page.locator(".tab", { hasText: "Semantic Model" }).click();
 });
 
-test("lays the scene-tree graph beside the three stacked tables", async ({ page }) => {
+test("lays the scene-tree graph, its script blocks, and the three stacked tables", async ({
+    page,
+}) => {
     await expect(page.locator(".semantic-view")).toBeVisible();
-    await expect(page.locator(".semantic-graph g.node")).toHaveCount(3);
+    // The root, two scenes, and the three script-block nodes under "The Market".
+    await expect(page.locator(".semantic-graph g.node")).toHaveCount(6);
+    await expect(page.locator('.semantic-graph g.node:has-text("Line")')).toBeVisible();
+    await expect(page.locator('.semantic-graph g.node:has-text("Jump")')).toBeVisible();
     await expect(page.locator(".table-panel-title")).toHaveText([
         "Speakers",
         "Anchors",
@@ -130,13 +161,18 @@ test("lays the scene-tree graph beside the three stacked tables", async ({ page 
     await expect(page.locator("#detail")).toBeHidden();
 });
 
-test("cross-links a scene across the graph, the anchor table, and a jump", async ({ page }) => {
+test("cross-links a scene across the graph, the anchor table, and a jump block", async ({
+    page,
+}) => {
     const stage = page.locator(".semantic-stage.active");
-    // Hover the anchor row for The Square; the scene node and the jump that resolves to it
-    // light up too.
+    // Hover the anchor row for The Square; the scene node, the anchor row, and the jump block
+    // that resolves to it all light up.
     await stage.locator('tr[data-entity-key="scene:the-square"]').hover();
 
     await expect(stage.locator('g.node[data-entity-key="scene:the-square"]')).toHaveClass(
+        /entity-highlight/,
+    );
+    await expect(stage.locator('g.node[data-ref-key="scene:the-square"]')).toHaveClass(
         /entity-highlight/,
     );
     await expect(stage.locator('td[data-ref-key="scene:the-square"]')).toHaveClass(
@@ -144,6 +180,17 @@ test("cross-links a scene across the graph, the anchor table, and a jump", async
     );
     // A different scene stays unhighlighted.
     await expect(stage.locator('g.node[data-entity-key="scene:the-market"]')).not.toHaveClass(
+        /entity-highlight/,
+    );
+});
+
+test("cross-links a speaker mention in the tree to its Speakers row", async ({ page }) => {
+    const stage = page.locator(".semantic-stage.active");
+    // Hover the Guide row in the Speakers table (always in view); the speaker mention in the
+    // tree lights up — the cross-link is symmetric.
+    await stage.locator('tr[data-entity-key="speaker:@guide"]').hover();
+
+    await expect(stage.locator('g.node[data-ref-key="speaker:@guide"]')).toHaveClass(
         /entity-highlight/,
     );
 });
@@ -163,6 +210,20 @@ test("collapses and reopens a table from its header bar", async ({ page }) => {
     await header.click();
     await expect(speakers).not.toHaveClass(/collapsed/);
     await expect(speakers.locator("tbody")).toBeVisible();
+});
+
+test("hides and reopens the whole tables column from the divider", async ({ page }) => {
+    const view = page.locator(".semantic-view");
+    const toggle = page.locator(".semantic-divider .collapse-toggle");
+
+    await expect(page.locator(".semantic-tables")).toBeVisible();
+    await toggle.click();
+    await expect(view).toHaveClass(/tables-collapsed/);
+    await expect(page.locator(".semantic-tables")).toBeHidden();
+
+    await toggle.click();
+    await expect(view).not.toHaveClass(/tables-collapsed/);
+    await expect(page.locator(".semantic-tables")).toBeVisible();
 });
 
 test("has no accessibility violations on the Semantic tab", async ({ page }) => {

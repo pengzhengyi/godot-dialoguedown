@@ -3,6 +3,7 @@ import type { DisplayNode } from "./model";
 import { createTreeView, type TreeView, type TreeViewOptions } from "./tree-view";
 import { createTablePanel } from "./semantic-table";
 import { createEntityHighlighter } from "./entity-highlight";
+import { initCollapsiblePanel } from "./collapse-toggle";
 
 /** A built Semantic tab: its element to mount, and the scene-tree view for camera memory. */
 export interface SemanticView {
@@ -10,12 +11,16 @@ export interface SemanticView {
     view: TreeView;
 }
 
+const MIN_TABLES_WIDTH = 220;
+const MAX_TABLES_WIDTH = 560;
+
 /**
  * Build the Semantic tab's analytics layout: the scene tree as an interactive graph on the
  * left (reusing the tree view, so zoom, fold, full screen, and position memory work as on the
  * other tabs) and the speaker, anchor, and jump-resolution tables stacked as collapsible
- * panels on the right. Cross-link highlighting is wired across the whole tab, so hovering a
- * scene or speaker in any place lights it up everywhere it appears.
+ * panels on the right. A draggable divider re-sizes the tables column and hosts a toggle that
+ * hides the whole column to give the graph full width. Cross-link highlighting is wired across
+ * the whole tab, so hovering a scene, speaker, or jump anywhere lights it up everywhere.
  */
 export function createSemanticView(
     stage: Stage,
@@ -28,6 +33,10 @@ export function createSemanticView(
     const graph = document.createElement("div");
     graph.className = "semantic-graph";
 
+    const divider = document.createElement("div");
+    divider.className = "semantic-divider";
+    divider.title = "Drag to resize";
+
     const tables = document.createElement("div");
     tables.className = "semantic-tables";
 
@@ -37,7 +46,60 @@ export function createSemanticView(
         tables.appendChild(createTablePanel(table));
     }
 
-    container.append(graph, tables);
+    container.append(graph, divider, tables);
+    initTablesResizer(container, tables, divider);
+
+    // The whole tables column can be hidden to give the graph full width. Its toggle lives on
+    // the divider, doubling as the always-present re-open handle; the choice persists.
+    const tablesPanel = initCollapsiblePanel({
+        container,
+        collapsedClass: "tables-collapsed",
+        storageKey: "dd-semantic-tables-collapsed",
+        name: "tables",
+    });
+    divider.appendChild(tablesPanel.button);
+
     createEntityHighlighter(container);
     return { element: container, view };
+}
+
+/**
+ * Wire the divider so dragging it resizes the tables column (via `--semantic-tables-width`).
+ * Pointer capture keeps the drag self-contained — no document-level listeners that would
+ * accumulate each time the tab is rebuilt on a Live Edit save.
+ */
+function initTablesResizer(
+    container: HTMLElement,
+    tables: HTMLElement,
+    divider: HTMLElement,
+): void {
+    let rightEdge = 0;
+
+    divider.addEventListener("pointerdown", (event) => {
+        // A collapsed column has nothing to resize — the divider is just its re-open handle.
+        if (container.classList.contains("tables-collapsed")) return;
+        // Pressing the toggle should collapse, not start a drag.
+        if ((event.target as HTMLElement).closest(".collapse-toggle")) return;
+        rightEdge = tables.getBoundingClientRect().right || window.innerWidth;
+        divider.setPointerCapture(event.pointerId);
+        document.body.style.userSelect = "none";
+        event.preventDefault();
+    });
+
+    divider.addEventListener("pointermove", (event) => {
+        if (!divider.hasPointerCapture(event.pointerId)) return;
+        const width = Math.min(
+            MAX_TABLES_WIDTH,
+            Math.max(MIN_TABLES_WIDTH, rightEdge - event.clientX),
+        );
+        container.style.setProperty("--semantic-tables-width", `${width}px`);
+    });
+
+    const release = (event: PointerEvent): void => {
+        if (divider.hasPointerCapture(event.pointerId))
+            divider.releasePointerCapture(event.pointerId);
+        document.body.style.userSelect = "";
+    };
+    divider.addEventListener("pointerup", release);
+    divider.addEventListener("pointercancel", release);
 }

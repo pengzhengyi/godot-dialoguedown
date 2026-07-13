@@ -318,9 +318,11 @@ export function createTreeView(
             .append("g")
             .attr("class", "node")
             .attr("data-tip", (d) => tooltipHtml(d.data))
-            // A cross-linked node (a scene in the Semantic tab) carries its entity key, so the
-            // entity highlighter can light it up with the matching table rows. Absent elsewhere.
-            .attr("data-entity-key", (d) => d.data.entityKey ?? null);
+            // A cross-linked node carries a scene/speaker key so the entity highlighter can
+            // light it up with the matching table rows: a scene node *is* the entity
+            // (entityKey), a jump or speaker mention *references* one (refKey). Absent elsewhere.
+            .attr("data-entity-key", (d) => d.data.entityKey ?? null)
+            .attr("data-ref-key", (d) => d.data.refKey ?? null);
 
         group
             .append("circle")

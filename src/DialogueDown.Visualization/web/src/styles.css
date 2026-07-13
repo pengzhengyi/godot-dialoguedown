@@ -345,7 +345,7 @@ section.stage.error {
    controls anchor to, exactly as a plain stage. */
 .semantic-view {
     display: flex;
-    gap: 0.75rem;
+    gap: 0;
     height: 100%;
     min-height: 0;
 }
@@ -372,13 +372,37 @@ section.stage.error {
 }
 
 .semantic-tables {
-    flex: 0 0 clamp(18rem, 34%, 26rem);
+    flex: 0 0 var(--semantic-tables-width, clamp(18rem, 34%, 26rem));
     min-width: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    padding-right: 0.15rem;
+    padding: 0 0.15rem 0 0.7rem;
+}
+
+/* A draggable rail between the graph and the tables: it resizes the column and hosts the
+   hide/show toggle (the always-present re-open handle), mirroring the Source tab's divider. */
+.semantic-divider {
+    position: relative;
+    flex: 0 0 9px;
+    cursor: col-resize;
+    border-left: 1px solid var(--pico-muted-border-color);
+    transition: border-color 0.15s ease;
+}
+
+.semantic-divider:hover {
+    border-left-color: var(--pico-primary);
+}
+
+/* Collapsed: hide the column so the graph fills, and turn the divider into a plain rail
+   (no resize cursor) that still hosts the re-open handle. */
+.semantic-view.tables-collapsed .semantic-tables {
+    display: none;
+}
+
+.semantic-view.tables-collapsed .semantic-divider {
+    cursor: default;
 }
 
 /* A collapsible table panel: a header bar (title + row count) over the table body.
@@ -1043,7 +1067,8 @@ body.maximized #app {
 .collapse-toggle:hover,
 .collapse-toggle:focus-visible,
 .detail-collapsed .collapse-toggle,
-.preview-collapsed .collapse-toggle {
+.preview-collapsed .collapse-toggle,
+.tables-collapsed .collapse-toggle {
     --pico-color: inherit;
 
     opacity: 1;
@@ -1065,12 +1090,14 @@ body.maximized #app {
 }
 
 .detail-collapsed .collapse-toggle .icon-collapse,
-.preview-collapsed .collapse-toggle .icon-collapse {
+.preview-collapsed .collapse-toggle .icon-collapse,
+.tables-collapsed .collapse-toggle .icon-collapse {
     display: none;
 }
 
 .detail-collapsed .collapse-toggle .icon-expand,
-.preview-collapsed .collapse-toggle .icon-expand {
+.preview-collapsed .collapse-toggle .icon-expand,
+.tables-collapsed .collapse-toggle .icon-expand {
     display: block;
 }
 

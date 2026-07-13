@@ -17,6 +17,8 @@ export interface DisplayNode {
     entityKey?: string;
     /** The node's kind for the legend, when its label carries content (e.g. a scene title). */
     typeName?: string;
+    /** A cross-link key when the node *references* an entity (a jump's scene, a speaker mention). */
+    refKey?: string;
 }
 
 export type DisplayEdgeKind = "Child" | "Reference";

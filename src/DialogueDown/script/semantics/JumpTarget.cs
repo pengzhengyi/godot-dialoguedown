@@ -11,6 +11,12 @@ namespace DialogueDown.Script.Semantics;
 /// </summary>
 internal readonly record struct JumpTarget(string? File, string? Anchor)
 {
+    /// <summary>Whether the target names a file (so resolving it needs cross-file support).</summary>
+    public bool HasFilePart => File is not null;
+
+    /// <summary>Whether the target carries an anchor part.</summary>
+    public bool HasAnchor => Anchor is not null;
+
     /// <summary>Splits <paramref name="target"/> into its file and anchor parts at the first <c>#</c>.</summary>
     public static JumpTarget Parse(string target)
     {

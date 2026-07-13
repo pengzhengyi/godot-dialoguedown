@@ -57,4 +57,18 @@ public sealed class JumpTargetTests
         Assert.Equal("a.md", target.File);
         Assert.Equal("sec#tion", target.Anchor);
     }
+
+    [Fact]
+    public void HasFilePart_IsTrueOnlyWhenAFileIsPresent()
+    {
+        Assert.True(JumpTarget.Parse("chapter-02.md#x").HasFilePart);
+        Assert.False(JumpTarget.Parse("#x").HasFilePart);
+    }
+
+    [Fact]
+    public void HasAnchor_IsTrueOnlyWhenAnAnchorIsPresent()
+    {
+        Assert.True(JumpTarget.Parse("#x").HasAnchor);
+        Assert.False(JumpTarget.Parse("chapter-02.md").HasAnchor);
+    }
 }

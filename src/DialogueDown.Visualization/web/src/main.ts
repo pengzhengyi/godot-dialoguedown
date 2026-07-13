@@ -48,12 +48,16 @@ if (report.mode === "view" || report.mode === "edit") {
         // Freeze the toggle on read-only graph tabs; thaw it on the Source tab.
         onActiveTabChange: (isSource) => toggle.setEnabled(isSource),
     });
-    const ui = initLiveEditUi(app, () => void live.save());
+    const ui = initLiveEditUi(
+        app,
+        () => void live.save(),
+        () => live.discardChanges(),
+    );
     const live = createLiveEdit(ui, report.source ?? "");
     const controller = createModeController(initialMode, {
         app,
         live,
-        setSaveVisible: ui.setSaveVisible,
+        setEditControlsVisible: ui.setEditControlsVisible,
         reflect: (mode) => {
             // Drive the blue (View) / green (Edit) accent, then the toggle's pressed state.
             document.documentElement.dataset.servedMode = mode;

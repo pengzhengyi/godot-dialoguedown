@@ -17,6 +17,10 @@ const SOURCE_HELP = `
      from the document — a jump target after <kbd>](#</kbd>, a speaker id after
      <kbd>@</kbd>, a <kbd>#</kbd>tag, or a speaker at the start of a line. <kbd>Enter</kbd>
      or <kbd>Tab</kbd> accepts, <kbd>Esc</kbd> dismisses.</p>
+  <p><strong>Save &amp; discard</strong> (Live Edit): <kbd>⌘/Ctrl-S</kbd> or the
+     <strong>Save</strong> button writes your edits to the file; <strong>Discard</strong>
+     (after a confirmation) throws away unsaved edits and restores the last saved version.
+     Both are active only while there are unsaved changes.</p>
   <p><strong>Full screen</strong> (bottom-right ⤢, or press <kbd>f</kbd> outside the
      editor): fill the window with the source and preview; <kbd>f</kbd> or <kbd>Esc</kbd>
      to leave.</p>

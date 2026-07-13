@@ -8,6 +8,7 @@ function fakeLive(dirty = false): LiveEditController {
         save: vi.fn(async () => {}),
         onDiskChange: vi.fn(),
         discard: vi.fn(),
+        discardChanges: vi.fn(),
         dirty,
     };
 }
@@ -22,7 +23,7 @@ function fakePorts(overrides: Partial<ModeControllerPorts> = {}) {
     const ports: ModeControllerPorts = {
         app,
         live: fakeLive(),
-        setSaveVisible: vi.fn(),
+        setEditControlsVisible: vi.fn(),
         reflect: vi.fn(),
         confirmDiscard: vi.fn(() => true),
         ...overrides,
@@ -37,7 +38,7 @@ describe("createModeController", () => {
 
         expect(c.mode).toBe("view");
         expect(app.setEditable).toHaveBeenCalledWith(false);
-        expect(ports.setSaveVisible).toHaveBeenCalledWith(false);
+        expect(ports.setEditControlsVisible).toHaveBeenCalledWith(false);
         expect(ports.reflect).toHaveBeenCalledWith("view");
     });
 
@@ -83,7 +84,7 @@ describe("createModeController", () => {
 
         expect(c.mode).toBe("edit");
         expect(app.setEditable).toHaveBeenLastCalledWith(true);
-        expect(ports.setSaveVisible).toHaveBeenLastCalledWith(true);
+        expect(ports.setEditControlsVisible).toHaveBeenLastCalledWith(true);
     });
 
     it("prompts before leaving Edit while dirty and stays put when declined", () => {

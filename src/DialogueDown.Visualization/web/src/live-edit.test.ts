@@ -10,10 +10,12 @@ function fakePorts(overrides: Partial<LiveEditPorts> = {}) {
         diskChanged: [] as boolean[],
         unloadGuard: [] as boolean[],
         updated: [] as Stage[][],
+        content: [] as string[],
     };
     const ports: LiveEditPorts = {
         save: vi.fn(async () => STAGES),
         updateStages: (s) => calls.updated.push(s),
+        setContent: (s) => calls.content.push(s),
         setDirty: (d) => calls.setDirty.push(d),
         setDiskChanged: (d) => calls.diskChanged.push(d),
         setUnloadGuard: (a) => calls.unloadGuard.push(a),
@@ -115,5 +117,58 @@ describe("createLiveEdit", () => {
         expect(calls.setDirty).toEqual([true, false]);
         expect(calls.diskChanged).toEqual([false]);
         expect(save).not.toHaveBeenCalled();
+    });
+
+    it("discardChanges restores the editor to the initial version and clears dirty", () => {
+        const { ports, calls } = fakePorts();
+        const live = createLiveEdit(ports, "# Saved");
+
+        live.onEdit("# Edited");
+        live.discardChanges();
+
+        expect(calls.content).toEqual(["# Saved"]); // editor restored to the baseline
+        expect(live.dirty).toBe(false);
+        expect(calls.setDirty).toEqual([true, false]);
+        expect(calls.diskChanged).toEqual([false]);
+    });
+
+    it("discardChanges restores to the most recently saved version, not the original", async () => {
+        const { ports, calls } = fakePorts();
+        const live = createLiveEdit(ports, "# Original");
+
+        live.onEdit("# First");
+        await live.save(); // "# First" is now the on-disk baseline
+        live.onEdit("# Second");
+        live.discardChanges();
+
+        expect(calls.content).toEqual(["# First"]);
+        expect(live.dirty).toBe(false);
+    });
+
+    it("discardChanges is a no-op when there are no unsaved edits", () => {
+        const { ports, calls } = fakePorts();
+        const live = createLiveEdit(ports, "# Saved");
+
+        live.discardChanges();
+
+        expect(calls.content).toEqual([]); // nothing to restore
+        expect(calls.setDirty).toEqual([]);
+    });
+
+    it("discardChanges does not re-mark dirty from the restore's own editor change", () => {
+        // The real editor fires an onEdit when its content is replaced; the restore must not
+        // be mistaken for a user edit.
+        const { ports, calls } = fakePorts();
+        const live = createLiveEdit(ports, "# Saved");
+        ports.setContent = (content) => {
+            calls.content.push(content);
+            live.onEdit(content); // simulate the editor's change event during restore
+        };
+
+        live.onEdit("# Edited");
+        live.discardChanges();
+
+        expect(live.dirty).toBe(false);
+        expect(calls.setDirty).toEqual([true, false]); // never flips back to true
     });
 });

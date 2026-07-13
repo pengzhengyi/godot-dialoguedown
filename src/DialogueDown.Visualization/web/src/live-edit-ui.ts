@@ -4,22 +4,29 @@ import type { Report } from "./model";
 
 const SAVE_URL = "/api/save";
 
-/** The Live Edit ports plus a switch to show or hide the Save button (Edit only). */
+/** The Live Edit ports plus a switch to show or hide the edit controls (Edit only). */
 export interface LiveEditUi extends LiveEditPorts {
-    /** Show or hide the Save button as the session enters or leaves Edit. */
-    setSaveVisible(visible: boolean): void;
+    /** Show or hide the Save and Discard buttons as the session enters or leaves Edit. */
+    setEditControlsVisible(visible: boolean): void;
 }
 
 /**
  * The browser-side ports for the Live Edit state machine: it saves the buffer over
- * `POST /api/save`, applies the recompiled graphs, toggles the Source tab's dirty
- * marker and the "file changed on disk" chip, and arms a `beforeunload` guard so a
- * refresh/close with unsaved edits prompts first. The Save button and shortcut only act
- * in Edit; the button is shown/hidden via {@link LiveEditUi.setSaveVisible}.
+ * `POST /api/save`, applies the recompiled graphs, restores the editor on discard, toggles
+ * the Source tab's dirty marker and the "file changed on disk" chip, and arms a `beforeunload`
+ * guard so a refresh/close with unsaved edits prompts first. The Save/Discard buttons and the
+ * Save shortcut only act in Edit; the buttons are shown/hidden via
+ * {@link LiveEditUi.setEditControlsVisible}.
  */
-export function initLiveEditUi(app: AppController, requestSave: () => void): LiveEditUi {
+export function initLiveEditUi(
+    app: AppController,
+    requestSave: () => void,
+    requestDiscard: () => void,
+): LiveEditUi {
     const tabsEl = document.getElementById("tabs")!;
     const chip = createDiskChip();
+    // Discard sits left of Save (secondary, destructive) — append it first.
+    const discardButton = createDiscardButton(requestDiscard);
     const saveButton = createSaveButton(requestSave);
     installSaveShortcut(requestSave);
     let unloadHandler: ((event: BeforeUnloadEvent) => void) | null = null;
@@ -39,9 +46,11 @@ export function initLiveEditUi(app: AppController, requestSave: () => void): Liv
             return ((await response.json()) as Report).stages;
         },
         updateStages: (stages) => app.updateStages(stages),
+        setContent: (source) => app.setContent(source),
         setDirty: (dirty) => {
             tabsEl.querySelector(".tab")?.classList.toggle("dirty", dirty);
             saveButton.setEnabled(dirty);
+            discardButton.setEnabled(dirty);
         },
         setDiskChanged: (changed) => {
             chip.hidden = !changed;
@@ -58,7 +67,10 @@ export function initLiveEditUi(app: AppController, requestSave: () => void): Liv
                 unloadHandler = null;
             }
         },
-        setSaveVisible: saveButton.setVisible,
+        setEditControlsVisible: (visible) => {
+            discardButton.setVisible(visible);
+            saveButton.setVisible(visible);
+        },
     };
 }
 
@@ -91,6 +103,38 @@ function createSaveButton(onSave: () => void): {
     button.disabled = true;
     button.hidden = true;
     button.addEventListener("click", onSave);
+    document.querySelector(".status-bar")?.appendChild(button);
+    return {
+        setEnabled: (enabled) => {
+            button.disabled = !enabled;
+        },
+        setVisible: (visible) => {
+            button.hidden = !visible;
+        },
+    };
+}
+
+/**
+ * A Discard button beside Save. It restores the editor to the last saved version and is
+ * shown only in Edit and enabled only while there are unsaved edits. Because discarding is
+ * destructive, it confirms first — matching the mode-switch discard prompt.
+ */
+function createDiscardButton(onDiscard: () => void): {
+    setEnabled(enabled: boolean): void;
+    setVisible(visible: boolean): void;
+} {
+    const button = document.createElement("button");
+    button.className = "discard-button";
+    button.type = "button";
+    button.textContent = "Discard";
+    button.title = "Discard unsaved changes and restore the last saved version";
+    button.disabled = true;
+    button.hidden = true;
+    button.addEventListener("click", () => {
+        if (window.confirm("Discard all unsaved changes and restore the last saved version?")) {
+            onDiscard();
+        }
+    });
     document.querySelector(".status-bar")?.appendChild(button);
     return {
         setEnabled: (enabled) => {

@@ -8,8 +8,8 @@ export interface ModeControllerPorts {
     app: AppController;
     /** The Edit-mode dirty/save state machine. */
     live: LiveEditController;
-    /** Shows or hides the Save button (Edit only). */
-    setSaveVisible(visible: boolean): void;
+    /** Shows or hides the Save and Discard buttons (Edit only). */
+    setEditControlsVisible(visible: boolean): void;
     /** Reflects the active mode on the toggle control. */
     reflect(mode: ServedMode): void;
     /** Asks before discarding unsaved edits when leaving Edit; returns true to proceed. */
@@ -44,7 +44,7 @@ export function createModeController(
     function apply(next: ServedMode): void {
         mode = next;
         ports.app.setEditable(next === "edit");
-        ports.setSaveVisible(next === "edit");
+        ports.setEditControlsVisible(next === "edit");
         ports.reflect(next);
     }
 

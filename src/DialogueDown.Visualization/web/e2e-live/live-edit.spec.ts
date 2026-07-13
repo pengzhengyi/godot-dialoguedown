@@ -44,6 +44,57 @@ test("edits update the preview and dirty state; the Save button writes the file"
     await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("Wave()");
 });
 
+test("the Discard button confirms, then restores the last saved version", async ({ page }) => {
+    await page.goto(`${base}/`);
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+
+    const save = page.locator(".save-button");
+    const discard = page.locator(".discard-button");
+    // Present but disabled until there are unsaved edits.
+    await expect(discard).toBeVisible();
+    await expect(discard).toBeDisabled();
+
+    await edit(page, " and an unwanted trailing note");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+    await expect(discard).toBeEnabled();
+
+    // Cancelling the confirmation keeps the edits.
+    page.once("dialog", (dialog) => void dialog.dismiss());
+    await discard.click();
+    await expect(page.locator(".cm-content")).toContainText("unwanted trailing note");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+
+    // Accepting it restores the editor to the last saved version and clears dirty.
+    page.once("dialog", (dialog) => void dialog.accept());
+    await discard.click();
+    await expect(page.locator(".cm-content")).not.toContainText("unwanted trailing note");
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+    await expect(discard).toBeDisabled();
+    await expect(save).toBeDisabled();
+    // Discard never writes the file.
+    expect(readFileSync(LIVE_EDIT_DOC, "utf8")).not.toContain("unwanted trailing note");
+});
+
+test("Discard after a save restores to the saved version, not the original", async ({ page }) => {
+    await page.goto(`${base}/`);
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+
+    // Save one edit so it becomes the new baseline.
+    await edit(page, " FIRST");
+    await page.locator(".save-button").click();
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+
+    // A second, unsaved edit, then Discard restores to the saved (FIRST) version.
+    await edit(page, " SECOND");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page.locator(".discard-button").click();
+
+    await expect(page.locator(".cm-content")).toContainText("FIRST");
+    await expect(page.locator(".cm-content")).not.toContainText("SECOND");
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+});
+
 test("the Ctrl/Cmd+S shortcut saves from a graph tab, not just the Source tab", async ({
     page,
 }) => {

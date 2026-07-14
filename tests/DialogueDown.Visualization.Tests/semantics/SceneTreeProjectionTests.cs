@@ -48,6 +48,22 @@ public sealed class SceneTreeProjectionTests
     }
 
     [Fact]
+    public void Describe_Scene_CarriesItsHeadingSource()
+    {
+        // A scene's detail panel shows the heading it was opened by, not a "no source" note.
+        var source = """
+            # The Market
+
+            Alice: Fresh apples!
+            """;
+        var model = Analyzed.Model(source);
+        var projection = new SceneTreeProjection(model, source);
+        var scene = model.SceneRoot.Children[0];
+
+        Assert.Contains("The Market", projection.Describe(scene).Source!);
+    }
+
+    [Fact]
     public void Describe_ADelegatedBlock_ReadsLikeTheDesugaredTab()
     {
         // A non-scene node is described by the shared Dialogue AST projection.

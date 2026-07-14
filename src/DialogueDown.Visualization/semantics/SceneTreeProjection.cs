@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Semantics;
 
@@ -19,6 +20,7 @@ internal sealed class SceneTreeProjection : INodeProjection<object>
     private const string DocumentCategory = "document";
 
     private readonly SemanticModel _model;
+    private readonly string _source;
     private readonly DialogueAstProjection _blocks;
 
     /// <summary>
@@ -30,6 +32,7 @@ internal sealed class SceneTreeProjection : INodeProjection<object>
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(source);
         _model = model;
+        _source = source;
         _blocks = new DialogueAstProjection(source);
     }
 
@@ -52,7 +55,21 @@ internal sealed class SceneTreeProjection : INodeProjection<object>
         return node is Scene scene ? SceneNeighbors(scene) : _blocks.Neighbors(node);
     }
 
-    private static NodeDescription DescribeScene(Scene scene)
+    // A scene owns its script blocks first, then its nested subscenes — document order.
+    private static IEnumerable<object> SceneNeighbors(Scene scene)
+    {
+        foreach (var block in scene.Blocks)
+        {
+            yield return block;
+        }
+
+        foreach (var child in scene.Children)
+        {
+            yield return child;
+        }
+    }
+
+    private NodeDescription DescribeScene(Scene scene)
     {
         if (scene.Anchor is null)
         {
@@ -66,23 +83,23 @@ internal sealed class SceneTreeProjection : INodeProjection<object>
                 new DisplayAttribute("anchor", $"#{scene.Anchor}"),
                 new DisplayAttribute("level", $"{scene.Level}"),
             ],
+            source: scene.Heading is null ? null : Slice(scene.Heading.Span),
             category: StructureCategory,
             entityKey: SceneEntity.Key(scene),
             typeName: "Scene");
     }
 
-    // A scene owns its script blocks first, then its nested subscenes — document order.
-    private static IEnumerable<object> SceneNeighbors(Scene scene)
+    // The original heading text a scene was opened by, so its detail panel shows real source.
+    private string? Slice(SourceSpan span)
     {
-        foreach (var block in scene.Blocks)
+        if (span.IsEmpty)
         {
-            yield return block;
+            return null;
         }
 
-        foreach (var child in scene.Children)
-        {
-            yield return child;
-        }
+        var start = Math.Clamp(span.Start, 0, _source.Length);
+        var end = Math.Clamp(span.End, start, _source.Length);
+        return _source[start..end];
     }
 
     // A block reads exactly as on the Desugared AST tab, plus a ref key when it names a speaker

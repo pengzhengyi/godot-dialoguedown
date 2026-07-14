@@ -29,8 +29,9 @@ changes easy to categorize.
   search, section folding, Markdown formatting shortcuts, document-aware autocomplete, and a
   **light/dark** theme.
 - **`visualize` report navigation** — collapsible side panels, a full-screen mode,
-  and per-graph position memory that keeps each stage's zoom, pan, and collapsed
-  branches across tab switches and hot-reloads.
+  hover-to-spotlight a node's lineage (its ancestors and descendants), and per-graph
+  position memory that keeps each stage's zoom, pan, and collapsed branches across
+  tab switches and hot-reloads.
 - **Documentation site and live demo** — a
   [DocFX site](https://pengzhengyi.github.io/godot-dialoguedown/) (a writer Guide, a
   Contributing section with the design notes, and a generated C# API reference) and a

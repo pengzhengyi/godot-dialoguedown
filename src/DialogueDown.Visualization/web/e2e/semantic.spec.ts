@@ -195,6 +195,27 @@ test("cross-links a speaker mention in the tree to its Speakers row", async ({ p
     );
 });
 
+test("lineage focus preserves the scene backbone while spotlighting a scene", async ({ page }) => {
+    const graph = page.locator(".semantic-graph");
+    // Overlays can cover a node; let the hover reach the node beneath.
+    await page.addStyleTag({
+        content: ".legend, .zoom-controls { pointer-events: none !important; }",
+    });
+
+    // Hover the scene "The Market"; its lineage is the document root and its own subtree,
+    // so the sibling scene "The Square" sits outside it.
+    await graph.locator('g.node[data-entity-key="scene:the-market"] circle').hover();
+    await expect(graph.locator("svg.tree")).toHaveClass(/has-focus/);
+
+    // Scene backbone edges keep their `.scene` class (bold stroke) and are partitioned by the
+    // lineage — the hovered scene's edge is related, the other scene's stays `.scene` and dims.
+    await expect(graph.locator("path.link.scene.related")).not.toHaveCount(0);
+    await expect(graph.locator("path.link.scene:not(.related)")).not.toHaveCount(0);
+    // Likewise the scene rings: some inside the lineage, some outside, all still `.scene`.
+    await expect(graph.locator("g.node.scene.related")).not.toHaveCount(0);
+    await expect(graph.locator("g.node.scene:not(.related)")).not.toHaveCount(0);
+});
+
 test("collapses and reopens a table from its header bar", async ({ page }) => {
     const speakers = page
         .locator(".table-panel")

@@ -106,6 +106,11 @@ One concept, one name — used here, in code, and in tests.
       the renderer maps to a color, shown on nodes, the panel, and an interactive
       legend that counts each type, highlights it on hover, and toggles it
       (dimming) on click.
+- [x] A **lineage focus**: hovering a graph node spotlights its lineage — the node,
+      its ancestors (path to the root), and its visible descendants (subtree) — and
+      fades the rest so its place in the tree stands out. It is opacity-only, so it
+      composes with the semantic tab's scene-backbone emphasis (bold strokes) and the
+      selection and category states rather than fighting them.
 - [x] A **Source tab** shows the whole document as raw Markdown beside a live
       preview (split, editor-style), with working in-document anchor links.
 - [x] A **report** facade compiles a source string and assembles a **Source tab**

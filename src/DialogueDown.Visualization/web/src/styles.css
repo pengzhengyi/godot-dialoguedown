@@ -439,7 +439,11 @@ section.stage.error {
 }
 
 .table-panel-header {
-    /* Reset Pico's button chrome so the bar reads as a header, not a form control. */
+    /* Reset Pico's button chrome so the bar reads as a header, not a form control. Pico
+       redefines --pico-color to its inverse (white) on buttons, which made the title
+       invisible on the light panel background — inherit the normal text color instead. */
+    --pico-color: inherit;
+
     width: 100%;
     margin: 0;
     padding: 0.4rem 0.6rem;

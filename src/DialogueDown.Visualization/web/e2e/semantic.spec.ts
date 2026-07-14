@@ -246,6 +246,37 @@ test("shows a clicked node's details in the sticky node-details panel", async ({
     await expect(body.locator(".preview")).toBeVisible(); // a rendered preview
 });
 
+test("panel titles have legible contrast (regression: not white-on-white)", async ({ page }) => {
+    // The panel header is a <button>; Pico's white button text made the titles invisible on the
+    // light panel background. axe reports "incomplete" (not a violation) for a transparent button
+    // over the panel, so it did not catch this — assert the contrast directly.
+    const ratio = await page.evaluate(() => {
+        const title = document.querySelector(".table-panel-title")!;
+        const parse = (c: string): number[] => (c.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+        const luminance = ([r, g, b]: number[]): number => {
+            const channel = (v: number): number => {
+                const s = v / 255;
+                return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+            };
+            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+        };
+        const color = parse(getComputedStyle(title).color);
+        let node: Element | null = title;
+        let background = [255, 255, 255];
+        while (node) {
+            const bg = getComputedStyle(node).backgroundColor;
+            if (bg && bg !== "rgba(0, 0, 0, 0)") {
+                background = parse(bg);
+                break;
+            }
+            node = node.parentElement;
+        }
+        const [l1, l2] = [luminance(color), luminance(background)];
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    });
+    expect(ratio).toBeGreaterThan(4.5);
+});
+
 test("has no accessibility violations on the Semantic tab", async ({ page }) => {
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

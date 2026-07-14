@@ -24,6 +24,19 @@ type TreeNode = HierarchyPointNode<DisplayNode> & {
     children?: TreeNode[];
 };
 
+const SCENE_NODE_RADIUS = 7;
+const CONTENT_NODE_RADIUS = 5;
+
+/**
+ * A scene-tree backbone node — a scene or the implicit document root. The Semantic tab
+ * emphasizes these (a larger, thicker-ringed circle and bolder connecting edges) so the tab
+ * reads as a scene tree with content hanging off it, not a flat node tree. Only that tab sets
+ * a type name, so this is false everywhere else.
+ */
+function isSceneNode(node: DisplayNode): boolean {
+    return node.typeName === "Scene" || node.typeName === "Document";
+}
+
 export interface TreeView {
     svg: SVGSVGElement;
     legend: HTMLElement;
@@ -277,6 +290,9 @@ export function createTreeView(
             .data(root.links(), (link) => (link.target as TreeNode).data.id)
             .join("path")
             .attr("class", "link")
+            // A link into a scene is part of the scene backbone (root→scene, scene→subscene);
+            // emphasize it over the edges to a scene's content blocks.
+            .classed("scene", (link) => (link.target as TreeNode).data.typeName === "Scene")
             .attr("d", diagonal);
 
         gReferences
@@ -317,6 +333,8 @@ export function createTreeView(
         const group = enter
             .append("g")
             .attr("class", "node")
+            // A scene or the document root gets the emphasized scene-backbone styling.
+            .classed("scene", (d) => isSceneNode(d.data))
             .attr("data-tip", (d) => tooltipHtml(d.data))
             // A cross-linked node carries a scene/speaker key so the entity highlighter can
             // light it up with the matching table rows: a scene node *is* the entity
@@ -326,7 +344,7 @@ export function createTreeView(
 
         group
             .append("circle")
-            .attr("r", 5)
+            .attr("r", (d) => (isSceneNode(d.data) ? SCENE_NODE_RADIUS : CONTENT_NODE_RADIUS))
             .style("fill", (d) => colorOf(d.data.category))
             .on("click", (_event, d) => {
                 toggle(d);

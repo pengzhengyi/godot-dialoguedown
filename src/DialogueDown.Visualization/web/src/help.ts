@@ -54,9 +54,13 @@ const SEMANTIC_HELP = `
   <p><strong>Cross-linking:</strong> hover a scene, a speaker, or a jump — in the graph or any
      table — to highlight it everywhere it appears, so you can see which scene a jump resolves
      to, or every line a speaker speaks.</p>
+  <p><strong>Node details:</strong> click a scene or block in the tree to see its source and a
+     rendered preview in the <strong>Node details</strong> panel, pinned to the top of the right
+     column.</p>
   <p><strong>Tables column:</strong> drag the divider to resize it, or use the handle on the
-     divider to hide the whole column and give the graph full width. Each table also
-     <strong>collapses</strong> to a title strip on its own header bar. The choices persist.</p>
+     divider to hide the whole column and give the graph full width. Each table (and the node
+     details) also <strong>collapses</strong> to a title strip on its own header bar. The
+     choices persist.</p>
   <p>The graph pans, zooms, folds, and goes full screen like the other tabs.</p>
 `;
 

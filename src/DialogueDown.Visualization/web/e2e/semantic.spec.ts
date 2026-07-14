@@ -151,11 +151,11 @@ test("lays the scene-tree graph, its script blocks, and the three stacked tables
     await expect(page.locator(".semantic-graph g.node")).toHaveCount(6);
     await expect(page.locator('.semantic-graph g.node:has-text("Line")')).toBeVisible();
     await expect(page.locator('.semantic-graph g.node:has-text("Jump")')).toBeVisible();
-    await expect(page.locator(".table-panel-title")).toHaveText([
-        "Speakers",
-        "Anchors",
-        "Jump resolutions",
-    ]);
+    // The three table panels stack below the sticky node-details panel.
+    await expect(
+        page.locator(".table-panel:not(.node-detail-panel) .table-panel-title"),
+    ).toHaveText(["Speakers", "Anchors", "Jump resolutions"]);
+    await expect(page.locator(".node-detail-panel")).toBeVisible();
     // The shared node-detail inspector is hidden — the tab has its own tables.
     await expect(page.locator("#app")).toHaveClass(/no-detail/);
     await expect(page.locator("#detail")).toBeHidden();
@@ -224,6 +224,69 @@ test("hides and reopens the whole tables column from the divider", async ({ page
     await toggle.click();
     await expect(view).not.toHaveClass(/tables-collapsed/);
     await expect(page.locator(".semantic-tables")).toBeVisible();
+});
+
+test("shows a clicked node's details in the sticky node-details panel", async ({ page }) => {
+    const panel = page.locator(".node-detail-panel");
+    // The panel is pinned to the top of the tables column and starts on the placeholder.
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveCSS("position", "sticky");
+    await expect(page.locator(".node-detail-body")).toContainText("Click any node");
+
+    // Click the Line block's circle (dispatched, so it fires regardless of the pan/zoom viewport).
+    await page.evaluate(() => {
+        const nodes = [...document.querySelectorAll(".semantic-stage.active g.node")];
+        const line = nodes.find((g) => g.querySelector("text.label")?.textContent === "Line");
+        line?.querySelector("circle")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const body = page.locator(".node-detail-body");
+    await expect(body.locator(".node-detail-heading")).toContainText("Line");
+    await expect(body.locator("pre code")).toContainText("Guide @guide: Welcome."); // its source
+    await expect(body.locator(".preview")).toBeVisible(); // a rendered preview
+});
+
+test("panel titles have legible contrast (regression: not white-on-white)", async ({ page }) => {
+    // The panel header is a <button>; Pico's white button text made the titles invisible on the
+    // light panel background. axe reports "incomplete" (not a violation) for a transparent button
+    // over the panel, so it did not catch this — assert the contrast directly.
+    const ratio = await page.evaluate(() => {
+        const title = document.querySelector(".table-panel-title")!;
+        const parse = (c: string): number[] => (c.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+        const luminance = ([r, g, b]: number[]): number => {
+            const channel = (v: number): number => {
+                const s = v / 255;
+                return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+            };
+            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+        };
+        const color = parse(getComputedStyle(title).color);
+        let node: Element | null = title;
+        let background = [255, 255, 255];
+        while (node) {
+            const bg = getComputedStyle(node).backgroundColor;
+            if (bg && bg !== "rgba(0, 0, 0, 0)") {
+                background = parse(bg);
+                break;
+            }
+            node = node.parentElement;
+        }
+        const [l1, l2] = [luminance(color), luminance(background)];
+        return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    });
+    expect(ratio).toBeGreaterThan(4.5);
+});
+
+test("emphasizes the scene backbone over content nodes", async ({ page }) => {
+    const stage = page.locator(".semantic-stage.active");
+    // The root and the two scenes are the backbone; the script blocks are not.
+    await expect(stage.locator("g.node.scene")).toHaveCount(3);
+    // Scene circles are larger than content-block circles.
+    const sceneR = await stage.locator("g.node.scene circle").first().getAttribute("r");
+    const blockR = await stage.locator("g.node:not(.scene) circle").first().getAttribute("r");
+    expect(Number(sceneR)).toBeGreaterThan(Number(blockR));
+    // The scene-to-scene edges are marked so CSS can bolden them.
+    await expect(stage.locator("path.link.scene")).toHaveCount(2); // root → each scene
 });
 
 test("has no accessibility violations on the Semantic tab", async ({ page }) => {

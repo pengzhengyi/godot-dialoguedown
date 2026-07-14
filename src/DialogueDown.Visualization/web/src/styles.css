@@ -1317,10 +1317,6 @@ body.maximized #app {
     cursor: pointer;
 }
 
-.mode-toggle .mode-toggle-option + .mode-toggle-option {
-    border-left: 1px solid var(--pico-muted-border-color);
-}
-
 .mode-toggle .mode-toggle-option:hover {
     color: var(--pico-color);
 }

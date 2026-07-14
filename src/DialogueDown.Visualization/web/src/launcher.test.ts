@@ -106,12 +106,26 @@ describe("initLauncher", () => {
         initLauncher(container, { root: "/", source: null, mode: "view" }, ports());
         await flush();
 
-        expect((container.querySelector('input[value="edit"]') as HTMLInputElement).disabled).toBe(
-            false,
-        );
-        expect((container.querySelector('input[value="view"]') as HTMLInputElement).checked).toBe(
-            true,
-        );
+        const view = container.querySelector('.mode-toggle-option[data-mode="view"]');
+        const edit = container.querySelector('.mode-toggle-option[data-mode="edit"]');
+        expect(view?.getAttribute("aria-pressed")).toBe("true");
+        expect(edit?.getAttribute("aria-pressed")).toBe("false");
+    });
+
+    it("opens the selected source in the chosen mode, reflecting it as the accent", async () => {
+        const container = document.createElement("div");
+        const p = ports();
+        initLauncher(container, { root: "/", source: null, mode: "view" }, p);
+        await flush();
+        expect(container.dataset.servedMode).toBe("view");
+
+        (container.querySelector(".launcher-item.src") as HTMLElement).click();
+        (container.querySelector('.mode-toggle-option[data-mode="edit"]') as HTMLElement).click();
+        expect(container.dataset.servedMode).toBe("edit");
+        (container.querySelector(".launcher-open") as HTMLButtonElement).click();
+        await flush();
+
+        expect(p.open).toHaveBeenCalledWith("a.dialogue.md", "edit");
     });
 
     it("shows a parent row that browses up", async () => {

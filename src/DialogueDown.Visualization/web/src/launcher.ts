@@ -4,6 +4,9 @@
  * browser wiring — CSS imports, `fetch`, and navigation — lives in `launcher-main.ts`.
  */
 
+import { createModeToggle } from "./mode-toggle";
+import type { ServedMode } from "./model";
+
 /** The initial selection injected into the page by the server. */
 export interface LaunchSelection {
     root: string;
@@ -25,26 +28,6 @@ export interface LauncherPorts {
     open(source: string, mode: string): Promise<string | null>;
     navigate(url: string): void;
 }
-
-interface ModeOption {
-    value: string;
-    label: string;
-    help: string;
-    disabled?: boolean;
-}
-
-const MODES: readonly ModeOption[] = [
-    {
-        value: "view",
-        label: "View",
-        help: "Read-only and auto-updating: the report refreshes when the file changes on disk.",
-    },
-    {
-        value: "edit",
-        label: "Edit",
-        help: "Edit the script in the browser and save it back to disk.",
-    },
-];
 
 /** The last path segment of a root-relative path (a display label). */
 export function leafName(path: string): string {
@@ -84,11 +67,20 @@ export function initLauncher(
     card.append(rootRow);
 
     const listing = element("ul", "launcher-listing");
-    const modes = renderModes(initial.mode);
+    // The chosen mode drives the accent (blue View / green Edit) on the capsule, the
+    // selected row, and the Open button — the same `--mode-accent` the report uses,
+    // scoped to the launcher via data-served-mode on the container.
+    const initialMode: ServedMode = initial.mode === "edit" ? "edit" : "view";
+    container.dataset.servedMode = initialMode;
+    const modes = renderModes(initialMode, (mode) => {
+        container.dataset.servedMode = mode;
+    });
     const open = withText("button", "launcher-open", "Open") as HTMLButtonElement;
     open.type = "button";
     open.disabled = true;
-    card.append(listing, modes.element, open);
+    const actions = element("div", "launcher-actions");
+    actions.append(modes.element, open);
+    card.append(listing, actions);
     container.append(card);
 
     let selected: string | null = initial.source;
@@ -143,32 +135,17 @@ function row(label: string, kind: string, onClick: () => void): HTMLElement {
     return item;
 }
 
-function renderModes(initialMode: string): { element: HTMLElement; value: () => string } {
-    const group = element("div", "launcher-modes");
-    group.setAttribute("role", "radiogroup");
-    group.setAttribute("aria-label", "Mode");
-    for (const mode of MODES) {
-        const label = element("label", `launcher-mode${mode.disabled ? " disabled" : ""}`);
-        label.title = mode.help;
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "launcher-mode";
-        input.value = mode.value;
-        input.disabled = mode.disabled ?? false;
-        input.checked = mode.value === initialMode && !mode.disabled;
-        label.append(input, document.createTextNode(` ${mode.label}`));
-        group.append(label);
-    }
-
-    if (!group.querySelector("input:checked")) {
-        const fallback = group.querySelector<HTMLInputElement>("input:not([disabled])");
-        if (fallback) fallback.checked = true;
-    }
-
-    return {
-        element: group,
-        value: () => group.querySelector<HTMLInputElement>("input:checked")?.value ?? "view",
-    };
+function renderModes(
+    initialMode: ServedMode,
+    onChange: (mode: ServedMode) => void,
+): { element: HTMLElement; value: () => ServedMode } {
+    let current = initialMode;
+    const toggle = createModeToggle(current, (mode) => {
+        current = mode;
+        toggle.reflect(mode);
+        onChange(mode);
+    });
+    return { element: toggle.element, value: () => current };
 }
 
 function element(tag: string, className: string): HTMLElement {

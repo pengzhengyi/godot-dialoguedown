@@ -23,18 +23,29 @@ internal sealed class SpeakerBinder
     private readonly Dictionary<string, SpeakerSymbol> _speakerByName = [];
     private readonly Dictionary<string, SpeakerSymbol> _speakerById = [];
     private readonly Dictionary<SpeakerSymbol, Speaker> _originBySymbol = [];
-    private SpeakerSymbol? _defaultSpeaker;
+    private SpeakerSymbol? _layerDefault;
 
-    /// <summary>Binds the given speaker prefixes, in document order, into a speaker table.</summary>
-    public static SpeakerTable Bind(IEnumerable<Speaker> speakers)
+    /// <summary>
+    /// Binds a document's speaker prefixes, in document order, into a speaker table, using an
+    /// anonymous default when no <c>##default</c> is tagged.
+    /// </summary>
+    public static SpeakerTable Bind(IEnumerable<Speaker> speakers) => Bind([], speakers);
+
+    /// <summary>
+    /// Binds two layers of speaker prefixes into one speaker table. Both layers share the
+    /// name/<c>@id</c> maps, so a speaker named in both converges on one identity; each layer
+    /// contributes at most one <c>##default</c>. The default speaker is chosen by precedence —
+    /// the <paramref name="scriptSpeakers"/> layer's default wins over the
+    /// <paramref name="configuredSpeakers"/> layer's, and an anonymous default when neither
+    /// tags one.
+    /// </summary>
+    public static SpeakerTable Bind(
+        IEnumerable<Speaker> configuredSpeakers, IEnumerable<Speaker> scriptSpeakers)
     {
         var binder = new SpeakerBinder();
-        foreach (var speaker in speakers)
-        {
-            binder.Add(speaker);
-        }
-
-        return binder.Build();
+        var configuredDefault = binder.BindLayer(configuredSpeakers);
+        var scriptDefault = binder.BindLayer(scriptSpeakers);
+        return binder.Build(scriptDefault ?? configuredDefault);
     }
 
     // Internal so a test can drive the per-kind dispatch directly; Bind is the entry point.
@@ -47,13 +58,6 @@ internal sealed class SpeakerBinder
             // can point at where an @id was first used.
             _originBySymbol.TryAdd(symbol, speaker);
         }
-    }
-
-    private static SpeakerSymbol MakeAnonymousDefault()
-    {
-        var anonymous = SpeakerSymbol.Anonymous();
-        anonymous.MarkDefault();
-        return anonymous;
     }
 
     private static void ThrowWhenNameAndIdBelongToDifferentSpeakers(
@@ -157,19 +161,35 @@ internal sealed class SpeakerBinder
         }
     }
 
+    // Records this layer's default speaker. A second, different ##default within the same
+    // layer is a conflict; the symbol is marked default later, once the winning layer is
+    // known (see Build).
     private void MarkAsDefault(SpeakerSymbol symbol, SourceSpan span)
     {
-        ThrowWhenAnotherSpeakerIsAlreadyDefault(_defaultSpeaker, symbol, span);
-        symbol.MarkDefault();
-        _defaultSpeaker = symbol;
+        ThrowWhenAnotherSpeakerIsAlreadyDefault(_layerDefault, symbol, span);
+        _layerDefault = symbol;
     }
 
-    private SpeakerTable Build()
+    // Binds one layer of speakers into the shared maps and returns that layer's default
+    // speaker, if it tagged one. A second ##default within a layer is a conflict.
+    private SpeakerSymbol? BindLayer(IEnumerable<Speaker> speakers)
+    {
+        _layerDefault = null;
+        foreach (var speaker in speakers)
+        {
+            Add(speaker);
+        }
+
+        return _layerDefault;
+    }
+
+    private SpeakerTable Build(SpeakerSymbol? effectiveDefault)
     {
         AssertEverySpeakerIdIsNamed();
 
-        return new SpeakerTable(
-            _speakerByName, _speakerById, _defaultSpeaker ?? MakeAnonymousDefault());
+        var defaultSpeaker = effectiveDefault ?? SpeakerSymbol.Anonymous();
+        defaultSpeaker.MarkDefault();
+        return new SpeakerTable(_speakerByName, _speakerById, defaultSpeaker);
     }
 
     // A stable @id must belong to a named speaker, so every id-keyed symbol must have ended

@@ -57,7 +57,7 @@ public sealed class SpeakerBinderTests
     [Fact]
     public void Bind_DefaultTag_MarksTheSpeakerDefault()
     {
-        var table = Bind(SpeakerDeclaration("Narrator", tags: ReservedTag("default")));
+        var table = Bind(DefaultSpeakerDeclaration("Narrator"));
 
         var narrator = table.Resolve(SpeakerNameReference("Narrator"));
         Assert.True(narrator.IsDefault);
@@ -123,6 +123,53 @@ public sealed class SpeakerBinderTests
     }
 
     [Fact]
+    public void Bind_ConfigLayerDefault_NoScriptDefault_UsesTheConfigDefault()
+    {
+        var table = BindLayers(
+            configured: [DefaultSpeakerDeclaration("Narrator")],
+            script: [SpeakerNameReference("Alice")]);
+
+        var resolved = table.Resolve(DefaultSpeaker());
+        Assert.Equal("Narrator", resolved.Name);
+        Assert.True(resolved.IsDefault);
+    }
+
+    [Fact]
+    public void Bind_ScriptDefault_OverridesTheConfigDefault()
+    {
+        var table = BindLayers(
+            configured: [DefaultSpeakerDeclaration("Narrator")],
+            script: [DefaultSpeakerDeclaration("Bob")]);
+
+        Assert.Equal("Bob", table.Resolve(DefaultSpeaker()).Name);
+        Assert.False(table.Resolve(SpeakerNameReference("Narrator")).IsDefault);
+    }
+
+    [Fact]
+    public void Bind_ConfigAndScript_SameName_ConvergeOnOneDefault()
+    {
+        var table = BindLayers(
+            configured: [DefaultSpeakerDeclaration("Narrator")],
+            script: [SpeakerNameReference("Narrator")]);
+
+        var narrator = table.Resolve(SpeakerNameReference("Narrator"));
+        Assert.True(narrator.IsDefault);
+        Assert.Same(narrator, table.Resolve(DefaultSpeaker()));
+    }
+
+    [Fact]
+    public void Bind_TwoDefaultsWithinTheConfigLayer_Throws()
+    {
+        Assert.Throws<DialogueSemanticError>(() => BindLayers(
+            configured:
+            [
+                DefaultSpeakerDeclaration("Narrator"),
+                DefaultSpeakerDeclaration("Alice"),
+            ],
+            script: []));
+    }
+
+    [Fact]
     public void Add_UnknownSpeakerKind_Throws()
     {
         var binder = new SpeakerBinder();
@@ -164,8 +211,8 @@ public sealed class SpeakerBinderTests
     public void Bind_TwoDefaultSpeakers_Throws()
     {
         var error = Assert.Throws<DialogueSemanticError>(() => Bind(
-            SpeakerDeclaration("Alice", tags: ReservedTag("default")),
-            SpeakerDeclaration("Bob", tags: ReservedTag("default"))));
+            DefaultSpeakerDeclaration("Alice"),
+            DefaultSpeakerDeclaration("Bob")));
 
         Assert.Contains("only one default speaker", error.Message);
     }
@@ -187,7 +234,7 @@ public sealed class SpeakerBinderTests
         // established default (@A) and the offending one (Bob), rendering @A via ToString.
         var error = Assert.Throws<DialogueSemanticError>(() => Bind(
             new PartialSpeakerDeclaration("A", [ReservedTag("default")], SourceSpanFactory.Span()),
-            SpeakerDeclaration("Bob", tags: ReservedTag("default"))));
+            DefaultSpeakerDeclaration("Bob")));
 
         Assert.Contains("@A", error.Message);
         Assert.Contains("Bob", error.Message);
@@ -205,6 +252,9 @@ public sealed class SpeakerBinderTests
     }
 
     private static SpeakerTable Bind(params Speaker[] speakers) => SpeakerBinder.Bind(speakers);
+
+    private static SpeakerTable BindLayers(Speaker[] configured, Speaker[] script) =>
+        SpeakerBinder.Bind(configured, script);
 
     private sealed record UnknownSpeaker(SourceSpan Span) : Speaker(Span);
 }

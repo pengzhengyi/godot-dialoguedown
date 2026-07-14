@@ -16,7 +16,7 @@ namespace DialogueDown.Script.Semantics;
 /// error-proof <see cref="SpeakerSymbol"/> — owns the source locations diagnostics need. It
 /// rejects conflicting metadata as it binds (a name bound to two ids, an id bound to two
 /// names, two <c>##default</c>s, fusing two separately-used speakers) and, once every prefix
-/// is bound, enforces the <b>name invariant</b>: a stable <c>@id</c> must end up named.
+/// is bound, checks that every stable <c>@id</c> ends up named.
 /// </remarks>
 internal sealed class SpeakerBinder
 {
@@ -43,8 +43,8 @@ internal sealed class SpeakerBinder
         var symbol = Incorporate(speaker);
         if (symbol is not null)
         {
-            // Keep the first prefix that introduced the symbol, so a later name-invariant
-            // error can point at where an @id was first used.
+            // Keep the first prefix that introduced the symbol, so a later unnamed-@id error
+            // can point at where an @id was first used.
             _originBySymbol.TryAdd(symbol, speaker);
         }
     }
@@ -166,15 +166,15 @@ internal sealed class SpeakerBinder
 
     private SpeakerTable Build()
     {
-        AssertNameInvariant();
+        AssertEverySpeakerIdIsNamed();
 
         return new SpeakerTable(
             _speakerByName, _speakerById, _defaultSpeaker ?? MakeAnonymousDefault());
     }
 
-    // The name invariant: a stable @id must belong to a named speaker, so every id-keyed
-    // symbol must have ended up with a name.
-    private void AssertNameInvariant()
+    // A stable @id must belong to a named speaker, so every id-keyed symbol must have ended
+    // up with a name.
+    private void AssertEverySpeakerIdIsNamed()
     {
         foreach (var symbol in _speakerById.Values)
         {

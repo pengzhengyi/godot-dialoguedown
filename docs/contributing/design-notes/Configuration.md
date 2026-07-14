@@ -227,16 +227,16 @@ binder's existing `Build()` step, which already falls back
 The survey surfaced further knobs; each becomes its own later component and a tracked
 issue rather than riding in this seam:
 
-| Knob                                                      | Where                                 | Note                                                                                                                                                                                                                      |
-| --------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Config-provided **speaker registry** (ex-`speakers.json`) | `SemanticOptions`, binder             | Generalizes this component's configured default: config supplies named/`@id`'d speakers the binder treats as declared, inline as `[[speakers]]` in `dialogue.toml`. The plain default-name knob composes forward into it. |
-| Configurable `##default` **tag name**                     | `ReservedTagNames`, binder, validator | Reserved-tag vocabulary; a natural next step on this same seam.                                                                                                                                                           |
-| Missing-default **strict mode** (error vs anonymous)      | binder                                | An authoring-strictness policy.                                                                                                                                                                                           |
-| DSL **syntax tokens** (`@`, `:`, `=>`, `#`/`##`)          | parser, tokenizer                     | Deep and risky; touches the grammar.                                                                                                                                                                                      |
-| **Markdig** pipeline features                             | Markdown front-end                    | Front-end parser options.                                                                                                                                                                                                 |
-| **Slug** normalization (trim/collapse)                    | `Slug`                                | Anchor policy.                                                                                                                                                                                                            |
-| Live-server **port / host / debounce**                    | `DialogueDown.Visualization.Live`     | A different assembly's settings.                                                                                                                                                                                          |
-| **CLI** output paths / defaults                           | `DialogueDown.Cli`                    | Command-layer policy.                                                                                                                                                                                                     |
+| Knob                                                      | Where                                 | Note                                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config-provided **speaker registry** (ex-`speakers.json`) | `SemanticOptions`, binder             | Generalizes this component's configured default: config supplies named/`@id`'d speakers the binder treats as declared, inline as `[[speakers]]` in `dialogue.toml`, with the default flagged `default = true`. The plain default-name knob composes forward into it. |
+| Configurable `##default` **tag name**                     | `ReservedTagNames`, binder, validator | Reserved-tag vocabulary; a natural next step on this same seam.                                                                                                                                                                                                      |
+| Missing-default **strict mode** (error vs anonymous)      | binder                                | An authoring-strictness policy.                                                                                                                                                                                                                                      |
+| DSL **syntax tokens** (`@`, `:`, `=>`, `#`/`##`)          | parser, tokenizer                     | Deep and risky; touches the grammar.                                                                                                                                                                                                                                 |
+| **Markdig** pipeline features                             | Markdown front-end                    | Front-end parser options.                                                                                                                                                                                                                                            |
+| **Slug** normalization (trim/collapse)                    | `Slug`                                | Anchor policy.                                                                                                                                                                                                                                                       |
+| Live-server **port / host / debounce**                    | `DialogueDown.Visualization.Live`     | A different assembly's settings.                                                                                                                                                                                                                                     |
+| **CLI** output paths / defaults                           | `DialogueDown.Cli`                    | Command-layer policy.                                                                                                                                                                                                                                                |
 
 ## Configuration format (deferred)
 
@@ -248,20 +248,17 @@ parsing via Tomlyn). This component adds no loader: it keeps the core binding-ag
 and takes a `CompilerOptions` object directly. The loader that reads `dialogue.toml`
 and builds `CompilerOptions` is a separate, future component.
 
-When it lands, this component's knob surfaces under a `[compiler]` section, and the
-deferred speaker registry lives **inline** as a `[[speakers]]` array-of-tables in the
-same file (no separate speakers file for now — a referenced file can be added later if
-casts grow):
+When it lands, the deferred speaker registry lives **inline** as a `[[speakers]]`
+array-of-tables (no separate speakers file for now — a referenced file can be added later
+if casts grow). The **default speaker is one registry entry flagged `default = true`**:
 
 ```toml
 # dialogue.toml
 
-[compiler]
-default-speaker = "Narrator"   # → CompilerOptions.DefaultSpeakerName
-
 [[speakers]]
-name = "Narrator"
-id   = "narrator"
+name    = "Narrator"
+id      = "narrator"
+default = true          # the default speaker — at most one, as with in-script ##default
 
 [[speakers]]
 name = "Alice"
@@ -269,7 +266,14 @@ id   = "A"
 tags = ["main"]
 ```
 
-The `default-speaker` name unifies with a matching `[[speakers]]` entry (per
-[DD4](#dd4--default-speaker-precedence-and-a-unified-configured-default)), so naming the
-default and defining its `@id`/tags stay one identity. This supersedes the earlier
+A `default = true` flag keeps every speaker in **one registry** (a name denotes one
+speaker), marks the default with a **typed** field rather than a stringly-typed
+`##default` tag or a separate name reference, and leaves `tags` for plain content tags. It
+carries the same "at most one default" rule as the in-script `##default`, enforced by the
+loader. Because the default is itself a registry speaker, it is inherently referable and
+unified (per [DD4](#dd4--default-speaker-precedence-and-a-unified-configured-default)).
+
+Today's `DefaultSpeakerName` knob is the **degenerate, registry-less case** — a bare
+default name with no `@id` or tags — and composes forward: once the registry lands, the
+default resolves from the `default = true` entry instead. This supersedes the earlier
 `speakers.json` sketch in the language guide, which a later doc pass should reconcile.

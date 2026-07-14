@@ -25,23 +25,27 @@ internal static class DisplayGraphJson
     /// Serializes the report payload injected into the page — the display
     /// <paramref name="mode"/> (static/watch/live), the document <paramref name="path"/>
     /// when known, the compiled <paramref name="source"/> (shown in the Source tab;
-    /// omitted when null), and each stage's display graph.
+    /// omitted when null), each stage's display graph, and the editor's resolved
+    /// <paramref name="symbols"/> (omitted when null).
     /// </summary>
     public static string SerializeReport(
         string mode,
         string? path,
         string? source,
-        IEnumerable<DisplayGraph> stages) =>
-        JsonSerializer.Serialize(new { mode, path, source, stages }, _options);
+        IEnumerable<DisplayGraph> stages,
+        SymbolSet? symbols = null) =>
+        JsonSerializer.Serialize(new { mode, path, source, stages, symbols }, _options);
 
     /// <summary>
-    /// Serializes the current document payload — <c>{ mode, path, source, stages }</c> —
-    /// for the live server's document API and its hot-reload push events.
+    /// Serializes the current document payload —
+    /// <c>{ mode, path, source, stages, symbols }</c> — for the live server's document API
+    /// and its hot-reload push events.
     /// </summary>
     public static string SerializeDocument(
         string mode,
         string path,
         string? source,
-        IEnumerable<DisplayGraph> stages) =>
-        JsonSerializer.Serialize(new { mode, path, source, stages }, _options);
+        IEnumerable<DisplayGraph> stages,
+        SymbolSet? symbols = null) =>
+        JsonSerializer.Serialize(new { mode, path, source, stages, symbols }, _options);
 }

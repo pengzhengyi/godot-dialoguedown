@@ -1,0 +1,76 @@
+using DialogueDown.Visualization.Semantics;
+
+namespace DialogueDown.Visualization.Tests.Semantics;
+
+public sealed class SymbolProjectionTests
+{
+    [Fact]
+    public void Project_NullModel_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => new SymbolProjection().Project(null!));
+
+    [Fact]
+    public void Project_JumpTargets_AreTheAnchoredScenes()
+    {
+        var symbols = Project(
+            """
+            # The Market
+
+            Alice: Fresh apples!
+
+            # The Dark Forest
+
+            Bob: Spooky.
+            """);
+
+        Assert.Contains(symbols.JumpTargets, target => target is { Slug: "the-market", Heading: "The Market" });
+        Assert.Contains(
+            symbols.JumpTargets, target => target is { Slug: "the-dark-forest", Heading: "The Dark Forest" });
+    }
+
+    [Fact]
+    public void Project_Speakers_ResolveNamesAndIds()
+    {
+        var symbols = Project("Guide @guide: Welcome.");
+
+        Assert.Contains("Guide", symbols.Speakers);
+        Assert.Contains("guide", symbols.SpeakerIds);
+    }
+
+    [Fact]
+    public void Project_UnifiesASpeakerReferencedByIdThenNamed()
+    {
+        // The id is used before the declaration names it; the analyzer unifies them into one
+        // symbol, so the name and the id both complete.
+        var symbols = Project(
+            """
+            @guide: A voice speaks.
+
+            Guide @guide: I am the guide.
+            """);
+
+        Assert.Equal(["Guide"], symbols.Speakers);
+        Assert.Equal(["guide"], symbols.SpeakerIds);
+    }
+
+    [Fact]
+    public void Project_Tags_AreTheSpeakersMergedTags()
+    {
+        var symbols = Project("Guide @guide #wise #calm: Welcome.");
+
+        Assert.Contains("wise", symbols.Tags);
+        Assert.Contains("calm", symbols.Tags);
+    }
+
+    [Fact]
+    public void Project_ADocumentWithoutScenesOrNamedSpeakers_HasEmptySymbols()
+    {
+        var symbols = Project("The room is quiet.");
+
+        Assert.Empty(symbols.JumpTargets);
+        Assert.Empty(symbols.Speakers);
+        Assert.Empty(symbols.SpeakerIds);
+    }
+
+    private static SymbolSet Project(string source) =>
+        new SymbolProjection().Project(Analyzed.Model(source));
+}

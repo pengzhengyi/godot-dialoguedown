@@ -85,6 +85,9 @@ one name across the analyzer, this tab, and the code.
       full screen, position memory) — reusing the existing tree view.
 - [x] Each scene expands to the **script blocks** it owns (lines, speakers, choices, jumps,
       …), described exactly as on the Desugared AST tab, expandable and collapsible per node.
+- [x] The **scene backbone is emphasized** — scenes and the root render as larger,
+      thicker-ringed circles joined by bolder edges, so the tab reads as a scene tree with
+      content hanging off it rather than a flat node tree.
 - [x] The right column stacks three **table panels**: speaker, anchor, jump resolution.
 - [x] The whole tables column is **resizable** (drag the divider) and **collapsible** (a
       toggle hides it so the graph fills the width); both choices persist across reloads.
@@ -229,6 +232,10 @@ flowchart LR
   **title** (so the tree reads as scenes), which would make the legend list every title.
   So a node carries an optional `TypeName` ("Scene", "Document") that the legend groups and
   labels by, falling back to the label for AST stages that label themselves by type.
+- **Emphasize the scene backbone.** The tree view tags scene/root nodes (those with a
+  `typeName`) and the edges into scenes with a `scene` class and draws scene circles larger;
+  CSS then bolds their ring and edges. Only the semantic tab sets `typeName`, so the shared
+  tree view leaves every other tab unchanged.
 
 ## Error & boundary cases
 

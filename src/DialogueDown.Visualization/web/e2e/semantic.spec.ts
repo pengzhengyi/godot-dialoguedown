@@ -277,6 +277,18 @@ test("panel titles have legible contrast (regression: not white-on-white)", asyn
     expect(ratio).toBeGreaterThan(4.5);
 });
 
+test("emphasizes the scene backbone over content nodes", async ({ page }) => {
+    const stage = page.locator(".semantic-stage.active");
+    // The root and the two scenes are the backbone; the script blocks are not.
+    await expect(stage.locator("g.node.scene")).toHaveCount(3);
+    // Scene circles are larger than content-block circles.
+    const sceneR = await stage.locator("g.node.scene circle").first().getAttribute("r");
+    const blockR = await stage.locator("g.node:not(.scene) circle").first().getAttribute("r");
+    expect(Number(sceneR)).toBeGreaterThan(Number(blockR));
+    // The scene-to-scene edges are marked so CSS can bolden them.
+    await expect(stage.locator("path.link.scene")).toHaveCount(2); // root → each scene
+});
+
 test("has no accessibility violations on the Semantic tab", async ({ page }) => {
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

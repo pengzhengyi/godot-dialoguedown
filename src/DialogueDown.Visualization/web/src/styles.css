@@ -757,6 +757,13 @@ svg.tree {
     stroke-width: 1.5px;
 }
 
+/* A scene-backbone edge (root→scene, scene→subscene) is bolder and darker than the edges to a
+   scene's content blocks, so the scene hierarchy stands out. */
+.link.scene {
+    stroke: var(--pico-muted-color);
+    stroke-width: 2.5px;
+}
+
 .link.reference {
     stroke: var(--dd-reference);
     stroke-dasharray: 4 3;
@@ -767,6 +774,13 @@ svg.tree {
     stroke-width: 1.5px;
     cursor: pointer;
     transition: transform 0.12s ease;
+}
+
+/* A scene (or the document root) is the scene-tree backbone: a larger circle (radius set in
+   the render) with a thicker ring, so it reads as a structural anchor rather than a content
+   block. Placed before the collapsed/selected rules so those states still win when active. */
+.node.scene circle {
+    stroke-width: 2px;
 }
 
 .node.collapsed circle {

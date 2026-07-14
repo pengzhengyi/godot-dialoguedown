@@ -115,7 +115,8 @@ AST**, each with pan and zoom and click-to-collapse; and a **Semantic Model** ta
 that pairs the resolved scene tree — each scene expandable to the script blocks it
 contains — with cross-linked speaker, anchor, and jump-resolution tables in a
 resizable, collapsible side column, so hovering a scene, speaker, or jump highlights
-it everywhere it appears. Graphs remember where you
+it everywhere it appears, and clicking any node shows its source and preview in a
+pinned node-details panel. Graphs remember where you
 left them — an adjusted graph keeps its own view while an untouched one inherits
 the current one — and open on a readable, root-centered default; the zoom toolbar
 takes a typed percentage or a one-click revert. Any tab can go **full screen** — a

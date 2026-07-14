@@ -98,6 +98,9 @@ one name across the analyzer, this tab, and the code.
       scene entity.
 - [x] The speaker table marks the **default** speaker and lists each speaker's **tags**.
 - [x] Empty tables render a clear "none" state, not a blank panel.
+- [x] Clicking a scene or block shows its attributes, source, and a rendered preview in a
+      **node-details panel** pinned to the top of the tables column (sticky); it auto-expands
+      on selection.
 - [x] The tab is read-only on every mode; the View/Edit toggle stays frozen (as on the
       other graph tabs).
 
@@ -184,6 +187,8 @@ flowchart LR
 | `Stage.tables` (TS + C# payload) | Optional tables riding alongside a stage's graph; absent ⇒ a plain graph tab. | `addStageTab`, `DisplayGraphJson` |
 | `createSemanticView` (TS) | Build the analytics tab: the scene-tree tree view + stacked table panels, wired for cross-link highlight, with a draggable divider that resizes and hides the tables column. | `createTreeView`, `createTablePanel`, `createEntityHighlighter`, `initCollapsiblePanel` |
 | `createTablePanel` (TS) | Render one `SemanticTable` as a collapsible panel (header bar + table) carrying the cross-link keys. | `initCollapsiblePanel` |
+| `createNodeDetailPanel` (TS) | The sticky node-details panel: a collapsible panel pinned to the top of the tables column that shows a clicked node's attributes, source, and preview (auto-expanding on select). | `initCollapsiblePanel`, `nodeDetailTitle`/`nodeDetailBody` |
+| `nodeDetailTitle` / `nodeDetailBody` (TS) | Shared node-detail rendering (category dot + label; attributes + source + preview), reused by both the standard `#detail` inspector and the sticky panel. | `renderMarkdown` |
 | `createEntityHighlighter` (TS) | Index elements by `entityKey`/`refKey` and toggle the shared `entity-highlight` class on hover. | — |
 
 ## The three tables
@@ -245,8 +250,9 @@ flowchart LR
 - **TS:** `runApp`'s `addStageTab` routes a stage that has `tables` to `createSemanticView`
   instead of the plain graph path; the scene tree still uses `createTreeView`, so camera
   memory, fold, and full screen work unchanged. The tab freezes the View/Edit toggle like
-  the other graph tabs, and hides the shared node-detail inspector (its tables are the
-  detail).
+  the other graph tabs and hides the shared node-detail inspector; clicking a node instead
+  fills its own **node-details panel**, pinned (sticky) to the top of the tables column and
+  reusing the shared detail rendering.
 - The report stays a single self-contained offline file; no new runtime dependency.
 
 > [!NOTE]
@@ -281,10 +287,6 @@ Settled for the current build, with these enhancements deliberately deferred:
    the tree and its speaker row. Tagging each *scene* node with the speakers that appear in
    it (so hovering a speaker lights up whole scenes, not just the mentions) is deferred — it
    needs the projection to aggregate speakers per scene.
-3. **A node-detail panel.** This tab has **no separate detail strip** — the tables are the
-   detail, and hovering a node shows its attribute tooltip. Clicking a script block does not
-   open a source/preview panel as on the AST tabs; a detail strip could be added later if a
-   node needs its own source/preview here.
 
 ## Implementation checklist
 

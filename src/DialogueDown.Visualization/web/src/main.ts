@@ -13,7 +13,9 @@ import { initPathDisplay } from "./path-display";
 import { initBackToLauncher } from "./back-link";
 import { initTheme } from "./theme";
 import { initHelpToggle } from "./help";
+import { createSemanticSymbolSource } from "./semantic-symbols";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
+import type { DialogueSymbols } from "./dialogue-symbols";
 import type { Report, ServedMode } from "./model";
 
 /**
@@ -42,11 +44,15 @@ if (report.mode === "view" || report.mode === "edit") {
     // only when invoked (after they are created below).
     const initialMode: ServedMode = report.mode;
     const toggle = createModeToggle(initialMode, (mode) => controller.switchTo(mode));
+    // The semantic analyzer's resolved symbols, refreshed on each hot-reload. The editor's
+    // completion source reads this holder every call, so a reload updates completions in place.
+    let currentSymbols: DialogueSymbols | undefined = report.symbols;
     const app = runApp(report, {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
         // Freeze the toggle on read-only graph tabs; thaw it on the Source tab.
         onActiveTabChange: (isSource) => toggle.setEnabled(isSource),
+        symbols: createSemanticSymbolSource(() => currentSymbols),
     });
     const ui = initLiveEditUi(
         app,
@@ -68,7 +74,10 @@ if (report.mode === "view" || report.mode === "edit") {
     });
     document.getElementById("mode-badge")?.replaceWith(toggle.element);
     watchServerEvents({
-        onReload: (next) => controller.onReload(next),
+        onReload: (next) => {
+            currentSymbols = next.symbols;
+            controller.onReload(next);
+        },
         onProblem: (message) => app.showBanner(message),
     });
     if (header) initBackToLauncher(header, window.location.pathname);

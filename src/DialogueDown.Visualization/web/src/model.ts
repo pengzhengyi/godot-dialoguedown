@@ -1,5 +1,7 @@
 /** The display model produced by the .NET walk and serialized into the report. */
 
+import type { DialogueSymbols } from "./dialogue-symbols";
+
 export interface DisplayAttribute {
     name: string;
     value: string;
@@ -83,6 +85,12 @@ export interface Report {
     path?: string;
     /** How the report is shown; drives the mode badge and whether to go live. */
     mode?: VisualizationMode;
+    /**
+     * The semantic analyzer's resolved symbols (canonical speaker ids, merged tags,
+     * validated jump targets), used to seed the Source editor's autocompletion.
+     * Absent when the semantic stage did not run or produced nothing.
+     */
+    symbols?: DialogueSymbols;
 }
 
 /** The mode a report is shown in (mirrors the .NET `VisualizationMode`). */

@@ -4,6 +4,7 @@ import { createTreeView, type TreeView } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
+import type { DialogueSymbolSource } from "./dialogue-symbols";
 import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
 import { initFullscreen } from "./fullscreen";
@@ -27,6 +28,12 @@ export interface SourceOptions {
      * read-only graph tabs and thaws it on Source.
      */
     onActiveTabChange?(isSource: boolean): void;
+    /**
+     * Where the Source editor's autocompletion draws its symbols. Defaults to a document
+     * scan; a served session supplies the semantic analyzer's resolved symbols merged
+     * with the scan.
+     */
+    symbols?: DialogueSymbolSource;
 }
 
 /** Controls a running report: swap in fresh data, reconfigure the editor, or show a banner. */
@@ -115,6 +122,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             sourceHandle = createSourceView(report.source, {
                 onToggleFullscreen: fullscreen.toggle,
                 ...(source ? { editable: source.editable, onChange: source.onChange } : {}),
+                ...(source?.symbols ? { symbols: source.symbols } : {}),
             });
             section.appendChild(sourceHandle.element);
             addTab("Source", section, null, SOURCE_TIP, null);

@@ -1,0 +1,36 @@
+import { test, expect } from "@playwright/test";
+import { writeFileSync } from "node:fs";
+import { LIVE_EDIT_PORT, LIVE_EDIT_DOC, LIVE_EDIT_SOURCE } from "./fixture.mjs";
+
+// Semantic autocompletion end-to-end against the real .NET --edit server. The analyzer
+// resolves the document's speakers, scenes, and jumps and carries them in the report
+// payload; the Source editor's completion draws on those resolved symbols merged with a
+// live scan. The fixture "# Scene / Alice: …" resolves to a `scene` jump target, which we
+// prove still feeds completion after the heading — the scan's only source for it — is gone.
+const base = `http://127.0.0.1:${LIVE_EDIT_PORT}`;
+const tooltip = ".cm-tooltip-autocomplete";
+
+test.beforeEach(() => {
+    writeFileSync(LIVE_EDIT_DOC, LIVE_EDIT_SOURCE);
+});
+
+test("completes a jump target from the analyzer's resolved symbols", async ({ page }) => {
+    await page.goto(`${base}/`);
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+
+    // The server emitted the analyzer's resolved symbols alongside the source and stages.
+    const symbols = await page.evaluate(
+        () =>
+            (window as unknown as { __DD_REPORT__?: { symbols?: unknown } }).__DD_REPORT__?.symbols,
+    );
+    expect(symbols).toMatchObject({ jumpTargets: [{ slug: "scene", heading: "Scene" }] });
+
+    // Replace the buffer with a heading-less document: a scan of what is typed no longer
+    // yields the `scene` target, so a completion offering it can only come from the payload.
+    await page.locator(".cm-content").click();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type("Alice: Go [x](#s");
+
+    await expect(page.locator(tooltip)).toBeVisible();
+    await expect(page.locator(`${tooltip} li`)).toContainText(["scene"]);
+});

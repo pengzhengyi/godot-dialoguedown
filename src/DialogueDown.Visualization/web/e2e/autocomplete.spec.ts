@@ -7,6 +7,21 @@ import { SAMPLE_SOURCE, SAMPLE_STAGES, writeReport } from "./report";
 const editUrl = writeReport({ source: SAMPLE_SOURCE, stages: SAMPLE_STAGES, mode: "edit" });
 const staticUrl = writeReport({ source: SAMPLE_SOURCE, stages: SAMPLE_STAGES });
 
+// The semantic analyzer's resolved symbols, as the .NET payload carries them. These names
+// are deliberately absent from SAMPLE_SOURCE (no `@id`, no `#tag`, no "Docks" heading) so a
+// completion offering them can only have come from the payload, not the document scan.
+const editWithSymbolsUrl = writeReport({
+    source: SAMPLE_SOURCE,
+    stages: SAMPLE_STAGES,
+    mode: "edit",
+    symbols: {
+        jumpTargets: [{ slug: "the-docks", heading: "The Docks" }],
+        speakers: ["Merchant"],
+        speakerIds: ["merchant"],
+        tags: ["wise"],
+    },
+});
+
 /** Put the cursor at the end of the document, ready to type a fresh line. */
 async function focusEditorEnd(page: Page): Promise<void> {
     await page.locator(".cm-content").click();
@@ -56,4 +71,31 @@ test("does not offer completions in the read-only static report", async ({ page 
     // Even an explicit completion request surfaces nothing when the editor is read-only.
     await page.keyboard.press("ControlOrMeta+ ");
     await expect(page.locator(tooltip)).toHaveCount(0);
+});
+
+test("completes a resolved speaker id carried in the semantic payload", async ({ page }) => {
+    await page.goto(editWithSymbolsUrl);
+    await focusEditorEnd(page);
+    // `merchant` is not typed anywhere in the document, so it can only come from the payload.
+    await page.keyboard.type("\n@mer");
+    await expect(page.locator(tooltip)).toBeVisible();
+    await expect(page.locator(`${tooltip} li`)).toContainText(["merchant"]);
+});
+
+test("completes a resolved jump target carried in the semantic payload", async ({ page }) => {
+    await page.goto(editWithSymbolsUrl);
+    await focusEditorEnd(page);
+    await page.keyboard.type("\nAlice: Go [x](#the-d");
+    await expect(page.locator(tooltip)).toBeVisible();
+    await expect(page.locator(`${tooltip} li`)).toContainText(["the-docks"]);
+});
+
+test("merges the payload with the live scan rather than replacing it", async ({ page }) => {
+    await page.goto(editWithSymbolsUrl);
+    await focusEditorEnd(page);
+    // `Bob` is in the document but not in the payload, so completing it proves the scan half
+    // still contributes alongside the resolved symbols.
+    await page.keyboard.type("\nBo");
+    await expect(page.locator(tooltip)).toBeVisible();
+    await expect(page.locator(`${tooltip} li`)).toContainText(["Bob"]);
 });

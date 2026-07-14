@@ -2,6 +2,7 @@ import type { Stage } from "./model";
 import type { DisplayNode } from "./model";
 import { createTreeView, type TreeView, type TreeViewOptions } from "./tree-view";
 import { createTablePanel } from "./semantic-table";
+import { createNodeDetailPanel } from "./semantic-detail";
 import { createEntityHighlighter } from "./entity-highlight";
 import { initCollapsiblePanel } from "./collapse-toggle";
 
@@ -40,8 +41,19 @@ export function createSemanticView(
     const tables = document.createElement("div");
     tables.className = "semantic-tables";
 
-    const view = createTreeView(stage, onSelect, options);
+    // Clicking a scene or block in the tree shows its detail in a panel pinned to the top of
+    // the tables column; selecting a node also drives the shared inspector (hidden on this tab).
+    const nodeDetail = createNodeDetailPanel();
+    const view = createTreeView(
+        stage,
+        (node) => {
+            onSelect(node);
+            nodeDetail.show(node);
+        },
+        options,
+    );
     graph.append(view.svg, view.legend, view.controls);
+    tables.appendChild(nodeDetail.element);
     for (const table of stage.tables ?? []) {
         tables.appendChild(createTablePanel(table));
     }

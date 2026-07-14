@@ -151,11 +151,11 @@ test("lays the scene-tree graph, its script blocks, and the three stacked tables
     await expect(page.locator(".semantic-graph g.node")).toHaveCount(6);
     await expect(page.locator('.semantic-graph g.node:has-text("Line")')).toBeVisible();
     await expect(page.locator('.semantic-graph g.node:has-text("Jump")')).toBeVisible();
-    await expect(page.locator(".table-panel-title")).toHaveText([
-        "Speakers",
-        "Anchors",
-        "Jump resolutions",
-    ]);
+    // The three table panels stack below the sticky node-details panel.
+    await expect(
+        page.locator(".table-panel:not(.node-detail-panel) .table-panel-title"),
+    ).toHaveText(["Speakers", "Anchors", "Jump resolutions"]);
+    await expect(page.locator(".node-detail-panel")).toBeVisible();
     // The shared node-detail inspector is hidden — the tab has its own tables.
     await expect(page.locator("#app")).toHaveClass(/no-detail/);
     await expect(page.locator("#detail")).toBeHidden();
@@ -224,6 +224,26 @@ test("hides and reopens the whole tables column from the divider", async ({ page
     await toggle.click();
     await expect(view).not.toHaveClass(/tables-collapsed/);
     await expect(page.locator(".semantic-tables")).toBeVisible();
+});
+
+test("shows a clicked node's details in the sticky node-details panel", async ({ page }) => {
+    const panel = page.locator(".node-detail-panel");
+    // The panel is pinned to the top of the tables column and starts on the placeholder.
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveCSS("position", "sticky");
+    await expect(page.locator(".node-detail-body")).toContainText("Click any node");
+
+    // Click the Line block's circle (dispatched, so it fires regardless of the pan/zoom viewport).
+    await page.evaluate(() => {
+        const nodes = [...document.querySelectorAll(".semantic-stage.active g.node")];
+        const line = nodes.find((g) => g.querySelector("text.label")?.textContent === "Line");
+        line?.querySelector("circle")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const body = page.locator(".node-detail-body");
+    await expect(body.locator(".node-detail-heading")).toContainText("Line");
+    await expect(body.locator("pre code")).toContainText("Guide @guide: Welcome."); // its source
+    await expect(body.locator(".preview")).toBeVisible(); // a rendered preview
 });
 
 test("has no accessibility violations on the Semantic tab", async ({ page }) => {

@@ -128,11 +128,13 @@ body {
     height: auto;
 }
 
-/* "Back to launcher" link, shown only on a launcher-served report (see back-link.ts). */
+/* "Back to launcher" — a back arrow to the left of the brand, shown only on a
+   launcher-served report (see back-link.ts). Inline on the brand's row so the header
+   matches a directly-served report. */
 .back-to-launcher {
-    display: inline-block;
-    margin-bottom: 0.4rem;
-    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    line-height: 0;
     color: var(--pico-muted-color);
     text-decoration: none;
 }
@@ -142,6 +144,9 @@ body {
 }
 
 .app-header hgroup {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-bottom: 0.5rem;
     padding-right: 8.5rem; /* keep the brand clear of the top-right controls */
 }
@@ -1551,17 +1556,40 @@ body.maximized #app {
     }
 }
 
-/* Launcher page (launcher.html): a centered card to pick a script and a mode. */
+/* Launcher page (launcher.html): a centered card to pick a script and a mode. The whole
+   unit (brand + card) is centered in the viewport like a modal; auto margins split the
+   free space, and the listing scrolls internally so the card height stays bounded. */
 .launcher {
     max-width: 40rem;
-    margin: 2.5rem auto;
-    padding: 0 1.25rem;
+    margin: auto;
+    padding: 2rem 1.25rem;
+}
+
+/* The report header's hover-morphing brand, centered above the picker card. On hover the
+   mark swaps to the pipeline glyph and the wordmark slides out, staying centered. */
+.launcher-brand {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.6rem;
+}
+
+.launcher-brand .brand {
+    font-size: 1.35rem;
+}
+
+.launcher-brand .brand-mark {
+    width: 40px;
+    height: 40px;
 }
 
 .launcher-card {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 1rem;
+    padding: 1.85rem;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
 }
 
 .launcher-title {
@@ -1592,7 +1620,7 @@ body.maximized #app {
     padding: 0;
     overflow-y: auto;
     list-style: none;
-    background: var(--pico-card-background-color);
+    background: var(--pico-background-color);
     border: 1px solid var(--pico-muted-border-color);
     border-radius: var(--pico-border-radius);
 }
@@ -1615,8 +1643,8 @@ body.maximized #app {
 }
 
 .launcher-item.selected {
-    background: var(--pico-primary-background);
-    color: var(--pico-primary-inverse);
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
 }
 
 .launcher-item.up::before {
@@ -1638,26 +1666,36 @@ body.maximized #app {
     font-style: italic;
 }
 
-.launcher-modes {
+/* The card's footer: the View/Edit capsule on the left, the Open action pushed to the
+   right — the modal-footer convention. */
+.launcher-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1.1rem;
     align-items: center;
-}
-
-.launcher-mode {
-    display: inline-flex;
-    gap: 0.3rem;
-    align-items: center;
-    margin: 0;
-    cursor: pointer;
-}
-
-.launcher-mode.disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.25rem;
 }
 
 .launcher-open {
-    align-self: flex-start;
+    /* Pico redefines --pico-color to white on buttons; keep our themed contrast. The
+       fill follows the mode accent (blue View / green Edit), matching the capsule and
+       the selected row. Sized down from Pico's chunky default so the primary action
+       stays proportional to the compact capsule and listing beside it. */
+    --pico-color: var(--mode-accent-contrast);
+
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.4rem 1.25rem;
+    border: 1px solid var(--mode-accent);
+    border-radius: var(--pico-border-radius);
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.launcher-open:not(:disabled):hover {
+    filter: brightness(1.08);
 }

@@ -36,7 +36,7 @@ test("browses into a sub-folder and opens a nested script in View", async ({ pag
     await expect(nested).toBeVisible();
 
     await nested.click();
-    await page.locator('input[name="launcher-mode"][value="view"]').check();
+    await page.locator('.mode-toggle-option[data-mode="view"]').click();
     await page.locator(".launcher-open").click();
 
     await expect(page).toHaveURL(/\/r\//);

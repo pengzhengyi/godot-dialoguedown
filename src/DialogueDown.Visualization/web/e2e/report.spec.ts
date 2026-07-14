@@ -171,6 +171,32 @@ test("hovering a node shows a Tippy tooltip with the full attribute text", async
     await expect(tooltip).toContainText("should be ellipsised");
 });
 
+test("hovering a node spotlights its lineage and dims the rest", async ({ page }) => {
+    await showAst(page);
+    // Overlays can cover a node; let the hover reach the node beneath.
+    await page.addStyleTag({
+        content: ".legend, .zoom-controls, .detail { pointer-events: none !important; }",
+    });
+    const active = page.locator("section.stage.active");
+
+    // The Paragraph's lineage is the Document root (ancestor) plus its own children
+    // (Text, Image, …); the Heading, List, and Code span siblings sit outside it.
+    await active.locator("g.node", { hasText: "Paragraph" }).locator("circle").hover();
+
+    await expect(active.locator("svg.tree")).toHaveClass(/has-focus/);
+    await expect(active.locator("g.node", { hasText: "Paragraph" }).first()).toHaveClass(/related/);
+    await expect(active.locator("g.node", { hasText: "Document" }).first()).toHaveClass(/related/);
+    await expect(active.locator("g.node", { hasText: "Image" }).first()).toHaveClass(/related/);
+
+    const heading = active.locator("g.node", { hasText: "Heading" }).first();
+    await expect(heading).not.toHaveClass(/related/);
+    await expect(heading).toHaveCSS("opacity", "0.32");
+
+    // Moving off the node clears the spotlight.
+    await page.locator(".tab", { hasText: "Source" }).hover();
+    await expect(active.locator("svg.tree")).not.toHaveClass(/has-focus/);
+});
+
 test("hovering a stage tab shows a Tippy tooltip describing the stage", async ({ page }) => {
     await page.locator(".tab", { hasText: "Markdown AST" }).hover();
     const tooltip = page.locator(".tippy-box");

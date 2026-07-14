@@ -7,6 +7,7 @@ import {
     zoomIdentity,
     zoomTransform,
     type EnterElement,
+    type HierarchyNode,
     type HierarchyPointLink,
     type HierarchyPointNode,
     type Selection,
@@ -23,6 +24,16 @@ type TreeNode = HierarchyPointNode<DisplayNode> & {
     _children?: TreeNode[];
     children?: TreeNode[];
 };
+
+/**
+ * The ids of a node's **lineage**: the node, all its ancestors (its path to the root), and
+ * all its *visible* descendants (its subtree). Used to spotlight a node's place in the tree
+ * on hover. It reads `children`, so a collapsed node's hidden descendants are excluded — the
+ * highlight matches exactly what is drawn.
+ */
+export function lineageIds<T extends { id: string }>(node: HierarchyNode<T>): Set<string> {
+    return new Set([...node.ancestors(), ...node.descendants()].map((member) => member.data.id));
+}
 
 const SCENE_NODE_RADIUS = 7;
 const CONTENT_NODE_RADIUS = 5;
@@ -105,6 +116,8 @@ export function createTreeView(
 
     let selected: TreeNode | null = null;
     const dimmed = new Set<string>();
+    // The node whose lineage is currently spotlighted on hover (null when not hovering).
+    let focused: TreeNode | null = null;
     // Set while a control-driven (user) zoom is applied, so the zoom handler can tell
     // reader gestures from programmatic applies even when both lack a DOM sourceEvent.
     let userGesture = false;
@@ -222,6 +235,36 @@ export function createTreeView(
         gNodes.selectAll<SVGGElement, TreeNode>("g.node").classed("highlight", false);
     }
 
+    /* --- lineage focus (hover) --- */
+
+    function setFocus(node: TreeNode | null): void {
+        focused = node;
+        applyFocus();
+    }
+
+    // Spotlight the hovered node's lineage: mark its nodes and the edges between them
+    // `.related` and flag the svg `.has-focus`, so CSS fades everything else. Re-run after
+    // every update() so entering nodes/links inherit the current focus. Class-only, so it
+    // composes with the scene backbone (stroke width) and the selection/category states.
+    function applyFocus(): void {
+        const related = focused ? lineageIds(focused) : null;
+        svg.classed("has-focus", related !== null);
+        gNodes
+            .selectAll<SVGGElement, TreeNode>("g.node")
+            .classed("related", (d) => related?.has(d.data.id) ?? false);
+        const linked = (source: TreeNode, target: TreeNode): boolean =>
+            related !== null && related.has(source.data.id) && related.has(target.data.id);
+        gLinks
+            .selectAll<SVGPathElement, HierarchyPointLink<DisplayNode>>("path.link")
+            .classed("related", (link) => linked(link.source as TreeNode, link.target as TreeNode));
+        gReferences
+            .selectAll<SVGPathElement, DisplayEdge>("path.reference")
+            .classed(
+                "related",
+                (edge) => related !== null && related.has(edge.fromId) && related.has(edge.toId),
+            );
+    }
+
     /* --- collapse / expand --- */
 
     function toggle(node: TreeNode): void {
@@ -325,6 +368,7 @@ export function createTreeView(
 
         applySelection();
         applyCategoryFilter();
+        applyFocus();
     }
 
     function appendEnteringNodes(
@@ -340,7 +384,11 @@ export function createTreeView(
             // light it up with the matching table rows: a scene node *is* the entity
             // (entityKey), a jump or speaker mention *references* one (refKey). Absent elsewhere.
             .attr("data-entity-key", (d) => d.data.entityKey ?? null)
-            .attr("data-ref-key", (d) => d.data.refKey ?? null);
+            .attr("data-ref-key", (d) => d.data.refKey ?? null)
+            // Spotlight this node's lineage while the pointer is over it. mouseenter/leave
+            // (not over/out) fire once per node, so moving within the node does not re-trigger.
+            .on("mouseenter", (_event, d) => setFocus(d))
+            .on("mouseleave", () => setFocus(null));
 
         group
             .append("circle")

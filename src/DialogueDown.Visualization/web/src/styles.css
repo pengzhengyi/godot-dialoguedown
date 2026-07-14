@@ -839,6 +839,25 @@ svg.tree {
     font-weight: 700;
 }
 
+/* Lineage focus (tree-view.ts): hovering a node fades everything outside its lineage —
+   its ancestors and visible descendants — so its place in the tree stands out. This is
+   opacity-only, so the scene backbone's thicker strokes (`.link.scene`, `.node.scene`) are
+   preserved *within* the lineage and simply fade outside it, and a `.selected` node stays
+   visible. Placed after `.dimmed`/`.highlight` so this transient hover layer sits on top of
+   the persistent category states. */
+svg.tree g.node,
+svg.tree .link {
+    transition: opacity 0.15s ease;
+}
+
+svg.tree.has-focus g.node:not(.related, .selected) {
+    opacity: 0.32;
+}
+
+svg.tree.has-focus .link:not(.related) {
+    opacity: 0.22;
+}
+
 .legend {
     position: absolute;
     top: 0.75rem;

@@ -165,3 +165,96 @@ test("an external change surfaces the passive chip without discarding local edit
     await expect(page.locator(".disk-chip")).toBeVisible();
     await expect(page.locator(".cm-content")).toContainText("Alice");
 });
+
+// A long, multi-scene document so both panes actually scroll. Headings anchor the sync.
+const SCENES = 8;
+const SCROLL_DOC =
+    "# Prologue\n\n" +
+    Array.from({ length: SCENES }, (_, i) => {
+        const body = Array.from(
+            { length: 6 },
+            (_, l) =>
+                `Speaker${l % 3}: Line ${l} of scene ${i + 1}. Lorem ipsum dolor sit amet, ` +
+                "consectetur adipiscing elit, plenty of filler so the line wraps.",
+        ).join("\n\n");
+        return `## Scene ${i + 1}\n\n${body}\n`;
+    }).join("\n");
+
+/** The heading nearest the top of each pane, and how far below the top it sits. */
+async function headingsAtTop(page: Page) {
+    return page.evaluate(() => {
+        const scene = (label: string | null) => label?.replace(/^#+\s*/, "").trim() ?? null;
+        const scroller = document.querySelector<HTMLElement>(".source-pane .cm-scroller")!;
+        const preview = document.querySelector<HTMLElement>(".source-preview")!;
+        const editorTop = scroller.getBoundingClientRect().top;
+        const previewTop = preview.getBoundingClientRect().top;
+        const nearestEditor = [...scroller.querySelectorAll(".cm-line")]
+            .map((l) => ({
+                d: l.getBoundingClientRect().top - editorTop,
+                t: l.textContent!.trim(),
+            }))
+            .filter((o) => /^#{1,6}\s/.test(o.t))
+            .sort((a, b) => Math.abs(a.d) - Math.abs(b.d))[0];
+        const nearestPreview = [...preview.querySelectorAll("h1,h2,h3,h4,h5,h6")]
+            .map((h) => ({
+                d: h.getBoundingClientRect().top - previewTop,
+                t: h.textContent!.trim(),
+            }))
+            .sort((a, b) => Math.abs(a.d) - Math.abs(b.d))[0];
+        return {
+            editorScene: scene(nearestEditor?.t ?? null),
+            previewScene: scene(nearestPreview?.t ?? null),
+        };
+    });
+}
+
+const scrollBy = (page: Page, selector: string, total: number, step: number) =>
+    page.evaluate(
+        async ([selector, total, step]) => {
+            const el = document.querySelector<HTMLElement>(selector as string)!;
+            for (let done = 0; done < (total as number); done += step as number) {
+                el.scrollTop += step as number;
+                // Give each step a couple of frames so the follower (and CodeMirror's
+                // re-measure of newly rendered lines) keeps up before the next nudge.
+                await new Promise((r) => setTimeout(r, 60));
+            }
+        },
+        [selector, total, step] as const,
+    );
+
+test("the editor and preview scroll in sync, anchored on scenes", async ({ page }) => {
+    writeFileSync(LIVE_EDIT_DOC, SCROLL_DOC);
+    // The editor virtualizes its lines, so assert on the preview (full HTML) to know the
+    // long document loaded. Reused between the two directions for a clean, unowned slate.
+    const load = async () => {
+        await expect(async () => {
+            await page.goto(`${base}/`);
+            await expect(page.locator(".source-preview")).toContainText(`Scene ${SCENES}`, {
+                timeout: 2000,
+            });
+        }).toPass({ timeout: 20_000 });
+        await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+    };
+    const scrollTopOf = (selector: string) =>
+        page.evaluate((s) => document.querySelector<HTMLElement>(s)!.scrollTop, selector);
+
+    // Scrolling the editor down carries the preview to the same scene. The panes have
+    // different heights, so this is a real mapping (not a shared scrollbar), and the exact
+    // within-scene pixel offset depends on the platform's line metrics — so the robust
+    // invariant is that the follower moved off the top and shows the same scene.
+    await load();
+    await scrollBy(page, ".source-pane .cm-scroller", 1600, 150);
+    await page.waitForTimeout(300);
+    const byEditor = await headingsAtTop(page);
+    expect(await scrollTopOf(".source-preview")).toBeGreaterThan(100); // the preview followed
+    expect(byEditor.editorScene).toBe(byEditor.previewScene);
+
+    // Reload for a clean slate (neither pane owns the sync), then drive from the preview:
+    // scrolling it down carries the editor to the same scene (bidirectional).
+    await load();
+    await scrollBy(page, ".source-preview", 1600, 150);
+    await page.waitForTimeout(300);
+    const byPreview = await headingsAtTop(page);
+    expect(await scrollTopOf(".source-pane .cm-scroller")).toBeGreaterThan(100); // the editor followed
+    expect(byPreview.editorScene).toBe(byPreview.previewScene);
+});

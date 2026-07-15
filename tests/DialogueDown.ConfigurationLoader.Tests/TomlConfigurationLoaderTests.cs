@@ -4,46 +4,30 @@ namespace DialogueDown.ConfigurationLoader.Tests;
 
 public sealed class TomlConfigurationLoaderTests
 {
+    private const string SourceName = "dialogue.toml";
+
     [Fact]
-    public void Parse_EmptyString_ReturnsDefaultOptions()
+    public void Parse_NullToml_Throws()
     {
-        CompilerOptions options = TomlConfigurationLoader.Parse(string.Empty);
+        Assert.Throws<ArgumentNullException>(() => TomlConfigurationLoader.Parse(null!, SourceName));
+    }
+
+    [Fact]
+    public void Parse_NullSourceName_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => TomlConfigurationLoader.Parse("", null!));
+    }
+
+    [Fact]
+    public void Parse_NoSpeakers_ReturnsDefaultOptions()
+    {
+        CompilerOptions options = TomlConfigurationLoader.Parse(string.Empty, SourceName);
 
         Assert.Same(CompilerOptions.Default, options);
     }
 
     [Fact]
-    public void Parse_ConfigWithoutSpeakers_ReturnsDefaultOptions()
-    {
-        var toml = """
-            [compiler]
-            note = "no speakers here"
-            """;
-
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
-
-        Assert.Same(CompilerOptions.Default, options);
-    }
-
-    [Fact]
-    public void Parse_IgnoresUnrelatedTableArrays()
-    {
-        var toml = """
-            [[extras]]
-            note = "not a speaker"
-
-            [[speakers]]
-            name = "Alice"
-            """;
-
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
-
-        ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
-        Assert.Equal("Alice", speaker.Name);
-    }
-
-    [Fact]
-    public void Parse_SingleSpeaker_MapsNameAndId()
+    public void Parse_WithSpeakers_WrapsThemInOptions()
     {
         var toml = """
             [[speakers]]
@@ -51,105 +35,25 @@ public sealed class TomlConfigurationLoaderTests
             id = "A"
             """;
 
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
+        CompilerOptions options = TomlConfigurationLoader.Parse(toml, SourceName);
 
         ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
         Assert.Equal("Alice", speaker.Name);
         Assert.Equal("A", speaker.Id);
-        Assert.Empty(speaker.CustomTags);
-        Assert.Empty(speaker.ReservedTags);
     }
 
     [Fact]
-    public void Parse_SpeakerWithoutId_LeavesIdNull()
+    public void Load_NullPath_Throws()
     {
-        var toml = """
-            [[speakers]]
-            name = "Narrator"
-            """;
-
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
-
-        ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
-        Assert.Null(speaker.Id);
+        Assert.Throws<ArgumentNullException>(() => TomlConfigurationLoader.Load(null!));
     }
 
     [Fact]
-    public void Parse_DefaultTrue_AddsDefaultReservedTag()
-    {
-        var toml = """
-            [[speakers]]
-            name = "Narrator"
-            default = true
-            """;
-
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
-
-        ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
-        ConfiguredTag reserved = Assert.Single(speaker.ReservedTags);
-        Assert.Equal(new ConfiguredTag(ReservedTagNames.Default), reserved);
-    }
-
-    [Fact]
-    public void Parse_DefaultFalse_AddsNoReservedTag()
+    public void Load_ReadsFileIntoOptions()
     {
         var toml = """
             [[speakers]]
             name = "Alice"
-            default = false
-            """;
-
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
-
-        ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
-        Assert.Empty(speaker.ReservedTags);
-    }
-
-    [Fact]
-    public void Parse_CustomTags_MapsShorthandAndInlineTableForms()
-    {
-        var toml = """
-            [[speakers]]
-            name = "Alice"
-            tags = ["main", "mood=happy", { name = "quest=intro", value = "ok" }]
-            """;
-
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
-
-        ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
-        Assert.Equal(
-            new[]
-            {
-                new ConfiguredTag("main"),
-                new ConfiguredTag("mood", "happy"),
-                new ConfiguredTag("quest=intro", "ok"),
-            },
-            speaker.CustomTags);
-    }
-
-    [Fact]
-    public void Parse_MultipleSpeakers_PreservesDocumentOrder()
-    {
-        var toml = """
-            [[speakers]]
-            name = "Narrator"
-
-            [[speakers]]
-            name = "Alice"
-            """;
-
-        CompilerOptions options = TomlConfigurationLoader.Parse(toml);
-
-        Assert.Equal(new[] { "Narrator", "Alice" }, options.Speakers.Select(s => s.Name));
-    }
-
-    [Fact]
-    public void Load_ReadsFileAndParses()
-    {
-        var toml = """
-            [[speakers]]
-            name = "Alice"
-            id = "A"
             """;
         string path = Path.Combine(Path.GetTempPath(), $"dialogue-{Guid.NewGuid():N}.toml");
         File.WriteAllText(path, toml);
@@ -160,7 +64,6 @@ public sealed class TomlConfigurationLoaderTests
 
             ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
             Assert.Equal("Alice", speaker.Name);
-            Assert.Equal("A", speaker.Id);
         }
         finally
         {

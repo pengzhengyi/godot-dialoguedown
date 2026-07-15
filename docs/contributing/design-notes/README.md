@@ -46,6 +46,7 @@ that every component shares — starting with the error model.
 | [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions (jump targets, speakers, `@id`s, `#tag`s) behind a symbol-source seam for future semantic symbols | Implemented |
 | [Semantic Analyzer](./Semantic%20Analyzer.md) | Desugared Dialogue AST → semantic model (speaker table, scene tree + anchor table, resolved jumps) | Implemented |
 | [Semantic Model Visualization Tab](./Semantic%20Model%20Visualization%20Tab.md) | The semantic model as an analytics tab: scene-tree graph + cross-linked, collapsible speaker/anchor/jump tables | In progress |
+| [Interactive Playthrough](./Interactive%20Playthrough.md) | Explored: play the dialogue as a text adventure to validate branching — a terminal player, a web Play tab, and a Yarn export/run | Explored |
 
 ## Error model
 

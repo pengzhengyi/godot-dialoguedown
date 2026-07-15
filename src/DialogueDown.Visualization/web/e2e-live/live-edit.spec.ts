@@ -234,17 +234,27 @@ test("the editor and preview scroll in sync, anchored on scenes", async ({ page 
     }).toPass({ timeout: 20_000 });
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
 
-    // Scrolling the editor down brings the same scene to the top of the preview.
+    const scrollTopOf = (selector: string) =>
+        page.evaluate((s) => document.querySelector<HTMLElement>(s)!.scrollTop, selector);
+
+    // Scrolling the editor down carries the preview along to the same scene. The panes
+    // have different heights, so the follow is a real mapping (not a shared scrollbar);
+    // an exact within-scene pixel offset depends on the platform's line metrics, so the
+    // robust invariant is that the same scene sits at the top of both panes.
     await scrollBy(page, ".source-pane .cm-scroller", 1600, 150);
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(250);
     const afterEditor = await headingsAtTop(page);
+    expect(await scrollTopOf(".source-preview")).toBeGreaterThan(400); // the preview followed
     expect(afterEditor.editorScene).toBe(afterEditor.previewScene);
-    expect(Math.abs(afterEditor.editorDelta! - afterEditor.previewDelta!)).toBeLessThan(40);
 
     // Scrolling the preview scrolls the editor back the same way (bidirectional).
-    await scrollBy(page, ".source-preview", 1400, 140);
-    await page.waitForTimeout(200);
+    const editorBefore = await scrollTopOf(".source-pane .cm-scroller");
+    await scrollBy(page, ".source-preview", 1200, 140);
+    await page.waitForTimeout(250);
     const afterPreview = await headingsAtTop(page);
+    expect(
+        Math.abs((await scrollTopOf(".source-pane .cm-scroller")) - editorBefore),
+    ).toBeGreaterThan(200); // the editor followed
     expect(afterPreview.editorScene).toBe(afterPreview.previewScene);
     expect(Math.abs(afterPreview.editorDelta! - afterPreview.previewDelta!)).toBeLessThan(40);
 });

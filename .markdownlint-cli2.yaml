@@ -1,0 +1,23 @@
+# markdownlint-cli2 configuration.
+#
+# Lints authored Markdown only, and turns off rules the project violates by
+# intent — so `markdownlint-cli2` runs clean with no hand-filtering.
+#
+# Run from the repository root:  markdownlint-cli2
+
+globs:
+  - "**/*.md"
+
+# Never lint generated output or non-prose Markdown.
+ignores:
+  - "**/node_modules/**"
+  - "**/web/**"          # the web client has its own eslint/stylelint
+  - "coverage-report/**" # generated coverage summaries
+  - "**/*.dialogue.md"   # DialogueDown scripts: `#` headings are scenes, not titles
+  - "docs/_site/**"      # docfx build output
+  - "docs/api/**"        # docfx-generated API reference
+
+config:
+  MD013: false  # line length — design notes wrap prose at ~80 cols by intent
+  MD033: false  # inline HTML — the README banner uses <p>/<img>/<kbd> deliberately
+  MD041: false  # first-line H1 — the README opens with the centered banner

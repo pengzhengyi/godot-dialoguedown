@@ -1,6 +1,6 @@
 # Semantic Model Visualization Tab
 
-> [!IMPORTANT]
+> [!NOTE]
 > Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md), showing the
 > [Semantic Analyzer](./Semantic%20Analyzer.md)'s output). Unlike the AST stages, the

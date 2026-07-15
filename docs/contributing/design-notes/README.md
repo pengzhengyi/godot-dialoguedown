@@ -1,7 +1,7 @@
 # Implementation notes
 
 Design and rationale notes for DialogueDown's compiler. Each note covers one
-component; this README indexes them and records **cross-cutting conventions**
+component; this README is a **reading guide** to them and records **cross-cutting conventions**
 that every component shares — starting with the error model.
 
 > [!NOTE]
@@ -11,7 +11,11 @@ that every component shares — starting with the error model.
 
 ## Table of contents
 
-- [Notes in this folder](#notes-in-this-folder)
+- [Reading guide](#reading-guide)
+  - [Core: the compiler pipeline](#core-the-compiler-pipeline)
+  - [Command-line interface](#command-line-interface)
+  - [Visualization](#visualization)
+  - [Other notes](#other-notes)
 - [Error model](#error-model)
   - [Principles](#principles)
   - [Exception hierarchy](#exception-hierarchy)
@@ -22,31 +26,99 @@ that every component shares — starting with the error model.
   - [Error codes (optional, future)](#error-codes-optional-future)
   - [Open choices](#open-choices)
 
-## Notes in this folder
+## Reading guide
 
-| Note | Component | Status |
+The notes below are grouped by area and ordered for reading. Start with
+**Core** — those explain the compiler itself and are worth reading in full.
+Read **Command-line interface** or **Visualization** only when you work on that
+surface: both document tools built *on top of* the core, so they are optional
+for understanding the compiler. Each note keeps a one-line summary and a status
+(**Implemented**, **In progress**, or **Explored**).
+
+> [!TIP]
+> New here? Read the Core notes in order, then the [Error model](#error-model)
+> below. That is enough to understand and change the compiler.
+
+### Core: the compiler pipeline
+
+**Essential — read in full.** These trace a script through the compiler, one
+stage per note, in pipeline order; the facade note ties the stages together.
+
+```mermaid
+flowchart LR
+    FE["1. Markdown Front-End"] --> TR["2. Transpiler"]
+    TR --> DS["3. Desugar"] --> SA["4. Semantic Analyzer"]
+    SA --> SF["5. Script Compiler Facade"]
+```
+
+| Order | Note | What it covers | Status |
+| --- | --- | --- | --- |
+| 1 | [Markdown Front-End](./Markdown%20Front-End.md) | Source text → Markdown AST (Markdig adapter) | Implemented |
+| 1a | [Unmodeled Markdown Handling](./Unmodeled%20Markdown%20Handling.md) | A front-end detail: which Markdown is ignored vs kept as raw text | Implemented |
+| 2 | [Markdown to Dialogue AST Transpiler](./Markdown%20to%20Dialogue%20AST%20Transpiler.md) | Markdown AST → Dialogue AST | Implemented |
+| 3 | [Desugar](./Desugar.md) | Dialogue AST → normalized Dialogue AST (jump assembly, default speaker) | Implemented |
+| 4 | [Semantic Analyzer](./Semantic%20Analyzer.md) | Desugared AST → semantic model (speakers, scenes, resolved jumps) | Implemented |
+| 5 | [Script Compiler Facade](./Script%20Compiler%20Facade.md) | One `IScriptCompiler` seam over the stages + `AddDialogueDown` DI | Implemented |
+
+The [Error model](#error-model) below is a cross-cutting core convention every
+stage adopts — read it alongside these.
+
+### Command-line interface
+
+**Read when you work on the `dialoguedown` CLI.** These build on the core through
+Spectre.Console.Cli; they are not needed to understand the compiler.
+
+```mermaid
+flowchart LR
+    CLI["1. Command-Line Interface"] --> VZ["2. Visualize on the CLI"]
+    VZ --> EM["3. Emit Mermaid and DOT"]
+```
+
+| Order | Note | What it covers | Status |
+| --- | --- | --- | --- |
+| 1 | [Command-Line Interface](./Command-Line%20Interface.md) | The `dialoguedown` CLI: `compile` + `visualize` (Spectre.Console.Cli) | Implemented |
+| 2 | [Visualize on the CLI](./Visualize%20on%20the%20CLI.md) | Wire `dialoguedown visualize` to the engine; retire the hand-rolled CLI | Implemented |
+| 3 | [Visualize CLI — Emit Mermaid and DOT](./Visualize%20CLI%20-%20Emit%20Mermaid%20and%20DOT.md) | `visualize --emit mermaid\|dot` emits each stage's graph as portable text | Implemented |
+
+### Visualization
+
+**Read when you work on the interactive report or the live/served session.** An
+optional TypeScript client that renders each compiler stage; not needed to
+understand the compiler. Read the foundation first, then the per-stage tabs, the
+shared graph experience, and finally the live session.
+
+```mermaid
+flowchart TB
+    CV["1. Compilation Visualization"] --> TT["2. Compiler Stage Tooltips"]
+    TT --> TABS["3-5. Stage tabs:<br/>Dialogue AST → Desugared AST → Semantic Model"]
+    TABS --> GX["6. Graph Position Preservation"]
+    GX --> AC["7. Source Editor Autocompletion"]
+    AC --> LIVE["8-11. Live session:<br/>Hot Reload → File Launcher → Live Edit → View and Edit Modes"]
+```
+
+| Order | Note | What it covers | Status |
+| --- | --- | --- | --- |
+| 1 | [Compilation Visualization](./Compilation%20Visualization.md) | Compiler-stage IRs → interactive diagrams (the report foundation) | Implemented |
+| 2 | [Compiler Stage Tooltips](./Compiler%20Stage%20Tooltips.md) | Per-stage hover tips on the report tabs | Implemented |
+| 3 | [Dialogue AST Visualization Tab](./Dialogue%20AST%20Visualization%20Tab.md) | The transpiler's Dialogue AST as a second graph tab | Implemented |
+| 4 | [Desugared AST Visualization Tab](./Desugared%20AST%20Visualization%20Tab.md) | The desugarer's normalized AST as a third tab | Implemented |
+| 5 | [Semantic Model Visualization Tab](./Semantic%20Model%20Visualization%20Tab.md) | The semantic model as an analytics tab: scene-tree graph + cross-linked tables | In progress |
+| 6 | [Graph Position Preservation](./Graph%20Position%20Preservation.md) | Per-graph zoom/pan/fold memory and a root-centered default | Implemented |
+| 7 | [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions behind a symbol-source seam | Implemented |
+| 8 | [Live Visualization — Hot Reload](./Live%20Visualization%20-%20Hot%20Reload.md) | Watch a script and hot-reload the report from a local server | Implemented |
+| 9 | [Live Visualization — File Launcher](./Live%20Visualization%20-%20File%20Launcher.md) | Browse and open a script in the launcher (the uniform `visualize` entry point) | Implemented |
+| 10 | [Live Visualization — Live Edit](./Live%20Visualization%20-%20Live%20Edit.md) | Edit the source in the report; compile-as-you-type and save to disk | Implemented |
+| 11 | [Live Visualization — View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) | The current unified model: a served session with a runtime View⇄Edit toggle; static becomes an export | Implemented |
+
+### Other notes
+
+**Optional context.** Exploration spikes and one-off documentation-maintenance
+passes that sit outside the pipeline and its tools.
+
+| Note | What it covers | Status |
 | --- | --- | --- |
-| [Markdown Front-End](./Markdown%20Front-End.md) | Source text → Markdown AST (Markdig adapter) | Implemented |
-| [Unmodeled Markdown Handling](./Unmodeled%20Markdown%20Handling.md) | How unmodeled Markdown nodes are ignored vs kept as raw text | Implemented |
-| [Compilation Visualization](./Compilation%20Visualization.md) | Compiler-stage IRs → interactive diagrams (Markdown AST today) | Implemented |
-| [Live Visualization — Hot Reload](./Live%20Visualization%20-%20Hot%20Reload.md) | Watch a script and hot-reload the report from a local server | Implemented |
-| [Live Visualization — File Launcher](./Live%20Visualization%20-%20File%20Launcher.md) | Browse and open a script in the launcher (the uniform `visualize` entry point) | Implemented |
-| [Live Visualization — Live Edit](./Live%20Visualization%20-%20Live%20Edit.md) | Edit the source in the report; compile-as-you-type and save to disk | Implemented |
-| [Live Visualization — View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) | Unify watch/live into a served session with a runtime View⇄Edit toggle; static becomes an export | Implemented |
-| [Markdown to Dialogue AST Transpiler](./Markdown%20to%20Dialogue%20AST%20Transpiler.md) | Markdown AST → Dialogue AST | Implemented |
-| [Desugar](./Desugar.md) | Dialogue AST → normalized Dialogue AST (jump assembly, default speaker) | Implemented |
-| [Script Compiler Facade](./Script%20Compiler%20Facade.md) | One `IScriptCompiler` seam over the stages + `AddDialogueDown` DI | Implemented |
-| [Command-Line Interface](./Command-Line%20Interface.md) | The `dialoguedown` CLI: `compile` + `visualize` (Spectre.Console.Cli) | Implemented |
-| [Visualize on the CLI](./Visualize%20on%20the%20CLI.md) | Wire `dialoguedown visualize` to the engine; retire the hand-rolled CLI | Implemented |
-| [Compiler Stage Tooltips](./Compiler%20Stage%20Tooltips.md) | Per-stage hover tips on the report tabs, from a description on each stage | Implemented |
-| [Dialogue AST Visualization Tab](./Dialogue%20AST%20Visualization%20Tab.md) | The transpiler's Dialogue AST as a second graph tab in the report | Implemented |
-| [Desugared AST Visualization Tab](./Desugared%20AST%20Visualization%20Tab.md) | The desugarer's normalized AST as a third tab (via the `IScriptCompiler` seam); synthetic nodes render as inserted; the toggle freezes on read-only tabs | Implemented |
-| [Visualize CLI — Emit Mermaid and DOT](./Visualize%20CLI%20-%20Emit%20Mermaid%20and%20DOT.md) | `visualize --emit mermaid\|dot` emits each stage's graph as portable text (colored Mermaid); no in-report rendering | Implemented |
-| [Graph Position Preservation](./Graph%20Position%20Preservation.md) | Hybrid per-graph zoom/pan/fold memory (adjusted graphs pin their own, untouched inherit the current view), a root-centered default, and an editable zoom with revert | Implemented |
-| [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions (jump targets, speakers, `@id`s, `#tag`s) behind a symbol-source seam for future semantic symbols | Implemented |
-| [Semantic Analyzer](./Semantic%20Analyzer.md) | Desugared Dialogue AST → semantic model (speaker table, scene tree + anchor table, resolved jumps) | Implemented |
-| [Semantic Model Visualization Tab](./Semantic%20Model%20Visualization%20Tab.md) | The semantic model as an analytics tab: scene-tree graph + cross-linked, collapsible speaker/anchor/jump tables | In progress |
 | [Interactive Playthrough](./Interactive%20Playthrough.md) | Explored: play the dialogue as a text adventure to validate branching — a terminal player, a web Play tab, and a Yarn export/run | Explored |
+| [README Shipping-Status Refresh](./README%20Shipping-Status%20Refresh.md) | A docs-only pass reconciling the README's visualization section with what actually ships | Implemented |
 
 ## Error model
 

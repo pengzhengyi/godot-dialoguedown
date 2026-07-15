@@ -37,7 +37,10 @@ public static class GraphWalk
             var description = projection.Describe(node);
             nodes.Add(new DisplayNode(
             id, description.Label, description.Attributes, description.Source,
-            description.Category, description.EntityKey, description.TypeName, description.RefKey));
+            description.Category, description.EntityKey, description.TypeName, description.RefKey)
+            {
+                Span = description.Span,
+            });
 
             foreach (var neighbor in projection.Neighbors(node))
             {

@@ -20,4 +20,12 @@ public sealed record DisplayNode(
     string? Category = null,
     string? EntityKey = null,
     string? TypeName = null,
-    string? RefKey = null);
+    string? RefKey = null)
+{
+    /// <summary>
+    /// The node's source location as a half-open character range into the original document,
+    /// so a client can splice an edit back into the exact source. Null for a synthetic node
+    /// (no source of its own); the whole document for the document-root node.
+    /// </summary>
+    public DisplaySpan? Span { get; init; }
+}

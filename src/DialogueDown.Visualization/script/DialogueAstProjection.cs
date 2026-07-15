@@ -68,7 +68,7 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
     public NodeDescription Describe(object node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        return node switch
+        NodeDescription description = node switch
         {
             ScriptDocument => new("Document", source: _source, category: DocumentCategory),
             SceneHeading heading => new(
@@ -156,7 +156,21 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
             _ => throw new ArgumentException(
                 $"Unsupported Dialogue AST node type '{node.GetType().Name}'.", nameof(node)),
         };
+
+        // Attach the structured span centrally so every arm above stays focused on its
+        // label/attributes: every real node is a spanned ScriptNode, the root spans the
+        // whole document, and a synthetic node's empty span yields none.
+        return description with { Span = SpanOf(node) };
     }
+
+    // The node's editable source range: the whole document for the root, the clamped span
+    // for a spanned node, and none for a synthetic (empty-span) node.
+    private DisplaySpan? SpanOf(object node) => node switch
+    {
+        ScriptDocument => new DisplaySpan(0, _source.Length),
+        ScriptNode scriptNode => ToSpan(scriptNode.Span),
+        _ => null,
+    };
 
     public IEnumerable<object> Neighbors(object node)
     {
@@ -218,5 +232,19 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
         var start = Math.Clamp(span.Start, 0, _source.Length);
         var end = Math.Clamp(span.End, start, _source.Length);
         return _source[start..end];
+    }
+
+    // The structured, clamped span a client splices with — the same clamping as Slice, so a
+    // node's span and its sliced source always agree. An empty span yields none (synthetic).
+    private DisplaySpan? ToSpan(SourceSpan span)
+    {
+        if (span.IsEmpty)
+        {
+            return null;
+        }
+
+        var start = Math.Clamp(span.Start, 0, _source.Length);
+        var end = Math.Clamp(span.End, start, _source.Length);
+        return new DisplaySpan(start, end);
     }
 }

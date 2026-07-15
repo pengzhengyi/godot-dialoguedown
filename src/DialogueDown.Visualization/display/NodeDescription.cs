@@ -64,4 +64,11 @@ public sealed record NodeDescription
     /// the same key an <see cref="EntityKey"/> or a table cell's ref carries. Null otherwise.
     /// </summary>
     public string? RefKey { get; }
+
+    /// <summary>
+    /// The node's source location as a half-open character range into the original document
+    /// (the structured form of the "span" attribute), so a client can splice an edit back
+    /// into the exact source. Null for a synthetic node with no source of its own.
+    /// </summary>
+    public DisplaySpan? Span { get; init; }
 }

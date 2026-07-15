@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DialogueDown.ConfigurationLoader</RootNamespace>
+    <AssemblyName>DialogueDown.ConfigurationLoader</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
+    <!-- Reads a project's dialogue.toml into a CompilerOptions with Tomlyn, so the
+         engine-agnostic core never takes a TOML dependency. -->
+    <Description>Loads a DialogueDown dialogue.toml project configuration into CompilerOptions.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DialogueDown.ConfigurationLoader.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DialogueDown\DialogueDown.csproj" />
+  </ItemGroup>
+
+</Project>

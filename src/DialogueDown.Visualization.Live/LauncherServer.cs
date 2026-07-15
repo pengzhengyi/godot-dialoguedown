@@ -93,6 +93,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         app.MapGet("/", () => Results.Content(_launcherHtml, "text/html; charset=utf-8"));
         app.MapGet("/api/browse", (string? path) => Browse(path ?? string.Empty));
         app.MapPost("/api/open", (OpenRequest request, HttpContext context) => Open(request, context));
+        app.MapPost("/api/create", (CreateRequest request, HttpContext context) => Create(request, context));
         app.MapGet("/api/document", Document);
         app.MapPost("/api/save", (SaveRequest request) => Save(request));
         app.MapGet("/api/events", HandleEventsAsync);
@@ -119,6 +120,46 @@ internal sealed class LauncherServer : IAsyncDisposable
             return Results.BadRequest(new { message = $"Unsupported mode: {request.Mode}" });
         }
 
+        return StartSession(source, mode, context);
+    }
+
+    // Creates a new, empty script at a root-confined path and opens it in Edit. A name that
+    // already exists is a conflict (409) — the file is left untouched, so the client can offer
+    // to open it instead — and is never overwritten.
+    private IResult Create(CreateRequest request, HttpContext context)
+    {
+        var relativePath = request.Path ?? string.Empty;
+        if (!relativePath.EndsWith(DocumentValidation.Extension, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(
+                new { message = $"A script name must end in '{DocumentValidation.Extension}'." });
+        }
+
+        var target = _root.Resolve(relativePath);
+        if (target is null)
+        {
+            return Results.BadRequest(new { message = "The path is outside the launch root." });
+        }
+
+        if (!Directory.Exists(Path.GetDirectoryName(target)!))
+        {
+            return Results.BadRequest(new { message = "The containing folder does not exist." });
+        }
+
+        if (File.Exists(target))
+        {
+            return Results.Conflict(
+                new { message = "A file with that name already exists.", path = relativePath });
+        }
+
+        File.WriteAllText(target, string.Empty);
+        return StartSession(target, VisualizationMode.Edit, context);
+    }
+
+    // Starts a served session for an existing source path and redirects to its report. Shared
+    // by Open (an existing script) and Create (a freshly written one).
+    private IResult StartSession(string source, string mode, HttpContext context)
+    {
         var sourceDirectory = Path.GetDirectoryName(source)!;
         var reportPath = ServeRoot.For(_root.RootDirectory, sourceDirectory).ReportPath;
         var session = _sessionFactory(source, mode);
@@ -211,6 +252,8 @@ internal sealed class LauncherServer : IAsyncDisposable
     private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher);
 
     private sealed record OpenRequest(string? Source, string? Mode);
+
+    private sealed record CreateRequest(string? Path);
 
     private sealed record SaveRequest(string? Source);
 }

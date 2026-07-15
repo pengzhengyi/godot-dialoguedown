@@ -154,6 +154,80 @@ public sealed class LauncherServerTests
         Assert.Equal(new byte[] { 1, 2, 3, 4 }, await asset.Content.ReadAsByteArrayAsync());
     }
 
+    [Fact]
+    public async Task Create_NewName_WritesAnEmptyScriptAndOpensItInEdit()
+    {
+        using var tree = new TempTree();
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+
+        var create = await client.PostAsJsonAsync("/api/create", new { path = "draft.dialogue.md" });
+
+        Assert.Equal(HttpStatusCode.SeeOther, create.StatusCode);
+        Assert.Equal("/r/", create.Headers.Location!.ToString());
+        var created = Path.Combine(tree.Dir("root"), "draft.dialogue.md");
+        Assert.True(File.Exists(created));
+        Assert.Equal(string.Empty, await File.ReadAllTextAsync(created));
+
+        var html = await client.GetStringAsync("/r/");
+        Assert.Contains("\"mode\":\"edit\"", html);
+    }
+
+    [Fact]
+    public async Task Create_ExistingName_ConflictsAndLeavesTheFileUntouched()
+    {
+        using var tree = new TempTree();
+        tree.File("root/scene.dialogue.md", "# Keep me");
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+
+        var create = await client.PostAsJsonAsync("/api/create", new { path = "scene.dialogue.md" });
+
+        Assert.Equal(HttpStatusCode.Conflict, create.StatusCode);
+        Assert.Contains("scene.dialogue.md", await create.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "# Keep me",
+            await File.ReadAllTextAsync(Path.Combine(tree.Dir("root"), "scene.dialogue.md")));
+    }
+
+    [Fact]
+    public async Task Create_NonDialogueName_BadRequestAndWritesNothing()
+    {
+        using var tree = new TempTree();
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+
+        var create = await client.PostAsJsonAsync("/api/create", new { path = "notes.md" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
+        Assert.False(File.Exists(Path.Combine(tree.Dir("root"), "notes.md")));
+    }
+
+    [Fact]
+    public async Task Create_OutsideRoot_BadRequest()
+    {
+        using var tree = new TempTree();
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+
+        var create = await client.PostAsJsonAsync("/api/create", new { path = "../escape.dialogue.md" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_InAMissingFolder_BadRequest()
+    {
+        using var tree = new TempTree();
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+
+        var create = await client.PostAsJsonAsync(
+            "/api/create", new { path = "nope/draft.dialogue.md" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
+    }
+
     private static async Task<LauncherServer> Started(TempTree tree)
     {
         var server = new LauncherServer(LaunchRoot.At(tree.Dir("root")), LauncherHtml);

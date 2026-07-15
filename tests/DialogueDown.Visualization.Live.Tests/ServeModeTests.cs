@@ -213,6 +213,46 @@ public sealed class ServeModeTests
         await task;
     }
 
+    [Fact]
+    public async Task RunAsync_EditMode_NonexistentScript_CreatesItEmptyAndServesEdit()
+    {
+        using var tree = new TempTree();
+        var newPath = Path.Combine(tree.Dir("proj"), "draft.dialogue.md");
+        Assert.False(File.Exists(newPath));
+        var browser = new FakeBrowserLauncher();
+        using var stop = new CancellationTokenSource();
+
+        var task = ServeMode.RunAsync(
+            newPath, port: 0, noOpen: false, renderRoot: null, browser, new FakeHostConsent(allow: false),
+            new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.Edit);
+        await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
+
+        Assert.True(File.Exists(newPath));
+        Assert.Equal(string.Empty, await File.ReadAllTextAsync(newPath));
+        using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
+        Assert.Contains("\"mode\":\"edit\"", await client.GetStringAsync("/"));
+
+        stop.Cancel();
+        await task;
+    }
+
+    [Fact]
+    public async Task RunAsync_ViewMode_NonexistentScript_DoesNotCreateAndReturnsOne()
+    {
+        using var tree = new TempTree();
+        var newPath = Path.Combine(tree.Dir("proj"), "draft.dialogue.md");
+        var error = new StringWriter();
+
+        var code = await ServeMode.RunAsync(
+            newPath, port: 0, noOpen: true, renderRoot: null, new FakeBrowserLauncher(),
+            new FakeHostConsent(allow: false), new StringWriter(), error, CancellationToken.None,
+            mode: VisualizationMode.View);
+
+        Assert.Equal(1, code);
+        Assert.False(File.Exists(newPath));
+        Assert.Contains("not found", error.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;

@@ -10,6 +10,7 @@ changes easy to categorize.
 
 ### Added
 
+- **Documentation link in the visualization and demo** — the report header now carries a link to the documentation site, and the live-demo landing page gains a Documentation button, so readers can get back to the docs from the hosted report.
 - **Compiler pipeline behind one `IScriptCompiler` facade** — compiles a Markdown
   dialogue script through parse → transpile → desugar → semantic analysis: it builds
   a Dialogue AST, normalizes it (assembling jumps and filling default speakers), and

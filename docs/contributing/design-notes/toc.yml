@@ -44,3 +44,5 @@
   href: README Shipping-Status Refresh.md
 - name: Configuration
   href: Configuration.md
+- name: Configuration Loader
+  href: Configuration Loader.md

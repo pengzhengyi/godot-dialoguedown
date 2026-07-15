@@ -46,6 +46,7 @@ that every component shares — starting with the error model.
 | [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions (jump targets, speakers, `@id`s, `#tag`s) behind a symbol-source seam for future semantic symbols | Implemented |
 | [Semantic Analyzer](./Semantic%20Analyzer.md) | Desugared Dialogue AST → semantic model (speaker table, scene tree + anchor table, resolved jumps) | Implemented |
 | [Configuration](./Configuration.md) | Compiler options seam (immutable `CompilerOptions` + per-stage slices); first knob is a configured default speaker | In progress |
+| [Configuration Loader](./Configuration%20Loader.md) | The TOML edge: reads `dialogue.toml` into a `CompilerOptions`, partitioning tags and validating, in its own satellite assembly | In progress |
 | [Semantic Model Visualization Tab](./Semantic%20Model%20Visualization%20Tab.md) | The semantic model as an analytics tab: scene-tree graph + cross-linked, collapsible speaker/anchor/jump tables | In progress |
 
 ## Error model

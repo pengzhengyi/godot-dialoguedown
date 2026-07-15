@@ -5,29 +5,26 @@ namespace DialogueDown.Tests.Configuration;
 public sealed class CompilerOptionsTests
 {
     [Fact]
-    public void Default_HasNoConfiguredDefaultSpeaker() =>
-        Assert.Null(CompilerOptions.Default.DefaultSpeakerName);
+    public void Default_HasNoConfiguredSpeakers() =>
+        Assert.Empty(CompilerOptions.Default.Speakers);
 
     [Fact]
-    public void DefaultSpeakerName_IsUnsetOnAFreshInstance() =>
-        Assert.Null(new CompilerOptions().DefaultSpeakerName);
+    public void Speakers_AreEmptyOnAFreshInstance() =>
+        Assert.Empty(new CompilerOptions().Speakers);
 
     [Fact]
-    public void Semantics_CarriesTheConfiguredDefaultSpeakerName()
+    public void ForSemanticAnalyzer_ExposesTheConfiguredSpeakers()
     {
-        var options = new CompilerOptions { DefaultSpeakerName = "Narrator" };
+        var narrator = new ConfiguredSpeaker(
+            "Narrator", "narrator",
+            CustomTags: [new ConfiguredTag("mood", "happy")],
+            ReservedTags: [new ConfiguredTag("default")]);
+        var options = new CompilerOptions { Speakers = [narrator] };
 
-        Assert.Equal("Narrator", options.Semantics.DefaultSpeakerName);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Semantics_TreatsABlankNameAsUnset(string? blank)
-    {
-        var options = new CompilerOptions { DefaultSpeakerName = blank };
-
-        Assert.Null(options.Semantics.DefaultSpeakerName);
+        var configured = Assert.Single(options.ForSemanticAnalyzer().ConfiguredSpeakers);
+        Assert.Equal("Narrator", configured.Name);
+        Assert.Equal("narrator", configured.Id);
+        Assert.Equal([new ConfiguredTag("mood", "happy")], configured.CustomTags);
+        Assert.Equal([new ConfiguredTag("default")], configured.ReservedTags);
     }
 }

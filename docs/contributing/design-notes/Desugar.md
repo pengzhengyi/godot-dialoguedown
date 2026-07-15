@@ -1,6 +1,6 @@
 # Implementation note: Desugar
 
-> [!IMPORTANT]
+> [!NOTE]
 > Status: **implemented**. Component 3 of the DialogueDown script compiler, sitting
 > between the transpiler and semantic analysis. Both local rules ship — jump
 > assembly (`JumpAssembler`) and default-speaker fill (`DefaultSpeakerFiller`) —

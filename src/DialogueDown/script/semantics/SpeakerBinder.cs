@@ -1,4 +1,5 @@
 using DialogueDown.Common;
+using DialogueDown.Configuration;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Semantics.Errors;
 

@@ -28,6 +28,7 @@ import { createMaximizeButton } from "./maximize-button";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { dialogueAutocompletion } from "./editor-completions";
 import { type DialogueSymbolSource, scanDialogueSymbols } from "./dialogue-symbols";
+import { initScrollSync } from "./scroll-sync";
 import { renderDocument } from "./text";
 
 /**
@@ -234,6 +235,9 @@ export function createSourceView(
 
     container.append(sourcePane, divider, preview);
     initSplitDivider(container, divider);
+
+    // Scroll the editor and its preview together (VS Code-style), anchored on headings.
+    initScrollSync(view, preview);
 
     // The preview can be hidden to give the editor the full width. Its toggle lives on the
     // split divider, doubling as the always-present re-open handle; the choice is

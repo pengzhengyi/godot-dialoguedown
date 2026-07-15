@@ -165,3 +165,86 @@ test("an external change surfaces the passive chip without discarding local edit
     await expect(page.locator(".disk-chip")).toBeVisible();
     await expect(page.locator(".cm-content")).toContainText("Alice");
 });
+
+// A long, multi-scene document so both panes actually scroll. Headings anchor the sync.
+const SCENES = 8;
+const SCROLL_DOC =
+    "# Prologue\n\n" +
+    Array.from({ length: SCENES }, (_, i) => {
+        const body = Array.from(
+            { length: 6 },
+            (_, l) =>
+                `Speaker${l % 3}: Line ${l} of scene ${i + 1}. Lorem ipsum dolor sit amet, ` +
+                "consectetur adipiscing elit, plenty of filler so the line wraps.",
+        ).join("\n\n");
+        return `## Scene ${i + 1}\n\n${body}\n`;
+    }).join("\n");
+
+/** The heading nearest the top of each pane, and how far below the top it sits. */
+async function headingsAtTop(page: Page) {
+    return page.evaluate(() => {
+        const scene = (label: string | null) => label?.replace(/^#+\s*/, "").trim() ?? null;
+        const scroller = document.querySelector<HTMLElement>(".source-pane .cm-scroller")!;
+        const preview = document.querySelector<HTMLElement>(".source-preview")!;
+        const editorTop = scroller.getBoundingClientRect().top;
+        const previewTop = preview.getBoundingClientRect().top;
+        const nearestEditor = [...scroller.querySelectorAll(".cm-line")]
+            .map((l) => ({
+                d: l.getBoundingClientRect().top - editorTop,
+                t: l.textContent!.trim(),
+            }))
+            .filter((o) => /^#{1,6}\s/.test(o.t))
+            .sort((a, b) => Math.abs(a.d) - Math.abs(b.d))[0];
+        const nearestPreview = [...preview.querySelectorAll("h1,h2,h3,h4,h5,h6")]
+            .map((h) => ({
+                d: h.getBoundingClientRect().top - previewTop,
+                t: h.textContent!.trim(),
+            }))
+            .sort((a, b) => Math.abs(a.d) - Math.abs(b.d))[0];
+        return {
+            editorScene: scene(nearestEditor?.t ?? null),
+            previewScene: scene(nearestPreview?.t ?? null),
+            editorDelta: nearestEditor ? Math.round(nearestEditor.d) : null,
+            previewDelta: nearestPreview ? Math.round(nearestPreview.d) : null,
+        };
+    });
+}
+
+const scrollBy = (page: Page, selector: string, total: number, step: number) =>
+    page.evaluate(
+        async ([selector, total, step]) => {
+            const el = document.querySelector<HTMLElement>(selector as string)!;
+            for (let done = 0; done < (total as number); done += step as number) {
+                el.scrollTop += step as number;
+                await new Promise((r) => setTimeout(r, 40)); // let each frame sync
+            }
+        },
+        [selector, total, step] as const,
+    );
+
+test("the editor and preview scroll in sync, anchored on scenes", async ({ page }) => {
+    writeFileSync(LIVE_EDIT_DOC, SCROLL_DOC);
+    await expect(async () => {
+        await page.goto(`${base}/`);
+        // The editor virtualizes its lines, so assert on the preview (full HTML) to know
+        // the long document loaded.
+        await expect(page.locator(".source-preview")).toContainText(`Scene ${SCENES}`, {
+            timeout: 2000,
+        });
+    }).toPass({ timeout: 20_000 });
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+
+    // Scrolling the editor down brings the same scene to the top of the preview.
+    await scrollBy(page, ".source-pane .cm-scroller", 1600, 150);
+    await page.waitForTimeout(200);
+    const afterEditor = await headingsAtTop(page);
+    expect(afterEditor.editorScene).toBe(afterEditor.previewScene);
+    expect(Math.abs(afterEditor.editorDelta! - afterEditor.previewDelta!)).toBeLessThan(40);
+
+    // Scrolling the preview scrolls the editor back the same way (bidirectional).
+    await scrollBy(page, ".source-preview", 1400, 140);
+    await page.waitForTimeout(200);
+    const afterPreview = await headingsAtTop(page);
+    expect(afterPreview.editorScene).toBe(afterPreview.previewScene);
+    expect(Math.abs(afterPreview.editorDelta! - afterPreview.previewDelta!)).toBeLessThan(40);
+});

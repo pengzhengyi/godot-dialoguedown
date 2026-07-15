@@ -19,7 +19,7 @@
   - [Interfaces and abstractions](#interfaces-and-abstractions)
   - [Key design decisions](#key-design-decisions)
     - [DD1 — A satellite assembly with Tomlyn, not a core dependency](#dd1--a-satellite-assembly-with-tomlyn-not-a-core-dependency)
-    - [DD2 — Map Tomlyn's untyped model, not a fixed POCO](#dd2--map-tomlyns-untyped-model-not-a-fixed-poco)
+    - [DD2 — Traverse Tomlyn's syntax tree, not a fixed POCO](#dd2--traverse-tomlyns-syntax-tree-not-a-fixed-poco)
     - [DD3 — Reserved as typed keys, custom as shorthand with a structured escape hatch](#dd3--reserved-as-typed-keys-custom-as-shorthand-with-a-structured-escape-hatch)
     - [DD4 — Validate at the edge, fail with a location](#dd4--validate-at-the-edge-fail-with-a-location)
   - [Error and boundary cases](#error-and-boundary-cases)
@@ -136,13 +136,15 @@ needs. The project is format-named-agnostic (`ConfigurationLoader`, not `.Toml`)
 TOML is the one decided format; the entry type `TomlConfigurationLoader` names the
 format at the API.
 
-### DD2 — Map Tomlyn's untyped model, not a fixed POCO
+### DD2 — Traverse Tomlyn's syntax tree, not a fixed POCO
 
 A speaker's **reserved keys are open-ended** (`default`, later `voice`, …), so a fixed
-POCO cannot capture them. The loader deserializes to Tomlyn's `TomlTable` model and
-traverses each `[[speakers]]` entry itself, partitioning keys and keeping the token
-spans for error locations. This trades a little mapping code for control over
-partitioning and diagnostics.
+POCO cannot capture them. Tomlyn 2.x replaced its untyped `TomlTable` model with a
+round-trippable **syntax tree**, so the loader parses to a `DocumentSyntax`
+(`SyntaxParser.Parse`) and walks each `[[speakers]]` entry (a `TableArraySyntax`)
+itself, reading keys as it goes and partitioning them. Every syntax node carries a
+native span, giving precise line/column error locations for free. This trades a little
+traversal code for control over partitioning and diagnostics.
 
 ### DD3 — Reserved as typed keys, custom as shorthand with a structured escape hatch
 

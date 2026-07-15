@@ -1,4 +1,5 @@
 using DialogueDown.Configuration;
+using static DialogueDown.Tests.Support.ConfigurationFactory;
 
 namespace DialogueDown.Tests.Configuration;
 
@@ -15,16 +16,16 @@ public sealed class CompilerOptionsTests
     [Fact]
     public void ForSemanticAnalyzer_ExposesTheConfiguredSpeakers()
     {
-        var narrator = new ConfiguredSpeaker(
+        var narrator = ConfiguredSpeaker(
             "Narrator", "narrator",
-            CustomTags: [new ConfiguredTag("mood", "happy")],
-            ReservedTags: [new ConfiguredTag("default")]);
+            customTags: [ConfiguredTag("mood", "happy")],
+            reservedTags: [DefaultTag()]);
         var options = new CompilerOptions { Speakers = [narrator] };
 
         var configured = Assert.Single(options.ForSemanticAnalyzer().ConfiguredSpeakers);
         Assert.Equal("Narrator", configured.Name);
         Assert.Equal("narrator", configured.Id);
-        Assert.Equal([new ConfiguredTag("mood", "happy")], configured.CustomTags);
-        Assert.Equal([new ConfiguredTag("default")], configured.ReservedTags);
+        Assert.Equal([ConfiguredTag("mood", "happy")], configured.CustomTags);
+        Assert.Equal([DefaultTag()], configured.ReservedTags);
     }
 }

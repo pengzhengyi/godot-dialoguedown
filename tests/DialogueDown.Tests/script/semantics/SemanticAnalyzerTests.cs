@@ -1,14 +1,16 @@
+using DialogueDown.Configuration;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
 using DialogueDown.Script.Semantics.Errors;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.ConfigurationFactory;
 
 namespace DialogueDown.Tests.Script.Semantics;
 
 public sealed class SemanticAnalyzerTests
 {
-    private readonly SemanticAnalyzer _analyzer = new();
+    private readonly SemanticAnalyzer _analyzer = new(new SemanticAnalyzerOptions([]));
 
     [Fact]
     public void Analyze_NullDocument_Throws() =>
@@ -39,6 +41,29 @@ public sealed class SemanticAnalyzerTests
         Assert.Equal("A", alice.Id);
         Assert.True(alice.IsDefault);
         Assert.Contains(alice.Tags, tag => tag.Name == "happy");
+    }
+
+    [Fact]
+    public void Analyze_ConfiguredDefaultSpeaker_ResolvesSpeakerlessLines()
+    {
+        var analyzer = new SemanticAnalyzer(new SemanticAnalyzerOptions([DefaultConfiguredSpeaker("Narrator")]));
+
+        var model = analyzer.Analyze(Pipeline.UntilDesugared("Hi."), "Hi.");
+
+        var speaker = model.Speakers.Resolve(new DefaultSpeaker(SourceSpanFactory.Span()));
+        Assert.Equal("Narrator", speaker.Name);
+        Assert.True(speaker.IsDefault);
+    }
+
+    [Fact]
+    public void Analyze_InFileDefault_OverridesTheConfiguredDefault()
+    {
+        var analyzer = new SemanticAnalyzer(new SemanticAnalyzerOptions([DefaultConfiguredSpeaker("Narrator")]));
+        var source = "Bob ##default: Hi.";
+
+        var model = analyzer.Analyze(Pipeline.UntilDesugared(source), source);
+
+        Assert.Equal("Bob", model.Speakers.Resolve(new DefaultSpeaker(SourceSpanFactory.Span())).Name);
     }
 
     [Fact]

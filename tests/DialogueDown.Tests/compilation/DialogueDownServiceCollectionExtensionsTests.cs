@@ -1,9 +1,12 @@
 using DialogueDown.Compilation;
+using DialogueDown.Configuration;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler;
+using DialogueDown.Tests.Support;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using static DialogueDown.Tests.Support.ConfigurationFactory;
 
 namespace DialogueDown.Tests.Compilation;
 
@@ -17,6 +20,18 @@ public sealed class DialogueDownServiceCollectionExtensionsTests
         var result = provider.GetRequiredService<IScriptCompiler>().Compile("Alice: hi");
 
         Assert.Equal("Alice: hi", result.Source);
+    }
+
+    [Fact]
+    public void AddDialogueDown_WithAConfiguredDefaultSpeaker_UsesItForSpeakerlessLines()
+    {
+        var options = new CompilerOptions { Speakers = [DefaultConfiguredSpeaker("Narrator")] };
+        using var provider = new ServiceCollection().AddDialogueDown(options).BuildServiceProvider();
+
+        var result = provider.GetRequiredService<IScriptCompiler>().Compile("Hi.");
+
+        var speaker = result.Semantics.Speakers.Resolve(new DefaultSpeaker(SourceSpanFactory.Span()));
+        Assert.Equal("Narrator", speaker.Name);
     }
 
     [Fact]

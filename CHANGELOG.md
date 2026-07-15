@@ -28,7 +28,8 @@ changes easy to categorize.
   **View ⇄ Edit** toggle: a read-only, auto-updating **View** and an in-browser editor that
   saves back to the file — or creates a new script from the launcher or a not-yet-existing
   path — or discards unsaved edits to restore the last saved version — with
-  search, section folding, Markdown formatting shortcuts, document-aware autocomplete, and a
+  search, section folding, Markdown formatting shortcuts, document-aware autocomplete,
+  synchronized editor/preview scrolling, and a
   **light/dark** theme.
 - **`visualize` report navigation** — collapsible side panels, a full-screen mode,
   hover-to-spotlight a node's lineage (its ancestors and descendants), and per-graph

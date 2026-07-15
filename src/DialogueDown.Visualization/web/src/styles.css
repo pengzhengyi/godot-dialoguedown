@@ -84,7 +84,7 @@ body {
     border-bottom: 1px solid var(--pico-muted-border-color);
 }
 
-/* GitHub link and theme toggle, pinned together to the top-right of the header. */
+/* Docs + GitHub links and the theme toggle, pinned to the top-right of the header. */
 .header-controls {
     position: absolute;
     top: 0.5rem;
@@ -94,15 +94,24 @@ body {
     gap: 0.6rem;
 }
 
-.repo-link {
+.repo-link,
+.docs-link {
     display: inline-flex;
     line-height: 0;
     color: var(--pico-muted-color);
     text-decoration: none;
 }
 
-.repo-link:hover {
+.repo-link:hover,
+.docs-link:hover {
     color: var(--pico-color);
+}
+
+/* The open-book glyph's visual mass sits ~1px high beside the GitHub mark,
+   which fills more of its lower half; nudge it down so the two icons
+   optically align. */
+.docs-link svg {
+    transform: translateY(1px);
 }
 
 /* Theme control: a leading icon (sun/moon/monitor) beside the System/Light/Dark select. */

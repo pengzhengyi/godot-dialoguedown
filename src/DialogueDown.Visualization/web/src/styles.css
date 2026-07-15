@@ -1645,6 +1645,10 @@ body.maximized #app {
 }
 
 .launcher-item {
+    /* Pico gives list items a margin-bottom; drop it so rows sit flush and a hover or
+       selection highlight fills the whole row instead of leaving a white gap above and
+       below (100% emphasis on the hovered option). */
+    margin: 0;
     padding: 0.4rem 0.8rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1717,4 +1721,99 @@ body.maximized #app {
 
 .launcher-open:not(:disabled):hover {
     filter: brightness(1.08);
+}
+
+/* "New file" — the trailing listing row. Collapsed it is a muted trigger (a leading +);
+   clicking it swaps the row for an inline name field, so a file is named alongside the
+   others in the tree. */
+.launcher-item.launcher-new {
+    color: var(--pico-muted-color);
+}
+
+.launcher-item.launcher-new::before {
+    content: "+ ";
+    font-weight: 700;
+}
+
+.launcher-item.launcher-new:hover {
+    color: var(--pico-color);
+    background: var(--pico-muted-border-color);
+}
+
+.launcher-item.launcher-create-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    overflow: visible;
+    white-space: normal;
+    cursor: default;
+}
+
+.launcher-create-name {
+    /* Neutralize the Pico form-element defaults that fight this inline field. Pico's
+       input height calc reads the spacing vars, so shrinking them keeps the field the
+       size of the buttons and rows; --pico-spacing is Pico's default input
+       margin-bottom, so zeroing it lets the field's box center on the .dialogue.md
+       suffix instead of riding ~9px above it. Cleaner than !important overrides. */
+    --pico-form-element-spacing-vertical: 0.2rem;
+    --pico-form-element-spacing-horizontal: 0.45rem;
+    --pico-spacing: 0;
+
+    flex: 1 1 auto;
+    min-width: 4rem;
+    width: auto;
+    background: var(--pico-form-element-background-color);
+
+    /* Explicit so the typed name is legible in both themes (not white-on-white). */
+    color: var(--pico-color);
+    font-size: 0.9rem;
+}
+
+.launcher-create-ext {
+    flex: 0 0 auto;
+    color: var(--pico-muted-color);
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.82rem;
+}
+
+.launcher-create-submit,
+.launcher-create-cancel {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.2rem 0.7rem;
+    border-radius: var(--pico-border-radius);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.launcher-create-submit {
+    /* A new file always opens in Edit, so the create button carries the mode accent. */
+    --pico-color: var(--mode-accent-contrast);
+
+    border: 1px solid var(--mode-accent);
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
+}
+
+.launcher-create-submit:hover {
+    filter: brightness(1.08);
+}
+
+.launcher-create-cancel {
+    border: 1px solid var(--pico-muted-border-color);
+    background: transparent;
+    color: var(--pico-muted-color);
+}
+
+.launcher-create-cancel:hover {
+    color: var(--pico-color);
+}
+
+.launcher-create-error {
+    margin: 0.1rem 0 0;
+    color: #e5484d;
+    font-size: 0.8rem;
 }

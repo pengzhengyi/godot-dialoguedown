@@ -29,6 +29,15 @@ internal static class ServeMode
         CancellationToken cancellationToken,
         string mode = VisualizationMode.View)
     {
+        // Create-on-edit: an Edit session may target a not-yet-existing script. Create it
+        // empty (when the name is a .dialogue.md in an existing folder) so the served path —
+        // which reads the file — works unchanged. View has nothing to show for a missing
+        // file, so it still errors below.
+        if (mode == VisualizationMode.Edit)
+        {
+            CreateIfMissing(file);
+        }
+
         var problem = DocumentValidation.Validate(file);
         if (problem is not null)
         {
@@ -65,5 +74,23 @@ internal static class ServeMode
         await stopped.Task;
 
         return 0;
+    }
+
+    // Writes an empty script when `file` is a not-yet-existing `.dialogue.md` in an existing
+    // folder, so an Edit session can start on a fresh file. A wrong extension or a missing
+    // folder is left for DocumentValidation to report.
+    private static void CreateIfMissing(string file)
+    {
+        if (File.Exists(file) ||
+            !file.EndsWith(DocumentValidation.Extension, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(file));
+        if (directory is not null && Directory.Exists(directory))
+        {
+            File.WriteAllText(file, string.Empty);
+        }
     }
 }

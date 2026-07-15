@@ -1,6 +1,6 @@
 # Implementation note: Markdown to Dialogue AST transpiler
 
-> [!IMPORTANT]
+> [!NOTE]
 > Status: **implemented**. The full front-to-back path is in place: the parser
 > core/combinators, the tag, speaker, and game-call parsers and builders
 > (parse-to-data model, D13), the Dialogue AST node set, the inline Speech walker

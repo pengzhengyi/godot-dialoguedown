@@ -15,10 +15,14 @@ describe("createDetailPanel", () => {
         panel = createDetailPanel();
     });
 
+    const note = () => body.querySelector<HTMLElement>(".node-note");
+    const editor = () => body.querySelector(".node-source .cm-editor");
+
     it("starts with a placeholder after clear", () => {
         panel.clear();
         expect(title.textContent).toBe("Node details");
-        expect(body.textContent).toContain("Click any node");
+        expect(note()?.hidden).toBe(false);
+        expect(note()?.textContent).toContain("Click any node");
     });
 
     it("shows a category color dot and the escaped label", () => {
@@ -33,7 +37,6 @@ describe("createDetailPanel", () => {
         expect(dot?.style.background).toBeTruthy();
         expect(title.textContent).toContain("Code <span>");
         expect(title.innerHTML).toContain("&lt;span&gt;");
-        // The dot uses the category color (jsdom normalizes the hex, so compare via a probe element).
         const probe = document.createElement("span");
         probe.style.background = colorOf("call");
         expect(dot?.style.background).toBe(probe.style.background);
@@ -53,29 +56,60 @@ describe("createDetailPanel", () => {
                 { name: "text", value: "Scene" },
             ],
         });
-        const rows = body.querySelectorAll("table tr");
+        const rows = body.querySelectorAll(".node-attributes table tr");
         expect(rows).toHaveLength(2);
         expect(rows[0].querySelector("th")?.textContent).toBe("level");
         expect(rows[0].querySelector("td")?.textContent).toBe("2");
     });
 
-    it("renders a source block and a Markdown preview when source is present", () => {
-        panel.show({ id: "n1", label: "Heading", attributes: [], source: "# Scene" });
-        expect(body.textContent).toContain("Source");
-        expect(body.querySelector("pre code")?.textContent).toBe("# Scene");
-        expect(body.querySelector(".preview")?.innerHTML).toContain("<h1>Scene</h1>");
+    it("mounts an editor showing the node's source when source is present", () => {
+        panel.show({
+            id: "n1",
+            label: "Heading",
+            attributes: [],
+            source: "# Scene",
+            span: { start: 0, end: 7 },
+        });
+        expect(editor()).not.toBeNull();
+        expect(body.querySelector(".node-source")?.textContent).toContain("# Scene");
+        expect(note()?.hidden).toBe(true);
     });
 
-    it("shows an inserted note instead of a source section when there is no source", () => {
+    it("shows an inserted note (no editor) for a synthetic node with no source", () => {
         panel.show({ id: "n1", label: "Speaker (default)", attributes: [] });
-        expect(body.querySelector("pre")).toBeNull();
-        expect(body.querySelector(".inserted-note")?.textContent).toContain(
-            "Inserted by the compiler",
-        );
+        expect(note()?.hidden).toBe(false);
+        expect(note()?.textContent).toContain("Inserted by the compiler");
     });
 
-    it("escapes the source so it cannot inject markup", () => {
-        panel.show({ id: "n1", label: "Text", attributes: [], source: "<script>x" });
-        expect(body.querySelector("pre code")?.innerHTML).toContain("&lt;script&gt;");
+    it("reuses the one editor across selections, swapping its content", () => {
+        panel.show({
+            id: "n1",
+            label: "A",
+            attributes: [],
+            source: "# A",
+            span: { start: 0, end: 3 },
+        });
+        const first = editor();
+        panel.show({
+            id: "n2",
+            label: "B",
+            attributes: [],
+            source: "# B",
+            span: { start: 0, end: 3 },
+        });
+        expect(editor()).toBe(first); // same editor instance
+        expect(body.querySelector(".node-source")?.textContent).toContain("# B");
+    });
+
+    it("hides the editor and shows the note when a synthetic node follows a sourced one", () => {
+        panel.show({
+            id: "n1",
+            label: "A",
+            attributes: [],
+            source: "# A",
+            span: { start: 0, end: 3 },
+        });
+        panel.show({ id: "n2", label: "Speaker (default)", attributes: [] });
+        expect(note()?.hidden).toBe(false);
     });
 });

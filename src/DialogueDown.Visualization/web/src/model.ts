@@ -13,6 +13,12 @@ export interface DisplayNode {
     attributes: DisplayAttribute[];
     /** The original source text this node was produced from, if known. */
     source?: string;
+    /**
+     * The node's source location as a half-open `[start, end)` character range into the
+     * original document, so an edit can be spliced back into the exact source. Absent for a
+     * synthetic node (no source of its own); the whole document for the document-root node.
+     */
+    span?: { start: number; end: number };
     /** A stable, cross-stage semantic category that drives color. */
     category?: string;
     /** A cross-link key tying the node to a semantic entity (a scene), if any. */

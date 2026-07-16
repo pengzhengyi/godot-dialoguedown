@@ -47,11 +47,22 @@ if (report.mode === "view" || report.mode === "edit") {
     // The semantic analyzer's resolved symbols, refreshed on each hot-reload. The editor's
     // completion source reads this holder every call, so a reload updates completions in place.
     let currentSymbols: DialogueSymbols | undefined = report.symbols;
+    // Navigation (switching tabs or selecting another node) is locked while the session has
+    // unsaved edits, so a stale graph is never shown beside them. Resolve it here: discard to
+    // continue, or cancel to keep editing (then Save). One dirty document, one Save/Discard.
+    const guardNavigation = (): boolean => {
+        if (!live.dirty) return true;
+        const discard = window.confirm(
+            "You have unsaved changes. Discard them to continue? " +
+                "Click Cancel to keep editing, then Save.",
+        );
+        if (discard) live.discardChanges();
+        return discard;
+    };
     const app = runApp(report, {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
-        // Freeze the toggle on read-only graph tabs; thaw it on the Source tab.
-        onActiveTabChange: (isSource) => toggle.setEnabled(isSource),
+        confirmNavigation: guardNavigation,
         symbols: createSemanticSymbolSource(() => currentSymbols),
     });
     const ui = initLiveEditUi(

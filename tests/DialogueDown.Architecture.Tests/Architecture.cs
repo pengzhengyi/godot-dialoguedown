@@ -1,5 +1,6 @@
 using System.Reflection;
 using DialogueDown.Compilation;
+using DialogueDown.ConfigurationLoader;
 using DialogueDown.Visualization;
 using DialogueDown.Visualization.Live;
 
@@ -17,9 +18,11 @@ internal static class Architecture
     public const string Cli = "DialogueDown.Cli";
     public const string Visualization = "DialogueDown.Visualization";
     public const string VisualizationLive = "DialogueDown.Visualization.Live";
+    public const string ConfigurationLoader = "DialogueDown.ConfigurationLoader";
 
     // Core internal layers, in pipeline order.
     public const string Common = "DialogueDown.Common";
+    public const string Configuration = "DialogueDown.Configuration";
     public const string Markdown = "DialogueDown.Markdown";
     public const string Graph = "DialogueDown.Graph";
     public const string Script = "DialogueDown.Script";
@@ -43,4 +46,8 @@ internal static class Architecture
 
     /// <summary>The live (browser) visualization layer built on visualization.</summary>
     public static readonly Assembly VisualizationLiveAssembly = typeof(IVisualizeRunner).Assembly;
+
+    /// <summary>The TOML configuration-loader satellite built on the core.</summary>
+    public static readonly Assembly ConfigurationLoaderAssembly =
+        typeof(TomlConfigurationLoader).Assembly;
 }

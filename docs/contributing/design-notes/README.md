@@ -13,6 +13,7 @@ that every component shares — starting with the error model.
 
 - [Reading guide](#reading-guide)
   - [Core: the compiler pipeline](#core-the-compiler-pipeline)
+  - [Configuration](#configuration)
   - [Command-line interface](#command-line-interface)
   - [Visualization](#visualization)
   - [Other notes](#other-notes)
@@ -62,6 +63,17 @@ flowchart LR
 
 The [Error model](#error-model) below is a cross-cutting core convention every
 stage adopts — read it alongside these.
+
+### Configuration
+
+**Read when you configure the compiler or add a config knob.** A cross-cutting core
+concern — an immutable `CompilerOptions` seam threaded into the stages — and its file
+edge, a satellite that reads a `dialogue.toml` into those options.
+
+| Order | Note | What it covers | Status |
+| --- | --- | --- | --- |
+| 1 | [Configuration](./Configuration.md) | The `CompilerOptions` seam: a configured speaker registry (default via the reserved tag) threaded into the semantic stage | Implemented |
+| 2 | [Configuration Loader](./Configuration%20Loader.md) | The TOML edge: reads `dialogue.toml` into a `CompilerOptions`, validating with located errors, in its own satellite assembly | Implemented |
 
 ### Command-line interface
 

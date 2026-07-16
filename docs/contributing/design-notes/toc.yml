@@ -14,6 +14,12 @@
     href: Semantic Analyzer.md
   - name: Script Compiler Facade
     href: Script Compiler Facade.md
+- name: Configuration
+  items:
+  - name: Configuration
+    href: Configuration.md
+  - name: Configuration Loader
+    href: Configuration Loader.md
 - name: Command-line interface
   items:
   - name: Command-Line Interface

@@ -1,0 +1,31 @@
+using DialogueDown.Configuration;
+using static DialogueDown.Tests.Support.ConfigurationFactory;
+
+namespace DialogueDown.Tests.Configuration;
+
+public sealed class CompilerOptionsTests
+{
+    [Fact]
+    public void Default_HasNoConfiguredSpeakers() =>
+        Assert.Empty(CompilerOptions.Default.Speakers);
+
+    [Fact]
+    public void Speakers_AreEmptyOnAFreshInstance() =>
+        Assert.Empty(new CompilerOptions().Speakers);
+
+    [Fact]
+    public void ForSemanticAnalyzer_ExposesTheConfiguredSpeakers()
+    {
+        var narrator = ConfiguredSpeaker(
+            "Narrator", "narrator",
+            customTags: [ConfiguredTag("mood", "happy")],
+            reservedTags: [DefaultTag()]);
+        var options = new CompilerOptions { Speakers = [narrator] };
+
+        var configured = Assert.Single(options.ForSemanticAnalyzer().ConfiguredSpeakers);
+        Assert.Equal("Narrator", configured.Name);
+        Assert.Equal("narrator", configured.Id);
+        Assert.Equal([ConfiguredTag("mood", "happy")], configured.CustomTags);
+        Assert.Equal([DefaultTag()], configured.ReservedTags);
+    }
+}

@@ -18,6 +18,14 @@ changes easy to categorize.
   invalid references. Wire it up with `AddDialogueDown()` (DI) or
   `ScriptCompilerFactory.CreateDefault()`. See the
   [design notes](docs/contributing/design-notes/README.md).
+- **Configurable speakers, in code or from a `dialogue.toml`** — supply speakers (and
+  mark one the default) through `CompilerOptions`, and the compiler binds them
+  alongside a script's own: a configured default covers speaker-less lines when the
+  script declares no `##default`, and a configured speaker unifies with a same-named
+  script speaker. A separate `DialogueDown.ConfigurationLoader` reads a project's
+  `dialogue.toml` into `CompilerOptions`, reporting malformed configuration with its
+  source location. See the
+  [design notes](docs/contributing/design-notes/README.md).
 - **`dialoguedown` CLI** — `compile` runs the compiler pipeline; `visualize` opens
   the interactive report or writes a stage's graph as portable **Mermaid** or
   **Graphviz DOT** text (`--emit`).

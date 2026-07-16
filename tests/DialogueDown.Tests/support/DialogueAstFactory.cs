@@ -43,6 +43,9 @@ internal static class DialogueAstFactory
         string name, string? id = null, params Tag[] tags) =>
         new(name, id, tags, SourceSpanFactory.Span());
 
+    public static SpeakerDeclaration DefaultSpeakerDeclaration(string name) =>
+        SpeakerDeclaration(name, tags: ReservedTag("default"));
+
     public static SpeakerNameReference SpeakerNameReference(string name) =>
         new(name, SourceSpanFactory.Span());
 

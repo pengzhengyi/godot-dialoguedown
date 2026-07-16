@@ -1,3 +1,4 @@
+using DialogueDown.Configuration;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
@@ -14,11 +15,17 @@ namespace DialogueDown.Compilation;
 /// </summary>
 public static class ScriptCompilerFactory
 {
-    /// <summary>Creates the default compiler with its standard stage graph.</summary>
-    public static IScriptCompiler CreateDefault() =>
-        new ScriptCompiler(
+    /// <summary>
+    /// Creates the default compiler with its standard stage graph, configured by
+    /// <paramref name="options"/> (the unconfigured <see cref="CompilerOptions.Default"/> when null).
+    /// </summary>
+    public static IScriptCompiler CreateDefault(CompilerOptions? options = null)
+    {
+        options ??= CompilerOptions.Default;
+        return new ScriptCompiler(
             new MarkdigMarkdownParser(),
             ScriptTranspilerFactory.CreateDefault(),
             new ScriptDesugarer(),
-            new SemanticAnalyzer());
+            new SemanticAnalyzer(options.ForSemanticAnalyzer()));
+    }
 }

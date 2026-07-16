@@ -5,7 +5,9 @@ namespace DialogueDown.Architecture.Tests;
 /// <summary>
 /// Group A — assembly boundaries. The dependency direction is
 /// <c>Cli -> Visualization.Live -> Visualization -> Core</c>, and it must never
-/// reverse: lower layers stay unaware of the layers built on top of them.
+/// reverse: lower layers stay unaware of the layers built on top of them. The
+/// configuration loader is a parallel satellite that depends only on the core (and
+/// Tomlyn), and the core stays unaware of it.
 /// </summary>
 public sealed class AssemblyBoundaryTests
 {
@@ -18,6 +20,34 @@ public sealed class AssemblyBoundaryTests
                 Architecture.Cli,
                 Architecture.Visualization,
                 Architecture.VisualizationLive)
+            .GetResult()
+            .ShouldPass();
+    }
+
+    [Fact]
+    public void Core_DoesNotDependOn_ConfigurationLoader()
+    {
+        Types.InAssembly(Architecture.CoreAssembly)
+            .ShouldNot()
+            .HaveDependencyOnAny(Architecture.ConfigurationLoader)
+            .GetResult()
+            .ShouldPass();
+    }
+
+    [Fact]
+    public void ConfigurationLoader_DependsOnlyOn_CoreAndToml()
+    {
+        // The loader may reach for the core and Tomlyn; it must stay unaware of every sibling
+        // satellite and of any presentation or host library.
+        Types.InAssembly(Architecture.ConfigurationLoaderAssembly)
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                Architecture.Cli,
+                Architecture.Visualization,
+                Architecture.VisualizationLive,
+                Architecture.SpectreConsole,
+                Architecture.Godot,
+                Architecture.SystemConsole)
             .GetResult()
             .ShouldPass();
     }

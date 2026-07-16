@@ -1246,20 +1246,20 @@ body.maximized #app {
     color: var(--pico-muted-color);
 }
 
-/* The node inspector's editor is a reused Source view (editor beside its live preview). It
-   needs an explicit height inside the scrollable panel; the editor and preview then fill it
-   and scroll internally. A note (synthetic node) or the placeholder sits where it would. */
+/* The node inspector's editor is a reused Source view (editor beside its live preview). The
+   editor needs an explicit height to lay out; keep it on the editor itself so the empty
+   state (a note, or the placeholder) reserves no height and the panel does not become a
+   scrollable region with nothing focusable in it. */
 .node-attributes {
     margin-bottom: 0.5rem;
 }
 
 .node-source {
-    height: 24rem;
     margin-top: 0.5rem;
 }
 
 .node-source .inspector-editor {
-    height: 100%;
+    height: 24rem;
 }
 
 .node-note {

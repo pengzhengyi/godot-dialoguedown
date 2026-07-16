@@ -54,9 +54,7 @@ test("a synthetic default-speaker node shows an inserted note, not an empty sour
     await page.locator("g.node", { hasText: "Speaker (default)" }).first().click();
 
     await expect(page.locator("#detail-title")).toContainText("Speaker (default)");
-    await expect(page.locator("#detail-body .inserted-note")).toContainText(
-        "Inserted by the compiler",
-    );
+    await expect(page.locator("#detail-body .node-note")).toContainText("Inserted by the compiler");
     // No misleading empty Source/Preview block for a node that has no source.
-    await expect(page.locator("#detail-body pre")).toHaveCount(0);
+    await expect(page.locator("#detail-body .node-source .cm-editor")).toHaveCount(0);
 });

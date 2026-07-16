@@ -1,8 +1,7 @@
+import { isTextEntryTarget } from "./text-entry";
+
 /** The root-element class that maximizes the active tab and hides the app chrome. */
 export const MAXIMIZED_CLASS = "maximized";
-
-/** Selector for elements whose text entry must not be interrupted by the `f` shortcut. */
-const TEXT_ENTRY = "input, textarea, select, [contenteditable], .cm-editor";
 
 /** The page-level "maximize the active tab" mode. */
 export interface Fullscreen {
@@ -54,8 +53,7 @@ export function initFullscreen(
         }
         if (event.key.toLowerCase() === "f" && !event.ctrlKey && !event.metaKey && !event.altKey) {
             // Leave `f` alone while the reader is typing (the editor or a form field).
-            const target = event.target as Element | null;
-            if (target?.closest?.(TEXT_ENTRY)) return;
+            if (isTextEntryTarget(event.target)) return;
             toggle();
             event.preventDefault();
         }

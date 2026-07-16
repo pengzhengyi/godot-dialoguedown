@@ -10,6 +10,7 @@ import { initResizer } from "./resizer";
 import { initFullscreen } from "./fullscreen";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { initTooltips, initTabTooltips } from "./tooltips";
+import { isTextEntryTarget } from "./text-entry";
 import { setHelp } from "./help";
 
 // The Source tab shows the compiler input, not a projected stage, so its hover
@@ -94,8 +95,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
 
     // One-time wiring that outlives a re-render (the containers persist).
     document.addEventListener("keydown", (event) => {
-        const target = event.target as Element | null;
-        if (target?.closest?.("button, input, textarea, select")) return;
+        // Buttons, form controls, and the editor own their keys; never also drive graph
+        // navigation from them, or arrows would move the graph while the cursor moves and
+        // Space would toggle a fold mid-type.
+        const target = event.target;
+        if (isTextEntryTarget(target) || (target instanceof Element && target.closest("button"))) {
+            return;
+        }
         views[activeIndex]?.handleKey(event);
     });
     initResizer();

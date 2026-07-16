@@ -310,6 +310,32 @@ test("edits a node's source in the inspector, and Save recompiles from it", asyn
     await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("EDITED");
 });
 
+test("editor keys stay in the editor and never move the graph selection", async ({ page }) => {
+    writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+    await page.goto(`${base}/`);
+    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+
+    // Select a node so the graph has a selection that arrow keys could move.
+    await selectNode(page, "Text");
+    const selectedTip = () =>
+        page.locator("section.stage.active g.node.selected").getAttribute("data-tip");
+    const before = await selectedTip();
+    const collapsedBefore = await page.locator("section.stage.active g.node.collapsed").count();
+
+    // Place the cursor in the inspector editor (no edit, so no nav-lock) and press the
+    // very keys the tree view navigates by. They must move the cursor, not the graph.
+    await page.locator(".node-source .cm-content").click();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Space");
+
+    expect(await selectedTip()).toBe(before);
+    expect(await page.locator("section.stage.active g.node.collapsed").count()).toBe(
+        collapsedBefore,
+    );
+});
+
 test("a synthetic node offers no editor, only an inserted note", async ({ page }) => {
     writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
     await page.goto(`${base}/`);

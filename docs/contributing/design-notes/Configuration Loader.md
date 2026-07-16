@@ -1,7 +1,7 @@
 # Implementation note: Configuration loader
 
 > [!IMPORTANT]
-> Status: **approved — implementation in progress**. The **edge** that reads a
+> Status: **implemented**. The **edge** that reads a
 > project's `dialogue.toml` and produces a [`CompilerOptions`](./Configuration.md)
 > for the compiler. It lives in its own satellite assembly so the engine-agnostic
 > core stays free of a TOML dependency: the core keeps taking a plain options
@@ -98,30 +98,38 @@ and the author writes typed keys rather than tag strings.
 
 ## Functionality checklist
 
-- [ ] `TomlConfigurationLoader.Parse(toml)` and `.Load(path)` build a `CompilerOptions`
-      from a `[[speakers]]` array.
-- [ ] Structural keys (`name`, `id`, `tags`) map to their `ConfiguredSpeaker` fields.
-- [ ] Custom `tags` accept a shorthand string (split at the first `=`) or an inline
+- [x] `TomlConfigurationLoader.Load(path)` builds a `CompilerOptions` from a
+      `[[speakers]]` array (with an internal `Parse(toml, sourceName)` for in-memory input).
+- [x] Structural keys (`name`, `id`, `tags`) map to their `ConfiguredSpeaker` fields,
+      each resolved by its semantic name so a quoted key equals its bare form.
+- [x] Custom `tags` accept a shorthand string (split at the first `=`) or an inline
       table (`{ name, value }`), for full DSL parity including a name containing `=`.
-- [ ] Every other key partitions into a **reserved tag** (bool → name-only, string →
+- [x] Every other key partitions into a **reserved tag** (bool → name-only, string →
       valued), validated against `ReservedTagNames.Known`.
-- [ ] Edge validation rejects: missing/empty `name`, a wrong-typed key, an unknown
-      reserved key, an inline-table tag without a `name`, and **more than one** `default`.
-- [ ] A `DialogueConfigurationException` reports the message and source location
-      (path, line, column), for both TOML syntax errors and schema violations.
-- [ ] Empty or speaker-less config yields `CompilerOptions.Default` (no speakers).
-- [ ] An architecture test guards the direction: the core does not depend on the
+- [x] Edge validation rejects a missing or empty `name`, an empty `id`, a wrong-typed
+      key, an unknown key, a reserved tag that is neither boolean nor string, an
+      inline-table tag without a `name` or with an unknown field, a dotted key, and a
+      second `default`.
+- [x] A `DialogueConfigurationException` reports the message and source location
+      (source, line, column), for both TOML syntax errors and schema violations.
+- [x] Empty or speaker-less config yields `CompilerOptions.Default` (no speakers).
+- [x] An architecture test guards the direction: the core does not depend on the
       loader, and the loader depends only on the core (and Tomlyn).
 
 ## Interfaces and abstractions
 
-| Type                             | Visibility | Responsibility                                   | Collaborators             |
-| -------------------------------- | ---------- | ------------------------------------------------ | ------------------------- |
-| `TomlConfigurationLoader`        | public     | `Parse(toml)` / `Load(path)` → `CompilerOptions` | Tomlyn, `CompilerOptions` |
-| `DialogueConfigurationException` | public     | a config error with a source location            | `TomlConfigurationLoader` |
+| Type                             | Visibility | Responsibility                                                          | Collaborators                                   |
+| -------------------------------- | ---------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
+| `TomlConfigurationLoader`        | public     | `Load(path)` → `CompilerOptions`; the composition root                  | `TomlDocumentParser`, `ConfiguredSpeakerReader` |
+| `TomlDocumentParser`             | internal   | parses text into Tomlyn's `DocumentSyntax`, failing on a syntax error   | Tomlyn                                          |
+| `ConfiguredSpeakerReader`        | internal   | maps and validates each `[[speakers]]` entry into a `ConfiguredSpeaker` | `CompilerOptions` model, Tomlyn syntax          |
+| `DialogueConfigurationException` | public     | a config error carrying a source location                               | `ConfigurationSourceLocation`                   |
+| `ConfigurationSourceLocation`    | public     | the source, line, and column of a config error                          | —                                               |
+| `TomlLocation`                   | internal   | maps a Tomlyn span to a `ConfigurationSourceLocation`                   | Tomlyn syntax                                   |
 
-Internally the loader maps Tomlyn's untyped `TomlTable` model to `ConfiguredSpeaker`s
-and validates as it goes; those mapping helpers stay internal.
+Internally the loader walks Tomlyn's syntax tree: the document parser isolates the
+Tomlyn dependency and the speaker reader maps and validates each `[[speakers]]` entry,
+so those helpers stay internal behind the public `Load`.
 
 ## Key design decisions
 
@@ -199,8 +207,10 @@ column. The compiler downstream can then trust its `CompilerOptions`.
   tags), with multi-line raw-string TOML so the input's shape is visible.
 - **Validation**: each error case above gets a test asserting the thrown
   `DialogueConfigurationException` and its reported location.
-- **Round-trip**: a loaded `CompilerOptions` compiles — `ScriptCompilerFactory.CreateDefault(options)`
-  resolves a speaker-less line to the configured default.
+- **Round-trip**: that a loaded `CompilerOptions` actually compiles — a speaker-less
+  line resolving to the configured default — is covered in the core by
+  `ScriptCompilerFactoryTests`, which owns the internals; the loader's own tests assert
+  the parsed `CompilerOptions.Speakers` value directly, needing no core internals.
 - **Architecture**: the dependency-direction test above (core ⊄ loader; loader → core
   only), extending the existing assembly-boundary suite.
 - Construction goes through a small TOML test helper; the loader is stateless and

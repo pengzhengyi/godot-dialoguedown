@@ -208,8 +208,9 @@ column. The compiler downstream can then trust its `CompilerOptions`.
 
 ## Deferred
 
-| Item                                                 | Note                                                                                     |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Non-speaker config (`[markdown.unmodeled]`, runtime) | Other top-level sections, tracked with their own components.                             |
-| Config formats other than TOML                       | TOML is the decided format; the project name leaves room but no other loader is planned. |
-| Duplicate-name detection at the edge                 | The speaker binder already reports speaker conflicts; edge de-duplication can follow.    |
+| Item                                                 | Note                                                                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Non-speaker config (`[markdown.unmodeled]`, runtime) | Other top-level sections, tracked with their own components.                                                        |
+| Config formats other than TOML                       | TOML is the decided format; the project name leaves room but no other loader is planned.                            |
+| Duplicate-name detection at the edge                 | The speaker binder already reports speaker conflicts; edge de-duplication can follow.                               |
+| Aggregate / collected diagnostics                    | Fails fast on the first error like every stage; collecting all config problems joins the planned diagnostics phase. |

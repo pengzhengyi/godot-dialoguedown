@@ -4,6 +4,9 @@
  * browser wiring — CSS imports, `fetch`, and navigation — lives in `launcher-main.ts`.
  */
 
+import { createModeToggle } from "./mode-toggle";
+import type { ServedMode } from "./model";
+
 /** The initial selection injected into the page by the server. */
 export interface LaunchSelection {
     root: string;
@@ -19,32 +22,23 @@ export interface BrowseListing {
     sources: string[];
 }
 
+/** The required extension for a DialogueDown script (auto-appended when creating). */
+export const SCRIPT_EXTENSION = ".dialogue.md";
+
+/** The outcome of a create request. */
+export type CreateOutcome =
+    | { kind: "opened"; url: string }
+    | { kind: "exists"; path: string }
+    | { kind: "error"; message: string };
+
 /** The side-effecting collaborators, injected so the UI is testable without a server. */
 export interface LauncherPorts {
     browse(path: string): Promise<BrowseListing | null>;
     open(source: string, mode: string): Promise<string | null>;
+    create(path: string): Promise<CreateOutcome>;
+    confirm(message: string): boolean;
     navigate(url: string): void;
 }
-
-interface ModeOption {
-    value: string;
-    label: string;
-    help: string;
-    disabled?: boolean;
-}
-
-const MODES: readonly ModeOption[] = [
-    {
-        value: "view",
-        label: "View",
-        help: "Read-only and auto-updating: the report refreshes when the file changes on disk.",
-    },
-    {
-        value: "edit",
-        label: "Edit",
-        help: "Edit the script in the browser and save it back to disk.",
-    },
-];
 
 /** The last path segment of a root-relative path (a display label). */
 export function leafName(path: string): string {
@@ -84,14 +78,30 @@ export function initLauncher(
     card.append(rootRow);
 
     const listing = element("ul", "launcher-listing");
-    const modes = renderModes(initial.mode);
+    // The chosen mode drives the accent (blue View / green Edit) on the capsule, the
+    // selected row, and the Open button — the same `--mode-accent` the report uses,
+    // scoped to the launcher via data-served-mode on the container.
+    const initialMode: ServedMode = initial.mode === "edit" ? "edit" : "view";
+    container.dataset.servedMode = initialMode;
+    const modes = renderModes(initialMode, (mode) => {
+        container.dataset.servedMode = mode;
+    });
     const open = withText("button", "launcher-open", "Open") as HTMLButtonElement;
     open.type = "button";
     open.disabled = true;
-    card.append(listing, modes.element, open);
-    container.append(card);
 
     let selected: string | null = initial.source;
+    // The folder currently shown; a newly created file lands here.
+    let currentPath = "";
+    let creating = false;
+
+    // The "New file" affordance is the last row of the listing, so a file is named and
+    // created alongside the others in the tree. Collapsed it is a trigger; clicking it turns
+    // the row into an inline name field. The error sits just below the listing.
+    const newRow = document.createElement("li");
+    const createError = withText("p", "launcher-create-error", "");
+    createError.setAttribute("role", "alert");
+    createError.hidden = true;
 
     const select = (source: string, item: HTMLElement): void => {
         selected = source;
@@ -101,7 +111,103 @@ export function initLauncher(
         item.classList.add("selected");
     };
 
+    const showError = (message: string): void => {
+        createError.textContent = message;
+        createError.hidden = false;
+    };
+
+    const submitCreate = async (name: string): Promise<void> => {
+        const typed = name.trim();
+        if (typed === "") {
+            showError("Enter a name.");
+            return;
+        }
+        const fileName = typed.endsWith(SCRIPT_EXTENSION) ? typed : `${typed}${SCRIPT_EXTENSION}`;
+        const outcome = await ports.create(currentPath ? `${currentPath}/${fileName}` : fileName);
+        if (outcome.kind === "opened") {
+            ports.navigate(outcome.url);
+        } else if (outcome.kind === "exists") {
+            if (ports.confirm(`A file named ${fileName} already exists here. Open it instead?`)) {
+                const url = await ports.open(outcome.path, "edit");
+                if (url) ports.navigate(url);
+            }
+        } else {
+            showError(outcome.message);
+        }
+    };
+
+    const stopCreating = (): void => {
+        creating = false;
+        createError.hidden = true;
+        renderNewRow();
+    };
+
+    // Rebuilds the trailing listing row for the current create state: a "New file" trigger,
+    // or the inline name field (input + `.dialogue.md` suffix + Create/Cancel) once creating.
+    const renderNewRow = (): void => {
+        if (!creating) {
+            newRow.className = "launcher-item launcher-new";
+            newRow.onclick = () => {
+                creating = true;
+                createError.hidden = true;
+                renderNewRow();
+            };
+            newRow.replaceChildren(document.createTextNode("New file"));
+            return;
+        }
+
+        newRow.className = "launcher-item launcher-create-row";
+        newRow.onclick = null;
+        const name = document.createElement("input");
+        name.type = "text";
+        name.className = "launcher-create-name";
+        name.placeholder = "Enter the new script name";
+        name.setAttribute("aria-label", "New script name");
+        const ext = withText("span", "launcher-create-ext", SCRIPT_EXTENSION);
+        const submit = withText("button", "launcher-create-submit", "Create") as HTMLButtonElement;
+        submit.type = "button";
+        submit.onclick = () => void submitCreate(name.value);
+
+        // The secondary button first clears a typed name, then — once the field is empty —
+        // dismisses it back to the "New file" trigger, so one button both wipes a mistake
+        // and cancels (the two outcomes Escape reaches directly).
+        const dismiss = withText("button", "launcher-create-cancel", "Cancel") as HTMLButtonElement;
+        dismiss.type = "button";
+        const syncDismiss = (): void => {
+            dismiss.textContent = name.value === "" ? "Cancel" : "Clear";
+        };
+        dismiss.onclick = (event) => {
+            // Cancelling restores the trigger's own click handler on this same <li>; stop the
+            // click here so it does not bubble up and immediately re-open the field.
+            event.stopPropagation();
+            if (name.value === "") {
+                stopCreating();
+                return;
+            }
+            name.value = "";
+            createError.hidden = true;
+            syncDismiss();
+            name.focus();
+        };
+        name.oninput = syncDismiss;
+        name.onkeydown = (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                void submitCreate(name.value);
+            } else if (event.key === "Escape") {
+                event.preventDefault();
+                stopCreating();
+            }
+        };
+        syncDismiss();
+        newRow.replaceChildren(name, ext, submit, dismiss);
+        name.focus();
+    };
+
     const render = (list: BrowseListing): void => {
+        currentPath = list.path;
+        creating = false; // browsing to another folder cancels an in-progress create
+        createError.hidden = true;
         listing.replaceChildren();
         if (list.parent !== null) {
             listing.append(row("..", "up", () => void browse(list.parent!)));
@@ -120,12 +226,20 @@ export function initLauncher(
         if (list.parent === null && list.directories.length === 0 && list.sources.length === 0) {
             listing.append(withText("li", "launcher-empty", "No scripts or folders here."));
         }
+
+        renderNewRow();
+        listing.append(newRow);
     };
 
     const browse = async (path: string): Promise<void> => {
         const list = await ports.browse(path);
         if (list) render(list);
     };
+
+    const actions = element("div", "launcher-actions");
+    actions.append(modes.element, open);
+    card.append(listing, createError, actions);
+    container.append(card);
 
     open.addEventListener("click", () => {
         if (selected === null) return;
@@ -143,32 +257,17 @@ function row(label: string, kind: string, onClick: () => void): HTMLElement {
     return item;
 }
 
-function renderModes(initialMode: string): { element: HTMLElement; value: () => string } {
-    const group = element("div", "launcher-modes");
-    group.setAttribute("role", "radiogroup");
-    group.setAttribute("aria-label", "Mode");
-    for (const mode of MODES) {
-        const label = element("label", `launcher-mode${mode.disabled ? " disabled" : ""}`);
-        label.title = mode.help;
-        const input = document.createElement("input");
-        input.type = "radio";
-        input.name = "launcher-mode";
-        input.value = mode.value;
-        input.disabled = mode.disabled ?? false;
-        input.checked = mode.value === initialMode && !mode.disabled;
-        label.append(input, document.createTextNode(` ${mode.label}`));
-        group.append(label);
-    }
-
-    if (!group.querySelector("input:checked")) {
-        const fallback = group.querySelector<HTMLInputElement>("input:not([disabled])");
-        if (fallback) fallback.checked = true;
-    }
-
-    return {
-        element: group,
-        value: () => group.querySelector<HTMLInputElement>("input:checked")?.value ?? "view",
-    };
+function renderModes(
+    initialMode: ServedMode,
+    onChange: (mode: ServedMode) => void,
+): { element: HTMLElement; value: () => ServedMode } {
+    let current = initialMode;
+    const toggle = createModeToggle(current, (mode) => {
+        current = mode;
+        toggle.reflect(mode);
+        onChange(mode);
+    });
+    return { element: toggle.element, value: () => current };
 }
 
 function element(tag: string, className: string): HTMLElement {

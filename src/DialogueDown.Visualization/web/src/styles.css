@@ -84,7 +84,7 @@ body {
     border-bottom: 1px solid var(--pico-muted-border-color);
 }
 
-/* GitHub link and theme toggle, pinned together to the top-right of the header. */
+/* Docs + GitHub links and the theme toggle, pinned to the top-right of the header. */
 .header-controls {
     position: absolute;
     top: 0.5rem;
@@ -94,15 +94,24 @@ body {
     gap: 0.6rem;
 }
 
-.repo-link {
+.repo-link,
+.docs-link {
     display: inline-flex;
     line-height: 0;
     color: var(--pico-muted-color);
     text-decoration: none;
 }
 
-.repo-link:hover {
+.repo-link:hover,
+.docs-link:hover {
     color: var(--pico-color);
+}
+
+/* The open-book glyph's visual mass sits ~1px high beside the GitHub mark,
+   which fills more of its lower half; nudge it down so the two icons
+   optically align. */
+.docs-link svg {
+    transform: translateY(1px);
 }
 
 /* Theme control: a leading icon (sun/moon/monitor) beside the System/Light/Dark select. */
@@ -128,11 +137,13 @@ body {
     height: auto;
 }
 
-/* "Back to launcher" link, shown only on a launcher-served report (see back-link.ts). */
+/* "Back to launcher" — a back arrow to the left of the brand, shown only on a
+   launcher-served report (see back-link.ts). Inline on the brand's row so the header
+   matches a directly-served report. */
 .back-to-launcher {
-    display: inline-block;
-    margin-bottom: 0.4rem;
-    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    line-height: 0;
     color: var(--pico-muted-color);
     text-decoration: none;
 }
@@ -142,6 +153,9 @@ body {
 }
 
 .app-header hgroup {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-bottom: 0.5rem;
     padding-right: 8.5rem; /* keep the brand clear of the top-right controls */
 }
@@ -832,6 +846,25 @@ svg.tree {
 
 .node.highlight text.label {
     font-weight: 700;
+}
+
+/* Lineage focus (tree-view.ts): hovering a node fades everything outside its lineage —
+   its ancestors and visible descendants — so its place in the tree stands out. This is
+   opacity-only, so the scene backbone's thicker strokes (`.link.scene`, `.node.scene`) are
+   preserved *within* the lineage and simply fade outside it, and a `.selected` node stays
+   visible. Placed after `.dimmed`/`.highlight` so this transient hover layer sits on top of
+   the persistent category states. */
+svg.tree g.node,
+svg.tree .link {
+    transition: opacity 0.15s ease;
+}
+
+svg.tree.has-focus g.node:not(.related, .selected) {
+    opacity: 0.32;
+}
+
+svg.tree.has-focus .link:not(.related) {
+    opacity: 0.22;
 }
 
 .legend {
@@ -1551,17 +1584,40 @@ body.maximized #app {
     }
 }
 
-/* Launcher page (launcher.html): a centered card to pick a script and a mode. */
+/* Launcher page (launcher.html): a centered card to pick a script and a mode. The whole
+   unit (brand + card) is centered in the viewport like a modal; auto margins split the
+   free space, and the listing scrolls internally so the card height stays bounded. */
 .launcher {
     max-width: 40rem;
-    margin: 2.5rem auto;
-    padding: 0 1.25rem;
+    margin: auto;
+    padding: 2rem 1.25rem;
+}
+
+/* The report header's hover-morphing brand, centered above the picker card. On hover the
+   mark swaps to the pipeline glyph and the wordmark slides out, staying centered. */
+.launcher-brand {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.6rem;
+}
+
+.launcher-brand .brand {
+    font-size: 1.35rem;
+}
+
+.launcher-brand .brand-mark {
+    width: 40px;
+    height: 40px;
 }
 
 .launcher-card {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 1rem;
+    padding: 1.85rem;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
 }
 
 .launcher-title {
@@ -1592,12 +1648,16 @@ body.maximized #app {
     padding: 0;
     overflow-y: auto;
     list-style: none;
-    background: var(--pico-card-background-color);
+    background: var(--pico-background-color);
     border: 1px solid var(--pico-muted-border-color);
     border-radius: var(--pico-border-radius);
 }
 
 .launcher-item {
+    /* Pico gives list items a margin-bottom; drop it so rows sit flush and a hover or
+       selection highlight fills the whole row instead of leaving a white gap above and
+       below (100% emphasis on the hovered option). */
+    margin: 0;
     padding: 0.4rem 0.8rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1615,8 +1675,8 @@ body.maximized #app {
 }
 
 .launcher-item.selected {
-    background: var(--pico-primary-background);
-    color: var(--pico-primary-inverse);
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
 }
 
 .launcher-item.up::before {
@@ -1638,26 +1698,131 @@ body.maximized #app {
     font-style: italic;
 }
 
-.launcher-modes {
+/* The card's footer: the View/Edit capsule on the left, the Open action pushed to the
+   right — the modal-footer convention. */
+.launcher-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1.1rem;
     align-items: center;
-}
-
-.launcher-mode {
-    display: inline-flex;
-    gap: 0.3rem;
-    align-items: center;
-    margin: 0;
-    cursor: pointer;
-}
-
-.launcher-mode.disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.25rem;
 }
 
 .launcher-open {
-    align-self: flex-start;
+    /* Pico redefines --pico-color to white on buttons; keep our themed contrast. The
+       fill follows the mode accent (blue View / green Edit), matching the capsule and
+       the selected row. Sized down from Pico's chunky default so the primary action
+       stays proportional to the compact capsule and listing beside it. */
+    --pico-color: var(--mode-accent-contrast);
+
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.4rem 1.25rem;
+    border: 1px solid var(--mode-accent);
+    border-radius: var(--pico-border-radius);
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.launcher-open:not(:disabled):hover {
+    filter: brightness(1.08);
+}
+
+/* "New file" — the trailing listing row. Collapsed it is a muted trigger (a leading +);
+   clicking it swaps the row for an inline name field, so a file is named alongside the
+   others in the tree. */
+.launcher-item.launcher-new {
+    color: var(--pico-muted-color);
+}
+
+.launcher-item.launcher-new::before {
+    content: "+ ";
+    font-weight: 700;
+}
+
+.launcher-item.launcher-new:hover {
+    color: var(--pico-color);
+    background: var(--pico-muted-border-color);
+}
+
+.launcher-item.launcher-create-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    overflow: visible;
+    white-space: normal;
+    cursor: default;
+}
+
+.launcher-create-name {
+    /* Neutralize the Pico form-element defaults that fight this inline field. Pico's
+       input height calc reads the spacing vars, so shrinking them keeps the field the
+       size of the buttons and rows; --pico-spacing is Pico's default input
+       margin-bottom, so zeroing it lets the field's box center on the .dialogue.md
+       suffix instead of riding ~9px above it. Cleaner than !important overrides. */
+    --pico-form-element-spacing-vertical: 0.2rem;
+    --pico-form-element-spacing-horizontal: 0.45rem;
+    --pico-spacing: 0;
+
+    flex: 1 1 auto;
+    min-width: 4rem;
+    width: auto;
+    background: var(--pico-form-element-background-color);
+
+    /* Explicit so the typed name is legible in both themes (not white-on-white). */
+    color: var(--pico-color);
+    font-size: 0.9rem;
+}
+
+.launcher-create-ext {
+    flex: 0 0 auto;
+    color: var(--pico-muted-color);
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.82rem;
+}
+
+.launcher-create-submit,
+.launcher-create-cancel {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.2rem 0.7rem;
+    border-radius: var(--pico-border-radius);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.launcher-create-submit {
+    /* A new file always opens in Edit, so the create button carries the mode accent. */
+    --pico-color: var(--mode-accent-contrast);
+
+    border: 1px solid var(--mode-accent);
+    background: var(--mode-accent);
+    color: var(--mode-accent-contrast);
+}
+
+.launcher-create-submit:hover {
+    filter: brightness(1.08);
+}
+
+.launcher-create-cancel {
+    border: 1px solid var(--pico-muted-border-color);
+    background: transparent;
+    color: var(--pico-muted-color);
+}
+
+.launcher-create-cancel:hover {
+    color: var(--pico-color);
+}
+
+.launcher-create-error {
+    margin: 0.1rem 0 0;
+    color: #e5484d;
+    font-size: 0.8rem;
 }

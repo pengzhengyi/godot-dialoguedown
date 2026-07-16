@@ -10,6 +10,7 @@ changes easy to categorize.
 
 ### Added
 
+- **Documentation link in the visualization and demo** — the report header now carries a link to the documentation site, and the live-demo landing page gains a Documentation button, so readers can get back to the docs from the hosted report.
 - **Compiler pipeline behind one `IScriptCompiler` facade** — compiles a Markdown
   dialogue script through parse → transpile → desugar → semantic analysis: it builds
   a Dialogue AST, normalizes it (assembling jumps and filling default speakers), and
@@ -33,12 +34,15 @@ changes easy to categorize.
   (each scene expandable to its script blocks, any node clickable for its source and preview)
   beside cross-linked, resizable speaker, anchor, and jump-resolution tables — with a runtime
   **View ⇄ Edit** toggle: a read-only, auto-updating **View** and an in-browser editor that
-  saves back to the file — or discards unsaved edits to restore the last saved version — with
-  search, section folding, Markdown formatting shortcuts, document-aware autocomplete, and a
+  saves back to the file — or creates a new script from the launcher or a not-yet-existing
+  path — or discards unsaved edits to restore the last saved version — with
+  search, section folding, Markdown formatting shortcuts, document-aware autocomplete,
+  synchronized editor/preview scrolling, and a
   **light/dark** theme.
 - **`visualize` report navigation** — collapsible side panels, a full-screen mode,
-  and per-graph position memory that keeps each stage's zoom, pan, and collapsed
-  branches across tab switches and hot-reloads.
+  hover-to-spotlight a node's lineage (its ancestors and descendants), and per-graph
+  position memory that keeps each stage's zoom, pan, and collapsed branches across
+  tab switches and hot-reloads.
 - **Documentation site and live demo** — a
   [DocFX site](https://pengzhengyi.github.io/godot-dialoguedown/) (a writer Guide, a
   Contributing section with the design notes, and a generated C# API reference) and a

@@ -39,14 +39,7 @@ public sealed class CompilationVisualizer
     public IReadOnlyList<DisplayGraph> BuildStages(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        var result = _compiler.Compile(source);
-        return
-        [
-            result.Markdown.ToDisplayGraph(source),
-            result.Script.ToDisplayGraph(source),
-            result.Desugared.ToDisplayGraph(source),
-            new SemanticProjection().Project(result.Semantics, source),
-        ];
+        return BuildContent(source).Stages;
     }
 
     /// <summary>
@@ -97,8 +90,12 @@ public sealed class CompilationVisualizer
     /// <paramref name="documentPath"/> is given it is shown in the report (the file
     /// being visualized); it does not make the report live.
     /// </summary>
-    public string RenderHtmlReport(string source, string? documentPath = null) =>
-        HtmlTemplate.RenderPage(BuildStages(source), source, VisualizationMode.Static, documentPath);
+    public string RenderHtmlReport(string source, string? documentPath = null)
+    {
+        var content = BuildContent(source);
+        return HtmlTemplate.RenderPage(
+            content.Stages, source, VisualizationMode.Static, documentPath, content.Symbols);
+    }
 
     /// <summary>
     /// Compiles the source and renders the HTML report as a <b>live</b> report: the
@@ -110,7 +107,8 @@ public sealed class CompilationVisualizer
     {
         ArgumentNullException.ThrowIfNull(documentPath);
         ArgumentNullException.ThrowIfNull(mode);
-        return HtmlTemplate.RenderPage(BuildStages(source), source, mode, documentPath);
+        var content = BuildContent(source);
+        return HtmlTemplate.RenderPage(content.Stages, source, mode, documentPath, content.Symbols);
     }
 
     /// <summary>
@@ -122,7 +120,9 @@ public sealed class CompilationVisualizer
     {
         ArgumentNullException.ThrowIfNull(documentPath);
         ArgumentNullException.ThrowIfNull(mode);
-        return DisplayGraphJson.SerializeDocument(mode, documentPath, source, BuildStages(source));
+        var content = BuildContent(source);
+        return DisplayGraphJson.SerializeDocument(
+            mode, documentPath, source, content.Stages, content.Symbols);
     }
 
     private static IDisplayRenderer RendererFor(EmitFormat format) => format switch
@@ -158,4 +158,22 @@ public sealed class CompilationVisualizer
         !source.StartsWith("//", StringComparison.Ordinal)
         && !(Uri.TryCreate(source, UriKind.Absolute, out var uri)
             && uri.Scheme is "http" or "https" or "data" or "ftp" or "mailto");
+
+    // Compiles the source once and projects both the stage graphs and the editor's resolved
+    // symbols, so the report and the live document API share a single compilation.
+    private ReportContent BuildContent(string source)
+    {
+        var result = _compiler.Compile(source);
+        IReadOnlyList<DisplayGraph> stages =
+        [
+            result.Markdown.ToDisplayGraph(source),
+            result.Script.ToDisplayGraph(source),
+            result.Desugared.ToDisplayGraph(source),
+            new SemanticProjection().Project(result.Semantics, source),
+        ];
+        return new ReportContent(stages, new SymbolProjection().Project(result.Semantics));
+    }
+
+    // The compiled report data shared by the HTML report and the live document payload.
+    private sealed record ReportContent(IReadOnlyList<DisplayGraph> Stages, SymbolSet Symbols);
 }

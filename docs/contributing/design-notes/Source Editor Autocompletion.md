@@ -6,9 +6,8 @@
 > the Source tab's editor, offer **document-aware completions** for the four names
 > a dialogue script repeats: **jump targets** (scene-heading anchors), **speakers**,
 > **speaker ids** (`@id`), and **tags** (`#tag`). Suggestions are drawn from the
-> document itself through a **symbol-source seam**, so a later stage can feed the
-> same completions from the semantic analyzer's resolved symbols without touching
-> the editor glue.
+> document itself through a **symbol-source seam**, so the semantic analyzer's
+> resolved symbols feed the same completions without touching the editor glue.
 >
 > Like the rest of the visualization tooling, this surface is "vibe-coded" (see the
 > visualization note's maturity caveat); the core engine stays the reviewed surface.
@@ -26,7 +25,7 @@
 - [Error & boundary cases](#error--boundary-cases)
 - [Integration](#integration)
 - [Testability](#testability)
-- [Future: semantic symbol source](#future-semantic-symbol-source)
+- [Semantic symbol source](#semantic-symbol-source)
 - [Implementation checklist](#implementation-checklist)
 
 ## Goal & scope
@@ -46,10 +45,10 @@ the document so they are always relevant and need no server round-trip:
 - **Speaker names** — completing a line's leading speaker.
 
 **In scope:** an Edit-only CodeMirror autocompletion extension driven by a
-**symbol source**, with a default source that scans the current document. **Out of
-scope:** completing game-call verbs, front-matter keys, or Markdown syntax;
-sourcing completions from the compiler's resolved symbols (designed as a seam here,
-built later — see [Future](#future-semantic-symbol-source)).
+**symbol source**, with a default source that scans the current document and a
+semantic source that merges the analyzer's resolved symbols on top. **Out of
+scope:** completing game-call verbs, front-matter keys, or Markdown syntax (see
+the [Semantic symbol source](#semantic-symbol-source)).
 
 ## Ubiquitous language
 
@@ -65,7 +64,7 @@ one concept keeps one name across the spec, the code, and the completions.
 | **Speaker id** | A speaker's stable id, written `@id`. |
 | **Tag** | A speaker/line tag, written `#tag`. |
 | **Symbol** | A name the editor can suggest — a jump target, speaker, speaker id, or tag. |
-| **Symbol source** | The **seam**: where the editor's symbols come from for the current document. The default scans the document; a future one reads the semantic analyzer's resolved symbols. |
+| **Symbol source** | The **seam**: where the editor's symbols come from for the current document. The default scans the document; the semantic source merges the analyzer's resolved symbols on top. |
 
 ## Functionality checklist
 
@@ -84,6 +83,9 @@ one concept keeps one name across the spec, the code, and the completions.
 - [x] The scan **ignores the YAML front-matter block**, so `title:` is not offered
       as a speaker.
 - [x] No suggestions and no error on an empty document or one with no matching names.
+- [x] The semantic analyzer's **resolved symbols** (canonical ids, merged tags,
+      validated jump targets) feed the same completions, **merged** with the live
+      scan and refreshed on each hot-reload.
 
 ## Design
 
@@ -131,7 +133,7 @@ always reflects what the author has typed so far.
 | --- | --- | --- |
 | `DialogueSymbols` | The names found for a document, grouped by concept: `jumpTargets`, `speakers`, `speakerIds`, `tags`. | — |
 | `JumpTarget` | One completable anchor: `{ slug, heading }` (slug inserted, heading shown as detail). | `github-slugger` |
-| `DialogueSymbolSource` | **Seam.** `(doc: string) => DialogueSymbols`. Default = `scanDialogueSymbols`; future = a semantic source. | scanner / semantic analyzer |
+| `DialogueSymbolSource` | **Seam.** `(doc: string) => DialogueSymbols`. Default = `scanDialogueSymbols`; `createSemanticSymbolSource` merges the analyzer's resolved symbols on top. | scanner / semantic analyzer |
 | `scanDialogueSymbols` | Default source: parse headings, speaker prefixes, `@id`s and `#tag`s out of the document (front matter skipped). | `DialogueSymbols` |
 | `dialogueAutocompletion(source?)` | Build the Edit-only editor extension from the four completion sources over a `DialogueSymbolSource`. | `@codemirror/autocomplete` |
 | `createSourceView(..., { symbols? })` | Injects the source into the editor's Edit-only extensions (defaulting to the scanner). | `editor-completions.ts` |
@@ -199,17 +201,21 @@ stays a single self-contained file, offline-capable.
 - Target the usual high, meaningful coverage; mirror the one-file-per-source layout
   (`dialogue-symbols.test.ts`, `editor-completions.test.ts`).
 
-## Future: semantic symbol source
+## Semantic symbol source
 
-The semantic analyzer (in progress on a separate branch) will resolve the script's
-real symbol table — speakers with their ids and merged tags, and validated jump
-targets. That table is a strictly better symbol source than a text scan: it knows
-cross-file speakers, canonical ids, and which targets actually exist.
+The semantic analyzer resolves the script's real symbol table — speakers with
+their canonical ids and merged tags, and validated jump targets. That table is a
+strictly better symbol source than a text scan: it knows canonical ids, merged
+tags, and which jump targets actually resolve.
 
-The seam is ready for it: a `SemanticSymbolSource` implementing `DialogueSymbolSource`
-would read the resolved symbols the report already carries (or a live channel pushes),
-and `main.ts` would pass it to `createSourceView` in place of the default scanner — no
-change to the completion sources. This is tracked as
+The seam carries it end-to-end. On the .NET side a `SymbolProjection` turns the
+`SemanticModel` into a `SymbolSet` (jump targets, speakers, speaker ids, tags),
+which the report payload carries as `symbols` next to `source` and `stages`. In
+the browser `createSemanticSymbolSource` wraps those resolved symbols as a
+`DialogueSymbolSource`, **merging** them with a live document scan so names typed
+since the last compile still complete; `main.ts` passes it to `createSourceView`
+and refreshes the resolved half on each hot-reload. The completion sources are
+unchanged — the whole feature rides the existing seam. Delivered in
 [issue #71](https://github.com/pengzhengyi/godot-dialoguedown/issues/71).
 
 ## Implementation checklist
@@ -223,3 +229,7 @@ change to the completion sources. This is tracked as
       committed `dist/report.html`.
 - [x] Help text + `CHANGELOG` + README touch-ups; Playwright coverage.
 - [x] File the **semantic symbol source** follow-up issue and add it to the board.
+- [x] Semantic source (issue #71): `.NET` `SymbolProjection` → `SymbolSet` in the
+      report payload; `createSemanticSymbolSource` merges it with the scan and
+      `main.ts` refreshes it on hot-reload; unit + Playwright (static payload and
+      live server) coverage.

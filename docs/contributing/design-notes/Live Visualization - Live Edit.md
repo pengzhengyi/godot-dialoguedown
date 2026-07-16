@@ -91,6 +91,8 @@ Reuses the live-visualization language (**session**, **mode**, **report**,
       Live Edit.
 - [x] Typing re-renders the **preview** in place (client-side); the editor text and
       cursor are untouched and no server call is made.
+- [x] Scrolling the editor or the preview scrolls the other to the matching heading,
+      so the two panes stay in sync (VS Code Markdown model).
 - [x] The graphs **do not** change while typing — they recompile on **Save**.
 - [x] **Ctrl+S / ⌘S** (from any tab) and a **Save** button write the buffer to the
       file (force overwrite), recompile, and update the graph tabs from the response;
@@ -161,8 +163,9 @@ keyboard user can still reach and scroll the source, and text can be copied. Syn
 highlighting is driven by CSS variables (`--md-*`), so the editor follows the page's
 light/dark theme — including the header's **System / Light / Dark** toggle — live,
 without rebuilding the editor. The caret and text selection are themed to stay visible
-in both schemes. The right pane stays the live preview; the draggable divider is
-unchanged.
+in both schemes. The right pane stays the live preview, kept scrolled **in sync** with
+the editor (see [D7](#d7--editor-and-preview-scroll-in-sync-anchored-on-headings)); the
+draggable divider is unchanged.
 
 **Authoring and navigation aids** — all CodeMirror-official extensions, from packages
 already in the bundle. Every mode gets **search** (⌘/Ctrl-F), **section folding** (a
@@ -293,6 +296,23 @@ Save-in-place, **Save As is a fast follow-up**. When it lands it will follow the
 VS Code model — **switch the editor to the new file** — with the target confined to
 the serve root.
 
+### D7 — Editor and preview scroll in sync, anchored on headings
+
+Scrolling either pane scrolls the other to the matching place (the VS Code Markdown
+model), so a writer never loses their spot across the split. The map is
+**heading-anchored**: the top of each heading in the editor is paired with the same
+heading in the preview and the position interpolates linearly between those anchors
+(and proportionally before the first and after the last), so scenes line up exactly and
+drift cannot accumulate across them; a document with no headings falls back to a plain
+proportional map. Whichever pane you scroll owns the sync for a brief window, so the
+scroll our own write echoes on the follower cannot start a feedback loop — and that
+write is `instant`, never the preview's smooth `scroll-behavior` (a smooth animation
+would fire scroll events past the window and drive back). The pixel mapping is a pure,
+unit-tested function (`mapScroll`); the anchors come from CodeMirror's syntax tree (the
+editor) and the rendered headings (the preview). Because CodeMirror estimates the height
+of off-screen lines, a discontinuous *jump* to a far scene lands approximately and then
+settles as that region renders — continuous scrolling, the common case, tracks exactly.
+
 ## Security
 
 Same posture as Hot Reload and the Launcher, plus the first **write** route:
@@ -327,6 +347,11 @@ Same posture as Hot Reload and the Launcher, plus the first **write** route:
   a graph tab** (not just Source), and assert the file now matches, the graphs
   updated, and dirty clears; edit the file on disk and assert the chip appears while
   the buffer is preserved.
+- **Scroll sync** (unit + end to end): `mapScroll`, the piecewise-linear position map,
+  is a pure function unit-tested for the ends, between-anchor interpolation, clamping,
+  and degenerate/mismatched anchors (vitest); the DOM wiring is browser-integration, so
+  the live Playwright suite scrolls the editor and asserts the preview brings the same
+  scene to its top, then scrolls the preview and asserts the editor follows.
 
 ## Follow-ups
 

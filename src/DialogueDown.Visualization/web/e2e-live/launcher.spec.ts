@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { LAUNCHER_PORT } from "./fixture.mjs";
+import { rmSync } from "node:fs";
+import { join } from "node:path";
+import { LAUNCHER_PORT, LAUNCHER_TREE } from "./fixture.mjs";
 
 // Targets the launcher server (visualize --root <tree>, no source): browse the
 // tree, open a report under /r/, and return via Back to launcher. Runs against the
@@ -36,9 +38,38 @@ test("browses into a sub-folder and opens a nested script in View", async ({ pag
     await expect(nested).toBeVisible();
 
     await nested.click();
-    await page.locator('input[name="launcher-mode"][value="view"]').check();
+    await page.locator('.mode-toggle-option[data-mode="view"]').click();
     await page.locator(".launcher-open").click();
 
     await expect(page).toHaveURL(/\/r\//);
     await expect(page.locator(".tab")).toHaveCount(5);
+});
+
+// The create tests write into the launch tree; remove the file afterward so a rerun and the
+// other tests see the base fixture. (The "exists" test opens an existing script, so nothing
+// is created and force:true makes the removal a no-op.)
+const createdInTest = join(LAUNCHER_TREE, "created-in-test.dialogue.md");
+test.afterEach(() => rmSync(createdInTest, { force: true }));
+
+test("creates a new script from the launcher and opens it in Edit", async ({ page }) => {
+    await page.locator(".launcher-new").click();
+    await page.locator(".launcher-create-name").fill("created-in-test");
+    await page.locator(".launcher-create-submit").click();
+
+    await expect(page).toHaveURL(/\/r\//);
+    await expect(page.locator('.mode-toggle-option[data-mode="edit"]')).toHaveAttribute(
+        "aria-pressed",
+        "true",
+    );
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+});
+
+test("an existing name offers to open it instead of overwriting", async ({ page }) => {
+    page.once("dialog", (dialog) => void dialog.accept()); // "open it instead?"
+    await page.locator(".launcher-new").click();
+    await page.locator(".launcher-create-name").fill("top"); // top.dialogue.md already exists
+    await page.locator(".launcher-create-submit").click();
+
+    await expect(page).toHaveURL(/\/r\//);
+    await expect(page.locator(".source-pane .cm-editor")).toContainText("Top Scene");
 });

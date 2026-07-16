@@ -1,6 +1,6 @@
 # Implementation note: Script compiler facade
 
-> [!IMPORTANT]
+> [!NOTE]
 > Status: **implemented**. A cross-cutting component that gives the compiler a
 > single public entry point (`IScriptCompiler`) and a dependency injection story
 > (`AddDialogueDown` and `ScriptCompilerFactory.CreateDefault`), so other projects

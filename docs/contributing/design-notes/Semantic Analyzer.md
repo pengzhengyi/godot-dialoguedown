@@ -1,6 +1,6 @@
 # Implementation note: Semantic analyzer
 
-> [!IMPORTANT]
+> [!NOTE]
 > Status: **implemented**. Component 4 of the DialogueDown script compiler, the
 > **resolve-and-validate** stage between desugar and the future dialogue-graph
 > builder. It turns a syntactic, desugared tree into a **semantic model**: a unified

@@ -78,7 +78,13 @@ Decision heuristics for changes here:
 ## Adding a design note
 
 1. Create `docs/contributing/design-notes/<Note Name>.md` with a status callout.
-2. Add a row to the index in `docs/contributing/design-notes/README.md`.
+   Use `> [!NOTE]` for the neutral status line (e.g. "Status: **implemented**") —
+   status is informational, not an alarm. Reserve `> [!IMPORTANT]`/`> [!WARNING]`
+   for genuine caveats or hazards.
+2. Add the note to the **reading guide** in
+   `docs/contributing/design-notes/README.md`: place it in the right area
+   (Core, CLI, Visualization, or Other notes) and reading order, and keep that
+   section's Mermaid reading-order chart current.
 3. Register it in `docs/contributing/design-notes/toc.yml`.
 4. Build the site: `dotnet tool run docfx docs/docfx.json` (add `--serve` to preview).
 

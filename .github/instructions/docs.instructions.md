@@ -29,9 +29,14 @@ The `docs/` tree is **audience-first** and builds into a DocFX site:
 ## How to add a design note
 
 1. Create `docs/contributing/design-notes/<Note Name>.md` with a status callout
-   and the note's goal, key decisions, and tradeoffs.
-2. Add a row for it to the index table in
-   `docs/contributing/design-notes/README.md`.
+   and the note's goal, key decisions, and tradeoffs. Use `> [!NOTE]` for the
+   neutral status line (e.g. "Status: **implemented**") — status is informational,
+   not an alarm. Reserve `> [!IMPORTANT]`/`> [!WARNING]` for genuine caveats or
+   hazards.
+2. Add the note to the **reading guide** in
+   `docs/contributing/design-notes/README.md`: place it in the right area (Core,
+   CLI, Visualization, or Other notes) and reading order, and keep that section's
+   Mermaid reading-order chart current.
 3. Register it in `docs/contributing/design-notes/toc.yml` so it appears in the
    site sidebar (`- name:` + `href:`).
 4. Build the site to confirm it renders and links resolve:

@@ -1,7 +1,13 @@
 import "@picocss/pico/css/pico.min.css";
 import "./styles.css";
 
-import { initLauncher, type BrowseListing, type LaunchSelection } from "./launcher";
+import { initTheme } from "./theme";
+import {
+    initLauncher,
+    type BrowseListing,
+    type CreateOutcome,
+    type LaunchSelection,
+} from "./launcher";
 
 /**
  * The .NET library replaces the `"__LAUNCHER__"` slot in launcher.html with the initial
@@ -29,6 +35,25 @@ const ports = {
         // report URL. A rejected open (bad source) is not a redirect.
         return response.redirected ? response.url : null;
     },
+    async create(path: string): Promise<CreateOutcome> {
+        const response = await fetch("/api/create", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ path }),
+        });
+        // 303 (followed) → the new file's report; 409 → the name already exists (open it
+        // instead); anything else → an error message to show inline.
+        if (response.redirected) return { kind: "opened", url: response.url };
+        if (response.status === 409) {
+            const body = (await response.json().catch(() => ({}))) as { path?: string };
+            return { kind: "exists", path: body.path ?? path };
+        }
+        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        return { kind: "error", message: body.message ?? "Could not create the file." };
+    },
+    confirm(message: string): boolean {
+        return window.confirm(message);
+    },
     navigate(url: string): void {
         window.location.assign(url);
     },
@@ -36,3 +61,7 @@ const ports = {
 
 const container = document.getElementById("launcher");
 if (container) initLauncher(container, resolveSelection(), ports);
+
+// Apply the saved color theme and mount the System/Light/Dark toggle in the top-right,
+// matching the report. The preference lives in localStorage, so it carries across pages.
+initTheme(document.querySelector(".header-controls"));

@@ -177,6 +177,32 @@ public sealed class DisplayGraphJsonTests
     }
 
     [Fact]
+    public void SerializeReport_OmitsSymbolsWhenNull()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport("static", null, "# Hi", [graph]);
+
+        Assert.DoesNotContain("\"symbols\":", json);
+    }
+
+    [Fact]
+    public void SerializeReport_IncludesSymbolsWhenPresent()
+    {
+        var graph = MakeGraph("Semantic Model", [Node("n0", "Document")], []);
+        var symbols = new SymbolSet(
+            [new JumpTargetSymbol("the-market", "The Market")], ["Guide"], ["guide"], ["wise"]);
+
+        var json = DisplayGraphJson.SerializeReport("static", null, "# Hi", [graph], symbols);
+
+        Assert.Contains("\"symbols\":{", json);
+        Assert.Contains("\"jumpTargets\":[{\"slug\":\"the-market\",\"heading\":\"The Market\"}]", json);
+        Assert.Contains("\"speakers\":[\"Guide\"]", json);
+        Assert.Contains("\"speakerIds\":[\"guide\"]", json);
+        Assert.Contains("\"tags\":[\"wise\"]", json);
+    }
+
+    [Fact]
     public void SerializeDocument_WrapsModePathSourceAndStages()
     {
         var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);

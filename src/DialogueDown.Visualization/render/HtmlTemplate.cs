@@ -20,9 +20,10 @@ internal static class HtmlTemplate
         IReadOnlyList<DisplayGraph> stages,
         string? source = null,
         string mode = VisualizationMode.Static,
-        string? path = null)
+        string? path = null,
+        SymbolSet? symbols = null)
     {
         return EmbeddedAsset.ReadText("report.html")
-            .Replace(ReportSlot, DisplayGraphJson.SerializeReport(mode, path, source, stages));
+            .Replace(ReportSlot, DisplayGraphJson.SerializeReport(mode, path, source, stages, symbols));
     }
 }

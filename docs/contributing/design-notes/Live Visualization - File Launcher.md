@@ -94,6 +94,9 @@ Out of scope (deferred to later components):
 - [ ] Opening another source from the launcher replaces the active one.
 - [ ] Requests for paths outside the launch root, or for non-`.dialogue.md` sources,
       are rejected.
+- [ ] **Create a new script** from the launcher (a name in the current folder) or by
+      editing a not-yet-existing path (`visualize draft.dialogue.md --edit`); an
+      existing name is never overwritten — the launcher offers to open it instead.
 - [ ] The non-interactive `-o` export path is unchanged.
 
 ## Architecture
@@ -198,6 +201,7 @@ directly.
 | `GET /` | The launcher modal, with its initial selection injected (like the report's data) | `text/html` (embedded `launcher.html`) |
 | `GET /api/browse?path=<dir>` | List a directory's sub-directories and `.dialogue.md` sources | JSON `{ path, parent, directories[], sources[] }` |
 | `POST /api/open` | Open a source (`{ source, mode }`) | `303 See Other` → the report under `/r/` (or `400`/`404`) |
+| `POST /api/create` | Create a new empty `.dialogue.md` (`{ path }`) and open it in Edit | `303 See Other` → the report; `409` when the name already exists; `400` otherwise |
 | `GET /r/<report path>` | The active session's report | `text/html` |
 | `GET /api/document`, `GET /api/events` | The active session's data and SSE | Existing (Component 1) |
 
@@ -269,12 +273,27 @@ server (a flag in the injected report data), so a bypassed
 cannot go through the modal. It keeps Component 1's behavior and is never affected by
 the launcher; the launcher is the *interactive* entry point only.
 
+### D10 — Create eagerly, confined, and never overwriting
+
+**Create New** writes an empty file at once and reuses the open flow, rather than holding
+a pending in-memory document created on first save. Eager creation keeps the session,
+watcher, and report unchanged (they read a real file), at the cost of an empty file that a
+discarded name leaves behind. It is reachable two ways — a name in the launcher's current
+folder, or editing a not-yet-existing path (`visualize draft.dialogue.md --edit`, Edit-only
+since there is nothing to *view*) — both **confined** to the launch/serve root and requiring
+the `.dialogue.md` extension. A name that already exists is a **409** with the file left
+untouched, so the launcher offers to open it instead of clobbering it. The write-a-new-file
+machinery is also the groundwork for the deferred **Save As**.
+
 ## Error and boundary cases
 
 - **Path escapes the root** (`..`, absolute, or a symlink pointing outside): `browse`
   and `open` reject it with `400`/`404`; nothing outside the root is listed or served.
 - **Not a `.dialogue.md` file**, or the file was deleted between listing and open:
   `open` returns `404`; the page surfaces a message and refreshes the listing.
+- **Create with a name that already exists**: `create` returns `409` and writes nothing;
+  the launcher asks whether to open the existing file instead. A non-`.dialogue.md` name,
+  an escaping path, or a missing folder returns `400` and is shown inline.
 - **Empty directory / no entries**: the page shows an explicit empty state.
 - **A watched, opened file is deleted**: handled by Component 1 (the report shows its
   deletion banner); **Back to launcher** still works.

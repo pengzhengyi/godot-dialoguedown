@@ -10,6 +10,7 @@ import { initResizer } from "./resizer";
 import { initFullscreen } from "./fullscreen";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { initTooltips, initTabTooltips } from "./tooltips";
+import { isTextEntryTarget } from "./text-entry";
 import { setHelp } from "./help";
 
 // The Source tab shows the compiler input, not a projected stage, so its hover
@@ -23,17 +24,16 @@ export interface SourceOptions {
     /** Called with the new buffer on every editor change (edits, or a View-mode reload). */
     onChange(buffer: string): void;
     /**
-     * Called when the active tab changes, with whether the Source tab is now active. The
-     * mode toggle governs only the Source editor, so the served wiring freezes it on the
-     * read-only graph tabs and thaws it on Source.
-     */
-    onActiveTabChange?(isSource: boolean): void;
-    /**
      * Where the Source editor's autocompletion draws its symbols. Defaults to a document
      * scan; a served session supplies the semantic analyzer's resolved symbols merged
      * with the scan.
      */
     symbols?: DialogueSymbolSource;
+    /**
+     * Guards navigation (switching tabs, or selecting another node) while the session has
+     * unsaved edits: returns false to block it so the reader saves or discards first.
+     */
+    confirmNavigation?(): boolean;
 }
 
 /** Controls a running report: swap in fresh data, reconfigure the editor, or show a banner. */
@@ -57,7 +57,27 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     const stagesEl = document.getElementById("stages")!;
     const appEl = document.getElementById("app")!;
     const bannerEl = document.getElementById("live-banner")!;
-    const panel = createDetailPanel();
+    let activeIndex = 0;
+    let sourcePresent = false;
+    let sourceHandle: SourceViewHandle | null = null;
+    // The current View/Edit state, so the inspector knows whether a node is editable.
+    let editable = source?.editable ?? false;
+
+    // The inspector edits a node by splicing its new text into the current document and
+    // pushing that whole document back through the Source editor (so one buffer and one Save
+    // stay authoritative). Only wired for a served session.
+    const panel = createDetailPanel(
+        source
+            ? {
+                  edit: {
+                      isEditable: () => editable,
+                      getDocument: () => sourceHandle?.getContent() ?? "",
+                      onNodeEdit: (nextDocument) => sourceHandle?.setContent(nextDocument),
+                      ...(source.symbols ? { symbols: source.symbols } : {}),
+                  },
+              }
+            : {},
+    );
     // Per tab: its tree view (graph tabs) or null (the Source tab, which has no
     // node-detail panel and no keyboard tree navigation).
     let views: (TreeView | null)[] = [];
@@ -66,9 +86,6 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     let keys: (string | null)[] = [];
     // Remembers each stage's zoom/pan and fold across tab switches and rebuilds.
     const cameras = new GraphCameraStore();
-    let activeIndex = 0;
-    let sourcePresent = false;
-    let sourceHandle: SourceViewHandle | null = null;
 
     // The whole-window maximize mode (graphs and the source split), toggled from each
     // tab's maximize button or the `f` / Escape keys. Wired once for the app's lifetime.
@@ -78,8 +95,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
 
     // One-time wiring that outlives a re-render (the containers persist).
     document.addEventListener("keydown", (event) => {
-        const target = event.target as Element | null;
-        if (target?.closest?.("button, input, textarea, select")) return;
+        // Buttons, form controls, and the editor own their keys; never also drive graph
+        // navigation from them, or arrows would move the graph while the cursor moves and
+        // Space would toggle a fold mid-type.
+        const target = event.target;
+        if (isTextEntryTarget(target) || (target instanceof Element && target.closest("button"))) {
+            return;
+        }
         views[activeIndex]?.handleKey(event);
     });
     initResizer();
@@ -101,7 +123,11 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
 
     return {
         updateStages,
-        setEditable: (editable) => sourceHandle?.setEditable(editable),
+        setEditable: (next) => {
+            editable = next;
+            sourceHandle?.setEditable(next);
+            panel.setEditable(next);
+        },
         setContent: (next) => sourceHandle?.setContent(next),
         showBanner(message) {
             bannerEl.textContent = message ?? "";
@@ -169,6 +195,8 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 onFoldChange: (collapsed: string[]) => cameras.setFold(stage.title, collapsed),
                 onRevert: () => cameras.reset(stage.title),
                 onToggleFullscreen: fullscreen.toggle,
+                // Selecting another node is navigation: block it while there are unsaved edits.
+                ...(source?.confirmNavigation ? { canSelect: source.confirmNavigation } : {}),
             };
             if (isSemantic) {
                 const semantic = createSemanticView(stage, panel.show, treeOptions);
@@ -203,7 +231,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         tab.type = "button";
         tab.textContent = title;
         tab.setAttribute("data-tip", tip);
-        tab.addEventListener("click", () => activate(index));
+        // Switching tabs is navigation: block it while there are unsaved edits so a stale
+        // graph is never shown beside them (the reader saves or discards first).
+        tab.addEventListener("click", () => {
+            if (index !== activeIndex && source?.confirmNavigation && !source.confirmNavigation())
+                return;
+            activate(index);
+        });
         tabsEl.appendChild(tab);
         stagesEl.appendChild(section);
         views.push(view);
@@ -223,7 +257,6 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         const isSemantic = section?.classList.contains("semantic-stage") ?? false;
         appEl.classList.toggle("no-detail", isSource || isSemantic);
         setHelp(isSource ? "source" : isSemantic ? "semantic" : "graph");
-        source?.onActiveTabChange?.(isSource);
         // Frame the tab now that it is visible (a tree built while hidden had a
         // zero-size container). Applying its remembered position — instead of always
         // re-framing — keeps a stage spatially stable as the reader moves between tabs.

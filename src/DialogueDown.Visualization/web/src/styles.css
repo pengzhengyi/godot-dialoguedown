@@ -328,12 +328,22 @@ button.tab.dirty::after {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
+
+    /* Pico gives every <section> a bottom margin for prose spacing; here it would leave a
+       dead strip below the stages, so the editor gutter line and a graph's zoom controls
+       stop short of the footer. These are layout containers, not prose. */
+    margin: 0;
 }
 
 section.stage {
     position: absolute;
     inset: 0;
     display: none;
+
+    /* Zero Pico's <section> bottom margin: on this absolutely positioned, inset:0 box the
+       margin shrinks it below its container, cutting the editor and the zoom controls
+       short of the bottom. */
+    margin: 0;
 }
 
 section.stage.active {
@@ -1240,6 +1250,29 @@ body.maximized #app {
    the detail panel says so instead of an empty Source block. */
 #detail-body .inserted-note,
 .node-detail-body .inserted-note {
+    margin: 0.75rem 0 0;
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--pico-muted-color);
+}
+
+/* The node inspector's editor is a reused Source view (editor beside its live preview). The
+   editor needs an explicit height to lay out; keep it on the editor itself so the empty
+   state (a note, or the placeholder) reserves no height and the panel does not become a
+   scrollable region with nothing focusable in it. */
+.node-attributes {
+    margin-bottom: 0.5rem;
+}
+
+.node-source {
+    margin-top: 0.5rem;
+}
+
+.node-source .inspector-editor {
+    height: 24rem;
+}
+
+.node-note {
     margin: 0.75rem 0 0;
     font-size: 0.8rem;
     font-style: italic;

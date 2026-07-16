@@ -106,6 +106,12 @@ export interface SourceViewOptions {
      * resolved symbols without changing the editor.
      */
     symbols?: DialogueSymbolSource;
+    /**
+     * The `localStorage` key remembering whether the preview is collapsed. Defaults to the
+     * Source tab's key; a second source view (the node inspector) passes its own so the two
+     * do not share one collapse state.
+     */
+    previewStorageKey?: string;
 }
 
 /** A handle to a live source view, letting the mode controller reconfigure it in place. */
@@ -116,6 +122,8 @@ export interface SourceViewHandle {
     setEditable(editable: boolean): void;
     /** Replace the buffer (a View-mode hot-reload), keeping the one editor instance. */
     setContent(source: string): void;
+    /** The editor's current text. */
+    getContent(): string;
 }
 
 const editability = new Compartment();
@@ -164,6 +172,7 @@ export function createSourceView(
         onChange,
         onToggleFullscreen,
         symbols = scanDialogueSymbols,
+        previewStorageKey = "dd-preview-collapsed",
     } = options;
 
     // The document-aware completions are an Edit-only authoring aid, so they live in the
@@ -245,7 +254,7 @@ export function createSourceView(
     const previewPanel = initCollapsiblePanel({
         container,
         collapsedClass: "preview-collapsed",
-        storageKey: "dd-preview-collapsed",
+        storageKey: previewStorageKey,
         name: "preview",
     });
     divider.appendChild(previewPanel.button);
@@ -265,6 +274,7 @@ export function createSourceView(
             view.dispatch({ effects: editability.reconfigure(editableConfig(next, [completion])) }),
         setContent: (next) =>
             view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }),
+        getContent: () => view.state.doc.toString(),
     };
 }
 

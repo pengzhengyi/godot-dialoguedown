@@ -6,8 +6,9 @@
 > [Dialogue AST Visualization Tab](./Dialogue%20AST%20Visualization%20Tab.md)). The
 > report shows the **desugared** Dialogue AST as a third graph tab, sourced through
 > the [`IScriptCompiler`](./Script%20Compiler%20Facade.md) seam; synthetic
-> zero-width-span nodes render as inserted; and the View/Edit toggle is frozen on the
-> read-only graph tabs.
+> zero-width-span nodes render as inserted; and the View/Edit toggle stays enabled on
+> every tab (a node can be edited from a graph tab — see
+> [Node Editing](./Live%20Visualization%20-%20Node%20Editing.md)).
 >
 > Like the rest of the visualization tooling, this surface is "vibe-coded" (see the
 > visualization note's maturity caveat); the core engine stays the reviewed surface.
@@ -165,21 +166,16 @@ The tab is named **Desugared AST** to sit in the series "Markdown AST → Dialog
 → Desugared AST", each an *X AST*. The stage description names what desugaring did
 (assembled jumps, filled the default speaker).
 
-### D5 — The View/Edit toggle is frozen on read-only tabs
+### D5 — The View/Edit toggle stays enabled on every tab
 
-The mode toggle governs **only** the Source editor; the graph tabs are always
-read-only projections. Leaving it interactive there wrongly hints the graph is
-editable — clicking Edit on a graph tab silently flips the whole session to Edit
-(the Save button appears, the accent greens) with no visible effect on the graph.
-So the toggle is **disabled** whenever the active tab is not the Source tab, using
-the standard disabled-control language: the buttons are `disabled`, the group is
-dimmed with a `not-allowed` cursor, the current mode stays visibly pressed (so the
-mode is still legible), and a tooltip explains that editing applies to the Source
-tab. It re-enables on the Source tab. The Save button is unaffected — saving from
-any tab is a deliberate existing affordance. `app`'s tab activation already knows
-whether the Source tab is active (it toggles the detail panel and the help text on
-exactly that signal), so it emits that boolean and the served wiring freezes or
-thaws the toggle.
+The mode toggle governs the whole session, and — since
+[node editing](./Live%20Visualization%20-%20Node%20Editing.md) made the graph tabs'
+inspector editable — a reader can begin editing a node while looking at a graph. So the
+toggle is **interactive on every tab**, not confined to the Source tab: switching to Edit
+on a graph tab is a real action (the inspector's node editor becomes editable), so it is no
+longer a misleading no-op. Navigation is instead guarded by the **one dirty document** rule
+— switching tabs or nodes while there are unsaved edits prompts to Save or Discard first —
+so a stale graph is never shown beside unsaved edits.
 
 ## Error & boundary cases
 
@@ -205,8 +201,6 @@ thaws the toggle.
   AST stage containing a "Speaker (default)" node with no source.
 - **Report** (e2e, Playwright): a real report shows four tabs (Source, Markdown AST,
   Dialogue AST, Desugared AST); selecting the synthetic default-speaker node shows
-  the inserted note and no Source/Preview block.
-- **Frozen toggle** (unit, Vitest + e2e): the toggle exposes a `setEnabled`; a unit
-  test asserts it disables the option buttons and marks the group. An e2e test
-  asserts the toggle is enabled on the Source tab, disabled on a graph tab, and
-  enabled again on returning to Source.
+  the inserted note and no editor.
+- **Toggle enabled on every tab** (e2e): the View/Edit toggle stays interactive on a
+  graph tab (so a node can be edited there), not only on Source.

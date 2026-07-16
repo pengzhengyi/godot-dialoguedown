@@ -105,7 +105,7 @@ flowchart TB
     TT --> TABS["3-5. Stage tabs:<br/>Dialogue AST → Desugared AST → Semantic Model"]
     TABS --> GX["6. Graph Position Preservation"]
     GX --> AC["7. Source Editor Autocompletion"]
-    AC --> LIVE["8-11. Live session:<br/>Hot Reload → File Launcher → Live Edit → View and Edit Modes"]
+    AC --> LIVE["8-12. Live session:<br/>Hot Reload → File Launcher → Live Edit → View and Edit Modes → Node Editing"]
 ```
 
 | Order | Note | What it covers | Status |
@@ -121,6 +121,7 @@ flowchart TB
 | 9 | [Live Visualization — File Launcher](./Live%20Visualization%20-%20File%20Launcher.md) | Browse and open a script in the launcher (the uniform `visualize` entry point) | Implemented |
 | 10 | [Live Visualization — Live Edit](./Live%20Visualization%20-%20Live%20Edit.md) | Edit the source in the report; compile-as-you-type and save to disk | Implemented |
 | 11 | [Live Visualization — View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) | The current unified model: a served session with a runtime View⇄Edit toggle; static becomes an export | Implemented |
+| 12 | [Live Visualization — Node Editing](./Live%20Visualization%20-%20Node%20Editing.md) | Edit the source behind a graph node in the inspector; splice it back and recompile | Implemented |
 
 ### Other notes
 

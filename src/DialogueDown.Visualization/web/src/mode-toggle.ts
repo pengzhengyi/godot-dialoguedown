@@ -26,11 +26,6 @@ export interface ModeToggle {
     readonly element: HTMLElement;
     /** Reflect the active mode (pressed state) on the control. */
     reflect(mode: ServedMode): void;
-    /**
-     * Enable or freeze the control. The mode governs only the Source editor, so it is
-     * frozen (disabled, dimmed) on read-only graph tabs and re-enabled on the Source tab.
-     */
-    setEnabled(enabled: boolean): void;
 }
 
 /**
@@ -66,17 +61,5 @@ export function createModeToggle(
     };
     reflect(initial);
 
-    const setEnabled = (enabled: boolean): void => {
-        group.setAttribute("aria-disabled", String(!enabled));
-        // A native title on the group (not the disabled buttons, which swallow hover)
-        // explains why the control is frozen and how to unfreeze it.
-        group.title = enabled
-            ? ""
-            : "Editing applies to the Source tab — switch to Source to change mode.";
-        for (const button of buttons.values()) {
-            button.disabled = !enabled;
-        }
-    };
-
-    return { element: group, reflect, setEnabled };
+    return { element: group, reflect };
 }

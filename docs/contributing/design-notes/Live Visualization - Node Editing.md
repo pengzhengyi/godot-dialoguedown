@@ -1,7 +1,7 @@
 # Live Visualization — Node Editing
 
 > [!NOTE]
-> Status: **proposed** (a component of live visualization). Builds directly on
+> Status: **implemented** (a component of live visualization). Builds directly on
 > [Live Edit](./Live%20Visualization%20-%20Live%20Edit.md): the Source tab is already an
 > editor whose **Save** recompiles the graphs. This component makes the **node-details
 > inspector** an editor too, so a writer can edit the exact source behind a graph node in
@@ -97,20 +97,20 @@ here:
 
 ## Functionality checklist
 
-- [ ] Selecting an **editable** node (one with a real span) shows its source in the **Source
+- [x] Selecting an **editable** node (one with a real span) shows its source in the **Source
       tab's editor** (same features) instead of a static block.
-- [ ] The inspector editor is **read-only in View** and **editable in Edit**, matching the
+- [x] The inspector editor is **read-only in View** and **editable in Edit**, matching the
       Source tab's look and behavior.
-- [ ] Editing the node buffer **re-renders the inspector preview as you type** (no server).
-- [ ] The session shows a **dirty** marker while any editor (Source or a node) differs from
+- [x] Editing the node buffer **re-renders the inspector preview as you type** (no server).
+- [x] The session shows a **dirty** marker while any editor (Source or a node) differs from
       the last saved document.
-- [ ] While dirty, **switching tabs is blocked** by a prompt to **Save** or **Discard**, so
+- [x] While dirty, **switching tabs is blocked** by a prompt to **Save** or **Discard**, so
       no tab shows stale data ([D3](#d3--one-dirty-document-navigation-locks-until-saved-or-discarded)).
-- [ ] The session's single **Save** span-splices a node edit into the document, writes the
+- [x] The session's single **Save** span-splices a node edit into the document, writes the
       file, recompiles, and refreshes the graphs **and** the Source editor; the inspector
       then reflects the recompiled node. **Discard** reverts to the last saved document.
-- [ ] A **synthetic** node stays read-only, keeping its "Inserted by the compiler" note.
-- [ ] The **document-root** node is editable and edits the whole document (its span is the
+- [x] A **synthetic** node stays read-only, keeping its "Inserted by the compiler" note.
+- [x] The **document-root** node is editable and edits the whole document (its span is the
       whole document).
 
 ## Interfaces and abstractions

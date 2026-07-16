@@ -23,11 +23,6 @@ export interface SourceOptions {
     /** Called with the new buffer on every editor change (edits, or a View-mode reload). */
     onChange(buffer: string): void;
     /**
-     * Called when the active tab changes, with whether the Source tab is now active. Used to
-     * keep the mode toggle in step with the active tab.
-     */
-    onActiveTabChange?(isSource: boolean): void;
-    /**
      * Where the Source editor's autocompletion draws its symbols. Defaults to a document
      * scan; a served session supplies the semantic analyzer's resolved symbols merged
      * with the scan.
@@ -256,7 +251,6 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         const isSemantic = section?.classList.contains("semantic-stage") ?? false;
         appEl.classList.toggle("no-detail", isSource || isSemantic);
         setHelp(isSource ? "source" : isSemantic ? "semantic" : "graph");
-        source?.onActiveTabChange?.(isSource);
         // Frame the tab now that it is visible (a tree built while hidden had a
         // zero-size container). Applying its remembered position — instead of always
         // re-framing — keeps a stage spatially stable as the reader moves between tabs.

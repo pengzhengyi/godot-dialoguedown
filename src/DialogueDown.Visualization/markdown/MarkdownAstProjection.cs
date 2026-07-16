@@ -93,17 +93,6 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
         return description with { Span = SpanOf(node) };
     }
 
-    // The node's editable source range: the whole document for the root, and the clamped
-    // span for a block, inline, or list item.
-    private DisplaySpan? SpanOf(object node) => node switch
-    {
-        MarkdownDocument => new DisplaySpan(0, _source.Length),
-        MarkdownBlock block => ToSpan(block.Span),
-        MarkdownInline inline => ToSpan(inline.Span),
-        ListItem item => ToSpan(item.Span),
-        _ => null,
-    };
-
     public IEnumerable<object> Neighbors(object node)
     {
         ArgumentNullException.ThrowIfNull(node);
@@ -147,6 +136,17 @@ internal sealed class MarkdownAstProjection : INodeProjection<object>
         var end = Math.Clamp(span.End, start, _source.Length);
         return _source[start..end];
     }
+
+    // The node's editable source range: the whole document for the root, and the clamped
+    // span for a block, inline, or list item.
+    private DisplaySpan? SpanOf(object node) => node switch
+    {
+        MarkdownDocument => new DisplaySpan(0, _source.Length),
+        MarkdownBlock block => ToSpan(block.Span),
+        MarkdownInline inline => ToSpan(inline.Span),
+        ListItem item => ToSpan(item.Span),
+        _ => null,
+    };
 
     // The structured, clamped span a client splices with — the same clamping as Slice, so a
     // node's span and its sliced source always agree. An empty span yields none.

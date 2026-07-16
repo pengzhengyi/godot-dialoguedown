@@ -163,15 +163,6 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
         return description with { Span = SpanOf(node) };
     }
 
-    // The node's editable source range: the whole document for the root, the clamped span
-    // for a spanned node, and none for a synthetic (empty-span) node.
-    private DisplaySpan? SpanOf(object node) => node switch
-    {
-        ScriptDocument => new DisplaySpan(0, _source.Length),
-        ScriptNode scriptNode => ToSpan(scriptNode.Span),
-        _ => null,
-    };
-
     public IEnumerable<object> Neighbors(object node)
     {
         ArgumentNullException.ThrowIfNull(node);
@@ -233,6 +224,15 @@ internal sealed class DialogueAstProjection : INodeProjection<object>
         var end = Math.Clamp(span.End, start, _source.Length);
         return _source[start..end];
     }
+
+    // The node's editable source range: the whole document for the root, the clamped span
+    // for a spanned node, and none for a synthetic (empty-span) node.
+    private DisplaySpan? SpanOf(object node) => node switch
+    {
+        ScriptDocument => new DisplaySpan(0, _source.Length),
+        ScriptNode scriptNode => ToSpan(scriptNode.Span),
+        _ => null,
+    };
 
     // The structured, clamped span a client splices with — the same clamping as Slice, so a
     // node's span and its sliced source always agree. An empty span yields none (synthetic).

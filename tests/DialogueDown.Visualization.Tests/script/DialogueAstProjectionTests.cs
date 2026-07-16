@@ -166,4 +166,38 @@ public sealed class DialogueAstProjectionTests
         Assert.Equal("Desugared AST", projection.Title);
         Assert.Equal("the normalized tree", projection.Description);
     }
+
+    [Fact]
+    public void Describe_SpannedNode_CarriesTheStructuredSpan()
+    {
+        var description = _projection.Describe(new Text("Hi", new SourceSpan(0, 2)));
+
+        Assert.Equal(new DisplaySpan(0, 2), description.Span);
+    }
+
+    [Fact]
+    public void Describe_Document_SpansTheWholeSource()
+    {
+        var description = _projection.Describe(new ScriptDocument([]));
+
+        Assert.Equal(new DisplaySpan(0, "Hi there".Length), description.Span);
+    }
+
+    [Fact]
+    public void Describe_SyntheticNode_HasNoSpan()
+    {
+        // A filled default speaker carries an empty (zero-width) span: a position, not a
+        // range of source, so it maps to no editable span.
+        var description = _projection.Describe(new DefaultSpeaker(new SourceSpan(3, 0)));
+
+        Assert.Null(description.Span);
+    }
+
+    [Fact]
+    public void Describe_SpanPastEnd_ClampsToTheSource()
+    {
+        var description = _projection.Describe(new Text("x", new SourceSpan(5, 20)));
+
+        Assert.Equal(new DisplaySpan(5, "Hi there".Length), description.Span);
+    }
 }

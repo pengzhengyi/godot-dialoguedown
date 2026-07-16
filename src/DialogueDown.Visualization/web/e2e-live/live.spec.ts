@@ -110,7 +110,8 @@ test("keeps a graph's collapsed nodes across a hot reload", async ({ page }) => 
 
     // A disk change rebuilds the graph tabs in place (View mode auto-updates).
     writeFileSync(LIVE_DOC, INITIAL_SOURCE + "\n## Added Section\n\nBob: A brand new line.\n");
-    await expect(page.locator(".source-preview")).toContainText("brand new line");
+    // Scope to the Source tab's preview — the node inspector now has its own preview too.
+    await expect(page.locator(".source-stage .source-preview")).toContainText("brand new line");
 
     // The rebuilt graph kept the Document node collapsed rather than expanding every
     // node on reload — the new section stays hidden under the still-collapsed root.
@@ -217,23 +218,23 @@ test("accents blue in View and green in Edit, and keeps the footer on one aligne
     expect(Math.abs(centers.toggle - centers.help)).toBeLessThan(2);
 });
 
-test("freezes the View/Edit toggle on read-only graph tabs and thaws it on Source", async ({
+test("keeps the View/Edit toggle enabled on graph tabs so editing can begin there", async ({
     page,
 }) => {
     const toggle = page.locator(".mode-toggle");
     const view = page.locator('.mode-toggle-option[data-mode="view"]');
 
     // Source tab is active first: the toggle is interactive.
-    await expect(toggle).toHaveAttribute("aria-disabled", "false");
     await expect(view).toBeEnabled();
 
-    // A graph tab is read-only, so the toggle is frozen.
+    // A graph tab keeps the toggle interactive too — a node can be edited there, so mode is
+    // no longer confined to the Source tab.
     await page.locator(".tab", { hasText: "Markdown AST" }).click();
-    await expect(toggle).toHaveAttribute("aria-disabled", "true");
-    await expect(view).toBeDisabled();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+    await expect(view).toBeEnabled();
+    await expect(toggle).not.toHaveAttribute("aria-disabled", "true");
 
-    // Back on Source it is interactive again.
+    // Back on Source it is still interactive.
     await page.locator(".tab", { hasText: "Source" }).click();
-    await expect(toggle).toHaveAttribute("aria-disabled", "false");
     await expect(view).toBeEnabled();
 });

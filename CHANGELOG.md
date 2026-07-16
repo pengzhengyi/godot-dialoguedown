@@ -26,7 +26,8 @@ changes easy to categorize.
   (each scene expandable to its script blocks, any node clickable for its source and preview)
   beside cross-linked, resizable speaker, anchor, and jump-resolution tables — with a runtime
   **View ⇄ Edit** toggle: a read-only, auto-updating **View** and an in-browser editor that
-  saves back to the file — or creates a new script from the launcher or a not-yet-existing
+  saves back to the file — or edits the source behind any graph node in the inspector, or
+  creates a new script from the launcher or a not-yet-existing
   path — or discards unsaved edits to restore the last saved version — with
   search, section folding, Markdown formatting shortcuts, document-aware autocomplete,
   synchronized editor/preview scrolling, and a

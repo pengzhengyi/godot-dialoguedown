@@ -85,6 +85,40 @@ public sealed class MarkdownAstProjectionTests
     }
 
     [Fact]
+    public void Describe_BlockNode_CarriesTheStructuredSpan()
+    {
+        var description = new MarkdownAstProjection("# Hello").Describe(new Heading(1, [], new SourceSpan(0, 7)));
+
+        Assert.Equal(new DisplaySpan(0, 7), description.Span);
+    }
+
+    [Fact]
+    public void Describe_InlineNode_CarriesTheStructuredSpan()
+    {
+        var description = new MarkdownAstProjection("word").Describe(new TextInline("word", new SourceSpan(0, 4)));
+
+        Assert.Equal(new DisplaySpan(0, 4), description.Span);
+    }
+
+    [Fact]
+    public void Describe_Document_SpansTheWholeSource()
+    {
+        var source = "# Hi\n\nWorld";
+
+        var description = new MarkdownAstProjection(source).Describe(new MarkdownDocument([]));
+
+        Assert.Equal(new DisplaySpan(0, source.Length), description.Span);
+    }
+
+    [Fact]
+    public void Describe_SpanPastEnd_ClampsTheSpanToo()
+    {
+        var description = new MarkdownAstProjection("ab").Describe(new Paragraph([], new SourceSpan(1, 10)));
+
+        Assert.Equal(new DisplaySpan(1, 2), description.Span);
+    }
+
+    [Fact]
     public void Describe_AssignsSemanticCategoryPerNodeType()
     {
         var span = new SourceSpan(0, 2);

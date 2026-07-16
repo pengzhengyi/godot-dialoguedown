@@ -18,6 +18,28 @@ async function edit(page: Page, text: string) {
     await page.keyboard.type(text);
 }
 
+/** Select a graph node whose tooltip contains `tip` on the active tab (SVG needs dispatch). */
+async function selectNode(page: Page, tip: string) {
+    await page.evaluate((tip) => {
+        const node = [...document.querySelectorAll("section.stage.active svg .node")].find((n) =>
+            (n.getAttribute("data-tip") ?? "").includes(tip),
+        );
+        (node?.querySelector("circle") ?? node)?.dispatchEvent(
+            new MouseEvent("click", { bubbles: true }),
+        );
+    }, tip);
+}
+
+/** Type into the node inspector's editor (distinct from the Source tab's editor). */
+async function editNode(page: Page, text: string) {
+    const content = page.locator(".node-source .cm-content");
+    await content.click();
+    await page.keyboard.press("End");
+    // insertText (not type): each node keystroke re-splices and re-renders the preview, so
+    // synthetic char-by-char typing can outrun it and drop spaces; a real user never does.
+    await page.keyboard.insertText(text);
+}
+
 test("edits update the preview and dirty state; the Save button writes the file", async ({
     page,
 }) => {
@@ -95,31 +117,34 @@ test("Discard after a save restores to the saved version, not the original", asy
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
 });
 
-test("the Ctrl/Cmd+S shortcut saves from a graph tab, not just the Source tab", async ({
-    page,
-}) => {
+test("the Ctrl/Cmd+S shortcut saves a node edit from a graph tab", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
 
-    await edit(page, " via a shortcut");
-
-    // Switch away from the Source tab to a graph tab, then press the shortcut there.
+    // Edit a node directly on a graph tab, then save with the shortcut from there.
     await page.locator(".tab", { hasText: "Markdown AST" }).click();
     await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+    await selectNode(page, "Text");
+    await editNode(page, " via a shortcut");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+
     await page.keyboard.press("ControlOrMeta+s");
 
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
     await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("via a shortcut");
 });
 
-test("the Save button also saves from a graph tab", async ({ page }) => {
+test("the Save button saves a node edit from a graph tab", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
 
-    await edit(page, " via the button");
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+    await selectNode(page, "Text");
+    await editNode(page, " via the button");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
 
     // The Save button lives in the status bar, so it is reachable from every tab.
-    await page.locator(".tab", { hasText: "Markdown AST" }).click();
     const save = page.locator(".save-button");
     await expect(save).toBeEnabled();
     await save.click();
@@ -257,4 +282,106 @@ test("the editor and preview scroll in sync, anchored on scenes", async ({ page 
     const byPreview = await headingsAtTop(page);
     expect(await scrollTopOf(".source-pane .cm-scroller")).toBeGreaterThan(100); // the editor followed
     expect(byPreview.editorScene).toBe(byPreview.previewScene);
+});
+
+// A multi-node document with a speaker-less line, so the Dialogue AST has a synthetic
+// (filled default speaker) node to prove is read-only.
+const NODE_DOC = "# Market\n\nGuide: Welcome.\n\nA line with no speaker.\n";
+
+test("edits a node's source in the inspector, and Save recompiles from it", async ({ page }) => {
+    writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+    await page.goto(`${base}/`);
+    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+
+    // Select a Text node: its source shows in the inspector editor, editable in Edit.
+    await selectNode(page, "Text");
+    const nodeEditor = page.locator(".node-source .cm-editor");
+    await expect(nodeEditor).toBeVisible();
+
+    // Editing the node re-renders the inspector preview as you type (before Save).
+    await editNode(page, " EDITED");
+    await expect(page.locator(".node-source .source-preview")).toContainText("EDITED");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+
+    // Save splices the edit into the document, writes the file, and recompiles the graphs.
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+    await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("EDITED");
+});
+
+// The inspector editor must swallow graph-navigation keys so arrows move the cursor, not
+// the graph, and Space types a space instead of collapsing a node. The global keydown
+// handler otherwise routes those keys to the active tree view. Cover both the read-only
+// editor (View) and the editable one (Edit), a fresh page each so neither run's editor
+// focus bleeds into the other.
+for (const mode of ["view", "edit"] as const) {
+    test(`editor keys stay in the editor and never move the graph selection (${mode})`, async ({
+        page,
+    }) => {
+        writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+        await page.goto(`${base}/`);
+        if (mode === "edit") {
+            await page.locator('.mode-toggle-option[data-mode="edit"]').click();
+        }
+        await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+        await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+
+        // Select a node so the graph has a selection that arrow keys could move.
+        await selectNode(page, "Text");
+        const selected = page.locator("section.stage.active g.node.selected");
+        await expect(selected).toHaveCount(1);
+        const before = await selected.getAttribute("data-tip");
+        const collapsedBefore = await page.locator("section.stage.active g.node.collapsed").count();
+
+        // Press the very keys the tree view navigates by, from inside the editor.
+        await page.locator(".node-source .cm-content").click();
+        for (const key of ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Space"]) {
+            await page.keyboard.press(key);
+        }
+
+        // The selection and every node's collapse state are exactly as before.
+        await expect(selected).toHaveCount(1);
+        expect(await selected.getAttribute("data-tip")).toBe(before);
+        expect(await page.locator("section.stage.active g.node.collapsed").count()).toBe(
+            collapsedBefore,
+        );
+    });
+}
+
+test("a synthetic node offers no editor, only an inserted note", async ({ page }) => {
+    writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+    await page.goto(`${base}/`);
+    // The default speaker is inserted by desugar, so it appears on the Desugared AST tab.
+    await page.locator(".tab", { hasText: "Desugared AST" }).click();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+
+    // The speaker-less line's filled default speaker is synthetic: no source to edit. The
+    // note explains why and points the reader at the editable parent line instead.
+    await selectNode(page, "default");
+    const detailNote = page.locator("#detail-body .node-note");
+    await expect(detailNote).toContainText("names no speaker");
+    await expect(detailNote).toContainText("Edit the line to name one");
+});
+
+test("navigation locks while a node edit is unsaved", async ({ page }) => {
+    writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+    await page.goto(`${base}/`);
+    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+    await selectNode(page, "Text");
+    await editNode(page, " X");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+
+    // Cancelling the prompt keeps you on the tab with your edit intact.
+    page.once("dialog", (d) => void d.dismiss());
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await expect(page.locator(".tab.active")).toHaveText("Dialogue AST");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+
+    // Accepting the prompt discards the edit and lets navigation proceed.
+    page.once("dialog", (d) => void d.accept());
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await expect(page.locator(".tab.active")).toHaveText("Markdown AST");
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
 });

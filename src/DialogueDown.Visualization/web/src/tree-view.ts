@@ -82,6 +82,11 @@ export interface TreeViewOptions {
     onRevert?(): void;
     /** Toggle the whole-window maximize mode (the zoom cluster's trailing button). */
     onToggleFullscreen?(): void;
+    /**
+     * Guards moving the selection to a different node: returns false to block it (the session
+     * has unsaved edits and navigation is locked). Absent means selection is always allowed.
+     */
+    canSelect?(): boolean;
 }
 
 const NAVIGATION_KEYS = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " "];
@@ -107,6 +112,7 @@ export function createTreeView(
         onFoldChange,
         onRevert,
         onToggleFullscreen = () => {},
+        canSelect,
     } = options;
     const referenceEdges = stage.edges.filter((edge) => edge.kind === "Reference");
     const root = buildHierarchy(stage);
@@ -213,6 +219,13 @@ export function createTreeView(
         onSelect(node.data);
     }
 
+    // Selecting a different node is navigation: block it while the session is dirty (an
+    // unsaved node edit) so the reader resolves it first. Re-clicking the same node is a
+    // no-op, so it is never blocked.
+    function mayLeaveSelection(node: TreeNode): boolean {
+        return node === selected || !canSelect || canSelect();
+    }
+
     function applySelection(): void {
         gNodes
             .selectAll<SVGGElement, TreeNode>("g.node")
@@ -298,7 +311,7 @@ export function createTreeView(
             return;
         }
         const next = nextNode(event.key, selected);
-        if (next) {
+        if (next && mayLeaveSelection(next)) {
             select(next);
             centerOn(next);
         }
@@ -395,6 +408,7 @@ export function createTreeView(
             .attr("r", (d) => (isSceneNode(d.data) ? SCENE_NODE_RADIUS : CONTENT_NODE_RADIUS))
             .style("fill", (d) => colorOf(d.data.category))
             .on("click", (_event, d) => {
+                if (!mayLeaveSelection(d)) return;
                 toggle(d);
                 select(d);
             });
@@ -432,7 +446,9 @@ export function createTreeView(
             rect.setAttribute("y", "-12");
             rect.setAttribute("width", String(12 + longest * 6.5 + 10));
             rect.setAttribute("height", String(20 + d.data.attributes.length * 12));
-            rect.addEventListener("click", () => select(d));
+            rect.addEventListener("click", () => {
+                if (mayLeaveSelection(d)) select(d);
+            });
             this.insertBefore(rect, this.firstChild);
         });
     }

@@ -310,31 +310,44 @@ test("edits a node's source in the inspector, and Save recompiles from it", asyn
     await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("EDITED");
 });
 
-test("editor keys stay in the editor and never move the graph selection", async ({ page }) => {
-    writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
-    await page.goto(`${base}/`);
-    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
-    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+// The inspector editor must swallow graph-navigation keys so arrows move the cursor, not
+// the graph, and Space types a space instead of collapsing a node. The global keydown
+// handler otherwise routes those keys to the active tree view. Cover both the read-only
+// editor (View) and the editable one (Edit), a fresh page each so neither run's editor
+// focus bleeds into the other.
+for (const mode of ["view", "edit"] as const) {
+    test(`editor keys stay in the editor and never move the graph selection (${mode})`, async ({
+        page,
+    }) => {
+        writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+        await page.goto(`${base}/`);
+        if (mode === "edit") {
+            await page.locator('.mode-toggle-option[data-mode="edit"]').click();
+        }
+        await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+        await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
 
-    // Select a node so the graph has a selection that arrow keys could move.
-    await selectNode(page, "Text");
-    const selectedTip = () =>
-        page.locator("section.stage.active g.node.selected").getAttribute("data-tip");
-    const before = await selectedTip();
-    const collapsedBefore = await page.locator("section.stage.active g.node.collapsed").count();
+        // Select a node so the graph has a selection that arrow keys could move.
+        await selectNode(page, "Text");
+        const selected = page.locator("section.stage.active g.node.selected");
+        await expect(selected).toHaveCount(1);
+        const before = await selected.getAttribute("data-tip");
+        const collapsedBefore = await page.locator("section.stage.active g.node.collapsed").count();
 
-    // Place the cursor in the inspector editor (no edit, so no nav-lock) and press the
-    // very keys the tree view navigates by. They must move the cursor, not the graph.
-    await page.locator(".node-source .cm-content").click();
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("ArrowUp");
-    await page.keyboard.press("Space");
+        // Press the very keys the tree view navigates by, from inside the editor.
+        await page.locator(".node-source .cm-content").click();
+        for (const key of ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Space"]) {
+            await page.keyboard.press(key);
+        }
 
-    expect(await selectedTip()).toBe(before);
-    expect(await page.locator("section.stage.active g.node.collapsed").count()).toBe(
-        collapsedBefore,
-    );
-});
+        // The selection and every node's collapse state are exactly as before.
+        await expect(selected).toHaveCount(1);
+        expect(await selected.getAttribute("data-tip")).toBe(before);
+        expect(await page.locator("section.stage.active g.node.collapsed").count()).toBe(
+            collapsedBefore,
+        );
+    });
+}
 
 test("a synthetic node offers no editor, only an inserted note", async ({ page }) => {
     writeFileSync(LIVE_EDIT_DOC, NODE_DOC);

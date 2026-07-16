@@ -56,6 +56,14 @@ public sealed class SpeakerPrefixParserTests
         // "#tag1#tag2" cannot be read as one tag or two, so it is not a prefix.
         AssertNotAPrefix("Alice @A #tag1#tag2: Hi");
 
+    [Theory]
+    [InlineData("@: Hi")]
+    [InlineData("Alice @: Hi")]
+    public void EmptyId_IsNotAPrefix(string text) =>
+        // "@" must be followed by an identifier, so an empty id (as in "Alice @:") is not a
+        // valid prefix; a speaker id always names at least one character.
+        AssertNotAPrefix(text);
+
     [Fact]
     public void WhitespaceSeparatedTags_AreAllReported()
     {

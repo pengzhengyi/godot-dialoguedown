@@ -207,7 +207,7 @@ into an AST `SpeakerDeclaration` through an internal `ConfiguredSpeakerBuilder`,
 place that knows the declaration's shape (as `SpeakerBuilder` does for a parsed prefix);
 the binder then treats a configured speaker exactly like a declared one. Validation
 lives at the **edge** (the configuration loader), so the data reaching the binder is
-already well-formed and the binder keeps its single concern: speaker semantics.
+already well-formed, and the binder keeps its single concern: speaker semantics.
 
 ## Error and boundary cases
 

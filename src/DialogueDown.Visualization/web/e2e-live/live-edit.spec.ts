@@ -356,9 +356,12 @@ test("a synthetic node offers no editor, only an inserted note", async ({ page }
     await page.locator(".tab", { hasText: "Desugared AST" }).click();
     await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
 
-    // The speaker-less line's filled default speaker is synthetic: no source to edit.
+    // The speaker-less line's filled default speaker is synthetic: no source to edit. The
+    // note explains why and points the reader at the editable parent line instead.
     await selectNode(page, "default");
-    await expect(page.locator("#detail-body .node-note")).toContainText("Inserted by the compiler");
+    const detailNote = page.locator("#detail-body .node-note");
+    await expect(detailNote).toContainText("names no speaker");
+    await expect(detailNote).toContainText("Edit the line to name one");
 });
 
 test("navigation locks while a node edit is unsaved", async ({ page }) => {

@@ -36,8 +36,11 @@ export const NODE_DETAIL_PLACEHOLDER =
 /** The plain-text placeholder the inspector shows before any node is selected. */
 const PLACEHOLDER_TEXT = "Click any node to see and edit the source it was produced from.";
 
-/** The note shown for a synthetic node, which has no source of its own to edit. */
-const INSERTED_NOTE = "Inserted by the compiler — no source.";
+/** The note shown for a synthetic node — one the compiler inserts for a line that names no
+ *  speaker (the only sourceless node this editor inspector ever shows). In a served session
+ *  the reader can act on it, so a call to action points them at the editable parent line. */
+const SYNTHETIC_SPEAKER_NOTE = "Inserted by the compiler because the line names no speaker.";
+const EDIT_THE_LINE_CTA = " Edit the line to name one.";
 
 /** The title HTML for a node's detail: a category color dot beside the node's label. */
 export function nodeDetailTitle(node: DisplayNode): string {
@@ -129,7 +132,10 @@ export function createDetailPanel(options: DetailPanelOptions = {}): DetailPanel
             titleEl.innerHTML = nodeDetailTitle(node);
             attributes.innerHTML = attributesTable(node.attributes);
             if (typeof node.source === "string") loadNode(node);
-            else showNote(INSERTED_NOTE);
+            else
+                showNote(
+                    edit ? SYNTHETIC_SPEAKER_NOTE + EDIT_THE_LINE_CTA : SYNTHETIC_SPEAKER_NOTE,
+                );
         },
         clear() {
             currentNode = null;

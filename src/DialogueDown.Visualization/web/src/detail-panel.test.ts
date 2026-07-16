@@ -79,6 +79,22 @@ describe("createDetailPanel", () => {
         panel.show({ id: "n1", label: "Speaker (default)", attributes: [] });
         expect(note()?.hidden).toBe(false);
         expect(note()?.textContent).toContain("Inserted by the compiler");
+        expect(note()?.textContent).toContain("names no speaker");
+        // A static panel (no edit) has nothing to act on, so it offers no edit call to action.
+        expect(note()?.textContent).not.toContain("Edit the line");
+    });
+
+    it("adds an edit call to action to the synthetic note when the session is editable", () => {
+        const editablePanel = createDetailPanel({
+            edit: {
+                isEditable: () => true,
+                getDocument: () => "",
+                onNodeEdit: () => {},
+            },
+        });
+        editablePanel.show({ id: "n1", label: "Speaker (default)", attributes: [] });
+        expect(note()?.textContent).toContain("names no speaker");
+        expect(note()?.textContent).toContain("Edit the line to name one");
     });
 
     it("reuses the one editor across selections, swapping its content", () => {

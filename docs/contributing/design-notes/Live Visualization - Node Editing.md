@@ -28,7 +28,7 @@
     - [D2 — One editor, reused — the inspector *is* the Source editor](#d2--one-editor-reused--the-inspector-is-the-source-editor)
     - [D3 — One dirty document; navigation locks until saved or discarded](#d3--one-dirty-document-navigation-locks-until-saved-or-discarded)
     - [D4 — Save reuses the Live Edit loop; no new server route, no second Save](#d4--save-reuses-the-live-edit-loop-no-new-server-route-no-second-save)
-    - [D5 — Synthetic nodes are read-only in v1; insert is v2](#d5--synthetic-nodes-are-read-only-in-v1-insert-is-v2)
+    - [D5 — Synthetic nodes are read-only and point to the editable parent](#d5--synthetic-nodes-are-read-only-and-point-to-the-editable-parent)
     - [D6 — Preview-as-you-type, in the inspector](#d6--preview-as-you-type-in-the-inspector)
     - [D7 — Enter Edit from a graph tab](#d7--enter-edit-from-a-graph-tab)
   - [Error and boundary cases](#error-and-boundary-cases)
@@ -73,8 +73,10 @@ Out of scope (deliberate follow-ups):
 
 - **Insert at a synthetic node.** A synthetic node (a filled default speaker) has an
   **empty** span *positioned* where it belongs (`SourceSpan.EmptyAt`), so the very same
-  splice would *insert* there. v1 keeps synthetic nodes **read-only** ("Inserted by the
-  compiler"); insert-at-position is a natural **v2** on the same mechanism.
+  splice could *insert* there. This was **evaluated and rejected as redundant**: the
+  node's parent line already carries a real, editable span, so naming a speaker is just
+  editing that line. Synthetic nodes stay **read-only** and point the reader at the parent
+  ([D5](#d5--synthetic-nodes-are-read-only-and-point-to-the-editable-parent)).
 - **The Semantic tab.** Its scene-tree and tables are aggregate entities with no per-node
   span, so nodes there are not editable.
 - **Editing the graph structure directly** (dragging, reconnecting). Edits are always
@@ -93,7 +95,7 @@ here:
 | **Node buffer** | The inspector editor's current text for the selected node — what you are typing. Splicing it into the document yields the session's one dirty document buffer. |
 | **Span-splice** | Producing a new document by replacing a node's `[start, end)` range with the node buffer: `doc[0..start] + buffer + doc[end..]`. |
 | **Navigation lock** | While the session is dirty you cannot switch tabs; a prompt asks you to **Save** or **Discard** first, so no tab ever shows stale data. |
-| **Synthetic node** | A node a stage inserted with no source of its own (a filled default speaker); its span is **empty** but **positioned**. Read-only in v1. |
+| **Synthetic node** | A node a stage inserted with no source of its own (a filled default speaker); its span is **empty** but **positioned**. Read-only — it points at the editable parent line. |
 
 ## Functionality checklist
 
@@ -109,7 +111,8 @@ here:
 - [x] The session's single **Save** span-splices a node edit into the document, writes the
       file, recompiles, and refreshes the graphs **and** the Source editor; the inspector
       then reflects the recompiled node. **Discard** reverts to the last saved document.
-- [x] A **synthetic** node stays read-only, keeping its "Inserted by the compiler" note.
+- [x] A **synthetic** node stays read-only; its note explains the insertion and points the
+      reader at the editable parent line (the call to action only in a served session).
 - [x] The **document-root** node is editable and edits the whole document (its span is the
       whole document).
 
@@ -185,13 +188,17 @@ Live Edit's security posture unchanged (loopback-only; the server writes only th
 it already serves — never a path from the request). Because both the Source editor and the
 node inspector edit the one document buffer, a single Save/Discard governs everything.
 
-### D5 — Synthetic nodes are read-only in v1; insert is v2
+### D5 — Synthetic nodes are read-only and point to the editable parent
 
-A synthetic node has an **empty** span, so its splice would insert rather than replace.
-That is a real, useful capability — but it needs its own UX (an empty editor that means
-"insert here") and careful thought about *what* legitimately inserts at that position. v1
-keeps the existing "Inserted by the compiler — no source" note and defers **insert** to a
-follow-up on the identical splice mechanism.
+A synthetic node (a filled default speaker) has an **empty** span, so its splice would
+*insert* rather than replace. A dedicated insert affordance was considered and **rejected
+as redundant**: the default speaker's parent **line** already carries a real, editable span,
+so naming a speaker is just editing that line — no separate authoring surface is warranted
+for the one synthetic node the pipeline produces. Instead the synthetic node stays
+**read-only** and its note guides the reader to the editable parent line ("Inserted by the
+compiler because the line names no speaker. Edit the line to name one."). The call to
+action appears only in a **served** session, where editing is actually possible; a static
+export shows the explanation without it.
 
 ### D6 — Preview-as-you-type, in the inspector
 
@@ -211,8 +218,8 @@ removes an awkward detour through the Source tab.
 
 ## Error and boundary cases
 
-- **Synthetic node (empty span):** read-only; the inspector keeps its "Inserted by the
-  compiler" note and offers no editor. (v2: an insert affordance.)
+- **Synthetic node (empty span):** read-only; the inspector explains the insertion and,
+  in a served session, points the reader at the editable parent line — no in-node editor.
 - **Semantic tab node:** no span, so not editable — the inspector stays read-only there.
 - **Session dirty:** switching tabs is blocked by a Save-or-Discard prompt, so you never
   reach a graph tab whose spans are stale ([D3](#d3--one-dirty-document-navigation-locks-until-saved-or-discarded)).

@@ -328,12 +328,22 @@ button.tab.dirty::after {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
+
+    /* Pico gives every <section> a bottom margin for prose spacing; here it would leave a
+       dead strip below the stages, so the editor gutter line and a graph's zoom controls
+       stop short of the footer. These are layout containers, not prose. */
+    margin: 0;
 }
 
 section.stage {
     position: absolute;
     inset: 0;
     display: none;
+
+    /* Zero Pico's <section> bottom margin: on this absolutely positioned, inset:0 box the
+       margin shrinks it below its container, cutting the editor and the zoom controls
+       short of the bottom. */
+    margin: 0;
 }
 
 section.stage.active {

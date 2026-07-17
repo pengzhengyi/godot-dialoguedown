@@ -1,3 +1,4 @@
+using DialogueDown.ConfigurationLoader;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.FileProviders;
@@ -117,20 +118,23 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         }
     }
 
-    // Saves the posted buffer to the document and returns the recompiled payload; a
-    // write failure surfaces as a 400 with a message rather than a 500.
+    // Saves the posted buffer to the target file (the document, or its `dialogue.toml`
+    // when target is "config") and returns the recompiled payload; a write or config-parse
+    // failure surfaces as a 400 with a message rather than a 500.
     private IResult Save(SaveRequest request)
     {
         try
         {
-            var json = _session.Save(request.Source ?? string.Empty);
+            var source = request.Source ?? string.Empty;
+            var isConfig = string.Equals(request.Target, "config", StringComparison.OrdinalIgnoreCase);
+            var json = isConfig ? _session.SaveConfig(source) : _session.Save(source);
             return Results.Content(json, "application/json; charset=utf-8");
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or DialogueConfigurationException)
         {
             return Results.BadRequest(new { message = ex.Message });
         }
     }
 
-    private sealed record SaveRequest(string? Source);
+    private sealed record SaveRequest(string? Source, string? Target = null);
 }

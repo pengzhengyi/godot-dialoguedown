@@ -56,7 +56,8 @@ internal static class ServeMode
             return 1;
         }
 
-        var session = new LiveSession(fullPath, mode, new CompilationVisualizer(configuration));
+        var session = new LiveSession(
+            fullPath, mode, new CompilationVisualizer(configuration), configuration.File?.Path);
         await using var server = new LiveVisualizationServer(session, port ?? 0, serveRoot);
         await server.StartAsync();
         using var watcher = new DocumentWatcher(fullPath, session.Refresh);

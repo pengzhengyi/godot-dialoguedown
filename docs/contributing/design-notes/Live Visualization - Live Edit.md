@@ -64,8 +64,8 @@ In scope:
 
 Out of scope:
 
-- **Save As** — a fast follow-up (writing to a new path is a separate, root-confined
-  concern); this loop is editing + Save to the open file.
+- **Save As** — out of this loop, and ultimately **declined** as a separate feature
+  (see [D6](#d6--no-dedicated-save-as)); this loop is editing + Save to the open file.
 - **Compiling the buffer without saving** — Save is the compile trigger; the preview
   already updates live for free.
 - Multi-file editing, autosave, collaborative editing, or editing the graphs (they
@@ -291,13 +291,16 @@ shared by the direct (`LiveVisualizationServer`) and launcher (`LauncherServer`)
 paths. No new server, no new session type, and the graphs come back in the save
 response — no extra endpoint.
 
-### D6 — Save As is deferred
+### D6 — No dedicated Save As
 
-Writing to a *new* path reintroduces a path surface (a user-chosen target, confined
-to the root) that is a feature in itself. To keep this loop focused on editing and
-Save-in-place, **Save As is a fast follow-up**. When it lands it will follow the
-VS Code model — **switch the editor to the new file** — with the target confined to
-the serve root.
+Writing to a *new* path only fits the **launcher**, which has a root and can switch its
+active session; the standalone single-document server (`LiveVisualizationServer`) cannot
+re-point itself, so a real Save As would deepen the split between the two serve modes. And
+the need is already met: **Create New** writes a new, root-confined `.dialogue.md` and
+switches the session to it, and a writer who wants a copy of the current buffer can
+duplicate the file on disk. So DialogueDown ships **no dedicated Save As** — the idea was
+retired rather than deepen the mode discrepancy for a convenience a filesystem copy already
+covers.
 
 ### D7 — Editor and preview scroll in sync, anchored on headings
 
@@ -325,8 +328,8 @@ Same posture as Hot Reload and the Launcher, plus the first **write** route:
 - **Save targets exactly the open document.** `/api/save` writes the session's own
   `DocumentPath` — the file already being visualized — never a path from the request
   body. The body carries only the new *content*, so editing cannot write anywhere the
-  session was not already pointed. (Save As, when it lands, will confine its target
-  to the serve root with the launcher's `LaunchRoot` guard.)
+  session was not already pointed. Creating a *new* file is the launcher's job, confined
+  to the launch root by its `LaunchRoot` guard — there is no separate Save As route.
 
 ## Testability
 
@@ -358,14 +361,10 @@ Same posture as Hot Reload and the Launcher, plus the first **write** route:
 
 ## Follow-ups
 
-Both are deliberately out of this component and picked up next:
+Deliberately out of this component:
 
 - **Lazy-loaded editor.** CodeMirror is bundled into the single-file report **now**
   (no cross-file lazy-load), which grew the report bundle to ~800 KB (from ~270 KB —
   the CodeMirror editor stack, including search, folding, and close-brackets, adds
   ~530 KB) — accepted for a diagnostics tool. A separate non-inlined "editor" build
   that loads CodeMirror on demand is a possible follow-up if the bundle size matters.
-- **Save As.** Writes the buffer to a new file and **switches the editor to it** (the
-  VS Code model), with the target confined to the serve root. The remaining detail —
-  the target-path UX (a confined field vs. the launcher's folder browser) — is settled
-  when this is picked up.

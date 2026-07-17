@@ -662,12 +662,12 @@ g.node.entity-highlight text.label {
 }
 
 /* Fold markers in the gutter, and the placeholder shown for a folded section. */
-.source-pane .cm-foldGutter .cm-gutterElement {
+:is(.source-pane, .config-source) .cm-foldGutter .cm-gutterElement {
     color: var(--pico-muted-color);
     cursor: pointer;
 }
 
-.source-pane .cm-foldPlaceholder {
+:is(.source-pane, .config-source) .cm-foldPlaceholder {
     margin: 0 0.2rem;
     padding: 0 0.35rem;
     border: none;
@@ -677,34 +677,34 @@ g.node.entity-highlight text.label {
 }
 
 /* Subtle, theme-neutral highlights for the active line and other matches of the selection. */
-.source-pane .cm-activeLine,
-.source-pane .cm-activeLineGutter {
+:is(.source-pane, .config-source) .cm-activeLine,
+:is(.source-pane, .config-source) .cm-activeLineGutter {
     background: rgb(128 128 128 / 10%);
 }
 
-.source-pane .cm-selectionMatch {
+:is(.source-pane, .config-source) .cm-selectionMatch {
     background: rgb(120 160 255 / 25%);
 }
 
 /* The search/replace panel, themed to match the page instead of CodeMirror's light default. */
-.source-pane .cm-panels {
+:is(.source-pane, .config-source) .cm-panels {
     background: var(--pico-card-background-color);
     color: var(--pico-color);
     border-top: 1px solid var(--pico-muted-border-color);
 }
 
-.source-pane .cm-panel.cm-search {
+:is(.source-pane, .config-source) .cm-panel.cm-search {
     padding: 0.5rem 0.6rem;
     font-size: 0.78rem;
 }
 
-.source-pane .cm-panel.cm-search label {
+:is(.source-pane, .config-source) .cm-panel.cm-search label {
     color: var(--pico-color);
     font-size: 0.76rem;
 }
 
-.source-pane .cm-panel.cm-search input,
-.source-pane .cm-panel.cm-search button {
+:is(.source-pane, .config-source) .cm-panel.cm-search input,
+:is(.source-pane, .config-source) .cm-panel.cm-search button {
     margin: 0 0.15rem;
     padding: 0.15rem 0.45rem;
     border: 1px solid var(--pico-form-element-border-color);
@@ -714,15 +714,15 @@ g.node.entity-highlight text.label {
     font-size: 0.76rem;
 }
 
-.source-pane .cm-panel.cm-search button {
+:is(.source-pane, .config-source) .cm-panel.cm-search button {
     cursor: pointer;
 }
 
-.source-pane .cm-panel.cm-search button:hover:not(:disabled) {
+:is(.source-pane, .config-source) .cm-panel.cm-search button:hover:not(:disabled) {
     border-color: var(--pico-primary);
 }
 
-.source-pane .cm-panel.cm-search button[name="close"] {
+:is(.source-pane, .config-source) .cm-panel.cm-search button[name="close"] {
     border: none;
     background: transparent;
     color: var(--pico-muted-color);

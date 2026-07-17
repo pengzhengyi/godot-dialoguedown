@@ -1,8 +1,25 @@
 import { EditorState, Compartment } from "@codemirror/state";
-import { EditorView, lineNumbers, keymap, drawSelection } from "@codemirror/view";
+import {
+    EditorView,
+    lineNumbers,
+    keymap,
+    drawSelection,
+    highlightActiveLine,
+    highlightActiveLineGutter,
+} from "@codemirror/view";
 import { history, historyKeymap, defaultKeymap } from "@codemirror/commands";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { StreamLanguage, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import {
+    StreamLanguage,
+    syntaxHighlighting,
+    HighlightStyle,
+    foldGutter,
+    codeFolding,
+    foldKeymap,
+    foldService,
+    bracketMatching,
+} from "@codemirror/language";
+import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { tags } from "@lezer/highlight";
 import type { ConfigReport, ConfiguredSpeakerView } from "./model";
@@ -53,6 +70,26 @@ const tomlHighlightStyle = HighlightStyle.define([
     { tag: [tags.comment, tags.lineComment], color: "var(--md-muted)", fontStyle: "italic" },
     { tag: [tags.bracket, tags.squareBracket], color: "var(--md-muted)" },
 ]);
+
+// Match a TOML table or array-of-tables header line, e.g. `[owner]` or `[[speakers]]`.
+const TOML_HEADER = /^\s*\[/;
+
+/**
+ * Fold a TOML table/array-of-tables section: from the header line to the last line before the
+ * next header (or the end of the file). The StreamLanguage TOML mode has no syntax-tree
+ * folding, so a small line-based service supplies it — the analog of the Source editor's
+ * heading fold.
+ */
+const foldTomlSections = foldService.of((state, lineStart) => {
+    const header = state.doc.lineAt(lineStart);
+    if (!TOML_HEADER.test(header.text)) return null;
+    let end = header.number;
+    for (let n = header.number + 1; n <= state.doc.lines; n++) {
+        if (TOML_HEADER.test(state.doc.line(n).text)) break;
+        end = n;
+    }
+    return end > header.number ? { from: header.to, to: state.doc.line(end).to } : null;
+});
 
 /**
  * The Config tab: the applied configuration shown as a two-column split — the `dialogue.toml`
@@ -165,12 +202,27 @@ function mountEditor(
             doc: source,
             extensions: [
                 lineNumbers(),
+                highlightActiveLineGutter(),
+                foldGutter(),
+                foldTomlSections,
+                codeFolding(),
                 history(),
                 drawSelection(),
+                highlightActiveLine(),
+                highlightSelectionMatches(),
+                bracketMatching(),
+                search(),
                 editability.of(editableConfig(editable)),
                 StreamLanguage.define(toml),
                 syntaxHighlighting(tomlHighlightStyle),
-                keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap]),
+                EditorView.lineWrapping,
+                keymap.of([
+                    ...closeBracketsKeymap,
+                    ...defaultKeymap,
+                    ...historyKeymap,
+                    ...searchKeymap,
+                    ...foldKeymap,
+                ]),
                 EditorView.updateListener.of((update) => {
                     if (update.docChanged) onChange?.(update.state.doc.toString());
                 }),

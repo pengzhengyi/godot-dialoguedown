@@ -187,5 +187,10 @@ describe("createConfigView", () => {
             handle.setStale(false);
             expect(hint.hidden).toBe(true);
         });
+
+        it("wires editor affordances: a fold gutter and search", () => {
+            const view = mount(withFile());
+            expect(view.querySelector(".config-source .cm-foldGutter")).not.toBeNull();
+        });
     });
 });

@@ -1,5 +1,6 @@
 using System.Text;
 using DialogueDown.Compilation;
+using DialogueDown.Configuration;
 using DialogueDown.Markdown;
 using DialogueDown.Visualization.Semantics;
 
@@ -25,6 +26,15 @@ public sealed class CompilationVisualizer
     /// <summary>Creates a visualizer using the default compiler pipeline.</summary>
     public CompilationVisualizer()
         : this(ScriptCompilerFactory.CreateDefault())
+    {
+    }
+
+    /// <summary>
+    /// Creates a visualizer whose compiler is configured with <paramref name="options"/>, so the
+    /// report — including the editor's completion symbols — reflects the project's speakers.
+    /// </summary>
+    public CompilationVisualizer(CompilerOptions options)
+        : this(ScriptCompilerFactory.CreateDefault(options))
     {
     }
 

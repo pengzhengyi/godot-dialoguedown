@@ -1,3 +1,5 @@
+using DialogueDown.Configuration;
+
 namespace DialogueDown.Visualization.Live;
 
 /// <summary>
@@ -8,15 +10,17 @@ namespace DialogueDown.Visualization.Live;
 internal static class EmitMode
 {
     /// <summary>
-    /// Renders <paramref name="file"/> as <paramref name="format"/> text. Writes to
-    /// <paramref name="output"/> when given, otherwise to <paramref name="writer"/>
-    /// (standard output). A bad document writes the problem to <paramref name="error"/>
-    /// and returns 1, before any text is emitted. Returns a process exit code.
+    /// Renders <paramref name="file"/> as <paramref name="format"/> text, compiled with the
+    /// project's <paramref name="options"/>. Writes to <paramref name="output"/> when given,
+    /// otherwise to <paramref name="writer"/> (standard output). A bad document writes the
+    /// problem to <paramref name="error"/> and returns 1, before any text is emitted. Returns a
+    /// process exit code.
     /// </summary>
     public static int Run(
         string file,
         EmitFormat format,
         string? output,
+        CompilerOptions options,
         TextWriter writer,
         TextWriter error)
     {
@@ -27,7 +31,7 @@ internal static class EmitMode
             return 1;
         }
 
-        var text = new CompilationVisualizer().RenderText(File.ReadAllText(file), format);
+        var text = new CompilationVisualizer(options).RenderText(File.ReadAllText(file), format);
         if (output is null)
         {
             writer.Write(text);

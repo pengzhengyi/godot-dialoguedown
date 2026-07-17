@@ -22,8 +22,10 @@ changes easy to categorize.
   mark one the default) through `CompilerOptions`, and the compiler binds them
   alongside a script's own: a configured default covers speaker-less lines when the
   script declares no `##default`, and a configured speaker unifies with a same-named
-  script speaker. A separate `DialogueDown.ConfigurationLoader` reads a project's
-  `dialogue.toml` into `CompilerOptions`, reporting malformed configuration with its
+  script speaker. The `dialoguedown` CLI reads a project's `dialogue.toml` —
+  discovered by walking up from the script, or named with `--config` — so `compile`
+  and `visualize` honor it, and the `visualize` report autocompletes the configured
+  speakers (even ones not yet used). Malformed configuration is reported with its
   source location. See the
   [design notes](docs/contributing/design-notes/README.md).
 - **`dialoguedown` CLI** — `compile` runs the compiler pipeline; `visualize` opens
@@ -37,8 +39,8 @@ changes easy to categorize.
   saves back to the file — or edits the source behind any graph node in the inspector, or
   creates a new script from the launcher or a not-yet-existing
   path — or discards unsaved edits to restore the last saved version — with
-  search, section folding, Markdown formatting shortcuts, document-aware autocomplete,
-  synchronized editor/preview scrolling, and a
+  search, section folding, Markdown formatting shortcuts, document-aware autocomplete
+  with an icon per symbol kind, synchronized editor/preview scrolling, and a
   **light/dark** theme.
 - **`visualize` report navigation** — collapsible side panels, a full-screen mode,
   hover-to-spotlight a node's lineage (its ancestors and descendants), and per-graph

@@ -10,11 +10,13 @@ import { keymap } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { scanDialogueSymbols, type DialogueSymbolSource } from "./dialogue-symbols";
 
-// A completion's `type` selects its tooltip icon; each concept gets a distinct one.
-const JUMP = "constant";
-const SPEAKER = "variable";
-const SPEAKER_ID = "property";
-const TAG = "keyword";
+// A completion's `type` selects its tooltip icon. These are custom, dialogue-specific types
+// (not CodeMirror's built-in `variable`/`property`/…), styled with line icons in styles.css:
+// a person for a speaker, `@` for an id, `#` for a tag, and an arrow for a jump target.
+const JUMP = "dd-jump";
+const SPEAKER = "dd-speaker";
+const SPEAKER_ID = "dd-speaker-id";
+const TAG = "dd-tag";
 
 /**
  * Assemble a completion result at `from`, dropping the word being typed. The half-typed

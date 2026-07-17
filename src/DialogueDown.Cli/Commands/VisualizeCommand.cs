@@ -1,3 +1,4 @@
+using DialogueDown.Configuration;
 using DialogueDown.Visualization;
 using DialogueDown.Visualization.Live;
 using Spectre.Console.Cli;
@@ -9,20 +10,25 @@ namespace DialogueDown.Cli.Commands;
 /// directly — read-only <b>View</b> by default, or editable <b>Edit</b> with
 /// <c>--edit</c> — where the reader toggles View/Edit in the browser. With no script (or
 /// <c>--pick</c>) it opens the launcher to browse for one. <c>-o</c> is a non-interactive
-/// static export. The work is delegated to the visualization engine through
+/// static export. Every report is compiled with the project's resolved
+/// <see cref="CompilerOptions"/>. The work is delegated to the visualization engine through
 /// <see cref="IVisualizeRunner"/> (direct) and <see cref="ILauncherRunner"/> (launcher).
 /// </summary>
 internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
 {
     private readonly IVisualizeRunner _runner;
     private readonly ILauncherRunner _launcher;
+    private readonly ProjectConfiguration _configuration;
 
-    public VisualizeCommand(IVisualizeRunner runner, ILauncherRunner launcher)
+    public VisualizeCommand(
+        IVisualizeRunner runner, ILauncherRunner launcher, ProjectConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(launcher);
+        ArgumentNullException.ThrowIfNull(configuration);
         _runner = runner;
         _launcher = launcher;
+        _configuration = configuration;
     }
 
     /// <inheritdoc />
@@ -39,13 +45,15 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
         if (settings.Emit is not null
             && VisualizeSettings.TryParseEmitFormat(settings.Emit, out var format))
         {
-            return Task.FromResult(_runner.RunEmit(settings.Script, format, settings.Output));
+            return Task.FromResult(
+                _runner.RunEmit(settings.Script, format, settings.Output, OptionsForScript(settings)));
         }
 
         // A non-interactive HTML export never opens a server or the launcher.
         if (settings.Output is not null)
         {
-            return Task.FromResult(_runner.RunStatic(settings.Script, settings.Output, settings.NoOpen));
+            return Task.FromResult(
+                _runner.RunStatic(settings.Script, settings.Output, settings.NoOpen, OptionsForScript(settings)));
         }
 
         var mode = settings.Edit ? LaunchMode.Edit : LaunchMode.View;
@@ -57,11 +65,12 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
             return _runner.RunServedAsync(
                 settings.Script, settings.Port, settings.NoOpen, settings.Root,
                 settings.Edit ? VisualizationMode.Edit : VisualizationMode.View,
-                cancellationToken);
+                OptionsForScript(settings), cancellationToken);
         }
 
         var (root, source) = ResolveLaunch(settings.Script, hasScript, settings.Root);
-        return _launcher.RunAsync(root, source, mode, settings.Port, settings.NoOpen, cancellationToken);
+        var options = _configuration.Resolve(settings.Config, root, root);
+        return _launcher.RunAsync(root, source, mode, settings.Port, settings.NoOpen, options, cancellationToken);
     }
 
     private static (string Root, string? Source) ResolveLaunch(string script, bool hasScript, string? rootOption)
@@ -89,4 +98,9 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
 
     private static string Relative(string root, string fullPath) =>
         Path.GetRelativePath(Path.GetFullPath(root), fullPath).Replace(Path.DirectorySeparatorChar, '/');
+
+    // Discover the project's options from the script's folder upward, never above --root.
+    private CompilerOptions OptionsForScript(VisualizeSettings settings) =>
+        _configuration.Resolve(
+            settings.Config, Path.GetDirectoryName(Path.GetFullPath(settings.Script))!, settings.Root);
 }

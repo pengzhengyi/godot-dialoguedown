@@ -1,4 +1,5 @@
 using DialogueDown.Compilation;
+using DialogueDown.Configuration;
 using DialogueDown.Script.Semantics;
 
 namespace DialogueDown.Visualization.Tests.Semantics;
@@ -9,6 +10,8 @@ namespace DialogueDown.Visualization.Tests.Semantics;
 /// </summary>
 internal static class Analyzed
 {
-    public static SemanticModel Model(string source) =>
-        ScriptCompilerFactory.CreateDefault().Compile(source).Semantics;
+    public static SemanticModel Model(string source) => Model(source, CompilerOptions.Default);
+
+    public static SemanticModel Model(string source, CompilerOptions options) =>
+        ScriptCompilerFactory.CreateDefault(options).Compile(source).Semantics;
 }

@@ -1,3 +1,5 @@
+using DialogueDown.Configuration;
+
 namespace DialogueDown.Visualization.Live;
 
 /// <summary>
@@ -24,8 +26,9 @@ public sealed class LauncherRunner : ILauncherRunner
         LaunchMode mode,
         int? port,
         bool noOpen,
+        CompilerOptions options,
         CancellationToken cancellationToken) =>
-        RunAsync(root, source, mode, port, noOpen, Console.Out, Console.Error, cancellationToken);
+        RunAsync(root, source, mode, port, noOpen, options, Console.Out, Console.Error, cancellationToken);
 
     internal async Task<int> RunAsync(
         string root,
@@ -33,6 +36,7 @@ public sealed class LauncherRunner : ILauncherRunner
         LaunchMode mode,
         int? port,
         bool noOpen,
+        CompilerOptions options,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
@@ -45,7 +49,9 @@ public sealed class LauncherRunner : ILauncherRunner
 
         var launchRoot = LaunchRoot.At(root);
         var html = LauncherPage.Render(launchRoot.RootDirectory, source, ModeToString(mode));
-        await using var server = new LauncherServer(launchRoot, html, port ?? 0);
+        await using var server = new LauncherServer(
+            launchRoot, html, port ?? 0,
+            (path, sessionMode) => new LiveSession(path, sessionMode, new CompilationVisualizer(options)));
         await server.StartAsync();
 
         var url = server.BaseUrl;

@@ -282,8 +282,10 @@ discarded name leaves behind. It is reachable two ways — a name in the launche
 folder, or editing a not-yet-existing path (`visualize draft.dialogue.md --edit`, Edit-only
 since there is nothing to *view*) — both **confined** to the launch/serve root and requiring
 the `.dialogue.md` extension. A name that already exists is a **409** with the file left
-untouched, so the launcher offers to open it instead of clobbering it. The write-a-new-file
-machinery is also the groundwork for the deferred **Save As**.
+untouched, so the launcher offers to open it instead of clobbering it. This same
+write-a-new-file-and-switch machinery is why a dedicated **Save As** proved unnecessary: a
+writer who wants a copy creates a new file or duplicates it on disk (see the Live Edit
+note's D6).
 
 ## Error and boundary cases
 

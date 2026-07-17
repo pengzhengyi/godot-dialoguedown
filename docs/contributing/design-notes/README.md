@@ -74,6 +74,7 @@ edge, a satellite that reads a `dialogue.toml` into those options.
 | --- | --- | --- | --- |
 | 1 | [Configuration](./Configuration.md) | The `CompilerOptions` seam: a configured speaker registry (default via the reserved tag) threaded into the semantic stage | Implemented |
 | 2 | [Configuration Loader](./Configuration%20Loader.md) | The TOML edge: reads `dialogue.toml` into a `CompilerOptions`, validating with located errors, in its own satellite assembly | Implemented |
+| 3 | [CLI Configuration](./CLI%20Configuration.md) | Threads a project's `dialogue.toml` through the `dialoguedown` CLI into `compile` and `visualize` (and the report's autocompletion) | In progress |
 
 ### Command-line interface
 

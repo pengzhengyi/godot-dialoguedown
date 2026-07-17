@@ -11,6 +11,8 @@ want to *write* branching dialogue — not modify the compiler — start here.
 - **[Script language specification](script-language.md)** — the writer-facing
   dialogue syntax: speakers, speech, choices, jumps, tags, game calls, and inline
   styling, with examples.
+- **[Project configuration](configuration.md)** — the `dialogue.toml` that
+  configures your project's speakers and default speaker, and how the CLI finds it.
 
 > [!NOTE]
 > The script language is still proposed syntax while the compiler is built out;

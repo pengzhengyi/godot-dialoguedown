@@ -2,3 +2,5 @@
   href: overview.md
 - name: Script language
   href: script-language.md
+- name: Project configuration
+  href: configuration.md

@@ -1,5 +1,6 @@
 using System.Reflection;
 using DialogueDown.Cli.Commands;
+using DialogueDown.ConfigurationLoader;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -40,6 +41,9 @@ internal static class CliConfigurator
             case CommandParseException or CommandRuntimeException:
                 console.MarkupLineInterpolated($"[red]{exception.Message}[/]");
                 return ExitCodes.UsageError;
+            case DialogueConfigurationException configError:
+                console.MarkupLineInterpolated($"[red]{configError.Location}: {configError.Message}[/]");
+                return ExitCodes.Error;
             default:
                 console.WriteException(exception);
                 return ExitCodes.Error;

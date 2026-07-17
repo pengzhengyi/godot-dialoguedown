@@ -56,6 +56,8 @@
     href: Live Visualization - View and Edit Modes.md
   - name: Live Visualization — Node Editing
     href: Live Visualization - Node Editing.md
+  - name: Configuration Tab
+    href: Configuration Tab.md
 - name: Other notes
   items:
   - name: BBCode Rendering

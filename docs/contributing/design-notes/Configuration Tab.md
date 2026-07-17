@@ -1,12 +1,12 @@
 # Implementation note: Configuration tab
 
 > [!NOTE]
-> Status: **proposed** — a design draft, not yet implemented. This is **Stage 1**
-> of the Configuration tab: a **read-only display** of the configuration a compile
-> applied. It adds a first tab (before Source) that shows the project's
-> `dialogue.toml` beside its resolved **configured speakers**, and surfaces the
-> config file's path in the status bar. Editing the config and creating a new one
-> are later stages with their own notes (see [Goal and scope](#goal-and-scope)).
+> Status: **implemented**. This is **Stage 1** of the Configuration tab: a
+> **read-only display** of the configuration a compile applied. It adds a first tab
+> (before Source) that shows the project's `dialogue.toml` beside its resolved
+> **configured speakers**, and surfaces the config file's path in the status bar.
+> Editing the config and creating a new one are later stages with their own notes
+> (see [Goal and scope](#goal-and-scope)).
 
 ## Table of contents
 
@@ -18,7 +18,7 @@
 - [Key design decisions](#key-design-decisions)
   - [DD1 — The report carries the applied configuration as a document](#dd1--the-report-carries-the-applied-configuration-as-a-document)
   - [DD2 — Config is the first tab, with a gear icon](#dd2--config-is-the-first-tab-with-a-gear-icon)
-  - [DD3 — Reuse the source split: TOML left, configured speakers right](#dd3--reuse-the-source-split-toml-left-configured-speakers-right)
+  - [DD3 — Its own split, mirroring Source: TOML left, configured speakers right](#dd3--its-own-split-mirroring-source-toml-left-configured-speakers-right)
   - [DD4 — TOML highlighting via the official legacy-modes mode](#dd4--toml-highlighting-via-the-official-legacy-modes-mode)
   - [DD5 — A second status-bar path for the config file](#dd5--a-second-status-bar-path-for-the-config-file)
   - [DD6 — No config file is a first-class, friendly state](#dd6--no-config-file-is-a-first-class-friendly-state)
@@ -98,13 +98,13 @@ configuration file's `source` is the *TOML* text. They are always namespaced
 
 ## Functionality checklist
 
-- [ ] A **Config** tab appears first (before Source) with a gear icon and a tooltip; the report still opens on Source.
-- [ ] Its left pane shows the `dialogue.toml` text in a **read-only**, TOML-highlighted editor.
-- [ ] Its right pane lists the **configured speakers** (name, @id, tags), tags shown as chips **colored** to distinguish reserved from custom.
-- [ ] The status bar shows **two** paths: the dialogue file and the config file.
-- [ ] When no `dialogue.toml` was found, the tab shows a plain-language, writer-facing explanation, the speaker list is empty with a note, and the config path reads a no-config label — no error, no empty code block.
-- [ ] The report payload carries a `configuration` section (optional `file` of path+source, plus speakers) in the static, served, and launcher modes.
-- [ ] Existing tab-count assertions and snapshots are updated for the new first tab.
+- [x] A **Config** tab appears first (before Source) with a gear icon and a tooltip; the report still opens on Source.
+- [x] Its left pane shows the `dialogue.toml` text in a **read-only**, TOML-highlighted editor.
+- [x] Its right pane lists the **configured speakers** (name, @id, tags), tags shown as chips **colored** to distinguish reserved from custom.
+- [x] The status bar shows **two** paths: the dialogue file and the config file.
+- [x] When no `dialogue.toml` was found, the tab shows a plain-language, writer-facing explanation, the speaker list is empty with a note, and the config path reads a no-config label — no error, no empty code block.
+- [x] The report payload carries a `configuration` section (optional `file` of path+source, plus speakers) in the static, served, and launcher modes.
+- [x] Existing tab-count assertions and snapshots are updated for the new first tab.
 
 ## Interfaces and abstractions
 
@@ -112,12 +112,17 @@ configuration file's `source` is the *TOML* text. They are always namespaced
 
 | Type | Visibility | Responsibility | Collaborators |
 | --- | --- | --- | --- |
-| `AppliedConfiguration` | internal (Visualization) | the applied config: `ConfigurationFile? File`, `CompilerOptions Options`, and the `IsConfiguredFromFile` / `UsesDefaultConfiguration` predicates | `ConfigurationFile`, `CompilerOptions` |
-| `ConfigurationFile` | internal (Visualization) | a found `dialogue.toml`: `Path`, `Source` (both required) | — |
+| `AppliedConfiguration` | public (Visualization) | the applied config: `ConfigurationFile? File`, `CompilerOptions Options`, and the `IsConfiguredFromFile` / `UsesDefaultConfiguration` predicates | `ConfigurationFile`, `CompilerOptions` |
+| `ConfigurationFile` | public (Visualization) | a found `dialogue.toml`: `Path`, `Source` (both required) | — |
 | `ProjectConfiguration.ResolveApplied(...)` | public (CLI) | discover + read + parse into an `AppliedConfiguration` (parallels `Resolve`) | `TomlConfigurationLoader` |
-| `ConfiguredSpeakerProjection` | internal (Visualization) | project `CompilerOptions.Speakers` → the display rows (name, id, tags with reserved/custom) | — |
+| `ConfigurationProjection` | internal (Visualization) | project an `AppliedConfiguration` → the payload view (`ConfigurationReport` of `ConfiguredSpeakerView` rows, each with `ConfiguredTagView` custom/reserved tags) | `ConfigurationReport` |
 | `CompilationVisualizer` render methods | public (Visualization) | accept the `AppliedConfiguration` and pass it to the payload | `DisplayGraphJson` |
-| `DisplayGraphJson.SerializeReport/Document` | internal (Visualization) | add a `configuration` field to the payload | — |
+| `DisplayGraphJson.SerializeReport` | internal (Visualization) | add a `configuration` field to the payload | `ConfigurationReport` |
+
+`AppliedConfiguration` and `ConfigurationFile` are **public** because they cross the
+assembly boundary: the CLI builds them and the Live server threads them through the
+runners. The payload view types (`ConfigurationReport`, `ConfiguredSpeakerView`,
+`ConfiguredTagView`) stay **internal** — they never leave the visualization layer.
 
 **Web:**
 
@@ -125,9 +130,9 @@ configuration file's `source` is the *TOML* text. They are always namespaced
 | --- | --- | --- |
 | `ConfigReport` (in `model.ts`) | `{ file?: { path, source }, speakers: ConfiguredSpeakerView[] }` on `Report` | `Report` |
 | `ConfiguredSpeakerView` | `{ name, id?, tags: { name, value?, reserved }[] }` | — |
-| `createConfigView(config)` (`config-view.ts`) | build the split: read-only TOML editor + speakers table with colored tag chips | `initSplitDivider`, CodeMirror, `colorOf` |
+| `createConfigView(config)` (`config-view.ts`) | build the split: read-only TOML editor + speakers table with colored tag chips | `initSplitDivider`, CodeMirror |
 | `addTab(..., icon?)` (`app.ts`) | gain an optional leading icon so Config shows a gear | — |
-| `initPathDisplay` / footer | show a second (config) path | `path-display.ts` |
+| `initConfigPath(config)` (`path-display.ts`) | show a second (config) path, or a no-config label | `splitPath` |
 
 ## Key design decisions
 
@@ -165,22 +170,29 @@ Source and stage tabs pass none, so they are unchanged. Config is first in **ord
 but **not** the default-active tab — the report still opens on **Source**, so a
 reader who just wants the dialogue is undisturbed, and the config is one click away.
 
-### DD3 — Reuse the source split: TOML left, configured speakers right
+### DD3 — Its own split, mirroring Source: TOML left, configured speakers right
 
-The Config tab is the same two-column shape as the Source tab, so it reuses the
-split machinery: `initSplitDivider` for the draggable divider and the same layout
-variables. A dedicated `config-view.ts` builds a **read-only** CodeMirror on the
-left (the config is display-only this stage) and, on the right, a **configured
-speakers** table that reuses the Semantic tab's `.table-panel` / `.semantic-table`
-styling so the two "resolved semantics" views read as one visual language.
+The Config tab is the same two-column shape as the Source tab, so it shares the
+**split machinery** — the parameterized `initSplitDivider` drives its draggable
+divider — but it owns its **own** layout classes (`.config-view` / `.config-source`
+/ `.config-divider` / `.config-side`) and split variable (`--config-split`) rather
+than reusing the Source tab's `.source-*` classes. Both editors are live in the DOM
+at once (Config is built eagerly, before Source), so sharing the `.source-pane` /
+`.source-preview` classes would make a bare `.source-preview` or scoped
+`.source-pane .cm-editor` selector match **two** panes; giving Config its own classes
+keeps every Source-tab selector unambiguous. A dedicated `config-view.ts` builds a
+**read-only** CodeMirror on the left (the config is display-only this stage).
 
-The table columns are **Name · @id · Tags**. Unlike the Semantic tab — which joins
-tags into one plain-text cell and spends a whole column on the `default` flag — the
-config table renders each tag as a small **chip**, colored to tell **reserved** tags
-(like `default`) from **custom** ones at a glance. Reserved chips take a distinct
-accent; custom chips take the neutral `tag` palette color. Because chips need
-per-tag markup rather than a plain-text cell, the speakers table is a small,
-dedicated renderer sharing the table CSS, not a raw `createTablePanel` call.
+On the right, a **configured speakers** table reuses the Semantic tab's
+`.semantic-table` styling under its own `.config-speakers` wrapper and heading, so
+the two "resolved semantics" views read as one visual language. Its columns are
+**Name · @id · Tags**. Unlike the Semantic tab — which joins tags into one
+plain-text cell and spends a whole column on the `default` flag — the config table
+renders each tag as a small **chip**, colored by a CSS class (`.config-tag-reserved`
+vs `.config-tag-custom`) to tell **reserved** tags (like `default`) from **custom**
+ones at a glance. Because chips need per-tag markup rather than a plain-text cell,
+the speakers table is a small, dedicated renderer sharing the table CSS, not a raw
+`createTablePanel` call.
 
 ### DD4 — TOML highlighting via the official legacy-modes mode
 

@@ -22,6 +22,10 @@
     href: Configuration Loader.md
   - name: CLI Configuration
     href: CLI Configuration.md
+- name: Diagnostics
+  items:
+  - name: Diagnostic Model
+    href: Diagnostic Model.md
 - name: Command-line interface
   items:
   - name: Command-Line Interface

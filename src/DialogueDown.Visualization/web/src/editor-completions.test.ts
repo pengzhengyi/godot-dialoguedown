@@ -1,12 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
-import { CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
+import { EditorView } from "@codemirror/view";
+import { runScopeHandlers } from "@codemirror/view";
+import {
+    CompletionContext,
+    completionStatus,
+    startCompletion,
+    type CompletionResult,
+} from "@codemirror/autocomplete";
 import { scanDialogueSymbols } from "./dialogue-symbols";
 import {
     jumpTargetCompletions,
     speakerIdCompletions,
     tagCompletions,
     speakerCompletions,
+    dialogueAutocompletion,
 } from "./editor-completions";
 
 /** Build a completion context with the cursor at `|` in `docWithCursor`. */
@@ -178,5 +186,71 @@ Alice: some text |`;
 A|`;
         const result = resultAt(source, doc)!;
         expect(result.options.every((o) => o.type === "dd-speaker")).toBe(true);
+    });
+});
+
+describe("dialogueAutocompletion keymap", () => {
+    /** Mount an editable editor with the dialogue completions, cursor at the end of `doc`. */
+    function mount(doc: string): EditorView {
+        const parent = document.createElement("div");
+        document.body.appendChild(parent);
+        return new EditorView({
+            parent,
+            state: EditorState.create({
+                doc,
+                selection: { anchor: doc.length },
+                extensions: [dialogueAutocompletion()],
+            }),
+        });
+    }
+
+    /**
+     * Open the completion tooltip and wait until Tab/Enter would actually accept it.
+     * Two waits are needed: the completion query is async (poll until `active`), and
+     * CodeMirror enforces a 75 ms `interactionDelay` after a tooltip opens — an
+     * anti-misclick guard that blocks accepting a *just*-opened completion (it applies
+     * to Enter too). A human always clears it; the extra wait mirrors that.
+     */
+    async function openCompletion(view: EditorView, timeout = 1000): Promise<void> {
+        startCompletion(view);
+        const start = Date.now();
+        while (completionStatus(view.state) !== "active") {
+            if (Date.now() - start > timeout) throw new Error("completion never activated");
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        await new Promise((resolve) => setTimeout(resolve, 120)); // clear interactionDelay
+    }
+
+    /** Send Tab through the editor's keymap; returns whether a binding consumed it. */
+    function pressTab(view: EditorView): boolean {
+        const event = new KeyboardEvent("keydown", { key: "Tab" });
+        return runScopeHandlers(view, event, "editor");
+    }
+
+    it("accepts the active completion, like Enter", async () => {
+        const view = mount(`Alice: Hi.
+
+A`);
+        await openCompletion(view);
+        const consumed = pressTab(view);
+        expect(view.state.doc.toString()).toBe(`Alice: Hi.
+
+Alice`);
+        expect(consumed).toBe(true);
+        view.destroy();
+    });
+
+    it("leaves Tab alone when no completion is open, so focus can exit the editor", () => {
+        const view = mount(`Alice: Hi.
+
+A`);
+        // No startCompletion: with the tooltip closed, Tab must fall through to its
+        // default (moving focus), never getting swallowed by the editor.
+        const consumed = pressTab(view);
+        expect(view.state.doc.toString()).toBe(`Alice: Hi.
+
+A`);
+        expect(consumed).toBe(false);
+        view.destroy();
     });
 });

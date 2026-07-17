@@ -87,7 +87,7 @@ core model; the collect-and-continue pipeline, validator, and renderer follow.
 
 | Order | Note | What it covers | Status |
 | --- | --- | --- | --- |
-| 1 | [Diagnostic Model](./Diagnostic%20Model.md) | The core value types — a located `Diagnostic`, its `DiagnosticDescriptor` (`DLG####` code), severities — and the `DiagnosticBag` that collects them | In progress |
+| 1 | [Diagnostic Model](./Diagnostic%20Model.md) | The core value types — a located `Diagnostic`, its `DiagnosticDescriptor` (`DLG####` code), severities — and the `DiagnosticBag` that collects them | Implemented |
 
 ### Command-line interface
 

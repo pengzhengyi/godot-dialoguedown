@@ -1,7 +1,7 @@
 # Implementation note: Diagnostic model
 
 > [!NOTE]
-> Status: **approved** — implementation in progress. This is the first,
+> Status: **implemented**. This is the first,
 > minimal component of the larger diagnostics effort ([#43](https://github.com/pengzhengyi/godot-dialoguedown/issues/43)):
 > the **core diagnostic model** — the value types that describe a located problem,
 > and the **bag** that collects them. It is deliberately dependency-free and **not
@@ -117,19 +117,19 @@ tiny and keeps the core free of any editor or wire-format concept.
 
 ## Functionality checklist
 
-- [ ] `DiagnosticSeverity` defines `Info`, `Warning`, `Error` with a defined order
+- [x] `DiagnosticSeverity` defines `Info`, `Warning`, `Error` with a defined order
       (`Error` is the worst).
-- [ ] `DiagnosticDescriptor` carries a `Code`, `Title`, `MessageFormat`, `Category`,
+- [x] `DiagnosticDescriptor` carries a `Code`, `Title`, `MessageFormat`, `Category`,
       and `DefaultSeverity`, and rejects a malformed code or a code whose range does
       not match its category.
-- [ ] `Diagnostic` carries a descriptor, a `SourceSpan`, its message **arguments**,
+- [x] `Diagnostic` carries a descriptor, a `SourceSpan`, its message **arguments**,
       and a severity that defaults to the descriptor's `DefaultSeverity`.
-- [ ] `IDiagnosticSink.Report` accepts a diagnostic; `DiagnosticBag` implements it.
-- [ ] `DiagnosticBag` exposes an **immutable snapshot** of what was reported, in
+- [x] `IDiagnosticSink.Report` accepts a diagnostic; `DiagnosticBag` implements it.
+- [x] `DiagnosticBag` exposes an **immutable snapshot** of what was reported, in
       **report order**, and a `HasErrors` convenience.
-- [ ] An **architecture test** asserts `DialogueDown.Diagnostics` is a foundation
+- [x] An **architecture test** asserts `DialogueDown.Diagnostics` is a foundation
       leaf — it may use `Common` but must not depend on any pipeline stage.
-- [ ] Every type is `internal`, dependency-free, and covered by unit tests.
+- [x] Every type is `internal`, dependency-free, and covered by unit tests.
 
 ## Interfaces and abstractions
 
@@ -168,7 +168,9 @@ the core). Each **diagnostic carries its own severity**, defaulting from its
 descriptor's `DefaultSeverity` — a field now, not later, so a future configuration
 pass can promote a warning to an error (or demote one) without reshaping the model.
 The **diagnostic and descriptor are immutable value types** (records) so they are safe
-to share and compare; the **bag is the only mutable piece**, and only during one
+to share and compare — a diagnostic compares equal to another that reports the same
+problem, matching its **message arguments by value** (element-wise), not by list
+identity. The **bag is the only mutable piece**, and only during one
 compilation. This cleanly separates the *what* (a value) from the *collecting* (a
 process).
 
@@ -265,7 +267,8 @@ component is exercised by fast **unit tests** in `DialogueDown.Tests` (which has
   range-mismatch case throws; equality by value.
 - **`DiagnosticSeverity`** — the order holds (`Error` > `Warning` > `Info`).
 - **`Diagnostic`** — severity defaults from the descriptor and can be overridden;
-  value equality; carries its span and message arguments.
+  value equality, comparing message arguments element-wise; carries its span and
+  message arguments.
 - **`DiagnosticBag`** — reports collect in order; the snapshot is immutable and
   detached from later reports; `HasErrors` reflects only `Error`; an empty bag is
   well-behaved; `null` report throws.

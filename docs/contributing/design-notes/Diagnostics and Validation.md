@@ -14,7 +14,7 @@
 | Component | What it delivers | Status |
 | --- | --- | --- |
 | **1. Diagnostic model** | the value types that describe a located problem, and the bag that collects them | **Implemented** |
-| **2. Collection seam** | a `CompilationContext` threading the sink through the stages; the result surfaces what was collected | **Proposed (next)** |
+| **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Proposed (next)** |
 | **3. Validator + rules** | a pluggable structural lint pass over the desugared artifact | Deferred |
 | **4. Producers** | migrating recoverable throw sites to reported diagnostics | Deferred |
 | **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
@@ -35,7 +35,7 @@
   - [DD2 — Three severities, collect-and-continue](#dd2--three-severities-collect-and-continue)
   - [DD3 — A descriptor catalog with `DLG####` codes](#dd3--a-descriptor-catalog-with-dlg-codes)
   - [DD4 — The validator is a set of pluggable rules](#dd4--the-validator-is-a-set-of-pluggable-rules)
-  - [DD5 — The sink threads through the facade via a compilation context](#dd5--the-sink-threads-through-the-facade-via-a-compilation-context)
+  - [DD5 — The sink threads through the facade via a diagnostics context](#dd5--the-sink-threads-through-the-facade-via-a-diagnostics-context)
   - [DD6 — Public `HasErrors`, internal diagnostics until the renderer](#dd6--public-haserrors-internal-diagnostics-until-the-renderer)
   - [DD7 — Errata renders on the CLI, isolated to the CLI](#dd7--errata-renders-on-the-cli-isolated-to-the-cli)
   - [DD8 — LSP and web rendering are planned projection seams](#dd8--lsp-and-web-rendering-are-planned-projection-seams)
@@ -52,7 +52,7 @@ effort introduces, in components:
 
 - a **diagnostic model** — a structured, located report of a problem found during compilation
   (a descriptor with a stable code, a source span, a severity, and message arguments);
-- a **collection seam** — a per-compilation context carrying a sink each stage reports into, so
+- a **collection seam** — a per-compilation diagnostics context carrying a sink each stage reports into, so
   compilation **collects and continues** instead of throwing at the first fault, surfacing the
   collected diagnostics on `CompilationResult`;
 - a **validator** — a pluggable set of **rules** that inspect a compiled artifact and report
@@ -120,7 +120,7 @@ The core owns the model, the sink, and (later) the offset↔line/column mapping.
 | **Message arguments** | The per-diagnostic values that fill the format, kept structured (not pre-formatted) so composing the text belongs to the renderer. |
 | **Diagnostic sink** | The seam (`IDiagnosticSink`) a producer reports a diagnostic into, so producers never know how diagnostics are stored. |
 | **Diagnostic bag** | The concrete sink for one compilation: it collects diagnostics and hands back an immutable snapshot in report order. |
-| **Compilation context** | The per-compilation bundle a stage receives: the original `Source` and the `Diagnostics` sink to report into. Replaces the bare `source` string threaded through the stages today. |
+| **Diagnostics context** | The per-compilation bundle a stage receives: the original `Source` and the `Diagnostics` sink to report into. Replaces the bare `source` string threaded through the stages today. |
 | **Collect and continue** | The stance the seam enables: a stage reports a recoverable problem and keeps going, so one run surfaces many problems. |
 | **Validation rule** | One check (`IDiagnosticRule`) owning one descriptor: inspects an artifact and reports zero or more diagnostics. Pluggable and unit-testable in isolation. |
 | **Line map** | A value that indexes the source's line starts once and converts a `SourceSpan` offset to a `LinePosition` (line, character), for the Errata/LSP projections. |
@@ -187,16 +187,16 @@ without a cycle. The types are unit-tested at 100% line and branch coverage.
 
 ## Component 2 — the collection seam (proposed)
 
-The plumbing that lets the compiler collect and continue: a per-compilation context carrying the
+The plumbing that lets the compiler collect and continue: a per-compilation diagnostics context carrying the
 sink to each stage, and a result that surfaces what was collected. It adds **no producer** —
 stages still throw for now; migrating them is a later component. See
-[DD5](#dd5--the-sink-threads-through-the-facade-via-a-compilation-context) and
+[DD5](#dd5--the-sink-threads-through-the-facade-via-a-diagnostics-context) and
 [DD6](#dd6--public-haserrors-internal-diagnostics-until-the-renderer).
 
 | Type | Visibility | Responsibility |
 | --- | --- | --- |
-| `CompilationContext` | internal | per-compilation bundle: `Source` + `Diagnostics` (`IDiagnosticSink`) |
-| `IScriptTranspiler` / `IScriptDesugarer` / `ISemanticAnalyzer` | internal | entry methods take a `CompilationContext` in place of the bare `source` string |
+| `DiagnosticsContext` | internal | per-compilation bundle: `Source` + `Diagnostics` (`IDiagnosticSink`) |
+| `IScriptTranspiler` / `IScriptDesugarer` / `ISemanticAnalyzer` | internal | entry methods take a `DiagnosticsContext` in place of the bare `source` string |
 | `ScriptCompiler` (facade) | internal | builds one `DiagnosticBag`, threads the context, aggregates the snapshot |
 | `CompilationResult` | public (record) | gains `internal Diagnostics` (report-order snapshot) and a `public HasErrors` |
 
@@ -280,12 +280,12 @@ The first (structural) rules target problems the current pipeline can already se
 | Tag without a speaker | `DLG1101` | `Error` | tags attached to no speaker |
 | Dropped unmodeled Markdown | `DLG3001` | `Info` | an unmodeled construct ignored by policy |
 
-### DD5 — The sink threads through the facade via a compilation context
+### DD5 — The sink threads through the facade via a diagnostics context
 
-The sink reaches the stages through a small **`CompilationContext`**, not by adding a parameter to
+The sink reaches the stages through a small **`DiagnosticsContext`**, not by adding a parameter to
 every method. Each stage's entry method already takes the raw `source`
 (`Transpile(markdown, source)`, `Desugar(script, source)`, `Analyze(desugared, source)`); this
-replaces that bare `source` with a `CompilationContext { Source, Diagnostics }` at the **stage
+replaces that bare `source` with a `DiagnosticsContext { Source, Diagnostics }` at the **stage
 boundary only** — one signature change per stage, reusing the seam already there. Stages read
 `context.Source` where they read `source` today; a producer later reports into
 `context.Diagnostics`, typed as the write-only `IDiagnosticSink` so a stage can report but never
@@ -347,13 +347,13 @@ severity; it would appear only in this projection.
 | `null` diagnostic reported | `ArgumentNullException` — a usage error. |
 | Snapshot immutability | the bag hands back a detached snapshot; a later report never changes a snapshot taken earlier. |
 | Clean compile, no producer | `Diagnostics` is empty; `HasErrors` is false; a complete result. |
-| Null source or sink into `CompilationContext` | `ArgumentNullException`. |
+| Null source or sink into `DiagnosticsContext` | `ArgumentNullException`. |
 | Errors present (later, once producers report) | a **partial** `CompilationResult` is still returned with all diagnostics; `HasErrors` is true. |
 | Message argument/format mismatch | not checked in the model — composing the message is the renderer's job, so a mismatch surfaces at render time. |
 
 ## Integration
 
-- **Core** (`DialogueDown`): the model module (done); then `CompilationContext`, the stage
+- **Core** (`DialogueDown`): the model module (done); then `DiagnosticsContext`, the stage
   signature change, the facade building and threading the bag, and `CompilationResult` gaining
   `Diagnostics` (internal) + `HasErrors` (public). No new runtime dependency.
 - **Facade** (`ScriptCompiler`): creates the bag, threads it, and (later) runs the validator and
@@ -372,8 +372,8 @@ severity; it would appear only in this projection.
   rule pins the foundation-leaf boundary. Built at 100% line and branch coverage.
 - **Collection seam** — a **spy stage** reports a diagnostic when invoked; a facade test asserts it
   surfaces on `CompilationResult.Diagnostics` and flips `HasErrors`. A clean compile is empty and
-  `HasErrors` is false. Existing stage/facade tests thread a `CompilationContext` through a shared
-  `CompilationContextFactory` object mother, so the signature change touches one test helper.
+  `HasErrors` is false. Existing stage/facade tests thread a `DiagnosticsContext` through a shared
+  `DiagnosticsContextFactory` object mother, so the signature change touches one test helper.
 - **Rules** (later) — each rule unit-tested in isolation: feed a small desugared artifact, assert
   the emitted descriptor, severity, and span.
 - **Renderer** (later) — assert the mapping (severity→kind, span→label via `LineMap`, code,

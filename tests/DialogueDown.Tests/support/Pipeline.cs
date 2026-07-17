@@ -11,8 +11,9 @@ internal static class Pipeline
 {
     public static DesugaredScriptDocument UntilDesugared(string source)
     {
+        var context = DiagnosticsContextFactory.Context(source);
         var markdown = MarkdownParserFactory.MarkdownParser().Parse(source);
-        var script = TranspilerBuilderFactory.ScriptTranspiler().Transpile(markdown, source);
-        return DesugarerFactory.ScriptDesugarer().Desugar(script, source);
+        var script = TranspilerBuilderFactory.ScriptTranspiler().Transpile(markdown, context);
+        return DesugarerFactory.ScriptDesugarer().Desugar(script, context);
     }
 }

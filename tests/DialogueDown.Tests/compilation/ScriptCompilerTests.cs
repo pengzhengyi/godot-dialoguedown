@@ -1,4 +1,5 @@
 using DialogueDown.Compilation;
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
@@ -36,9 +37,9 @@ public sealed class ScriptCompilerTests
         Received.InOrder(() =>
         {
             parser.Parse(source);
-            transpiler.Transpile(markdown, source);
-            desugarer.Desugar(script, source);
-            analyzer.Analyze(desugared, source);
+            transpiler.Transpile(Arg.Is(markdown), Arg.Is<DiagnosticsContext>(c => c.Source == source));
+            desugarer.Desugar(Arg.Is(script), Arg.Is<DiagnosticsContext>(c => c.Source == source));
+            analyzer.Analyze(Arg.Is(desugared), Arg.Is<DiagnosticsContext>(c => c.Source == source));
         });
     }
 

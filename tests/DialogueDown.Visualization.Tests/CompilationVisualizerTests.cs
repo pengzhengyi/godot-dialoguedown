@@ -1,6 +1,7 @@
 using DialogueDown.Common;
 using DialogueDown.Compilation;
 using DialogueDown.Configuration;
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
@@ -49,7 +50,8 @@ public sealed class CompilationVisualizerTests
         ]);
         var compiler = Substitute.For<IScriptCompiler>();
         var desugared = new DesugaredScriptDocument(script);
-        var semantics = new SemanticAnalyzer(new SemanticAnalyzerOptions([])).Analyze(desugared, "script source");
+        var semantics = new SemanticAnalyzer(new SemanticAnalyzerOptions([]))
+            .Analyze(desugared, new DiagnosticsContext("script source", new DiagnosticBag()));
         compiler.Compile("script source").Returns(
             new CompilationResult("script source", markdown, script, desugared, semantics));
         var visualizer = new CompilationVisualizer(compiler);

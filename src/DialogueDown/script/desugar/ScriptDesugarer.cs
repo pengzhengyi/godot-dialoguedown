@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 
 namespace DialogueDown.Script.Desugar;
@@ -10,14 +11,14 @@ internal sealed class ScriptDesugarer : IScriptDesugarer
 {
     private readonly Desugarer _desugarer = new();
 
-    public DesugaredScriptDocument Desugar(ScriptDocument document, string source)
+    public DesugaredScriptDocument Desugar(ScriptDocument document, DiagnosticsContext context)
     {
         ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(context);
 
-        // TODO(diagnostics): source is validated but not yet read — desugaring works off
-        // the tree and the spans it already carries. Thread source into warning reporting
-        // when the diagnostics phase lands (e.g. a dangling arrow or multiple jumps).
+        // TODO(diagnostics): the context is validated but not yet read — desugaring works off
+        // the tree and the spans it already carries. Report warnings into context.Diagnostics
+        // when the producers land (e.g. a dangling arrow or multiple jumps).
         return new DesugaredScriptDocument(_desugarer.Rewrite(document));
     }
 }

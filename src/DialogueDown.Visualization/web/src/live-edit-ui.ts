@@ -4,26 +4,39 @@ import type { Report } from "./model";
 
 const SAVE_URL = "/api/save";
 
-/** The Live Edit ports plus a switch to show or hide the edit controls (Edit only). */
-export interface LiveEditUi extends LiveEditPorts {
+/** Binds one editable document to the shared Live Edit chrome (Save/Discard, dirty, unload guard). */
+export interface DocumentBinding {
+    /** The save target: omitted for the dialogue document, `"config"` for `dialogue.toml`. */
+    target?: "config";
+    /** Toggle this document's own dirty cue (its tab marker, and any per-document staleness). */
+    markDirty(dirty: boolean): void;
+    /** Replace this document's editor content — used to restore the last saved version on discard. */
+    setContent(source: string): void;
+    /** Apply anything in the recompiled report beyond the graphs (e.g. refresh the config speakers). */
+    onSaved?(report: Report): void;
+}
+
+/** The shared Live Edit chrome: per-document ports plus a switch to show or hide the controls. */
+export interface LiveEditUi {
+    /** Build the Live Edit ports for one editable document, sharing the Save/dirty chrome. */
+    portsFor(binding: DocumentBinding): LiveEditPorts;
     /** Show or hide the Save and Discard buttons as the session enters or leaves Edit. */
     setEditControlsVisible(visible: boolean): void;
 }
 
 /**
- * The browser-side ports for the Live Edit state machine: it saves the buffer over
- * `POST /api/save`, applies the recompiled graphs, restores the editor on discard, toggles
- * the Source tab's dirty marker and the "file changed on disk" chip, and arms a `beforeunload`
- * guard so a refresh/close with unsaved edits prompts first. The Save/Discard buttons and the
- * Save shortcut only act in Edit; the buttons are shown/hidden via
- * {@link LiveEditUi.setEditControlsVisible}.
+ * The browser-side chrome for the Live Edit state machine: a shared Save/Discard pair, the
+ * Save shortcut, the "file changed on disk" chip, and a `beforeunload` guard — plus a
+ * {@link LiveEditUi.portsFor} factory that binds them to one editable document (the dialogue
+ * or its `dialogue.toml`). Saving posts the buffer to `POST /api/save` with the document's
+ * target, applies the recompiled graphs, and restores the editor on discard. The Save/Discard
+ * buttons and the shortcut route to the active document via `requestSave` / `requestDiscard`.
  */
 export function initLiveEditUi(
     app: AppController,
     requestSave: () => void,
     requestDiscard: () => void,
 ): LiveEditUi {
-    const tabsEl = document.getElementById("tabs")!;
     const chip = createDiskChip();
     // Discard sits left of Save (secondary, destructive) — append it first.
     const discardButton = createDiscardButton(requestDiscard);
@@ -31,42 +44,48 @@ export function initLiveEditUi(
     installSaveShortcut(requestSave);
     let unloadHandler: ((event: BeforeUnloadEvent) => void) | null = null;
 
+    function setUnloadGuard(active: boolean): void {
+        if (active && unloadHandler === null) {
+            unloadHandler = (event) => {
+                event.preventDefault();
+                event.returnValue = "";
+            };
+            window.addEventListener("beforeunload", unloadHandler);
+        } else if (!active && unloadHandler !== null) {
+            window.removeEventListener("beforeunload", unloadHandler);
+            unloadHandler = null;
+        }
+    }
+
     return {
-        async save(source) {
-            const response = await fetch(SAVE_URL, {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ source }),
-            });
-            if (!response.ok) {
-                app.showBanner("Save failed — the file could not be written.");
-                return null;
-            }
-            app.showBanner(null);
-            return ((await response.json()) as Report).stages;
-        },
-        updateStages: (stages) => app.updateStages(stages),
-        setContent: (source) => app.setContent(source),
-        setDirty: (dirty) => {
-            tabsEl.querySelector(".tab")?.classList.toggle("dirty", dirty);
-            saveButton.setEnabled(dirty);
-            discardButton.setEnabled(dirty);
-        },
-        setDiskChanged: (changed) => {
-            chip.hidden = !changed;
-        },
-        setUnloadGuard: (active) => {
-            if (active && unloadHandler === null) {
-                unloadHandler = (event) => {
-                    event.preventDefault();
-                    event.returnValue = "";
-                };
-                window.addEventListener("beforeunload", unloadHandler);
-            } else if (!active && unloadHandler !== null) {
-                window.removeEventListener("beforeunload", unloadHandler);
-                unloadHandler = null;
-            }
-        },
+        portsFor: (binding) => ({
+            async save(source) {
+                const response = await fetch(SAVE_URL, {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ source, target: binding.target }),
+                });
+                if (!response.ok) {
+                    app.showBanner("Save failed — the file could not be written.");
+                    return null;
+                }
+                app.showBanner(null);
+                const report = (await response.json()) as Report;
+                binding.onSaved?.(report);
+                return report.stages;
+            },
+            updateStages: (stages) => app.updateStages(stages),
+            setContent: (source) => binding.setContent(source),
+            setDirty: (dirty) => {
+                binding.markDirty(dirty);
+                saveButton.setEnabled(dirty);
+                discardButton.setEnabled(dirty);
+            },
+            setDiskChanged: (changed) => {
+                chip.hidden = !changed;
+            },
+            setUnloadGuard,
+        }),
         setEditControlsVisible: (visible) => {
             discardButton.setVisible(visible);
             saveButton.setVisible(visible);

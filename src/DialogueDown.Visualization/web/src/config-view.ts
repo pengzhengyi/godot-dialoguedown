@@ -1,5 +1,7 @@
-import { EditorState } from "@codemirror/state";
-import { EditorView, lineNumbers } from "@codemirror/view";
+import { EditorState, Compartment } from "@codemirror/state";
+import { EditorView, lineNumbers, keymap, drawSelection } from "@codemirror/view";
+import { history, historyKeymap, defaultKeymap } from "@codemirror/commands";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { StreamLanguage, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { tags } from "@lezer/highlight";
@@ -16,6 +18,28 @@ import { escapeHtml } from "./text";
 export interface ConfigViewOptions {
     /** Toggle the whole-window maximize mode; when set, a maximize button is shown. */
     onToggleFullscreen?: () => void;
+    /** Start the TOML editor editable (Edit) or read-only (View); toggled later via the handle. */
+    editable?: boolean;
+    /** Called with the new buffer on every edit — for the config buffer and dirty state. */
+    onChange?: (source: string) => void;
+}
+
+/**
+ * A handle to the Config tab so the live-edit machinery can drive it: flip the TOML editor
+ * between editable and read-only, replace its content (a discard/restore), refresh the
+ * configured speakers after a recompile, and signpost the pane as stale while unsaved.
+ */
+export interface ConfigViewHandle {
+    /** The Config tab element to mount. */
+    readonly element: HTMLElement;
+    /** Switch the TOML editor between editable (Edit) and read-only (View) in place. */
+    setEditable(editable: boolean): void;
+    /** Replace the editor's content — used to restore the last saved version on discard. */
+    setContent(source: string): void;
+    /** Re-render the configured speakers from a freshly recompiled report. */
+    updateSpeakers(config: ConfigReport): void;
+    /** Mark the speakers pane as out of date (unsaved edits) or up to date. */
+    setStale(stale: boolean): void;
 }
 
 /**
@@ -39,7 +63,7 @@ const tomlHighlightStyle = HighlightStyle.define([
 export function createConfigView(
     config: ConfigReport,
     options: ConfigViewOptions = {},
-): HTMLElement {
+): ConfigViewHandle {
     const container = document.createElement("div");
     container.className = "config-view";
 
@@ -52,9 +76,21 @@ export function createConfigView(
     const side = document.createElement("div");
     side.className = "config-side";
 
+    // A quiet, hidden-by-default hint that marks the speakers as out of date while the TOML
+    // has unsaved edits (the speakers only refresh on Save — see the Live Edit note, DD6).
+    const staleHint = renderStaleHint();
+
+    let editor: EditorView | null = null;
+    let speakers: HTMLElement | null = null;
     if (isConfiguredFromFile(config)) {
-        mountReadOnlyEditor(pane, config.file!.source);
-        side.appendChild(renderSpeakers(config.speakers));
+        editor = mountEditor(
+            pane,
+            config.file!.source,
+            options.editable ?? false,
+            options.onChange,
+        );
+        speakers = renderSpeakers(config.speakers);
+        side.append(staleHint, speakers);
     } else {
         pane.appendChild(renderNoConfigExplanation());
         side.appendChild(renderNoSpeakers());
@@ -82,7 +118,74 @@ export function createConfigView(
         controls.appendChild(createMaximizeButton(options.onToggleFullscreen));
         container.appendChild(controls);
     }
-    return container;
+
+    return {
+        element: container,
+        setEditable: (next) =>
+            editor?.dispatch({ effects: editability.reconfigure(editableConfig(next)) }),
+        setContent: (next) =>
+            editor?.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: next } }),
+        updateSpeakers: (next) => {
+            if (!speakers || !isConfiguredFromFile(next)) return;
+            const fresh = renderSpeakers(next.speakers);
+            speakers.replaceWith(fresh);
+            speakers = fresh;
+        },
+        setStale: (stale) => {
+            staleHint.hidden = !stale;
+        },
+    };
+}
+
+/** The read-only-in-View / editable-in-Edit extensions, flipped at runtime via this compartment. */
+const editability = new Compartment();
+
+function editableConfig(editable: boolean) {
+    return [
+        EditorState.readOnly.of(!editable),
+        EditorView.contentAttributes.of(
+            editable
+                ? { "aria-label": "Configuration source editor", tabindex: "0" }
+                : { "aria-label": "Configuration source", "aria-readonly": "true", tabindex: "0" },
+        ),
+        ...(editable ? [closeBrackets()] : []),
+    ];
+}
+
+/** A focusable CodeMirror over the TOML source — read-only in View, editable in Edit. */
+function mountEditor(
+    parent: HTMLElement,
+    source: string,
+    editable: boolean,
+    onChange?: (source: string) => void,
+): EditorView {
+    return new EditorView({
+        parent,
+        state: EditorState.create({
+            doc: source,
+            extensions: [
+                lineNumbers(),
+                history(),
+                drawSelection(),
+                editability.of(editableConfig(editable)),
+                StreamLanguage.define(toml),
+                syntaxHighlighting(tomlHighlightStyle),
+                keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap]),
+                EditorView.updateListener.of((update) => {
+                    if (update.docChanged) onChange?.(update.state.doc.toString());
+                }),
+            ],
+        }),
+    });
+}
+
+/** The quiet "unsaved — save to refresh the speakers" hint (hidden until the config is dirty). */
+function renderStaleHint(): HTMLElement {
+    const hint = document.createElement("p");
+    hint.className = "config-stale-hint";
+    hint.hidden = true;
+    hint.textContent = "Unsaved changes — save to refresh the speakers.";
+    return hint;
 }
 
 /** Copy the text of a clicked cell or tag chip (any element carrying `data-copy`), and confirm it. */
@@ -96,26 +199,6 @@ function wireClickToCopy(root: HTMLElement): void {
 }
 
 /** A focusable, read-only CodeMirror showing the TOML source. */
-function mountReadOnlyEditor(parent: HTMLElement, source: string): void {
-    new EditorView({
-        parent,
-        state: EditorState.create({
-            doc: source,
-            extensions: [
-                lineNumbers(),
-                EditorState.readOnly.of(true),
-                EditorView.editable.of(false),
-                EditorView.contentAttributes.of({
-                    "aria-label": "Configuration source",
-                    tabindex: "0",
-                }),
-                StreamLanguage.define(toml),
-                syntaxHighlighting(tomlHighlightStyle),
-            ],
-        }),
-    });
-}
-
 /** The configured-speakers table: Name, Id, and tag chips colored by reserved vs custom. Every
  *  value is click-to-copy, so a writer can lift a name, `@id`, or tag straight into a script. */
 function renderSpeakers(speakers: ConfiguredSpeakerView[]): HTMLElement {

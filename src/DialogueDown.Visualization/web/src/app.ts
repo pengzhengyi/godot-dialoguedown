@@ -1,10 +1,10 @@
-import type { Report, Stage } from "./model";
+import type { Report, Stage, ConfigReport } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
-import { createConfigView } from "./config-view";
+import { createConfigView, type ConfigViewHandle, type ConfigViewOptions } from "./config-view";
 import type { DialogueSymbolSource } from "./dialogue-symbols";
 import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
@@ -41,6 +41,8 @@ export interface SourceOptions {
     editable: boolean;
     /** Called with the new buffer on every editor change (edits, or a View-mode reload). */
     onChange(buffer: string): void;
+    /** Called with the new config (TOML) buffer on every config-editor change. */
+    configOnChange?(buffer: string): void;
     /**
      * Where the Source editor's autocompletion draws its symbols. Defaults to a document
      * scan; a served session supplies the semantic analyzer's resolved symbols merged
@@ -62,6 +64,20 @@ export interface AppController {
     setEditable(editable: boolean): void;
     /** Replace the Source buffer (a View-mode hot-reload), keeping the one editor instance. */
     setContent(source: string): void;
+    /** Switch the config (TOML) editor between editable (Edit) and read-only (View) in place. */
+    setConfigEditable(editable: boolean): void;
+    /** Replace the config editor's content — a discard/restore of the last saved TOML. */
+    setConfigContent(source: string): void;
+    /** Re-render the configured speakers after a config recompile. */
+    updateConfigSpeakers(config: ConfigReport): void;
+    /** Mark the config speakers pane as stale (unsaved edits) or up to date. */
+    setConfigStale(stale: boolean): void;
+    /** Toggle the Source tab's unsaved (dirty) marker. */
+    markSourceDirty(dirty: boolean): void;
+    /** Toggle the Config tab's unsaved (dirty) marker. */
+    markConfigDirty(dirty: boolean): void;
+    /** Whether the Config tab is the active tab (so a save/⌘S targets the config). */
+    isConfigTabActive(): boolean;
     /** Show a status message (e.g. a live compile error), or clear it with `null`. */
     showBanner(message: string | null): void;
 }
@@ -79,6 +95,9 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     let sourcePresent = false;
     let configPresent = false;
     let sourceHandle: SourceViewHandle | null = null;
+    let configHandle: ConfigViewHandle | null = null;
+    let sourceTab: Element | null = null;
+    let configTab: Element | null = null;
     // The current View/Edit state, so the inspector knows whether a node is editable.
     let editable = source?.editable ?? false;
 
@@ -148,6 +167,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             panel.setEditable(next);
         },
         setContent: (next) => sourceHandle?.setContent(next),
+        setConfigEditable: (next) => configHandle?.setEditable(next),
+        setConfigContent: (next) => configHandle?.setContent(next),
+        updateConfigSpeakers: (config) => configHandle?.updateSpeakers(config),
+        setConfigStale: (stale) => configHandle?.setStale(stale),
+        markSourceDirty: (dirty) => sourceTab?.classList.toggle("dirty", dirty),
+        markConfigDirty: (dirty) => configTab?.classList.toggle("dirty", dirty),
+        isConfigTabActive: () => configPresent && activeIndex === 0,
         showBanner(message) {
             bannerEl.textContent = message ?? "";
             bannerEl.hidden = message === null;
@@ -167,10 +193,14 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         if (report.configuration != null) {
             const section = document.createElement("section");
             section.className = "stage config-stage";
-            section.appendChild(
-                createConfigView(report.configuration, { onToggleFullscreen: fullscreen.toggle }),
-            );
+            configHandle = createConfigView(report.configuration, {
+                onToggleFullscreen: fullscreen.toggle,
+                editable: source?.editable ?? false,
+                ...(source?.configOnChange ? { onChange: source.configOnChange } : {}),
+            } satisfies ConfigViewOptions);
+            section.appendChild(configHandle.element);
             addTab("Config", section, null, CONFIG_TIP, null, GEAR_ICON);
+            configTab = tabsEl.lastElementChild;
         }
 
         if (report.source != null) {
@@ -183,6 +213,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             });
             section.appendChild(sourceHandle.element);
             addTab("Source", section, null, SOURCE_TIP, null);
+            sourceTab = tabsEl.lastElementChild;
         }
         for (const stage of report.stages) {
             addStageTab(stage);

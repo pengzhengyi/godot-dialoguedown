@@ -2075,6 +2075,21 @@ button.tab.tab-with-icon {
     font-style: italic;
 }
 
+/* A quiet "unsaved — save to refresh the speakers" cue on the speakers pane while the config
+   is dirty. Amber (like the disk chip) signals staleness without reading as an error. */
+.config-stale-hint {
+    margin: 0 0 0.7rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--pico-border-radius);
+    background: rgb(217 119 6 / 12%);
+    color: #b45309;
+    font-size: 0.72rem;
+}
+
+[data-theme="dark"] .config-stale-hint {
+    color: #fbbf24;
+}
+
 /* The no-config left pane: a plain-language explanation, not an empty code block. */
 .config-empty-state {
     max-width: 40ch;

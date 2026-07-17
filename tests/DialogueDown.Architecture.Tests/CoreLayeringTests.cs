@@ -43,6 +43,22 @@ public sealed class CoreLayeringTests
     }
 
     [Fact]
+    public void Diagnostics_IsAFoundationLeaf_WithNoDependencyOnPipelineLayers()
+    {
+        Types.InAssembly(Architecture.CoreAssembly)
+            .That()
+            .ResideInNamespace(Architecture.Diagnostics)
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                Architecture.Markdown,
+                Architecture.Script,
+                Architecture.Graph,
+                Architecture.Compilation)
+            .GetResult()
+            .ShouldPass();
+    }
+
+    [Fact]
     public void Graph_IsALeaf_WithNoDependencyOnPipelineLayers()
     {
         Types.InAssembly(Architecture.CoreAssembly)

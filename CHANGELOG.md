@@ -22,8 +22,10 @@ changes easy to categorize.
   mark one the default) through `CompilerOptions`, and the compiler binds them
   alongside a script's own: a configured default covers speaker-less lines when the
   script declares no `##default`, and a configured speaker unifies with a same-named
-  script speaker. A separate `DialogueDown.ConfigurationLoader` reads a project's
-  `dialogue.toml` into `CompilerOptions`, reporting malformed configuration with its
+  script speaker. The `dialoguedown` CLI reads a project's `dialogue.toml` —
+  discovered by walking up from the script, or named with `--config` — so `compile`
+  and `visualize` honor it, and the `visualize` report autocompletes the configured
+  speakers (even ones not yet used). Malformed configuration is reported with its
   source location. See the
   [design notes](docs/contributing/design-notes/README.md).
 - **`dialoguedown` CLI** — `compile` runs the compiler pipeline; `visualize` opens

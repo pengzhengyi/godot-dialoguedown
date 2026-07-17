@@ -4,6 +4,7 @@ import { createTreeView, type TreeView } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
+import { createConfigView } from "./config-view";
 import type { DialogueSymbolSource } from "./dialogue-symbols";
 import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
@@ -11,11 +12,28 @@ import { initFullscreen } from "./fullscreen";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { initTooltips, initTabTooltips } from "./tooltips";
 import { isTextEntryTarget } from "./text-entry";
+import { escapeHtml } from "./text";
 import { setHelp } from "./help";
 
 // The Source tab shows the compiler input, not a projected stage, so its hover
 // tip is a constant here rather than a field on the model.
 const SOURCE_TIP = "The document as written, beside a live Markdown preview.";
+
+// The Config tab shows the applied dialogue.toml, so its tip is a constant here too.
+const CONFIG_TIP = "The applied configuration — its dialogue.toml beside the configured speakers.";
+
+// Feather Icons (MIT) `settings` gear, marking the Config tab.
+const GEAR_ICON =
+    '<svg class="tab-icon" viewBox="0 0 24 24" width="14" height="14" fill="none"' +
+    ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' +
+    ' aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0' +
+    " .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1" +
+    " 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0" +
+    " 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65" +
+    " 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0" +
+    " 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0" +
+    " 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2" +
+    ' 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>';
 
 /** How the Source tab's editor is wired for a served session. */
 export interface SourceOptions {
@@ -59,6 +77,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     const bannerEl = document.getElementById("live-banner")!;
     let activeIndex = 0;
     let sourcePresent = false;
+    let configPresent = false;
     let sourceHandle: SourceViewHandle | null = null;
     // The current View/Edit state, so the inspector knows whether a node is editable.
     let editable = source?.editable ?? false;
@@ -141,6 +160,16 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         views = [];
         keys = [];
         sourcePresent = report.source != null;
+        configPresent = report.configuration != null;
+
+        // The Config tab comes first (a gear icon marks it), but the report still opens on
+        // Source below — Config is one click away for a reader who just wants the dialogue.
+        if (report.configuration != null) {
+            const section = document.createElement("section");
+            section.className = "stage config-stage";
+            section.appendChild(createConfigView(report.configuration));
+            addTab("Config", section, null, CONFIG_TIP, null, GEAR_ICON);
+        }
 
         if (report.source != null) {
             const section = document.createElement("section");
@@ -156,7 +185,8 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         for (const stage of report.stages) {
             addStageTab(stage);
         }
-        if (views.length > 0) activate(0);
+        // Open on Source when present (after the Config tab), else the first tab.
+        if (views.length > 0) activate(sourcePresent ? (configPresent ? 1 : 0) : 0);
     }
 
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
@@ -164,7 +194,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     // fold are recorded live (as the reader adjusts them), so a rebuilt stage restores
     // its position from the store.
     function updateStages(stages: Stage[]): void {
-        const keep = sourcePresent ? 1 : 0;
+        const keep = (configPresent ? 1 : 0) + (sourcePresent ? 1 : 0);
         while (tabsEl.children.length > keep) tabsEl.lastElementChild!.remove();
         while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
         views = views.slice(0, keep);
@@ -224,12 +254,18 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         view: TreeView | null,
         tip: string,
         key: string | null,
+        icon?: string,
     ): void {
         const index = views.length;
         const tab = document.createElement("button");
         tab.className = "tab";
         tab.type = "button";
-        tab.textContent = title;
+        if (icon) {
+            tab.classList.add("tab-with-icon");
+            tab.innerHTML = `${icon}<span class="tab-label">${escapeHtml(title)}</span>`;
+        } else {
+            tab.textContent = title;
+        }
         tab.setAttribute("data-tip", tip);
         // Switching tabs is navigation: block it while there are unsaved edits so a stale
         // graph is never shown beside them (the reader saves or discards first).

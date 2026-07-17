@@ -97,6 +97,11 @@ export interface Report {
      * Absent when the semantic stage did not run or produced nothing.
      */
     symbols?: DialogueSymbols;
+    /**
+     * The applied configuration, shown in the Config tab. Present when the report has a
+     * configuration context (a CLI or served report); absent for a bare library render.
+     */
+    configuration?: ConfigReport;
 }
 
 /** The mode a report is shown in (mirrors the .NET `VisualizationMode`). */
@@ -104,3 +109,32 @@ export type VisualizationMode = "static" | "view" | "edit";
 
 /** The two interactive modes of a served session, toggled in the browser (Vim-like). */
 export type ServedMode = "view" | "edit";
+
+/** One tag of a {@link ConfiguredSpeakerView}; `reserved` colors reserved names apart from custom. */
+export interface ConfiguredTagView {
+    name: string;
+    value?: string;
+    reserved: boolean;
+}
+
+/** A configured speaker shown in the Config tab: a name, an optional id, and its tags. */
+export interface ConfiguredSpeakerView {
+    name: string;
+    id?: string;
+    tags: ConfiguredTagView[];
+}
+
+/**
+ * The applied configuration shown in the Config tab: the `dialogue.toml` file (when one was
+ * found) and the resolved configured speakers. An absent {@link ConfigReport.file} is the
+ * no-config state — the compiler used its built-in defaults.
+ */
+export interface ConfigReport {
+    file?: { path: string; source: string };
+    speakers: ConfiguredSpeakerView[];
+}
+
+/** Whether a `dialogue.toml` was found and applied (as opposed to the defaults). */
+export function isConfiguredFromFile(config: ConfigReport): boolean {
+    return config.file != null;
+}

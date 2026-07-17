@@ -278,8 +278,12 @@ export function createSourceView(
     };
 }
 
-/** Wire the divider so dragging it re-proportions the source pane (via `--source-split`). */
-function initSplitDivider(container: HTMLElement, divider: HTMLElement): void {
+/** Wire the divider so dragging it re-proportions the source pane (via a CSS split variable). */
+export function initSplitDivider(
+    container: HTMLElement,
+    divider: HTMLElement,
+    splitVar = "--source-split",
+): void {
     let dragging = false;
 
     divider.addEventListener("mousedown", (event) => {
@@ -297,7 +301,7 @@ function initSplitDivider(container: HTMLElement, divider: HTMLElement): void {
         if (bounds.width === 0) return;
         const ratio = (event.clientX - bounds.left) / bounds.width;
         const clamped = Math.max(MIN_RATIO, Math.min(MAX_RATIO, ratio));
-        container.style.setProperty("--source-split", `${(clamped * 100).toFixed(2)}%`);
+        container.style.setProperty(splitVar, `${(clamped * 100).toFixed(2)}%`);
     });
 
     document.addEventListener("mouseup", () => {

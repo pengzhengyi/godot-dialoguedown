@@ -19,9 +19,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("serves a view report bound to the document", async ({ page }) => {
-    // The payload is a served session, so the tabs render and the Source tab is present.
-    await expect(page.locator(".tab")).toHaveCount(5); // Source + Markdown/Dialogue/Desugared AST + Semantic Model
-    await expect(page.locator(".tab").first()).toHaveText("Source");
+    // The payload is a served session, so the tabs render. Config leads (it always has a
+    // configuration context here), while the report still opens on Source.
+    await expect(page.locator(".tab")).toHaveCount(6); // Config + Source + Markdown/Dialogue/Desugared AST + Semantic Model
+    await expect(page.locator(".tab").first()).toHaveText("Config");
+    await expect(page.locator(".tab.active")).toHaveText("Source");
     // The View/Edit toggle is shown, starting in View.
     await expect(page.locator('.mode-toggle-option[data-mode="view"]')).toHaveAttribute(
         "aria-pressed",
@@ -166,7 +168,7 @@ test("toggles to Edit and back to View, reconfiguring the one editor in place", 
     // Starts in View: read-only (edits are rejected) and no Save button.
     await expect(view).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(".save-button")).toBeHidden();
-    await page.locator(".cm-content").click();
+    await page.locator(".source-pane .cm-content").click();
     await page.keyboard.type("XX");
     await expect(page.locator(".source-pane .cm-content")).not.toContainText("XX");
 
@@ -174,7 +176,7 @@ test("toggles to Edit and back to View, reconfiguring the one editor in place", 
     await edit.click();
     await expect(edit).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(".save-button")).toBeVisible();
-    await page.locator(".cm-content").click();
+    await page.locator(".source-pane .cm-content").click();
     await page.keyboard.type("YY");
     await expect(page.locator(".source-pane .cm-content")).toContainText("YY"); // edits land now
 

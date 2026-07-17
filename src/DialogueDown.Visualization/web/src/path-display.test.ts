@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { splitPath, copyToClipboard, initPathDisplay } from "./path-display";
+import { splitPath, copyToClipboard, initPathDisplay, initConfigPath } from "./path-display";
 
 describe("splitPath", () => {
     it("splits a POSIX path into directory and filename", () => {
@@ -81,5 +81,36 @@ describe("initPathDisplay", () => {
 
         expect(writeText).toHaveBeenCalledWith("/home/alice/scene.dialogue.md");
         vi.restoreAllMocks();
+    });
+});
+
+describe("initConfigPath", () => {
+    beforeEach(() => {
+        document.body.innerHTML = `
+      <button id="config-path" hidden>
+        <span class="path-head"></span><span class="path-tail"></span>
+      </button>`;
+    });
+
+    it("shows the config file's path when one was applied", () => {
+        const button = initConfigPath({
+            file: { path: "/proj/dialogue.toml", source: "" },
+            speakers: [],
+        }) as HTMLButtonElement;
+        expect(button.hidden).toBe(false);
+        expect(button.disabled).toBe(false);
+        expect(button.querySelector(".path-tail")!.textContent).toBe("/dialogue.toml");
+    });
+
+    it("shows a plain no-config label when there is no file", () => {
+        const button = initConfigPath({ speakers: [] }) as HTMLButtonElement;
+        expect(button.hidden).toBe(false);
+        expect(button.disabled).toBe(true);
+        expect(button.querySelector(".path-tail")!.textContent).toBe("No config file");
+    });
+
+    it("stays hidden when there is no configuration context", () => {
+        const button = initConfigPath(undefined)!;
+        expect(button.hidden).toBe(true);
     });
 });

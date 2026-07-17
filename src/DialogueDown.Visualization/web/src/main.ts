@@ -9,7 +9,7 @@ import { initLiveEditUi } from "./live-edit-ui";
 import { createModeToggle } from "./mode-toggle";
 import { createModeController } from "./view-edit";
 import { initModeBadge } from "./mode-badge";
-import { initPathDisplay } from "./path-display";
+import { initPathDisplay, initConfigPath } from "./path-display";
 import { initBackToLauncher } from "./back-link";
 import { initTheme } from "./theme";
 import { initHelpToggle } from "./help";
@@ -100,4 +100,5 @@ if (report.mode === "view" || report.mode === "edit") {
 }
 
 initPathDisplay(report.path);
+initConfigPath(report.configuration);
 initHelpToggle();

@@ -1,4 +1,5 @@
 import tippy from "tippy.js";
+import type { ConfigReport } from "./model";
 
 /** Split a path into its directory (head) and last segment (tail, with separator). */
 export function splitPath(path: string): { head: string; tail: string } {
@@ -27,10 +28,14 @@ export async function copyToClipboard(text: string): Promise<void> {
  * Show the document path in the status bar: the filename always shows while the
  * middle of the directory is ellipsised (CSS), the full path is a hover tooltip,
  * and clicking copies the path. Hidden when there is no path (e.g. a library
- * render with no file).
+ * render with no file). The element defaults to the dialogue document's path chip;
+ * pass another id to reuse it (the config path).
  */
-export function initPathDisplay(path: string | undefined): HTMLElement | null {
-    const button = document.getElementById("doc-path") as HTMLButtonElement | null;
+export function initPathDisplay(
+    path: string | undefined,
+    elementId = "doc-path",
+): HTMLElement | null {
+    const button = document.getElementById(elementId) as HTMLButtonElement | null;
     if (!button) return null;
     if (!path) {
         button.hidden = true;
@@ -41,6 +46,7 @@ export function initPathDisplay(path: string | undefined): HTMLElement | null {
     button.querySelector(".path-head")!.textContent = head;
     button.querySelector(".path-tail")!.textContent = tail;
     button.hidden = false;
+    button.disabled = false;
 
     const tip = tippy(button, { content: `${path}\n(click to copy)`, maxWidth: 480 });
     button.addEventListener("click", () => {
@@ -49,5 +55,30 @@ export function initPathDisplay(path: string | undefined): HTMLElement | null {
             window.setTimeout(() => tip.setContent(`${path}\n(click to copy)`), 1200);
         });
     });
+    return button;
+}
+
+/**
+ * Show the config file's path in the status bar beside the document path. When the compile
+ * found no `dialogue.toml` it shows a plain "No config file" label (not a broken path);
+ * hidden entirely when the report has no configuration context.
+ */
+export function initConfigPath(config: ConfigReport | undefined): HTMLElement | null {
+    const button = document.getElementById("config-path") as HTMLButtonElement | null;
+    if (!button) return null;
+    if (!config) {
+        button.hidden = true;
+        return button;
+    }
+    if (config.file) {
+        return initPathDisplay(config.file.path, "config-path");
+    }
+
+    // The no-config state: a plain label, nothing to copy.
+    button.querySelector(".path-head")!.textContent = "";
+    button.querySelector(".path-tail")!.textContent = "No config file";
+    button.hidden = false;
+    button.disabled = true;
+    tippy(button, { content: "No dialogue.toml — using the built-in defaults.", maxWidth: 320 });
     return button;
 }

@@ -39,7 +39,7 @@ describe("createConfigView", () => {
         const custom = view.querySelector(".config-tag-custom");
         const reserved = view.querySelector(".config-tag-reserved");
         expect(custom?.textContent).toBe("#role=guide");
-        expect(reserved?.textContent).toBe("#default");
+        expect(reserved?.textContent).toBe("##default");
     });
 
     it("shows a friendly explanation and no editor when there is no config file", () => {

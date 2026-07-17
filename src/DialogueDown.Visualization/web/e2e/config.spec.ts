@@ -57,7 +57,7 @@ test.describe("Config tab — a configured project", () => {
         await expect(row).toContainText("Guide");
         await expect(row).toContainText("G");
         await expect(page.locator(".config-tag-custom")).toHaveText("#role=host");
-        await expect(page.locator(".config-tag-reserved")).toHaveText("#default");
+        await expect(page.locator(".config-tag-reserved")).toHaveText("##default");
     });
 
     test("shows both the dialogue and config file paths in the status bar", async ({ page }) => {

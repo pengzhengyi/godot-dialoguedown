@@ -110,7 +110,9 @@ function speakerCells(speaker: ConfiguredSpeakerView): string {
 
 /** One tag chip, marked reserved or custom so CSS colors the two apart. */
 function tagChip(tag: { name: string; value?: string; reserved: boolean }): string {
-    const label = tag.value == null ? `#${tag.name}` : `#${tag.name}=${tag.value}`;
+    // Reserved tags are written with a double hash (`##default`), custom ones with a single.
+    const prefix = tag.reserved ? "##" : "#";
+    const label = tag.value == null ? `${prefix}${tag.name}` : `${prefix}${tag.name}=${tag.value}`;
     const kind = tag.reserved ? "reserved" : "custom";
     return `<span class="config-tag config-tag-${kind}">${escapeHtml(label)}</span>`;
 }

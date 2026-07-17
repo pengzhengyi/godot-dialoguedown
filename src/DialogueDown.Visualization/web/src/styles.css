@@ -2005,19 +2005,27 @@ button.tab.tab-with-icon {
     white-space: nowrap;
 }
 
+/* Two hues tell the tag kinds apart at a glance, both chosen to avoid the mode
+   accents (View blue, Edit green): custom tags wear the palette's canonical "tag"
+   pink; reserved names DialogueDown owns (like `default`) wear a distinct violet. */
 .config-tag-custom {
-    background: var(--pico-code-background-color, rgb(128 128 128 / 12%));
-    color: var(--pico-muted-color);
+    background: rgb(236 72 153 / 12%);
+    border-color: rgb(236 72 153 / 32%);
+    color: #be185d;
 }
 
 .config-tag-reserved {
-    background: rgb(236 72 153 / 15%);
-    border-color: rgb(236 72 153 / 35%);
-    color: #db2777;
+    background: rgb(124 58 237 / 14%);
+    border-color: rgb(124 58 237 / 38%);
+    color: #6d28d9;
+}
+
+[data-theme="dark"] .config-tag-custom {
+    color: #f9a8d4;
 }
 
 [data-theme="dark"] .config-tag-reserved {
-    color: #f472b6;
+    color: #c4b5fd;
 }
 
 .config-empty {
@@ -2042,7 +2050,6 @@ button.tab.tab-with-icon {
 .config-path {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
 }
 
 .config-path[disabled] {
@@ -2050,7 +2057,10 @@ button.tab.tab-with-icon {
     opacity: 0.75;
 }
 
+/* The gear gets its own right margin instead of a row `gap`, so the directory and
+   filename stay flush (a `gap` would wedge a space between them, reading as two folders). */
 .config-path-icon {
     flex: none;
     opacity: 0.7;
+    margin-right: 0.3rem;
 }

@@ -14,7 +14,7 @@
 | Component | What it delivers | Status |
 | --- | --- | --- |
 | **1. Diagnostic model** | the value types that describe a located problem, and the bag that collects them | **Implemented** |
-| **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Proposed (next)** |
+| **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Implemented** |
 | **3. Validator + rules** | a pluggable structural lint pass over the desugared artifact | Deferred |
 | **4. Producers** | migrating recoverable throw sites to reported diagnostics | Deferred |
 | **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
@@ -28,7 +28,7 @@
 - [Relationship to the error model](#relationship-to-the-error-model)
 - [The diagnostic model — options compared](#the-diagnostic-model--options-compared)
 - [Component 1 — the diagnostic model (implemented)](#component-1--the-diagnostic-model-implemented)
-- [Component 2 — the collection seam (proposed)](#component-2--the-collection-seam-proposed)
+- [Component 2 — the collection seam (implemented)](#component-2--the-collection-seam-implemented)
 - [Later components (deferred)](#later-components-deferred)
 - [Key design decisions](#key-design-decisions)
   - [DD1 — One offset-based core model, internal for now](#dd1--one-offset-based-core-model-internal-for-now)
@@ -185,11 +185,13 @@ A **NetArchTest** rule guards the module as a foundation leaf — it may use `Co
 `SourceSpan`) but must not depend on any pipeline stage, so those stages can later depend on it
 without a cycle. The types are unit-tested at 100% line and branch coverage.
 
-## Component 2 — the collection seam (proposed)
+## Component 2 — the collection seam (implemented)
 
 The plumbing that lets the compiler collect and continue: a per-compilation diagnostics context carrying the
 sink to each stage, and a result that surfaces what was collected. It adds **no producer** —
-stages still throw for now; migrating them is a later component. See
+stages still throw for now; migrating them is a later component. The `DiagnosticsContext` lives in the
+`DialogueDown.Diagnostics` module — the shared foundation both the stages and the facade can depend on,
+since it carries the sink. See
 [DD5](#dd5--the-sink-threads-through-the-facade-via-a-diagnostics-context) and
 [DD6](#dd6--public-haserrors-internal-diagnostics-until-the-renderer).
 

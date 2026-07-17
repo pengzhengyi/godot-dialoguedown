@@ -30,31 +30,45 @@ internal sealed class SymbolProjection
         var speakerIds = new OrderedSet();
         var tags = new OrderedSet();
         var seen = new HashSet<SpeakerSymbol>(ReferenceEqualityComparer.Instance);
+
+        // Script speakers first, in document order, then any configured speaker a line never
+        // used — so the whole cast completes, not only the names already typed.
         foreach (var speaker in DialogueTreeIndex.Build(model.Desugared).OfType<Speaker>())
         {
-            var symbol = model.Speakers.Resolve(speaker);
-            if (!seen.Add(symbol))
-            {
-                continue;
-            }
+            Collect(model.Speakers.Resolve(speaker), seen, speakers, speakerIds, tags);
+        }
 
-            if (symbol.Name is not null)
-            {
-                speakers.Add(symbol.Name);
-            }
-
-            if (symbol.Id is not null)
-            {
-                speakerIds.Add(symbol.Id);
-            }
-
-            foreach (var tag in symbol.Tags)
-            {
-                tags.Add(tag.Name);
-            }
+        foreach (var symbol in model.Speakers.Symbols)
+        {
+            Collect(symbol, seen, speakers, speakerIds, tags);
         }
 
         return new SymbolSet(jumpTargets, speakers.Values, speakerIds.Values, tags.Values);
+    }
+
+    private static void Collect(
+        SpeakerSymbol symbol, HashSet<SpeakerSymbol> seen,
+        OrderedSet speakers, OrderedSet speakerIds, OrderedSet tags)
+    {
+        if (!seen.Add(symbol))
+        {
+            return;
+        }
+
+        if (symbol.Name is not null)
+        {
+            speakers.Add(symbol.Name);
+        }
+
+        if (symbol.Id is not null)
+        {
+            speakerIds.Add(symbol.Id);
+        }
+
+        foreach (var tag in symbol.Tags)
+        {
+            tags.Add(tag.Name);
+        }
     }
 
     // Every scene at or below root, top-down (pre-order), matching the anchor table's order.

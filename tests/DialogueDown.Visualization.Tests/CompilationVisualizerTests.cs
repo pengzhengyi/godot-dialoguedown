@@ -14,7 +14,20 @@ public sealed class CompilationVisualizerTests
     [Fact]
     public void Constructor_NullCompiler_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new CompilationVisualizer(null!));
+        Assert.Throws<ArgumentNullException>(() => new CompilationVisualizer((IScriptCompiler)null!));
+    }
+
+    [Fact]
+    public void Constructor_WithOptions_IncludesConfiguredSpeakersInTheReport()
+    {
+        var options = new CompilerOptions
+        {
+            Speakers = [new ConfiguredSpeaker("Narrator", null, [], [])],
+        };
+
+        var html = new CompilationVisualizer(options).RenderHtmlReport("The room is quiet.");
+
+        Assert.Contains("Narrator", html, StringComparison.Ordinal);
     }
 
     [Fact]

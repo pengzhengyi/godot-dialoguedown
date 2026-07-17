@@ -67,6 +67,38 @@ public sealed class SpeakerTableTests
             () => table.Resolve(new UnknownSpeaker(SourceSpanFactory.Span())));
     }
 
+    [Fact]
+    public void Symbols_CountsASpeakerKeyedByNameAndIdOnce()
+    {
+        var alice = Alice();
+
+        Assert.Same(alice, Assert.Single(Table(alice).Symbols));
+    }
+
+    [Fact]
+    public void Symbols_IncludeNameOnlyAndIdOnlySpeakers()
+    {
+        var narrator = SpeakerSymbol.ForName("Narrator");
+        var ghost = SpeakerSymbol.ForId("G");
+
+        var symbols = Table(Alice(), narrator, ghost).Symbols;
+
+        Assert.Equal(3, symbols.Count);
+        Assert.Contains(narrator, symbols);
+        Assert.Contains(ghost, symbols);
+    }
+
+    [Fact]
+    public void Symbols_ExcludeTheAnonymousDefault()
+    {
+        var table = new SpeakerTable(
+            new Dictionary<string, SpeakerSymbol>(),
+            new Dictionary<string, SpeakerSymbol>(),
+            SpeakerSymbol.ForName("Narrator"));
+
+        Assert.Empty(table.Symbols);
+    }
+
     private static SpeakerSymbol Alice()
     {
         var alice = SpeakerSymbol.ForName("Alice");

@@ -1,3 +1,4 @@
+using DialogueDown.Configuration;
 using DialogueDown.Visualization.Semantics;
 
 namespace DialogueDown.Visualization.Tests.Semantics;
@@ -69,6 +70,34 @@ public sealed class SymbolProjectionTests
         Assert.Empty(symbols.JumpTargets);
         Assert.Empty(symbols.Speakers);
         Assert.Empty(symbols.SpeakerIds);
+    }
+
+    [Fact]
+    public void Project_ATagSharedByTwoSpeakers_AppearsOnce()
+    {
+        var symbols = Project(
+            """
+            Alice #main: Hi.
+
+            Bob #main: Yo.
+            """);
+
+        Assert.Single(symbols.Tags, tag => tag == "main");
+    }
+
+    [Fact]
+    public void Project_IncludesAConfiguredSpeakerTheScriptNeverUses()
+    {
+        // The whole point of config-aware completion: a speaker declared in dialogue.toml
+        // completes in the editor even before a line uses it.
+        var options = new CompilerOptions
+        {
+            Speakers = [new ConfiguredSpeaker("Narrator", null, [], [])],
+        };
+
+        var symbols = new SymbolProjection().Project(Analyzed.Model("The room is quiet.", options));
+
+        Assert.Contains("Narrator", symbols.Speakers);
     }
 
     private static SymbolSet Project(string source) =>

@@ -23,7 +23,22 @@ internal sealed class SpeakerTable
         _byName = byName;
         _byId = byId;
         _defaultSpeaker = defaultSpeaker;
+
+        // A name and an @id for one speaker point at the same symbol, so reference-distinct
+        // the union of both maps to get each speaker once.
+        Symbols = byName.Values
+            .Concat(byId.Values)
+            .Distinct<SpeakerSymbol>(ReferenceEqualityComparer.Instance)
+            .ToArray();
     }
+
+    /// <summary>
+    /// Every distinct named or <c>@id</c>'d speaker the table knows — declared in the script or
+    /// supplied by configuration — so a tool (such as the editor's completion) can offer them
+    /// all, not only the ones a line already uses. The anonymous default, having no name or id,
+    /// is not among them.
+    /// </summary>
+    public IReadOnlyCollection<SpeakerSymbol> Symbols { get; }
 
     /// <summary>The symbol a line's speaker prefix refers to; always a symbol, never null.</summary>
     public SpeakerSymbol Resolve(Speaker speaker) => speaker switch

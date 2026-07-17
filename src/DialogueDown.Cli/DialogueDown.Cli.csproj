@@ -29,6 +29,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DialogueDown\DialogueDown.csproj" />
     <ProjectReference Include="..\DialogueDown.Visualization.Live\DialogueDown.Visualization.Live.csproj" />
+    <ProjectReference Include="..\DialogueDown.ConfigurationLoader\DialogueDown.ConfigurationLoader.csproj" />
   </ItemGroup>
 
 </Project>

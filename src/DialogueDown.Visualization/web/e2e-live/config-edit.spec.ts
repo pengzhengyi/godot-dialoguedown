@@ -65,3 +65,22 @@ test("navigation locks while the config is unsaved", async ({ page }) => {
     await expect(page.locator(".tab.active")).toHaveText("Config");
     await expect(page.locator(".tab.dirty")).toHaveCount(1);
 });
+
+test("a saved config id feeds the Source editor's @-autocomplete", async ({ page }) => {
+    await page.goto(base);
+    // Add a speaker whose id appears nowhere in the dialogue, so completion can only offer it
+    // from the recompiled analyzer symbols.
+    await appendToConfig(page, '\n[[speakers]]\nname = "Zed"\nid = "ZED"\n');
+    await page.locator(".save-button").click();
+    await expect(page.locator(".config-speakers-table")).toContainText("Zed");
+
+    // In the Source editor, start an @-mention: the completion draws on the analyzer's
+    // symbols, which the save must have refreshed (the reported bug left them stale).
+    await page.locator(".tab", { hasText: "Source" }).click();
+    await page.locator(".source-pane .cm-content").click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type("\nAlice: hi @Z");
+
+    await expect(page.locator(".cm-tooltip-autocomplete")).toBeVisible();
+    await expect(page.locator(".cm-tooltip-autocomplete li")).toContainText(["ZED"]);
+});

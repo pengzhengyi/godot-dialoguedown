@@ -1996,6 +1996,24 @@ button.tab.tab-with-icon {
     caret-color: var(--pico-color);
 }
 
+/* A visible caret and a readable selection in both themes — `drawSelection` draws its own
+   cursor/selection element (so `caret-color` above is only a fallback), which would be
+   invisible on the dark background without these, unlike the themed Source editor. */
+.config-source .cm-cursor,
+.config-source .cm-dropCursor {
+    border-left-width: 2px;
+    border-left-color: var(--pico-color);
+}
+
+.config-source .cm-selectionBackground,
+.config-source .cm-focused .cm-selectionBackground {
+    background-color: var(--cm-selection) !important;
+}
+
+.config-source ::selection {
+    background-color: var(--cm-selection);
+}
+
 .config-speakers-heading {
     margin: 0 0 0.6rem;
     font-size: 0.8rem;

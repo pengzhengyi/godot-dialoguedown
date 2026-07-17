@@ -80,7 +80,15 @@ if (report.mode === "view" || report.mode === "edit") {
         () => activeLive().discardChanges(),
     );
     const dialogueLive = createLiveEdit(
-        ui.portsFor({ markDirty: app.markSourceDirty, setContent: app.setContent }),
+        ui.portsFor({
+            markDirty: app.markSourceDirty,
+            setContent: app.setContent,
+            // A save recompiles, so the analyzer's symbols change too — refresh the
+            // completion source's holder or the editor keeps offering the old speakers/ids.
+            onSaved: (saved) => {
+                currentSymbols = saved.symbols;
+            },
+        }),
         report.source ?? "",
     );
     const configLive: LiveEditController | null = report.configuration?.file
@@ -95,6 +103,10 @@ if (report.mode === "view" || report.mode === "edit") {
                   setContent: (source) => app.setConfigContent(source),
                   onSaved: (saved) => {
                       if (saved.configuration) app.updateConfigSpeakers(saved.configuration);
+                      // Editing the config changes the resolved speakers/ids, so refresh the
+                      // Source editor's completion symbols too (the reported bug: a new id
+                      // did not appear in `@` completion until a reload).
+                      currentSymbols = saved.symbols;
                   },
               }),
               report.configuration.file.source,

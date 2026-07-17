@@ -55,9 +55,41 @@ test.describe("Config tab — a configured project", () => {
         const row = page.locator(".config-speakers-table tbody tr");
         await expect(row).toHaveCount(1);
         await expect(row).toContainText("Guide");
-        await expect(row).toContainText("G");
+        // The id shows with its @ sigil (what you'd type in a script), not a bare "G".
+        await expect(page.locator(".config-speakers-table tbody td").nth(1)).toHaveText("@G");
         await expect(page.locator(".config-tag-custom")).toHaveText("#role=host");
         await expect(page.locator(".config-tag-reserved")).toHaveText("##default");
+    });
+
+    test("marks the Config tab as a filled settings chip, not an underlined tab", async ({
+        page,
+    }) => {
+        const tab = page.locator(".tab.config-tab");
+        await expect(tab).toHaveText("Config");
+        await tab.click();
+        // Active, the chip has a solid (opaque) background rather than a transparent, underlined tab.
+        const bg = await tab.evaluate((el) => getComputedStyle(el).backgroundColor);
+        expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+        expect(bg).not.toBe("transparent");
+    });
+
+    test("copies a cell's text on click and confirms with a toast", async ({ page }) => {
+        await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+        await page.locator(".tab", { hasText: "Config" }).click();
+
+        await page.locator(".config-speakers-table tbody td").first().click();
+        await expect(page.locator(".toast.visible")).toContainText("Copied Guide");
+    });
+
+    test("maximizes the whole tab from the Config controls", async ({ page }) => {
+        await page.locator(".tab", { hasText: "Config" }).click();
+        await expect(page.locator("body.maximized")).toHaveCount(0);
+
+        await page.locator(".config-controls .maximize-button").click();
+        await expect(page.locator("body.maximized")).toHaveCount(1);
+        // The panes still show while maximized, and the app chrome is hidden.
+        await expect(page.locator(".config-source .cm-editor")).toBeVisible();
+        await expect(page.locator(".app-header")).toBeHidden();
     });
 
     test("shows both the dialogue and config file paths in the status bar", async ({ page }) => {

@@ -167,8 +167,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         if (report.configuration != null) {
             const section = document.createElement("section");
             section.className = "stage config-stage";
-            section.appendChild(createConfigView(report.configuration));
+            section.appendChild(
+                createConfigView(report.configuration, { onToggleFullscreen: fullscreen.toggle }),
+            );
             addTab("Config", section, null, CONFIG_TIP, null, GEAR_ICON);
+            // Mark the settings tab so CSS gives it a filled chip instead of the content
+            // tabs' underline — a visual cue that it configures the report, not a stage of it.
+            tabsEl.lastElementChild?.classList.add("config-tab");
         }
 
         if (report.source != null) {

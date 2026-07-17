@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createConfigView } from "./config-view";
 import type { ConfigReport } from "./model";
 
@@ -30,7 +30,13 @@ describe("createConfigView", () => {
         const rows = view.querySelectorAll(".config-speakers-table tbody tr");
         expect(rows).toHaveLength(1);
         expect(rows[0].textContent).toContain("Alice");
-        expect(rows[0].textContent).toContain("A");
+    });
+
+    it("shows the id with its @ sigil, exactly as a script references it", () => {
+        const view = createConfigView(withFile());
+
+        const idCell = view.querySelector(".config-speakers-table tbody td:nth-child(2)");
+        expect(idCell?.textContent).toBe("@A");
     });
 
     it("colors reserved and custom tags apart with distinct chip classes", () => {
@@ -62,5 +68,45 @@ describe("createConfigView", () => {
         expect(view.querySelector(".config-side .config-empty")?.textContent).toContain(
             "No configured speakers",
         );
+    });
+
+    it("shows a maximize button only when a fullscreen toggle is provided", () => {
+        expect(createConfigView(withFile()).querySelector(".config-controls")).toBeNull();
+
+        const onToggleFullscreen = vi.fn();
+        const view = createConfigView(withFile(), { onToggleFullscreen });
+        const button = view.querySelector<HTMLButtonElement>(".config-controls .maximize-button");
+        expect(button).not.toBeNull();
+
+        button!.click();
+        expect(onToggleFullscreen).toHaveBeenCalledOnce();
+    });
+
+    describe("click to copy", () => {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+        afterEach(() => writeText.mockClear());
+
+        function clickCopy(selector: string): void {
+            const view = createConfigView(withFile());
+            view.querySelector<HTMLElement>(selector)!.dispatchEvent(
+                new MouseEvent("click", { bubbles: true }),
+            );
+        }
+
+        it("copies a speaker's name", () => {
+            clickCopy(".config-speakers-table tbody td:nth-child(1)");
+            expect(writeText).toHaveBeenCalledWith("Alice");
+        });
+
+        it("copies the @id", () => {
+            clickCopy(".config-speakers-table tbody td:nth-child(2)");
+            expect(writeText).toHaveBeenCalledWith("@A");
+        });
+
+        it("copies a tag chip's text", () => {
+            clickCopy(".config-tag-reserved");
+            expect(writeText).toHaveBeenCalledWith("##default");
+        });
     });
 });

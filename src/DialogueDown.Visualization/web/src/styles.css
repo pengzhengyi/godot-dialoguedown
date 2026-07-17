@@ -1043,7 +1043,8 @@ body.maximized .maximize-button .icon-compress {
 
 /* The Source tab has no zoom cluster, so its maximize toggle sits in a matching pill,
    floating bottom-right over the preview. */
-.source-controls {
+.source-controls,
+.config-controls {
     position: absolute;
     right: 0.75rem;
     bottom: 0.75rem;
@@ -1055,7 +1056,8 @@ body.maximized .maximize-button .icon-compress {
     box-shadow: 0 1px 5px rgb(0 0 0 / 18%);
 }
 
-.source-controls .maximize-button {
+.source-controls .maximize-button,
+.config-controls .maximize-button {
     /* Pico inverts --pico-color on buttons; reset it so the glyph uses the normal
        foreground rather than white-on-white (as the zoom buttons do). */
     --pico-color: inherit;
@@ -1070,7 +1072,8 @@ body.maximized .maximize-button .icon-compress {
     cursor: pointer;
 }
 
-.source-controls .maximize-button:hover {
+.source-controls .maximize-button:hover,
+.config-controls .maximize-button:hover {
     --pico-color: inherit;
 
     background: var(--pico-muted-border-color);
@@ -1481,7 +1484,7 @@ body.maximized #app {
        caps it so a long path is middle-ellipsised (below) instead of stretching
        across the row. */
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     min-width: 0;
     max-width: 24rem;
     width: auto;
@@ -1912,6 +1915,28 @@ button.tab.tab-with-icon {
     flex: none;
 }
 
+/* The settings (Config) tab reads as a filled chip, not an underlined content tab: a solid
+   slate "settings" surface sets it apart from the compiler-stage tabs. Slate is deliberately
+   none of the mode accents (View blue, Edit green), so it never reads as a mode cue. */
+button.tab.config-tab {
+    border-bottom-color: transparent;
+    border-radius: var(--pico-border-radius);
+    background: rgb(100 116 139 / 12%);
+    color: var(--pico-muted-color);
+}
+
+button.tab.config-tab:hover {
+    background: rgb(100 116 139 / 22%);
+    color: var(--pico-color);
+}
+
+button.tab.config-tab.active {
+    background: #475569;
+    border-bottom-color: transparent;
+    color: #fff;
+    font-weight: 600;
+}
+
 /* The Config tab mirrors the Source split (its own `--config-split` variable) with a
    read-only TOML editor on the left and a scrollable speakers table on the right. */
 .config-view {
@@ -2028,6 +2053,26 @@ button.tab.tab-with-icon {
     color: #c4b5fd;
 }
 
+/* Click-to-copy affordance: value cells and tag chips copy their text on click and give a
+   subtle hover cue, so a writer can lift a name, `@id`, or tag straight into a script. */
+.config-copy,
+.config-tag {
+    cursor: pointer;
+}
+
+.config-copy {
+    border-radius: var(--pico-border-radius);
+    transition: background-color 0.12s ease;
+}
+
+.config-copy:hover {
+    background: rgb(128 128 128 / 12%);
+}
+
+.config-tag:hover {
+    box-shadow: 0 0 0 1px currentcolor inset;
+}
+
 .config-empty {
     color: var(--pico-muted-color);
     font-style: italic;
@@ -2047,20 +2092,50 @@ button.tab.tab-with-icon {
 }
 
 /* The status-bar config path sits beside the document path, marked by a small gear. */
-.config-path {
-    display: inline-flex;
-    align-items: center;
-}
-
 .config-path[disabled] {
     cursor: default;
     opacity: 0.75;
 }
 
-/* The gear gets its own right margin instead of a row `gap`, so the directory and
-   filename stay flush (a `gap` would wedge a space between them, reading as two folders). */
-.config-path-icon {
+/* Both status paths lead with a small icon (a document for the dialogue file, a gear for
+   the config). The icon carries its own right margin instead of a row `gap`, so the
+   directory and filename stay flush (a `gap` would wedge a space between them). */
+.path-icon {
     flex: none;
     opacity: 0.7;
     margin-right: 0.3rem;
+}
+
+/* A single shared confirmation toast (e.g. "Copied @N"). It sits just above the status
+   footer, centered, and fades in only while visible so it never blocks the content. */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 3rem;
+    z-index: 50;
+    transform: translate(-50%, 0.5rem);
+    padding: 0.4rem 0.9rem;
+    max-width: min(90vw, 26rem);
+    border-radius: 999px;
+    background: var(--pico-contrast, #1f2933);
+    color: var(--pico-contrast-inverse, #fff);
+    font-size: 0.78rem;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 28%);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        opacity 0.14s ease,
+        transform 0.14s ease;
+}
+
+.toast.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast {
+        transition: opacity 0.14s ease;
+        transform: translate(-50%, 0);
+    }
 }

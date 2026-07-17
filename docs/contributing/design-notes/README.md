@@ -14,6 +14,7 @@ that every component shares — starting with the error model.
 - [Reading guide](#reading-guide)
   - [Core: the compiler pipeline](#core-the-compiler-pipeline)
   - [Configuration](#configuration)
+  - [Diagnostics](#diagnostics)
   - [Command-line interface](#command-line-interface)
   - [Visualization](#visualization)
   - [Other notes](#other-notes)
@@ -75,6 +76,18 @@ edge, a satellite that reads a `dialogue.toml` into those options.
 | 1 | [Configuration](./Configuration.md) | The `CompilerOptions` seam: a configured speaker registry (default via the reserved tag) threaded into the semantic stage | Implemented |
 | 2 | [Configuration Loader](./Configuration%20Loader.md) | The TOML edge: reads `dialogue.toml` into a `CompilerOptions`, validating with located errors, in its own satellite assembly | Implemented |
 | 3 | [CLI Configuration](./CLI%20Configuration.md) | Threads a project's `dialogue.toml` through the `dialoguedown` CLI into `compile` and `visualize` (and the report's autocompletion) | Implemented |
+
+### Diagnostics
+
+**Read when you work on collecting or reporting problems.** A cross-cutting core
+concern that lets the compiler describe every problem it finds — errors and
+warnings — in a structured, located form, so an author can eventually see them
+all at once instead of one throw per run. This first note lands the dependency-free
+core model; the collect-and-continue pipeline, validator, and renderer follow.
+
+| Order | Note | What it covers | Status |
+| --- | --- | --- | --- |
+| 1 | [Diagnostic Model](./Diagnostic%20Model.md) | The core value types — a located `Diagnostic`, its `DiagnosticDescriptor` (`DLG####` code), severities — and the `DiagnosticBag` that collects them | Implemented |
 
 ### Command-line interface
 

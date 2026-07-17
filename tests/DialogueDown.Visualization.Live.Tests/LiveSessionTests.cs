@@ -1,5 +1,4 @@
 using DialogueDown.ConfigurationLoader;
-using DialogueDown.Visualization;
 using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Live.Tests.Support;
 

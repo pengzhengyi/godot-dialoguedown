@@ -1,5 +1,6 @@
 import {
     autocompletion,
+    acceptCompletion,
     completionKeymap,
     type Completion,
     type CompletionContext,
@@ -93,7 +94,9 @@ export function speakerCompletions(source: DialogueSymbolSource): CompletionSour
  * The Source editor's document-aware autocompletion: jump targets, speaker ids, tags, and
  * speaker names, drawn from a {@link DialogueSymbolSource} (the document scan by default).
  * Bundles CodeMirror's completion keymap so accept/dismiss keys work only where this
- * extension is active (the editor's Edit-only compartment).
+ * extension is active (the editor's Edit-only compartment). Adds Tab as a second accept
+ * key alongside Enter (the VS Code habit); with no completion open it falls through, so Tab
+ * still moves focus out of the editor.
  */
 export function dialogueAutocompletion(
     source: DialogueSymbolSource = scanDialogueSymbols,
@@ -107,6 +110,6 @@ export function dialogueAutocompletion(
                 speakerCompletions(source),
             ],
         }),
-        keymap.of(completionKeymap),
+        keymap.of([...completionKeymap, { key: "Tab", run: acceptCompletion }]),
     ];
 }

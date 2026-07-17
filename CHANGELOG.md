@@ -40,7 +40,8 @@ changes easy to categorize.
   creates a new script from the launcher or a not-yet-existing
   path — or discards unsaved edits to restore the last saved version — with
   search, section folding, Markdown formatting shortcuts, document-aware autocomplete
-  with an icon per symbol kind, synchronized editor/preview scrolling, and a
+  you accept with Tab or Enter, with an icon per symbol kind, synchronized
+  editor/preview scrolling, and a
   **light/dark** theme.
 - **`visualize` report navigation** — collapsible side panels, a full-screen mode,
   hover-to-spotlight a node's lineage (its ancestors and descendants), and per-graph

@@ -109,6 +109,7 @@ flowchart TB
     AC --> LIVE["8-12. Live session:<br/>Hot Reload → File Launcher → Live Edit → View and Edit Modes → Node Editing"]
     LIVE --> CFG["13. Configuration Tab"]
     CFG --> CFGLE["14. Configuration Tab — Live Edit"]
+    CFGLE --> CFGAC["15. Configuration Tab — Autocompletion"]
 ```
 
 | Order | Note | What it covers | Status |
@@ -127,6 +128,7 @@ flowchart TB
 | 12 | [Live Visualization — Node Editing](./Live%20Visualization%20-%20Node%20Editing.md) | Edit the source behind a graph node in the inspector; splice it back and recompile | Implemented |
 | 13 | [Configuration Tab](./Configuration%20Tab.md) | The applied `dialogue.toml` as a first tab: TOML source beside its configured speakers (Stage 1, read-only) | Implemented |
 | 14 | [Configuration Tab — Live Edit](./Configuration%20Tab%20-%20Live%20Edit.md) | Edit the `dialogue.toml` in the report; Save recompiles and refreshes the configured speakers (Stage 2a) | Implemented |
+| 15 | [Configuration Tab — Autocompletion](./Configuration%20Tab%20-%20Autocompletion.md) | Schema autocompletion for the editable `dialogue.toml`: the `[[speakers]]` table, its keys, and the reserved tag names (Stage 2b) | Implemented |
 
 ### Other notes
 

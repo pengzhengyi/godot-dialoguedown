@@ -1,11 +1,11 @@
 # Implementation note: Configuration tab — Autocompletion
 
 > [!NOTE]
-> Status: **approved** — implementation in progress. This is **Stage 2b** of the
-> Configuration tab: **autocompletion** for the editable `dialogue.toml`. When
-> editing the config in the report, the TOML editor suggests the schema it expects —
-> the `[[speakers]]` table header and the `name` / `id` / `tags` keys — and the
-> reserved tag names DialogueDown owns (today just `default`). It builds on
+> Status: **implemented**. This is **Stage 2b** of the Configuration tab:
+> **autocompletion** for the editable `dialogue.toml`. When editing the config in the
+> report, the TOML editor suggests the schema it expects — the `[[speakers]]` table
+> header and the `name` / `id` / `tags` keys — and the reserved tag names DialogueDown
+> owns (today just `default`). It builds on
 > [Configuration Tab — Live Edit](./Configuration%20Tab%20-%20Live%20Edit.md)
 > (Stage 2a), which made the editor editable and gave it the Source editor's
 > affordances; this note only adds the completion source.
@@ -66,12 +66,13 @@ schema-driven, not document-derived.
 
 ## Functionality checklist
 
-- [ ] Typing a table header (a line starting with `[`) suggests **`[[speakers]]`**.
-- [ ] At a **key position** inside a `[[speakers]]` table, the editor suggests **`name`**, **`id`**, **`tags`**, and the **reserved tag names** (`default`).
-- [ ] Suggestions do **not** appear in value positions (after `=`), in comments, or inside strings.
-- [ ] Completion is **Edit-only** — the read-only View editor never opens a completion.
-- [ ] **Tab** and **Enter** accept a suggestion (the Source editor's habit); Escape dismisses.
-- [ ] The reserved tag names come from the compiler's source of truth, so they never drift from what the loader accepts.
+- [x] Typing a table header (a line starting with `[`) suggests **`[[speakers]]`**.
+- [x] At a **key position** inside a `[[speakers]]` table, the editor suggests **`name`**, **`id`**, **`tags`**, and the **reserved tag names** (`default`).
+- [x] Suggestions do **not** appear in value positions (after `=`), in comments, or inside strings.
+- [x] Completion is **Edit-only** — the read-only View editor never opens a completion.
+- [x] **Tab** and **Enter** accept a suggestion (the Source editor's habit); Escape dismisses.
+- [x] The reserved tag names come from the compiler's source of truth, so they never drift from what the loader accepts.
+- [x] The config editor does not auto-close `[`, so a `[[speakers]]` header (typed or accepted) stays clean.
 
 ## Where it sits
 
@@ -147,6 +148,12 @@ in Edit and vanishes in View, exactly like the Source editor's `dialogueAutocomp
 It reuses CodeMirror's `autocompletion` and `completionKeymap`, and adds **Tab** as a
 second accept key (the VS Code habit the Source editor already established), so the two
 editors feel the same.
+
+One adjustment fell out of this: the config editor **stops auto-closing `[`**. TOML
+table headers are `[[table]]`, so auto-closing the bracket both fights a writer typing
+a header and leaves a stray `]` when a `[[speakers]]` completion is accepted over the
+auto-inserted pair. So `closeBrackets` in the config editor closes only braces and
+quotes, not `[`.
 
 ## Error and boundary cases
 

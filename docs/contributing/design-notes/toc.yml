@@ -60,6 +60,8 @@
     href: Configuration Tab.md
   - name: Configuration Tab — Live Edit
     href: Configuration Tab - Live Edit.md
+  - name: Configuration Tab — Autocompletion
+    href: Configuration Tab - Autocompletion.md
 - name: Other notes
   items:
   - name: BBCode Rendering

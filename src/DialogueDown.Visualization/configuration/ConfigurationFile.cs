@@ -5,4 +5,4 @@ namespace DialogueDown.Visualization.Configuration;
 /// raw TOML <see cref="Source"/> text. The two travel together — a file always has both — so
 /// a report can show the exact configuration a reader authored.
 /// </summary>
-internal sealed record ConfigurationFile(string Path, string Source);
+public sealed record ConfigurationFile(string Path, string Source);

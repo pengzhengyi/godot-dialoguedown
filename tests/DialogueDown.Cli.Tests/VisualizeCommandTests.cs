@@ -1,6 +1,7 @@
 using DialogueDown.Cli.Tests.Support;
 using DialogueDown.Configuration;
 using DialogueDown.Visualization;
+using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Live;
 using NSubstitute;
 
@@ -25,7 +26,7 @@ public sealed class VisualizeCommandTests
         Assert.Equal(0, result.ExitCode);
         launcher.Received(1).RunAsync(
             Directory.GetCurrentDirectory(), null, LaunchMode.View,
-            null, false, Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            null, false, Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -40,7 +41,7 @@ public sealed class VisualizeCommandTests
         Assert.Equal(0, result.ExitCode);
         runner.Received(1).RunServedAsync(
             script.Path, null, false, null, VisualizationMode.View,
-            Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -56,7 +57,7 @@ public sealed class VisualizeCommandTests
 
         runner.Received(1).RunServedAsync(
             scriptPath, null, false, null, VisualizationMode.View,
-            Arg.Is<CompilerOptions>(o => o.Speakers.Any(s => s.Name == "Narrator")),
+            Arg.Is<AppliedConfiguration>(c => c.Options.Speakers.Any(s => s.Name == "Narrator")),
             Arg.Any<CancellationToken>());
     }
 
@@ -73,7 +74,7 @@ public sealed class VisualizeCommandTests
         Assert.Equal(0, result.ExitCode);
         runner.Received(1).RunServedAsync(
             script.Path, 5199, false, root, VisualizationMode.Edit,
-            Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -87,7 +88,7 @@ public sealed class VisualizeCommandTests
 
         runner.Received(1).RunServedAsync(
             script.Path, null, false, null, VisualizationMode.Edit,
-            Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -99,10 +100,10 @@ public sealed class VisualizeCommandTests
 
         tester.Run("visualize", script.Path, "-o", "out.html", "--no-open");
 
-        runner.Received(1).RunStatic(script.Path, "out.html", true, Arg.Any<CompilerOptions>());
+        runner.Received(1).RunStatic(script.Path, "out.html", true, Arg.Any<AppliedConfiguration>());
         runner.DidNotReceive().RunServedAsync(
             Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<string?>(),
-            Arg.Any<string>(), Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            Arg.Any<string>(), Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -117,7 +118,7 @@ public sealed class VisualizeCommandTests
         runner.Received(1).RunEmit(script.Path, EmitFormat.Mermaid, null, Arg.Any<CompilerOptions>());
         runner.DidNotReceive().RunServedAsync(
             Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<string?>(),
-            Arg.Any<string>(), Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            Arg.Any<string>(), Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -131,7 +132,7 @@ public sealed class VisualizeCommandTests
 
         runner.Received(1).RunEmit(script.Path, EmitFormat.Dot, "scene.dot", Arg.Any<CompilerOptions>());
         runner.DidNotReceive().RunStatic(
-            Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<CompilerOptions>());
+            Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<AppliedConfiguration>());
     }
 
     [Fact]
@@ -185,10 +186,10 @@ public sealed class VisualizeCommandTests
 
         runner.DidNotReceive().RunServedAsync(
             Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<string?>(),
-            Arg.Any<string>(), Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            Arg.Any<string>(), Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
         launcher.Received(1).RunAsync(
             root, Path.GetFileName(script.Path), LaunchMode.View,
-            null, false, Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>());
+            null, false, Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -217,7 +218,7 @@ public sealed class VisualizeCommandTests
         runner
             .RunServedAsync(
                 Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<string?>(),
-                Arg.Any<string>(), Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>())
+                Arg.Any<string>(), Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(0));
         return runner;
     }
@@ -228,7 +229,7 @@ public sealed class VisualizeCommandTests
         launcher
             .RunAsync(
                 Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<LaunchMode>(), Arg.Any<int?>(),
-                Arg.Any<bool>(), Arg.Any<CompilerOptions>(), Arg.Any<CancellationToken>())
+                Arg.Any<bool>(), Arg.Any<AppliedConfiguration>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(0));
         return launcher;
     }

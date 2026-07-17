@@ -10,7 +10,7 @@ namespace DialogueDown.Visualization.Configuration;
 /// <see cref="UsesDefaultConfiguration"/> rather than testing the field, so the nullable stays
 /// an implementation detail.
 /// </summary>
-internal sealed record AppliedConfiguration(ConfigurationFile? File, CompilerOptions Options)
+public sealed record AppliedConfiguration(ConfigurationFile? File, CompilerOptions Options)
 {
     /// <summary>A <c>dialogue.toml</c> was found and applied.</summary>
     public bool IsConfiguredFromFile => File is not null;

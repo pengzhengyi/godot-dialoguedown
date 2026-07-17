@@ -1,5 +1,6 @@
 using DialogueDown.Configuration;
 using DialogueDown.ConfigurationLoader;
+using DialogueDown.Visualization.Configuration;
 
 namespace DialogueDown.Cli;
 
@@ -27,14 +28,33 @@ internal sealed class ProjectConfiguration
         string? explicitConfigPath, string startDirectory, string? boundaryDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(startDirectory);
-        if (!string.IsNullOrWhiteSpace(explicitConfigPath))
-        {
-            return TomlConfigurationLoader.Load(explicitConfigPath);
-        }
-
-        var discovered = Discover(startDirectory, boundaryDirectory);
-        return discovered is null ? CompilerOptions.Default : TomlConfigurationLoader.Load(discovered);
+        var path = ResolvePath(explicitConfigPath, startDirectory, boundaryDirectory);
+        return path is null ? CompilerOptions.Default : TomlConfigurationLoader.Load(path);
     }
+
+    /// <summary>
+    /// Resolves the applied configuration for a compile — the same discovery as
+    /// <see cref="Resolve"/>, but keeping the file's path and raw text so a report can show
+    /// the exact <c>dialogue.toml</c> alongside its resolved options. Nothing found yields the
+    /// no-file applied configuration (the built-in defaults).
+    /// </summary>
+    public AppliedConfiguration ResolveApplied(
+        string? explicitConfigPath, string startDirectory, string? boundaryDirectory = null)
+    {
+        ArgumentNullException.ThrowIfNull(startDirectory);
+        var path = ResolvePath(explicitConfigPath, startDirectory, boundaryDirectory);
+        return path is null
+            ? AppliedConfiguration.WithoutFile(CompilerOptions.Default)
+            : AppliedConfiguration.FromFile(path, File.ReadAllText(path), TomlConfigurationLoader.Load(path));
+    }
+
+    // The config file this compile uses: the explicit --config path, else the nearest
+    // dialogue.toml within the boundary, else none.
+    private static string? ResolvePath(
+        string? explicitConfigPath, string startDirectory, string? boundaryDirectory) =>
+        string.IsNullOrWhiteSpace(explicitConfigPath)
+            ? Discover(startDirectory, boundaryDirectory)
+            : explicitConfigPath;
 
     private static string? Discover(string startDirectory, string? boundaryDirectory)
     {

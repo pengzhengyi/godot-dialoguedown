@@ -2,6 +2,7 @@ using System.Text;
 using DialogueDown.Compilation;
 using DialogueDown.Configuration;
 using DialogueDown.Markdown;
+using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Semantics;
 
 namespace DialogueDown.Visualization;
@@ -22,6 +23,7 @@ namespace DialogueDown.Visualization;
 public sealed class CompilationVisualizer
 {
     private readonly IScriptCompiler _compiler;
+    private readonly AppliedConfiguration? _configuration;
 
     /// <summary>Creates a visualizer using the default compiler pipeline.</summary>
     public CompilationVisualizer()
@@ -36,6 +38,18 @@ public sealed class CompilationVisualizer
     public CompilationVisualizer(CompilerOptions options)
         : this(ScriptCompilerFactory.CreateDefault(options))
     {
+    }
+
+    /// <summary>
+    /// Creates a visualizer for a report that shows its applied <paramref name="configuration"/>
+    /// in the Config tab: the compiler is configured with the configuration's options, and the
+    /// file and configured speakers are projected into the report payload.
+    /// </summary>
+    public CompilationVisualizer(AppliedConfiguration configuration)
+        : this(ScriptCompilerFactory.CreateDefault(
+            (configuration ?? throw new ArgumentNullException(nameof(configuration))).Options))
+    {
+        _configuration = configuration;
     }
 
     /// <summary>Creates a visualizer over a specific <paramref name="compiler"/>.</summary>
@@ -104,7 +118,8 @@ public sealed class CompilationVisualizer
     {
         var content = BuildContent(source);
         return HtmlTemplate.RenderPage(
-            content.Stages, source, VisualizationMode.Static, documentPath, content.Symbols);
+            content.Stages, source, VisualizationMode.Static, documentPath, content.Symbols,
+            content.Configuration);
     }
 
     /// <summary>
@@ -118,7 +133,8 @@ public sealed class CompilationVisualizer
         ArgumentNullException.ThrowIfNull(documentPath);
         ArgumentNullException.ThrowIfNull(mode);
         var content = BuildContent(source);
-        return HtmlTemplate.RenderPage(content.Stages, source, mode, documentPath, content.Symbols);
+        return HtmlTemplate.RenderPage(
+            content.Stages, source, mode, documentPath, content.Symbols, content.Configuration);
     }
 
     /// <summary>
@@ -132,7 +148,7 @@ public sealed class CompilationVisualizer
         ArgumentNullException.ThrowIfNull(mode);
         var content = BuildContent(source);
         return DisplayGraphJson.SerializeDocument(
-            mode, documentPath, source, content.Stages, content.Symbols);
+            mode, documentPath, source, content.Stages, content.Symbols, content.Configuration);
     }
 
     private static IDisplayRenderer RendererFor(EmitFormat format) => format switch
@@ -181,9 +197,14 @@ public sealed class CompilationVisualizer
             result.Desugared.ToDisplayGraph(source),
             new SemanticProjection().Project(result.Semantics, source),
         ];
-        return new ReportContent(stages, new SymbolProjection().Project(result.Semantics));
+        var configuration = _configuration is null
+            ? null
+            : ConfigurationProjection.Project(_configuration);
+        return new ReportContent(
+            stages, new SymbolProjection().Project(result.Semantics), configuration);
     }
 
     // The compiled report data shared by the HTML report and the live document payload.
-    private sealed record ReportContent(IReadOnlyList<DisplayGraph> Stages, SymbolSet Symbols);
+    private sealed record ReportContent(
+        IReadOnlyList<DisplayGraph> Stages, SymbolSet Symbols, ConfigurationReport? Configuration);
 }

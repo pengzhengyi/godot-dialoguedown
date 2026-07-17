@@ -1,4 +1,5 @@
 using DialogueDown.Configuration;
+using DialogueDown.Visualization.Configuration;
 
 namespace DialogueDown.Visualization.Live;
 
@@ -24,7 +25,7 @@ internal static class ServeMode
         int? port,
         bool noOpen,
         string? renderRoot,
-        CompilerOptions options,
+        AppliedConfiguration configuration,
         IBrowserLauncher browser,
         IHostConsent consent,
         TextWriter output,
@@ -56,7 +57,7 @@ internal static class ServeMode
             return 1;
         }
 
-        var session = new LiveSession(fullPath, mode, new CompilationVisualizer(options));
+        var session = new LiveSession(fullPath, mode, new CompilationVisualizer(configuration));
         await using var server = new LiveVisualizationServer(session, port ?? 0, serveRoot);
         await server.StartAsync();
         using var watcher = new DocumentWatcher(fullPath, session.Refresh);

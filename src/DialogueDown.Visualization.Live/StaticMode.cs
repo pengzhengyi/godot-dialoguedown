@@ -1,4 +1,5 @@
 using DialogueDown.Configuration;
+using DialogueDown.Visualization.Configuration;
 
 namespace DialogueDown.Visualization.Live;
 
@@ -10,16 +11,17 @@ namespace DialogueDown.Visualization.Live;
 internal static class StaticMode
 {
     /// <summary>
-    /// Renders <paramref name="file"/> to a self-contained report, compiled with the project's
-    /// <paramref name="options"/>. Writes to <paramref name="output"/> when given, otherwise a
-    /// temp file; opens it via <paramref name="browser"/> unless <paramref name="noOpen"/> is
-    /// set. Returns a process exit code (0 on success, 1 on a bad document).
+    /// Renders <paramref name="file"/> to a self-contained report, showing the applied
+    /// <paramref name="configuration"/> in the Config tab. Writes to <paramref name="output"/>
+    /// when given, otherwise a temp file; opens it via <paramref name="browser"/> unless
+    /// <paramref name="noOpen"/> is set. Returns a process exit code (0 on success, 1 on a bad
+    /// document).
     /// </summary>
     public static int Run(
         string file,
         string? output,
         bool noOpen,
-        CompilerOptions options,
+        AppliedConfiguration configuration,
         IBrowserLauncher browser,
         TextWriter error)
     {
@@ -30,7 +32,7 @@ internal static class StaticMode
             return 1;
         }
 
-        var html = new CompilationVisualizer(options).RenderHtmlReport(File.ReadAllText(file), file);
+        var html = new CompilationVisualizer(configuration).RenderHtmlReport(File.ReadAllText(file), file);
         var target = output ?? Path.Combine(Path.GetTempPath(), $"dd-report-{Guid.NewGuid():N}.html");
         File.WriteAllText(target, html);
 

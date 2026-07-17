@@ -1,4 +1,5 @@
 using DialogueDown.Configuration;
+using DialogueDown.Visualization.Configuration;
 
 namespace DialogueDown.Visualization.Live;
 
@@ -18,8 +19,8 @@ public sealed class VisualizeRunner : IVisualizeRunner
     }
 
     /// <inheritdoc />
-    public int RunStatic(string file, string? output, bool noOpen, CompilerOptions options) =>
-        StaticMode.Run(file, output, noOpen, options, _browser, Console.Error);
+    public int RunStatic(string file, string? output, bool noOpen, AppliedConfiguration configuration) =>
+        StaticMode.Run(file, output, noOpen, configuration, _browser, Console.Error);
 
     /// <inheritdoc />
     public int RunEmit(string file, EmitFormat format, string? output, CompilerOptions options) =>
@@ -27,12 +28,12 @@ public sealed class VisualizeRunner : IVisualizeRunner
 
     /// <inheritdoc />
     public Task<int> RunServedAsync(
-        string file, int? port, bool noOpen, string? renderRoot, string mode, CompilerOptions options,
-        CancellationToken cancellationToken)
+        string file, int? port, bool noOpen, string? renderRoot, string mode,
+        AppliedConfiguration configuration, CancellationToken cancellationToken)
     {
         var consent = new ConsoleHostConsent(!Console.IsInputRedirected, Console.In, Console.Out);
         return ServeMode.RunAsync(
-            file, port, noOpen, renderRoot, options, _browser, consent, Console.Out, Console.Error,
+            file, port, noOpen, renderRoot, configuration, _browser, consent, Console.Out, Console.Error,
             cancellationToken, mode);
     }
 }

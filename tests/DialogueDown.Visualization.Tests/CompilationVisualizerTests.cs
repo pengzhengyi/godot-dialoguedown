@@ -5,6 +5,7 @@ using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
+using DialogueDown.Visualization.Configuration;
 using NSubstitute;
 
 namespace DialogueDown.Visualization.Tests;
@@ -15,6 +16,35 @@ public sealed class CompilationVisualizerTests
     public void Constructor_NullCompiler_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => new CompilationVisualizer((IScriptCompiler)null!));
+    }
+
+    [Fact]
+    public void Constructor_NullConfiguration_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => new CompilationVisualizer((AppliedConfiguration)null!));
+    }
+
+    [Fact]
+    public void RenderHtmlReport_WithConfigurationFile_EmbedsItsPathSourceAndSpeakers()
+    {
+        var applied = AppliedConfiguration.FromFile(
+            "/proj/dialogue.toml",
+            "[[speakers]]\nname = \"Narrator\"",
+            new CompilerOptions { Speakers = [new ConfiguredSpeaker("Narrator", null, [], [])] });
+
+        var html = new CompilationVisualizer(applied).RenderHtmlReport("The room is quiet.");
+
+        Assert.Contains("\"configuration\"", html, StringComparison.Ordinal);
+        Assert.Contains("dialogue.toml", html, StringComparison.Ordinal);
+        Assert.Contains("Narrator", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RenderHtmlReport_WithoutConfigurationContext_OmitsTheConfigurationField()
+    {
+        var html = new CompilationVisualizer().RenderHtmlReport("The room is quiet.");
+
+        Assert.DoesNotContain("\"configuration\"", html, StringComparison.Ordinal);
     }
 
     [Fact]

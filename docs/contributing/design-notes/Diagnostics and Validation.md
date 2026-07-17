@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | **1. Diagnostic model** | the value types that describe a located problem, and the bag that collects them | **Implemented** |
 | **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Implemented** |
-| **3. Validator + rules** | a pluggable structural lint pass over the desugared artifact | Deferred |
+| **3. Validator + first rule** | the rule framework (`IDiagnosticRule` + `Validator`) and the first structural rule — multiple jumps on a line | **Proposed (next)** |
 | **4. Producers** | migrating recoverable throw sites to reported diagnostics | Deferred |
 | **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
 | **6. Editor seams** | an LSP projection and a web-report overlay | Deferred |
@@ -29,6 +29,7 @@
 - [The diagnostic model — options compared](#the-diagnostic-model--options-compared)
 - [Component 1 — the diagnostic model (implemented)](#component-1--the-diagnostic-model-implemented)
 - [Component 2 — the collection seam (implemented)](#component-2--the-collection-seam-implemented)
+- [Component 3 — the validator (proposed)](#component-3--the-validator-proposed)
 - [Later components (deferred)](#later-components-deferred)
 - [Key design decisions](#key-design-decisions)
   - [DD1 — One offset-based core model, internal for now](#dd1--one-offset-based-core-model-internal-for-now)
@@ -206,18 +207,51 @@ Because no stage reports yet, the seam is proved end to end with a **spy stage**
 diagnostic when invoked; a facade test asserts it surfaces on `CompilationResult.Diagnostics` and
 flips `HasErrors`.
 
+## Component 3 — the validator (proposed)
+
+The first **producer**: a pluggable structural lint pass that inspects the desugared tree and
+reports diagnostics into the sink, turning the collection seam's spy into a real diagnostic end to
+end. It ships the rule framework and the one rule the desugared tree can honestly support today —
+**multiple jumps on a line** — plus the first catalog entry.
+
+| Type | Visibility | Responsibility |
+| --- | --- | --- |
+| `IDiagnosticRule` | internal | one check: inspect the desugared document and report zero or more diagnostics into an `IDiagnosticSink` |
+| `Validator` | internal | runs a composed set of rules over the desugared document, reporting into the sink |
+| `MultipleJumpsOnLineRule` | internal | the first rule: a `Line` whose speech holds more than one `Jump` reports `DLG1003` (`Warning`), anchored on the line's span |
+| `ScriptCompiler` (facade) | internal | runs the validator over the desugared tree, between desugar and analyze, reporting into the context's sink |
+
+Detection is purely structural: for each `Line`, count the `Jump` fragments directly in its
+`Speech`; more than one is a `DLG1003`. The message carries the count. Because the validator emits a
+real diagnostic, the facade's collect-and-continue path is now exercised by a genuine producer, not
+only a test spy. The rule owns its `DiagnosticDescriptor` (co-located with the producer, per
+[DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); a central catalog can consolidate descriptors
+later.
+
+**Injection.** The `Validator` is composed with its rules and injected into the facade like the
+other stages (wired by `ScriptCompilerFactory` and `AddDialogueDown`), so validation is a real
+pipeline pass and the rule set can grow without touching the facade.
+
+**Tree-walking helpers move to `Script.Ast`.** The rule must find every `Line`, including lines
+nested in choices. The traversal helpers (`DescendantsAndSelf`, `Children`) live in
+`Script.Semantics` today, but the validator runs **before** the analyzer and must not depend on that
+later layer. They are **relocated to `Script.Ast`** — beside the nodes they walk — so the desugar,
+validation, and semantics stages can share them without an upward dependency. With two consumers now
+needing them, this is a fitting home rather than premature generalization.
+
 ## Later components (deferred)
 
-- **Validator + rules** ([DD4](#dd4--the-validator-is-a-set-of-pluggable-rules)) — a pluggable
-  structural lint pass over the desugared artifact. First rules: dangling `=>`, multiple jumps on
-  one line, a tag without a speaker, dropped unmodeled Markdown.
-- **Producers** — migrating the existing recoverable `DialogueSyntaxError`/`DialogueSemanticError`
-  throw sites to reported diagnostics.
+- **Producers** — migrating the existing recoverable throw sites to reported diagnostics: the
+  transpiler's tag-without-speaker `DialogueSyntaxError`, the analyzer's jump/speaker
+  `DialogueSemanticError`, and a **dangling `=>`** reported by desugar at the point it degrades the
+  arrow to text (which the desugared tree cannot otherwise reveal — see the corrected
+  [DD4](#dd4--the-validator-is-a-set-of-pluggable-rules)).
 - **Renderer** ([DD7](#dd7--errata-renders-on-the-cli-isolated-to-the-cli)) — a `LineMap`
   (offset→line/column), the CLI's Errata projection with exit codes and warnings switches, and the
   **public** diagnostic view built on the `LineMap`.
 - **Editor seams** ([DD8](#dd8--lsp-and-web-rendering-are-planned-projection-seams)) — an LSP
-  projection and a web-report diagnostics overlay.
+  projection and a web-report diagnostics overlay, plus a front-end record of **dropped unmodeled
+  Markdown** so it can be reported (today an `Ignore`d node leaves no trace).
 
 ## Key design decisions
 
@@ -273,14 +307,20 @@ A **hard semantic error** — a jump whose target does not exist, a speaker that
 because the analyzer already does that resolution. Validation you can do *before* a model exists is
 structural; validation that *needs* the model is the analyzer's own output.
 
-The first (structural) rules target problems the current pipeline can already see:
+The first structural rule targets a problem the desugared tree can honestly reveal:
 
-| Rule | Code (proposed) | Severity | Trigger |
-| --- | --- | --- | --- |
-| Dangling jump arrow | `DLG1002` | `Warning` | a `=>` with no link, degraded to text by desugar |
-| Multiple jumps on a line | `DLG1003` | `Warning` | more than one jump indicator on one line |
-| Tag without a speaker | `DLG1101` | `Error` | tags attached to no speaker |
-| Dropped unmodeled Markdown | `DLG3001` | `Info` | an unmodeled construct ignored by policy |
+| Rule | Code | Severity | Trigger | Status |
+| --- | --- | --- | --- | --- |
+| Multiple jumps on a line | `DLG1003` | `Warning` | more than one `Jump` fragment in a `Line`'s speech | **First rule** |
+
+The other candidates once listed here are **not** desugared-tree structural rules, so they move
+elsewhere — checking how the pipeline actually represents each condition reclassified them:
+
+| Candidate | Why it is not a structural rule | Where it belongs |
+| --- | --- | --- |
+| Dangling jump arrow (`DLG1002`) | desugar rewrites a linkless `=>` into plain `Text("=>")` with no provenance, so the desugared tree cannot tell it from ordinary text | **Producers** — desugar reports it at the point it degrades the arrow |
+| Tag without a speaker (`DLG1101`) | the transpiler already **throws** `DialogueSyntaxError` for tags naming no speaker; the desugared tree never carries it | **Producers** — migrate that throw to a diagnostic |
+| Dropped unmodeled Markdown (`DLG3001`) | an `Ignore`d node is dropped in the front-end and leaves no marker, count, or trace to detect | **Editor seams / future** — needs the front-end to record drops first |
 
 ### DD5 — The sink threads through the facade via a diagnostics context
 

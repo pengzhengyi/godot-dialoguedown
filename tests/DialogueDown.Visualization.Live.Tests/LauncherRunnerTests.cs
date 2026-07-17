@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DialogueDown.Configuration;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
@@ -17,6 +18,7 @@ public sealed class LauncherRunnerTests
             LaunchMode.View,
             port: null,
             noOpen: true,
+            CompilerOptions.Default,
             new StringWriter(),
             error,
             CancellationToken.None);
@@ -35,7 +37,7 @@ public sealed class LauncherRunnerTests
         using var stop = new CancellationTokenSource();
 
         var task = runner.RunAsync(
-            tree.Root, source: null, LaunchMode.View, port: 0, noOpen: false,
+            tree.Root, source: null, LaunchMode.View, port: 0, noOpen: false, CompilerOptions.Default,
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 

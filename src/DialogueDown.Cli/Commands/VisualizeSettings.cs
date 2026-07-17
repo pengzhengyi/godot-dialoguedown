@@ -32,6 +32,10 @@ internal sealed class VisualizeSettings : CommandSettings
     [Description("Emit each stage's graph as text instead of a report: 'mermaid' or 'dot' (requires a script; writes to --output or stdout).")]
     public string? Emit { get; init; }
 
+    [CommandOption("--config <path>")]
+    [Description("The dialogue.toml to configure the report. Default: the nearest one found from the script's folder upward, within --root.")]
+    public string? Config { get; init; }
+
     [CommandOption("--port <port>")]
     [Description("The loopback port for the server (default: an ephemeral port).")]
     public int? Port { get; init; }
@@ -63,6 +67,12 @@ internal sealed class VisualizeSettings : CommandSettings
     /// <inheritdoc />
     public override ValidationResult Validate()
     {
+        var config = ConfigArgument.Validate(Config);
+        if (!config.Successful)
+        {
+            return config;
+        }
+
         if (Output is not null && string.IsNullOrWhiteSpace(Script))
         {
             return ValidationResult.Error("--output requires a <script> to export.");

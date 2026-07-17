@@ -1,3 +1,5 @@
+using DialogueDown.Configuration;
+
 namespace DialogueDown.Visualization.Live;
 
 /// <summary>
@@ -9,28 +11,30 @@ public interface IVisualizeRunner
 {
     /// <summary>
     /// Renders <paramref name="file"/> to a self-contained report and opens it (unless
-    /// <paramref name="noOpen"/>), or writes it to <paramref name="output"/>. Returns a
-    /// process exit code.
+    /// <paramref name="noOpen"/>), or writes it to <paramref name="output"/>, using the
+    /// project's <paramref name="options"/>. Returns a process exit code.
     /// </summary>
-    int RunStatic(string file, string? output, bool noOpen);
+    int RunStatic(string file, string? output, bool noOpen, CompilerOptions options);
 
     /// <summary>
     /// Renders every stage of <paramref name="file"/> as text in the given
-    /// <paramref name="format"/> (Mermaid or DOT) and writes it to
-    /// <paramref name="output"/>, or to standard output when null. A non-interactive
-    /// emit — no server, no browser. Returns a process exit code.
+    /// <paramref name="format"/> (Mermaid or DOT), using the project's
+    /// <paramref name="options"/>, and writes it to <paramref name="output"/>, or to
+    /// standard output when null. A non-interactive emit — no server, no browser.
+    /// Returns a process exit code.
     /// </summary>
-    int RunEmit(string file, EmitFormat format, string? output);
+    int RunEmit(string file, EmitFormat format, string? output, CompilerOptions options);
 
     /// <summary>
-    /// Serves an interactive report for <paramref name="file"/> on a loopback port and
-    /// keeps it up until <paramref name="cancellationToken"/> is canceled. The reader
-    /// toggles View/Edit in the browser; <paramref name="mode"/> is the initial side
+    /// Serves an interactive report for <paramref name="file"/>, compiled with the project's
+    /// <paramref name="options"/>, on a loopback port and keeps it up until
+    /// <paramref name="cancellationToken"/> is canceled. The reader toggles View/Edit in the
+    /// browser; <paramref name="mode"/> is the initial side
     /// (<see cref="VisualizationMode.View"/> or <see cref="VisualizationMode.Edit"/>).
-    /// <paramref name="renderRoot"/> pins the static-asset root (otherwise it is
-    /// resolved, with consent, from the document's referenced images). Returns a process
-    /// exit code.
+    /// <paramref name="renderRoot"/> pins the static-asset root (otherwise it is resolved,
+    /// with consent, from the document's referenced images). Returns a process exit code.
     /// </summary>
     Task<int> RunServedAsync(
-        string file, int? port, bool noOpen, string? renderRoot, string mode, CancellationToken cancellationToken);
+        string file, int? port, bool noOpen, string? renderRoot, string mode, CompilerOptions options,
+        CancellationToken cancellationToken);
 }

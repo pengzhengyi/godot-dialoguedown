@@ -1,3 +1,4 @@
+using DialogueDown.Configuration;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
@@ -10,7 +11,7 @@ public sealed class EmitModeTests
         using var doc = new TempDocument("# Scene\n\nAlice: Hi.");
         var writer = new StringWriter();
 
-        var code = EmitMode.Run(doc.Path, EmitFormat.Mermaid, output: null, writer, new StringWriter());
+        var code = EmitMode.Run(doc.Path, EmitFormat.Mermaid, output: null, CompilerOptions.Default, writer, new StringWriter());
 
         Assert.Equal(0, code);
         var text = writer.ToString();
@@ -27,7 +28,7 @@ public sealed class EmitModeTests
 
         try
         {
-            var code = EmitMode.Run(doc.Path, EmitFormat.Dot, output, writer, new StringWriter());
+            var code = EmitMode.Run(doc.Path, EmitFormat.Dot, output, CompilerOptions.Default, writer, new StringWriter());
 
             Assert.Equal(0, code);
             Assert.True(File.Exists(output));
@@ -47,7 +48,7 @@ public sealed class EmitModeTests
         var writer = new StringWriter();
         var error = new StringWriter();
 
-        var code = EmitMode.Run(missing, EmitFormat.Mermaid, output: null, writer, error);
+        var code = EmitMode.Run(missing, EmitFormat.Mermaid, output: null, CompilerOptions.Default, writer, error);
 
         Assert.NotEqual(0, code);
         Assert.NotEqual(string.Empty, error.ToString());

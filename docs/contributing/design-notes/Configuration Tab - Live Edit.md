@@ -1,13 +1,13 @@
 # Implementation note: Configuration tab — Live Edit
 
 > [!NOTE]
-> Status: **approved** — implementation in progress. This is **Stage 2a** of the
-> Configuration tab: make the project's `dialogue.toml` **editable** in a served
-> session. In Edit mode the Config tab's TOML becomes a real editor; **Save** writes
-> the file and recompiles so every tab — the graphs *and* the Config tab's own
-> configured speakers — refreshes. TOML **autocompletion** is the sibling Stage 2b,
-> in its own note. Read the [Configuration Tab](./Configuration%20Tab.md) (Stage 1)
-> and [Live Visualization — Live Edit](./Live%20Visualization%20-%20Live%20Edit.md)
+> Status: **implemented**. This is **Stage 2a** of the Configuration tab: the
+> project's `dialogue.toml` is **editable** in a served session. In Edit mode the
+> Config tab's TOML is a real editor; **Save** writes the file and recompiles so every
+> tab — the graphs *and* the Config tab's own configured speakers — refreshes. TOML
+> **autocompletion** is the sibling Stage 2b, in its own note. Read the
+> [Configuration Tab](./Configuration%20Tab.md) (Stage 1) and
+> [Live Visualization — Live Edit](./Live%20Visualization%20-%20Live%20Edit.md)
 > notes first; this one extends both.
 
 ## Table of contents
@@ -87,14 +87,14 @@ the config is always named the **config document** so the two never blur.
 
 ## Functionality checklist
 
-- [ ] In **Edit**, the Config tab's TOML is an editable CodeMirror; in **View** it is read-only — the same reconfigure-in-place editor the Source tab uses.
-- [ ] Editing the TOML marks the **Config tab dirty** (its own marker) and arms the `beforeunload` guard.
-- [ ] **Save** (⌘/Ctrl-S from any tab, or the Save button) writes `dialogue.toml`, recompiles the dialogue, refreshes the stages **and** the configured speakers, and clears dirty.
-- [ ] **Discard** restores the last saved TOML into the editor.
-- [ ] The **navigation lock** blocks leaving the Config tab while its TOML is dirty (save or discard first) — the same rule the dialogue already follows.
-- [ ] The **configured speakers** refresh on Save (a server recompile), not per keystroke; the stale pane is signposted while dirty.
-- [ ] Editing applies only when a `dialogue.toml` **exists**; the no-config state stays read-only (creation is Stage 3).
-- [ ] Save is a **force-overwrite**; the watcher's echo-suppression keeps a self-save from bouncing back as a reload.
+- [x] In **Edit**, the Config tab's TOML is an editable CodeMirror; in **View** it is read-only — the same reconfigure-in-place editor the Source tab uses.
+- [x] Editing the TOML marks the **Config tab dirty** (its own marker) and arms the `beforeunload` guard.
+- [x] **Save** (⌘/Ctrl-S from any tab, or the Save button) writes `dialogue.toml`, recompiles the dialogue, refreshes the stages **and** the configured speakers, and clears dirty.
+- [x] **Discard** restores the last saved TOML into the editor.
+- [x] The **navigation lock** blocks leaving the Config tab while its TOML is dirty (save or discard first) — the same rule the dialogue already follows.
+- [x] The **configured speakers** refresh on Save (a server recompile), not per keystroke; the stale pane is signposted while dirty.
+- [x] Editing applies only when a `dialogue.toml` **exists**; the no-config state stays read-only (creation is Stage 3).
+- [x] Save is a **force-overwrite** (the config file is not watched, so there is no self-save to suppress).
 
 ## Where it sits
 
@@ -126,19 +126,20 @@ and recompile, and teaches the save route which file it is writing.
 
 | Type / route | Change | Why |
 | --- | --- | --- |
-| `POST /api/save` (`SaveRequest`) | add a `Target` (`document` \| `config`), defaulting to `document` | the route must know which file to write and how to recompile; the default keeps the dialogue save unchanged |
-| `LiveSession` | learn the **config path** (from `AppliedConfiguration.File`) and a `SaveConfig(source)` beside `Save(source)` | one session owns both editable inputs to its one compile |
-| `CompilationVisualizer` | accept an **updated** `AppliedConfiguration` (re-parsed on config save) rather than only a construction-time one | recompiling after a config edit must use the new speakers |
-| `ConfigurationFile` / `AppliedConfiguration` | reused as-is; a config save rebuilds them from the new TOML via `TomlConfigurationLoader` | keep one parser and one applied-configuration model |
+| `POST /api/save` (`SaveRequest`) | gains a `Target` (`document` \| `config`), defaulting to `document`; the route dispatches to `Save` or `SaveConfig` and returns 400 on a config-parse failure | the route must know which file to write and how to recompile; the default keeps the dialogue save unchanged |
+| `LiveSession` | learns the **config path** (from `AppliedConfiguration.File`) and gains `SaveConfig(source)` beside `Save(source)`; on a config save it re-parses the TOML and **rebuilds its `CompilationVisualizer`** with the new configuration, then recompiles the document | one session owns both editable inputs to its one compile; rebuilding the visualizer is simpler than mutating it and reuses the existing constructor |
+| `TomlConfigurationLoader.Parse` | made **public** so the edited buffer parses in memory; `Visualization.Live` references the configuration loader (a clean edge — the loader stays a core-only leaf, so no cycle) | the server must turn the saved TOML into `CompilerOptions` without a disk round-trip |
+| `ConfigurationFile` / `AppliedConfiguration` | reused as-is; a config save rebuilds them from the new TOML via `TomlConfigurationLoader.Parse` + `AppliedConfiguration.FromFile` | keep one parser and one applied-configuration model |
 
 **Client (`web/src`):**
 
 | Type | Change | Why |
 | --- | --- | --- |
-| `config-view.ts` (`createConfigView`) | an **editable** mode: `{ editable, onChange, onToggleFullscreen }` plus a handle with `setEditable` / `setContent`, mirroring `source-view.ts` | the config editor becomes a live editor, not a read-only view |
-| `live-edit.ts` | generalize the single buffer to the **active editable document**, or run a second instance keyed by target | manage the config buffer's dirty / save / discard alongside the dialogue's |
-| `live-edit-ui.ts` | the Save POST carries the **target**; the dirty marker and Save button reflect the active document | one Save surface, targeting whatever is being edited |
-| `main.ts` | wire the config editor's buffer into the live-edit + nav-lock, the way the Source editor is wired | the config joins the same edit loop |
+| `config-view.ts` (`createConfigView`) | an **editable** mode: `{ editable, onChange, onToggleFullscreen }` returning a handle with `setEditable` / `setContent` / `updateSpeakers` / `setStale`, mirroring `source-view.ts` | the config editor becomes a live editor, refreshes its speakers on save, and signposts staleness |
+| `live-edit-ui.ts` | becomes a `portsFor(document)` factory over shared Save/Discard chrome: each document gets its own save `target`, dirty marker (its own tab), content sink, and post-save hook | one Save surface, one dirty concept, targeting whichever document is edited |
+| `live-edit.ts` | **unchanged** — a second `createLiveEdit` instance is created for the config, each fed its document's ports | the single-document state machine already generalizes by instantiation, so no code change |
+| `view-edit.ts` (`createModeController`) | flips **both** editors' editability and routes each editor's changes to its own state machine; leaving Edit discards whichever document is dirty | one View⇄Edit toggle drives both editors |
+| `app.ts` / `main.ts` | `app.ts` exposes the config handle and per-tab dirty markers; `main.ts` builds the two `createLiveEdit` instances and a save/discard dispatcher over the active (dirty) document | the config joins the same edit loop; fixes a Stage 1 slip where the dialogue's dirty marker landed on the (now first) Config tab |
 
 ## Key design decisions
 
@@ -177,9 +178,11 @@ One route, one Save button, one shortcut — the target is a field, not a second
 
 A config save writes `dialogue.toml` (force-overwrite), then rebuilds the session's
 `AppliedConfiguration` from the new text with the **same** `TomlConfigurationLoader`
-the CLI uses, updates the `CompilationVisualizer`, and recompiles the dialogue. The
-save response is the same recompiled report the dialogue save returns, so the client
-applies it the same way (`updateStages` plus refreshing the Config tab's speakers).
+the CLI uses, **rebuilds the `CompilationVisualizer`** with it (simpler than mutating
+it — the constructor already configures the compiler from the options), and recompiles
+the dialogue. The save response is the same recompiled report the dialogue save
+returns, so the client applies it the same way (`updateStages` plus refreshing the
+Config tab's speakers).
 
 Malformed TOML is handled like a broken dialogue save: the write is a force-overwrite,
 and the recompile then surfaces a **`problem`** event (the loader's
@@ -191,11 +194,13 @@ inputs.
 
 Stage 2a adds **no new** Save button, dirty concept, discard flow, `beforeunload`
 guard, or toggle. It generalizes the existing Live Edit surface from "the Source
-buffer" to "the **active** editable document." The View⇄Edit toggle still flips the
-whole report; the Save/dirty/discard UI simply follows whichever editor is active. The
-config editor is a second instance of the same editable-CodeMirror seam
-(`source-view.ts`), so it inherits the theme, gutter, selection, and read-only
-reconfiguration for free.
+buffer" to "the **active** editable document" without touching the state machine
+(`live-edit.ts`): the shared chrome becomes a `portsFor(document)` factory in
+`live-edit-ui.ts`, and each document is a second instance of the same
+`createLiveEdit` machine, fed its own ports. The View⇄Edit toggle still flips the
+whole report; the Save/dirty/discard UI follows whichever editor is active. The config
+editor is a second instance of the same editable-CodeMirror seam (`source-view.ts`),
+so it inherits the theme, gutter, selection, and read-only reconfiguration for free.
 
 ### DD6 — Configured speakers refresh on Save, not as you type
 

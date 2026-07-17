@@ -44,15 +44,30 @@ public sealed class ScriptCompilerTests
     }
 
     [Fact]
-    public void Compile_NullSource_Throws()
-    {
-        var compiler = new ScriptCompiler(
-            Substitute<IMarkdownParser, MarkdownDocument>(),
-            Substitute<IScriptTranspiler, ScriptDocument>(),
-            Substitute<IScriptDesugarer, DesugaredScriptDocument>(),
-            Substitute<ISemanticAnalyzer, SemanticModel>());
+    public void Compile_NullSource_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => Compiler(out _).Compile(null!));
 
-        Assert.Throws<ArgumentNullException>(() => compiler.Compile(null!));
+    [Fact]
+    public void Compile_NoStageReports_HasEmptyDiagnosticsAndNoErrors()
+    {
+        var result = Compiler(out _).Compile("Alice: hi");
+
+        Assert.Empty(result.Diagnostics);
+        Assert.False(result.HasErrors);
+    }
+
+    [Fact]
+    public void Compile_AStageReportsAnError_SurfacesItOnTheResultAndFlipsHasErrors()
+    {
+        var compiler = Compiler(out var analyzer);
+        var diagnostic = DiagnosticsFactory.Diagnostic(severity: DiagnosticSeverity.Error);
+        analyzer.When(a => a.Analyze(Arg.Any<DesugaredScriptDocument>(), Arg.Any<DiagnosticsContext>()))
+            .Do(call => call.Arg<DiagnosticsContext>().Diagnostics.Report(diagnostic));
+
+        var result = compiler.Compile("Alice: hi");
+
+        Assert.Contains(diagnostic, result.Diagnostics);
+        Assert.True(result.HasErrors);
     }
 
     [Theory]
@@ -69,6 +84,20 @@ public sealed class ScriptCompilerTests
 
         Assert.Throws<ArgumentNullException>(
             () => new ScriptCompiler(parser, transpiler, desugarer, analyzer));
+    }
+
+    // Builds a compiler whose stages are substitutes that yield empty artifacts, so a test can
+    // focus on the facade. Outs the analyzer so a test can install a spy that reports into the
+    // context it is handed.
+    private static ScriptCompiler Compiler(out ISemanticAnalyzer analyzer)
+    {
+        var desugared = new DesugaredScriptDocument(new ScriptDocument([]));
+        analyzer = Substitute<ISemanticAnalyzer, SemanticModel>(SemanticModelFactory.Minimal(desugared));
+        return new ScriptCompiler(
+            Substitute<IMarkdownParser, MarkdownDocument>(new MarkdownDocument([])),
+            Substitute<IScriptTranspiler, ScriptDocument>(new ScriptDocument([])),
+            Substitute<IScriptDesugarer, DesugaredScriptDocument>(desugared),
+            analyzer);
     }
 
     // Builds a stage substitute and, when a value is given, has every member that returns

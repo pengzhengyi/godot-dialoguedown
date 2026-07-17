@@ -39,7 +39,8 @@ internal sealed class ScriptCompiler : IScriptCompiler
     public CompilationResult Compile(string source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        var context = BuildDiagnosticsContext(source);
+        var diagnostics = new DiagnosticBag();
+        var context = new DiagnosticsContext(source, diagnostics);
         var markdown = _parser.Parse(source);
         var script = _transpiler.Transpile(markdown, context);
         var desugared = _desugarer.Desugar(script, context);
@@ -47,12 +48,7 @@ internal sealed class ScriptCompiler : IScriptCompiler
 
         // TODO(graph-build): build the flow graph from the semantic model here as that stage
         // lands; it adds one more artifact to the result.
-        return new CompilationResult(source, markdown, script, desugared, semantics);
+        return new CompilationResult(
+            source, markdown, script, desugared, semantics, diagnostics.Diagnostics);
     }
-
-    // Builds the per-compilation diagnostics context: a fresh bag, wrapped with the source the
-    // stages anchor reports to. Kept as a seam here so it can grow (the facade will read the
-    // bag's snapshot onto the result once producers report).
-    private static DiagnosticsContext BuildDiagnosticsContext(string source) =>
-        new(source, new DiagnosticBag());
 }

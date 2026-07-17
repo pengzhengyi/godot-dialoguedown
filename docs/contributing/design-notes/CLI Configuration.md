@@ -1,12 +1,12 @@
 # Implementation note: CLI configuration
 
-> [!NOTE]
-> Status: **approved — implementation in progress**. Threads a project's
+> [!IMPORTANT]
+> Status: **implemented**. Threads a project's
 > [`CompilerOptions`](./Configuration.md) — built from a `dialogue.toml` by the
 > [configuration loader](./Configuration%20Loader.md) — through the `dialoguedown`
-> CLI, so `compile` and `visualize` honor configured speakers. Because the report's
-> autocompletion already derives its speaker symbols from the compiled semantic
-> model, configured speakers reach the editor's completions for free.
+> CLI, so `compile` and `visualize` honor configured speakers. The report's editor
+> autocompletion offers the configured speakers too, including ones declared in
+> `dialogue.toml` but not yet used in the script.
 
 ## Table of contents
 
@@ -20,10 +20,11 @@
   - [DD2 — Discover `dialogue.toml` by walking up from the script](#dd2--discover-dialoguetoml-by-walking-up-from-the-script)
   - [DD3 — A compiler factory seam keeps `compile` config-aware and testable](#dd3--a-compiler-factory-seam-keeps-compile-config-aware-and-testable)
   - [DD4 — Thread options into visualize through a configured visualizer](#dd4--thread-options-into-visualize-through-a-configured-visualizer)
-  - [DD5 — Autocompletion needs no new plumbing](#dd5--autocompletion-needs-no-new-plumbing)
+  - [DD5 — Surface configured speakers in the completion symbols](#dd5--surface-configured-speakers-in-the-completion-symbols)
 - [Error and boundary cases](#error-and-boundary-cases)
 - [Integration](#integration)
 - [Testability](#testability)
+- [Deferred](#deferred)
 
 ## Goal and scope
 
@@ -32,7 +33,7 @@ the [configuration loader](./Configuration%20Loader.md) reads a `dialogue.toml` 
 `CompilerOptions`, but **nothing wires them into the CLI**: `dialoguedown compile` and
 `dialoguedown visualize` always build the compiler with `CompilerOptions.Default`. This
 component closes that last gap — a project's `dialogue.toml` reaches the compiler behind
-both commands, so configured speakers appear in a compile, in the visualization report,
+both commands, so configured speakers appear in a compiled script, in the visualization report,
 and in the report editor's **autocompletion**.
 
 **In scope:** a `--config` option on both commands, automatic discovery of a
@@ -71,18 +72,18 @@ assemblies never take a TOML dependency.
 
 ## Functionality checklist
 
-- [ ] Both `compile` and `visualize` accept `--config <path>` naming a `dialogue.toml`.
-- [ ] With no `--config`, the CLI discovers the nearest `dialogue.toml` by walking up from
+- [x] Both `compile` and `visualize` accept `--config <path>` naming a `dialogue.toml`.
+- [x] With no `--config`, the CLI discovers the nearest `dialogue.toml` by walking up from
       the script's directory (bounded by `--root` for `visualize`); absent, it uses
       `CompilerOptions.Default`.
-- [ ] An explicit `--config` path that is missing or malformed fails with a clear usage
-      error; a malformed discovered file surfaces the loader's located error.
-- [ ] `compile` builds its compiler from the resolved options.
-- [ ] `visualize` — static export, `--emit`, and the served/live session — builds its
-      report from the resolved options.
-- [ ] Configured speakers appear in the report's completion symbols, so the editor's
-      speaker autocompletion offers them.
-- [ ] The user guide documents `dialogue.toml` and `--config`.
+- [x] An explicit `--config` path that is missing fails with a clear usage error; a
+      malformed file surfaces the loader's located error.
+- [x] `compile` builds its compiler from the resolved options.
+- [x] `visualize` — static export, `--emit`, the served/live session, and the launcher —
+      builds its report from the resolved options.
+- [x] Configured speakers appear in the report's completion symbols — including ones a
+      line never uses — so the editor's speaker autocompletion offers them.
+- [x] The user guide documents `dialogue.toml` and `--config`.
 
 ## Interfaces and abstractions
 
@@ -91,8 +92,12 @@ assemblies never take a TOML dependency.
 | `ProjectConfiguration`                   | internal (CLI)    | Resolve `CompilerOptions` from `--config` or a discovered `dialogue.toml`                    | `TomlConfigurationLoader`, `CompilerOptions` |
 | `Func<CompilerOptions, IScriptCompiler>` | internal (CLI)    | The compile command's compiler factory seam (default: `ScriptCompilerFactory.CreateDefault`) | `CompileCommand`                             |
 | `CompilationVisualizer(CompilerOptions)` | public (new ctor) | Build a visualizer over a configured compiler                                                | `ScriptCompilerFactory`                      |
-| `IVisualizeRunner` (extended)            | public            | Carry `CompilerOptions` into each run mode                                                   | `CompilationVisualizer`, `LiveSession`       |
-| `CompileSettings` / `VisualizeSettings`  | internal (CLI)    | Add the `--config` option                                                                    | Spectre.Console.Cli                          |
+| `IVisualizeRunner` / `ILauncherRunner`   | public (extended) | Carry `CompilerOptions` into each run mode and the launcher                                  | `CompilationVisualizer`, `LiveSession`       |
+| `SpeakerTable.Symbols`                   | internal (core)   | Expose every bound speaker so configured ones complete unused                                | `SymbolProjection`                           |
+| `CompileSettings` / `VisualizeSettings`  | internal (CLI)    | Add the `--config` option and validate its path                                              | Spectre.Console.Cli                          |
+
+A malformed `dialogue.toml` surfaces at compile time; the CLI's exception handler renders the
+loader's located `DialogueConfigurationException` as a clean, located message.
 
 ## Key design decisions
 
@@ -139,15 +144,18 @@ public `CompilationVisualizer(CompilerOptions)` ctor builds the visualizer over
 export, `--emit`, and the served session (through `LiveSession`'s existing
 `CompilationVisualizer?` seam). One options value flows to every visualize path.
 
-### DD5 — Autocompletion needs no new plumbing
+### DD5 — Surface configured speakers in the completion symbols
 
 The report's editor completions come from `SymbolProjection.Project(SemanticModel)`, which
-reads speakers, `@id`s, and tags from the **compiled semantic model's speaker table** —
-not from re-scanning the script text. Configured speakers are already bound into that table
-by the semantic analyzer, so once the visualizer compiles with the resolved options, they
-flow `CompilerOptions → SemanticModel.Speakers → SymbolProjection → report symbols → editor
-completions` with no change to the projection or the web client. This component only proves
-it with a test.
+read the **compiled semantic model**, not the raw script text. But the projection walked only
+the speakers a line *uses* (the desugared tree), so a speaker configured in `dialogue.toml`
+yet never spoken would not complete — defeating the point of declaring a cast up front. So
+the speaker table exposes its full set through `SpeakerTable.Symbols` (every distinct named or
+`@id`'d speaker it bound, from the script or from configuration), and `SymbolProjection` unions
+those in after the document-order script speakers. Configured speakers then flow
+`CompilerOptions → SemanticModel.Speakers → SymbolProjection → report symbols → editor
+completions`, used or not, with no change to the web client. This is the note's one change to
+the core (`SpeakerTable`), kept additive: a read-only view that leaves `Resolve` untouched.
 
 ## Error and boundary cases
 
@@ -164,15 +172,26 @@ it with a test.
 ## Integration
 
 - **CLI** (`DialogueDown.Cli`): references `DialogueDown.ConfigurationLoader`; adds
-  `ProjectConfiguration`, the `--config` option, and the compiler-factory registration.
+  `ProjectConfiguration`, the `--config` option, the compiler-factory registration, and an
+  exception-handler case rendering a `DialogueConfigurationException` as a located message.
+- **Core** (`DialogueDown`): adds the additive `SpeakerTable.Symbols` view so configured
+  speakers can complete unused (`Resolve` and existing behavior are untouched).
 - **Visualization** (`DialogueDown.Visualization`): adds the public
-  `CompilationVisualizer(CompilerOptions)` ctor.
-- **Live** (`DialogueDown.Visualization.Live`): `IVisualizeRunner` and its modes take a
-  `CompilerOptions`; the served session builds a configured `LiveSession`.
-- **Docs**: a new `docs/guide/configuration.md` page (registered in the guide `toc.yml`),
-  and a cross-link from the script-language guide.
+  `CompilationVisualizer(CompilerOptions)` ctor; `SymbolProjection` unions in
+  `SpeakerTable.Symbols`.
+- **Live** (`DialogueDown.Visualization.Live`): `IVisualizeRunner`, `ILauncherRunner`, and
+  their modes take a `CompilerOptions`; the served session and each launcher-opened report
+  build a configured `LiveSession`.
+- **Docs**: a new `docs/guide/configuration.md` page (registered in the guide `toc.yml` and
+  index), cross-linked to the script-language guide.
 - **Architecture**: unchanged boundaries — the CLI already sits outside the core; only the
   CLI gains the loader reference.
+
+## Deferred
+
+| Item                            | Note                                                                                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Per-file launcher configuration | The launcher resolves one `CompilerOptions` from its browse root and applies it to every report it opens. A file in a subtree with its own `dialogue.toml` would want per-file discovery; deferred until the launcher needs it. |
 
 ## Testability
 
@@ -181,8 +200,9 @@ it with a test.
   error. Driven with a temp directory and raw-string TOML.
 - **`compile`**: substitutes the compiler factory, asserts the resolved options reach it and
   the source is compiled; a `--config` file changes the options passed.
-- **`visualize`**: the runner receives the resolved options for static, emit, and served
-  routes (extending the existing routing tests).
-- **Autocompletion**: a visualizer built from options carrying a configured speaker emits
-  that speaker in the report's `SymbolSet`.
+- **`visualize`**: the runner receives the resolved options for the static, emit, served,
+  and launcher routes (extending the existing routing tests).
+- **Autocompletion**: `SpeakerTable.Symbols` enumerates configured and script speakers once
+  each; a visualizer built from options carrying an unused configured speaker still emits it
+  in the report's `SymbolSet`.
 - **Docs**: markdownlint and link checks over the new guide page.

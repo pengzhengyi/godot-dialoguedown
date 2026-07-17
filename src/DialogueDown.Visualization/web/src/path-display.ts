@@ -1,5 +1,6 @@
 import tippy from "tippy.js";
 import type { ConfigReport } from "./model";
+import { showToast } from "./toast";
 
 /** Split a path into its directory (head) and last segment (tail, with separator). */
 export function splitPath(path: string): { head: string; tail: string } {
@@ -48,12 +49,11 @@ export function initPathDisplay(
     button.hidden = false;
     button.disabled = false;
 
-    const tip = tippy(button, { content: `${path}\n(click to copy)`, maxWidth: 480 });
+    // The hover tooltip shows the full path (the button ellipsises the directory); a click
+    // copies it and confirms through the shared toast, the same cue the config table uses.
+    tippy(button, { content: `${path}\n(click to copy)`, maxWidth: 480 });
     button.addEventListener("click", () => {
-        void copyToClipboard(path).then(() => {
-            tip.setContent("Copied!");
-            window.setTimeout(() => tip.setContent(`${path}\n(click to copy)`), 1200);
-        });
+        void copyToClipboard(path).then(() => showToast(`Copied ${path}`));
     });
     return button;
 }

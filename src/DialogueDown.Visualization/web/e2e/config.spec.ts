@@ -61,18 +61,6 @@ test.describe("Config tab — a configured project", () => {
         await expect(page.locator(".config-tag-reserved")).toHaveText("##default");
     });
 
-    test("marks the Config tab as a filled settings chip, not an underlined tab", async ({
-        page,
-    }) => {
-        const tab = page.locator(".tab.config-tab");
-        await expect(tab).toHaveText("Config");
-        await tab.click();
-        // Active, the chip has a solid (opaque) background rather than a transparent, underlined tab.
-        const bg = await tab.evaluate((el) => getComputedStyle(el).backgroundColor);
-        expect(bg).not.toBe("rgba(0, 0, 0, 0)");
-        expect(bg).not.toBe("transparent");
-    });
-
     test("copies a cell's text on click and confirms with a toast", async ({ page }) => {
         await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
         await page.locator(".tab", { hasText: "Config" }).click();
@@ -97,6 +85,13 @@ test.describe("Config tab — a configured project", () => {
         await expect(page.locator("#doc-path")).toContainText("scene.dialogue.md");
         await expect(page.locator("#config-path")).toBeVisible();
         await expect(page.locator("#config-path")).toContainText("dialogue.toml");
+    });
+
+    test("copies a status-bar path on click and confirms with a toast", async ({ page }) => {
+        await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+        await page.locator("#config-path").click();
+        await expect(page.locator(".toast.visible")).toContainText("Copied");
+        await expect(page.locator(".toast.visible")).toContainText("dialogue.toml");
     });
 });
 

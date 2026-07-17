@@ -171,9 +171,6 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 createConfigView(report.configuration, { onToggleFullscreen: fullscreen.toggle }),
             );
             addTab("Config", section, null, CONFIG_TIP, null, GEAR_ICON);
-            // Mark the settings tab so CSS gives it a filled chip instead of the content
-            // tabs' underline — a visual cue that it configures the report, not a stage of it.
-            tabsEl.lastElementChild?.classList.add("config-tab");
         }
 
         if (report.source != null) {

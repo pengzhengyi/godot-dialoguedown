@@ -71,15 +71,18 @@ describe("initPathDisplay", () => {
         expect(initPathDisplay("/x.md")).toBeNull();
     });
 
-    it("copies the full path when clicked", async () => {
+    it("copies the full path and confirms with a toast when clicked", async () => {
         const writeText = vi.fn().mockResolvedValue(undefined);
         vi.stubGlobal("navigator", { clipboard: { writeText } });
 
         const button = initPathDisplay("/home/alice/scene.dialogue.md")!;
         button.click();
-        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve));
 
         expect(writeText).toHaveBeenCalledWith("/home/alice/scene.dialogue.md");
+        expect(document.querySelector(".toast.visible")?.textContent).toBe(
+            "Copied /home/alice/scene.dialogue.md",
+        );
         vi.restoreAllMocks();
     });
 });

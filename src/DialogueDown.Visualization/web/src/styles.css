@@ -1915,28 +1915,6 @@ button.tab.tab-with-icon {
     flex: none;
 }
 
-/* The settings (Config) tab reads as a filled chip, not an underlined content tab: a solid
-   slate "settings" surface sets it apart from the compiler-stage tabs. Slate is deliberately
-   none of the mode accents (View blue, Edit green), so it never reads as a mode cue. */
-button.tab.config-tab {
-    border-bottom-color: transparent;
-    border-radius: var(--pico-border-radius);
-    background: rgb(100 116 139 / 12%);
-    color: var(--pico-muted-color);
-}
-
-button.tab.config-tab:hover {
-    background: rgb(100 116 139 / 22%);
-    color: var(--pico-color);
-}
-
-button.tab.config-tab.active {
-    background: #475569;
-    border-bottom-color: transparent;
-    color: #fff;
-    font-weight: 600;
-}
-
 /* The Config tab mirrors the Source split (its own `--config-split` variable) with a
    read-only TOML editor on the left and a scrollable speakers table on the right. */
 .config-view {

@@ -8,6 +8,7 @@ import { isConfiguredFromFile } from "./model";
 import { initSplitDivider } from "./source-view";
 import { copyToClipboard } from "./path-display";
 import { createMaximizeButton } from "./maximize-button";
+import { initCollapsiblePanel } from "./collapse-toggle";
 import { showToast } from "./toast";
 import { escapeHtml } from "./text";
 
@@ -60,7 +61,18 @@ export function createConfigView(
     }
 
     container.append(pane, divider, side);
-    initSplitDivider(container, divider, "--config-split");
+    initSplitDivider(container, divider, "--config-split", "config-collapsed");
+
+    // The right (speakers) panel can be hidden to give the config source the full width,
+    // the same way the Source tab hides its preview. The toggle lives on the divider and
+    // doubles as the always-present re-open handle; the choice is remembered across reloads.
+    const speakersPanel = initCollapsiblePanel({
+        container,
+        collapsedClass: "config-collapsed",
+        storageKey: "dd-config-collapsed",
+        name: "configured speakers",
+    });
+    divider.appendChild(speakersPanel.button);
 
     // A maximize toggle in a small pill (bottom-right), matching the Source tab and the
     // graphs, so Config can fill the window with both its panes.

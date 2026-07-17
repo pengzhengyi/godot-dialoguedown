@@ -80,6 +80,17 @@ test.describe("Config tab — a configured project", () => {
         await expect(page.locator(".app-header")).toBeHidden();
     });
 
+    test("hides and reopens the speakers panel from the divider", async ({ page }) => {
+        await page.locator(".tab", { hasText: "Config" }).click();
+        await expect(page.locator(".config-side")).toBeVisible();
+
+        await page.locator(".config-divider .collapse-toggle").click();
+        await expect(page.locator(".config-side")).toBeHidden();
+
+        await page.locator(".config-divider .collapse-toggle").click();
+        await expect(page.locator(".config-side")).toBeVisible();
+    });
+
     test("shows both the dialogue and config file paths in the status bar", async ({ page }) => {
         await expect(page.locator("#doc-path")).toBeVisible();
         await expect(page.locator("#doc-path")).toContainText("scene.dialogue.md");

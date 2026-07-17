@@ -82,6 +82,20 @@ describe("createConfigView", () => {
         expect(onToggleFullscreen).toHaveBeenCalledOnce();
     });
 
+    it("hides and reopens the speakers panel from the divider toggle", () => {
+        const view = createConfigView(withFile());
+
+        const toggle = view.querySelector<HTMLButtonElement>(".config-divider .collapse-toggle");
+        expect(toggle).not.toBeNull();
+        expect(view.classList.contains("config-collapsed")).toBe(false);
+
+        toggle!.click();
+        expect(view.classList.contains("config-collapsed")).toBe(true);
+
+        toggle!.click();
+        expect(view.classList.contains("config-collapsed")).toBe(false);
+    });
+
     describe("click to copy", () => {
         const writeText = vi.fn().mockResolvedValue(undefined);
         Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });

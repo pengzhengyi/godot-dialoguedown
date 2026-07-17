@@ -283,13 +283,14 @@ export function initSplitDivider(
     container: HTMLElement,
     divider: HTMLElement,
     splitVar = "--source-split",
+    collapsedClass = "preview-collapsed",
 ): void {
     let dragging = false;
 
     divider.addEventListener("mousedown", (event) => {
-        // A collapsed preview has nothing to resize — the divider is just its re-open
+        // A collapsed side panel has nothing to resize — the divider is just its re-open
         // handle, so ignore drags (the toggle itself already swallows its own mousedown).
-        if (container.classList.contains("preview-collapsed")) return;
+        if (container.classList.contains(collapsedClass)) return;
         dragging = true;
         document.body.style.userSelect = "none";
         event.preventDefault();

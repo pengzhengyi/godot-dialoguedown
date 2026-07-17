@@ -1154,6 +1154,7 @@ body.maximized #app {
 .collapse-toggle:focus-visible,
 .detail-collapsed .collapse-toggle,
 .preview-collapsed .collapse-toggle,
+.config-collapsed .collapse-toggle,
 .tables-collapsed .collapse-toggle {
     --pico-color: inherit;
 
@@ -1177,12 +1178,14 @@ body.maximized #app {
 
 .detail-collapsed .collapse-toggle .icon-collapse,
 .preview-collapsed .collapse-toggle .icon-collapse,
+.config-collapsed .collapse-toggle .icon-collapse,
 .tables-collapsed .collapse-toggle .icon-collapse {
     display: none;
 }
 
 .detail-collapsed .collapse-toggle .icon-expand,
 .preview-collapsed .collapse-toggle .icon-expand,
+.config-collapsed .collapse-toggle .icon-expand,
 .tables-collapsed .collapse-toggle .icon-expand {
     display: block;
 }
@@ -1939,6 +1942,7 @@ button.tab.tab-with-icon {
 }
 
 .config-divider {
+    position: relative;
     flex: 0 0 6px;
     cursor: col-resize;
     background: var(--pico-muted-border-color);
@@ -1946,6 +1950,21 @@ button.tab.tab-with-icon {
 
 .config-divider:hover {
     background: var(--pico-primary);
+}
+
+/* Collapsed: hide the speakers panel so the source fills, and turn the divider into a
+   plain rail (no resize cursor) that still hosts the re-open handle. */
+.config-view.config-collapsed .config-source {
+    flex-basis: 100%;
+}
+
+.config-view.config-collapsed .config-side {
+    display: none;
+}
+
+.config-view.config-collapsed .config-divider {
+    cursor: default;
+    background: var(--pico-muted-border-color);
 }
 
 /* The read-only TOML editor fills its pane, blends with the background, and follows

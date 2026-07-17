@@ -63,6 +63,14 @@ Alice: [x](#|)`;
         expect(result.options[0]).toMatchObject({ label: "the-market", detail: "The Market" });
     });
 
+    it("types each option as dd-jump (selects the arrow icon)", () => {
+        const doc = `# The Market
+
+Alice: [x](#|)`;
+        const result = resultAt(source, doc)!;
+        expect(result.options.every((o) => o.type === "dd-jump")).toBe(true);
+    });
+
     it("does not fire outside a jump destination", () => {
         expect(labelsAt(source, `# The Market\n\nAlice: plain text |`)).toBeNull();
     });
@@ -95,6 +103,14 @@ Merchant @merchant: Wares!
         // The in-progress `@gu` is scanned as an id too; it must not suggest itself.
         expect(labelsAt(source, doc)).toEqual(["guide"]);
     });
+
+    it("types each option as dd-speaker-id (selects the @ icon)", () => {
+        const doc = `Guide @guide: Hi.
+
+@|`;
+        const result = resultAt(source, doc)!;
+        expect(result.options.every((o) => o.type === "dd-speaker-id")).toBe(true);
+    });
 });
 
 describe("tagCompletions", () => {
@@ -122,6 +138,14 @@ Bob #|`;
 Alice: [x](#|)`;
         expect(labelsAt(source, doc)).toBeNull();
     });
+
+    it("types each option as dd-tag (selects the # icon)", () => {
+        const doc = `Guide #wise: Hi.
+
+Bob #|`;
+        const result = resultAt(source, doc)!;
+        expect(result.options.every((o) => o.type === "dd-tag")).toBe(true);
+    });
 });
 
 describe("speakerCompletions", () => {
@@ -146,5 +170,13 @@ Alice: some text |`;
 
     it("does not fire when the document has no speakers", () => {
         expect(labelsAt(source, `# Heading\n\nA|`)).toBeNull();
+    });
+
+    it("types each option as dd-speaker (selects the person icon)", () => {
+        const doc = `Alice: Hi.
+
+A|`;
+        const result = resultAt(source, doc)!;
+        expect(result.options.every((o) => o.type === "dd-speaker")).toBe(true);
     });
 });

@@ -4,7 +4,7 @@
     "no-descending-specificity": null,
     "import-notation": "string",
     "selector-class-pattern": [
-      "^(cm-[a-zA-Z0-9]+|[a-z][a-z0-9]*(-[a-z0-9]+)*)$",
+      "^(cm-[a-zA-Z0-9-]+|[a-z][a-z0-9]*(-[a-z0-9]+)*)$",
       {
         "message": "Expected kebab-case (CodeMirror cm-* classes exempt)"
       }

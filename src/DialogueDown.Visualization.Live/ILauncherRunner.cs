@@ -1,4 +1,3 @@
-using DialogueDown.Configuration;
 using DialogueDown.Visualization.Configuration;
 
 namespace DialogueDown.Visualization.Live;

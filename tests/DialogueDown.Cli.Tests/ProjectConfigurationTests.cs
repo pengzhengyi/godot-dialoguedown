@@ -1,6 +1,5 @@
 using DialogueDown.Cli.Tests.Support;
 using DialogueDown.Configuration;
-using DialogueDown.Visualization.Configuration;
 
 namespace DialogueDown.Cli.Tests;
 

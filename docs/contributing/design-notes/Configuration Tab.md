@@ -23,6 +23,7 @@
   - [DD5 — A second status-bar path for the config file](#dd5--a-second-status-bar-path-for-the-config-file)
   - [DD6 — No config file is a first-class, friendly state](#dd6--no-config-file-is-a-first-class-friendly-state)
   - [DD7 — Read the state through intention-revealing predicates](#dd7--read-the-state-through-intention-revealing-predicates)
+  - [DD8 — Speaker values and paths are click-to-copy; panels fold and maximize](#dd8--speaker-values-and-paths-are-click-to-copy-panels-fold-and-maximize)
 - [Error and boundary cases](#error-and-boundary-cases)
 - [Integration](#integration)
 - [Testability](#testability)
@@ -100,8 +101,10 @@ configuration file's `source` is the *TOML* text. They are always namespaced
 
 - [x] A **Config** tab appears first (before Source) with a gear icon and a tooltip; the report still opens on Source.
 - [x] Its left pane shows the `dialogue.toml` text in a **read-only**, TOML-highlighted editor.
-- [x] Its right pane lists the **configured speakers** (name, @id, tags), tags shown as chips **colored** to distinguish reserved from custom.
-- [x] The status bar shows **two** paths: the dialogue file and the config file.
+- [x] Its right pane lists the **configured speakers** as **Name · ID · Tags**: the id shows with its `@` sigil (`@N`), and tags are chips written `#custom` / `##reserved`, **colored** to tell the two apart.
+- [x] Every speaker value — a name, an `@id`, or a tag chip — is **click-to-copy**, confirmed by a shared toast.
+- [x] The speakers panel **collapses** from the divider, and the tab has a **maximize** control, like the Source and graph tabs.
+- [x] The status bar shows **two** paths, each led by an icon (a document for the dialogue file, a gear for the config); clicking a path copies it, confirmed by the toast.
 - [x] When no `dialogue.toml` was found, the tab shows a plain-language, writer-facing explanation, the speaker list is empty with a note, and the config path reads a no-config label — no error, no empty code block.
 - [x] The report payload carries a `configuration` section (optional `file` of path+source, plus speakers) in the static, served, and launcher modes.
 - [x] Existing tab-count assertions and snapshots are updated for the new first tab.
@@ -130,9 +133,10 @@ runners. The payload view types (`ConfigurationReport`, `ConfiguredSpeakerView`,
 | --- | --- | --- |
 | `ConfigReport` (in `model.ts`) | `{ file?: { path, source }, speakers: ConfiguredSpeakerView[] }` on `Report` | `Report` |
 | `ConfiguredSpeakerView` | `{ name, id?, tags: { name, value?, reserved }[] }` | — |
-| `createConfigView(config)` (`config-view.ts`) | build the split: read-only TOML editor + speakers table with colored tag chips | `initSplitDivider`, CodeMirror |
+| `createConfigView(config, options?)` (`config-view.ts`) | build the split: read-only TOML editor + speakers table with colored, click-to-copy chips; wire the collapse toggle and (optional) maximize | `initSplitDivider`, `initCollapsiblePanel`, `createMaximizeButton`, `showToast`, CodeMirror |
+| `showToast(message)` (`toast.ts`) | a single shared confirmation toast (e.g. "Copied @N") | — |
 | `addTab(..., icon?)` (`app.ts`) | gain an optional leading icon so Config shows a gear | — |
-| `initConfigPath(config)` (`path-display.ts`) | show a second (config) path, or a no-config label | `splitPath` |
+| `initConfigPath(config)` (`path-display.ts`) | show a second (config) path, or a no-config label; clicking a path copies it via the toast | `splitPath`, `showToast` |
 
 ## Key design decisions
 
@@ -186,13 +190,20 @@ keeps every Source-tab selector unambiguous. A dedicated `config-view.ts` builds
 On the right, a **configured speakers** table reuses the Semantic tab's
 `.semantic-table` styling under its own `.config-speakers` wrapper and heading, so
 the two "resolved semantics" views read as one visual language. Its columns are
-**Name · @id · Tags**. Unlike the Semantic tab — which joins tags into one
-plain-text cell and spends a whole column on the `default` flag — the config table
-renders each tag as a small **chip**, colored by a CSS class (`.config-tag-reserved`
-vs `.config-tag-custom`) to tell **reserved** tags (like `default`) from **custom**
-ones at a glance. Because chips need per-tag markup rather than a plain-text cell,
-the speakers table is a small, dedicated renderer sharing the table CSS, not a raw
-`createTablePanel` call.
+**Name · ID · Tags**, shown what-you-see-is-what-you-get: the id wears its `@`
+sigil (`@N`) exactly as a script references it. Unlike the Semantic tab — which
+joins tags into one plain-text cell and spends a whole column on the `default`
+flag — the config table renders each tag as a small **chip**, written the way a
+script spells it (`#custom`, `##reserved`) and colored by a CSS class to tell
+**custom** tags (the palette's canonical "tag" pink) from **reserved** ones (a
+distinct violet) at a glance. Both hues deliberately avoid the mode accents (View
+blue, Edit green), so a chip never reads as a mode cue. Because chips need per-tag
+markup rather than a plain-text cell, the speakers table is a small, dedicated
+renderer sharing the table CSS, not a raw `createTablePanel` call.
+
+The speakers panel and its values behave like the rest of the report: the panel
+**collapses** from the divider and the tab **maximizes**, and every value is
+**click-to-copy** — see [DD8](#dd8--speaker-values-and-paths-are-click-to-copy-panels-fold-and-maximize).
 
 ### DD4 — TOML highlighting via the official legacy-modes mode
 
@@ -204,10 +215,13 @@ and community grammars are less maintained. This is the one new web dependency.
 ### DD5 — A second status-bar path for the config file
 
 The footer today shows one document path (`#doc-path`). Config adds a **second**
-path entry for the `dialogue.toml`, built from the same `path-display` helper
-(directory ellipsised, filename always shown, click-to-copy, hover for the full
-path), so both paths read and behave identically. When there is no config file, the
-config path shows a no-config label rather than a real path.
+path entry for the `dialogue.toml`, built from the same `path-display` helper, so
+both paths read and behave identically: each leads with an **icon** (a document for
+the dialogue file, a gear for the config), ellipsises the directory while always
+showing the filename, and — on click — copies the full path, confirmed by the shared
+toast ([DD8](#dd8--speaker-values-and-paths-are-click-to-copy-panels-fold-and-maximize)).
+A hover tooltip still shows the full path. When there is no config file, the config
+path shows a no-config label rather than a real path.
 
 ### DD6 — No config file is a first-class, friendly state
 
@@ -243,6 +257,27 @@ The web side mirrors them with small predicate helpers (for example
 `isConfiguredFromFile(configuration)`), so neither the .NET renderer nor the client
 scatters raw null checks. This keeps the "is there a config file?" decision in one
 named place and lets the field shape change without touching every reader.
+
+### DD8 — Speaker values and paths are click-to-copy; panels fold and maximize
+
+The Config tab reuses the report's existing interaction seams rather than inventing
+its own, so it feels like the other tabs from the first click:
+
+- **Click-to-copy with a shared toast.** Every speaker value — a name, an `@id`, or
+  a tag chip — carries a `data-copy` payload; one delegated handler copies it and
+  confirms through a **single shared toast** (`showToast`, a reused element that
+  fades in above the status bar). The two status-bar paths copy the same way, so a
+  writer can lift a name, an id, a tag, or a file path straight into a script. The
+  toast is the one confirmation surface across the report, not a per-widget tooltip.
+- **A collapsible speakers panel.** The right panel hides and reopens from a divider
+  toggle via the shared `initCollapsiblePanel` (its own `config-collapsed` class and
+  remembered state), exactly like the Source preview; `initSplitDivider` takes the
+  collapsed-class name so it skips resize drags while the panel is hidden.
+- **A maximize control.** An optional `onToggleFullscreen` adds the same maximize
+  pill the Source and graph tabs use, so Config can fill the window with both panes.
+
+Keeping these as reused seams — not bespoke Config code — is why the tab needed no
+new interaction model, only wiring.
 
 ## Error and boundary cases
 

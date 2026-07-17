@@ -29,6 +29,7 @@ import { copyToClipboard } from "./path-display";
 import { createMaximizeButton } from "./maximize-button";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { showToast } from "./toast";
+import { configCompletions } from "./config-completions";
 import { escapeHtml } from "./text";
 
 /** Options for the Config tab. */
@@ -119,11 +120,13 @@ export function createConfigView(
 
     let editor: EditorView | null = null;
     let speakers: HTMLElement | null = null;
+    const reservedTags = config.reservedTags ?? [];
     if (isConfiguredFromFile(config)) {
         editor = mountEditor(
             pane,
             config.file!.source,
             options.editable ?? false,
+            reservedTags,
             options.onChange,
         );
         speakers = renderSpeakers(config.speakers);
@@ -159,7 +162,9 @@ export function createConfigView(
     return {
         element: container,
         setEditable: (next) =>
-            editor?.dispatch({ effects: editability.reconfigure(editableConfig(next)) }),
+            editor?.dispatch({
+                effects: editability.reconfigure(editableConfig(next, reservedTags)),
+            }),
         setContent: (next) =>
             editor?.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: next } }),
         updateSpeakers: (next) => {
@@ -177,7 +182,7 @@ export function createConfigView(
 /** The read-only-in-View / editable-in-Edit extensions, flipped at runtime via this compartment. */
 const editability = new Compartment();
 
-function editableConfig(editable: boolean) {
+function editableConfig(editable: boolean, reservedTags: readonly string[]) {
     return [
         EditorState.readOnly.of(!editable),
         EditorView.contentAttributes.of(
@@ -185,15 +190,24 @@ function editableConfig(editable: boolean) {
                 ? { "aria-label": "Configuration source editor", tabindex: "0" }
                 : { "aria-label": "Configuration source", "aria-readonly": "true", tabindex: "0" },
         ),
-        ...(editable ? [closeBrackets()] : []),
+        // The authoring aids (close-brackets, schema autocompletion) are Edit-only, so they
+        // live in this compartment and vanish in read-only View.
+        ...(editable ? [closeBrackets(), configCompletions(reservedTags)] : []),
     ];
 }
+
+// TOML table headers are `[[table]]`, so auto-closing `[` fights the writer (and would leave a
+// stray `]` when accepting a `[[speakers]]` completion). Close only braces and quotes here.
+const configCloseBrackets = EditorState.languageData.of(() => [
+    { closeBrackets: { brackets: ["(", "{", '"', "'"] } },
+]);
 
 /** A focusable CodeMirror over the TOML source — read-only in View, editable in Edit. */
 function mountEditor(
     parent: HTMLElement,
     source: string,
     editable: boolean,
+    reservedTags: readonly string[],
     onChange?: (source: string) => void,
 ): EditorView {
     return new EditorView({
@@ -212,7 +226,8 @@ function mountEditor(
                 highlightSelectionMatches(),
                 bracketMatching(),
                 search(),
-                editability.of(editableConfig(editable)),
+                configCloseBrackets,
+                editability.of(editableConfig(editable, reservedTags)),
                 StreamLanguage.define(toml),
                 syntaxHighlighting(tomlHighlightStyle),
                 EditorView.lineWrapping,

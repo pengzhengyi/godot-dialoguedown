@@ -132,6 +132,8 @@ export interface ConfiguredSpeakerView {
 export interface ConfigReport {
     file?: { path: string; source: string };
     speakers: ConfiguredSpeakerView[];
+    /** The reserved tag names the compiler recognizes (for the editor's autocompletion). */
+    reservedTags?: string[];
 }
 
 /** Whether a `dialogue.toml` was found and applied (as opposed to the defaults). */

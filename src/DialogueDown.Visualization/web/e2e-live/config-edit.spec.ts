@@ -66,6 +66,26 @@ test("navigation locks while the config is unsaved", async ({ page }) => {
     await expect(page.locator(".tab.dirty")).toHaveCount(1);
 });
 
+test("autocompletes the TOML schema in the config editor", async ({ page }) => {
+    await page.goto(base);
+    await page.locator(".tab", { hasText: "Config" }).click();
+    await page.locator(".config-source .cm-content").click();
+    await page.keyboard.press("ControlOrMeta+End");
+
+    // A table header suggests [[speakers]]; Tab accepts it.
+    await page.keyboard.type("\n[");
+    const tip = page.locator(".config-source .cm-tooltip-autocomplete");
+    await expect(tip).toBeVisible();
+    await expect(tip.locator("li")).toContainText(["[[speakers]]"]);
+    await page.keyboard.press("Tab");
+    await expect(page.locator(".config-source")).toContainText("[[speakers]]");
+
+    // A key position inside the new table suggests the keys and the reserved tag `default`.
+    await page.keyboard.type("\nd");
+    await expect(tip).toBeVisible();
+    await expect(tip.locator("li")).toContainText(["default"]);
+});
+
 test("a saved config id feeds the Source editor's @-autocomplete", async ({ page }) => {
     await page.goto(base);
     // Add a speaker whose id appears nowhere in the dialogue, so completion can only offer it

@@ -6,6 +6,16 @@ namespace DialogueDown.Visualization.Tests.Configuration;
 public sealed class ConfigurationProjectionTests
 {
     [Fact]
+    public void Project_CarriesTheCompilersReservedTagNames()
+    {
+        var report = ConfigurationProjection.Project(
+            AppliedConfiguration.WithoutFile(CompilerOptions.Default));
+
+        Assert.Equal(ReservedTagNames.Known.Order(), report.ReservedTags);
+        Assert.Contains(ReservedTagNames.Default, report.ReservedTags);
+    }
+
+    [Fact]
     public void Project_NoFile_YieldsNullFileAndNoSpeakers()
     {
         var report = ConfigurationProjection.Project(

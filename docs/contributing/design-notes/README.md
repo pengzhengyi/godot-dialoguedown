@@ -82,12 +82,12 @@ edge, a satellite that reads a `dialogue.toml` into those options.
 **Read when you work on collecting or reporting problems.** A cross-cutting core
 concern that lets the compiler describe every problem it finds — errors and
 warnings — in a structured, located form, so an author can eventually see them
-all at once instead of one throw per run. This first note lands the dependency-free
-core model; the collect-and-continue pipeline, validator, and renderer follow.
+all at once instead of one throw per run. One note covers the whole effort as a
+sequence of components, with each component's status tracked inside it.
 
 | Order | Note | What it covers | Status |
 | --- | --- | --- | --- |
-| 1 | [Diagnostic Model](./Diagnostic%20Model.md) | The core value types — a located `Diagnostic`, its `DiagnosticDescriptor` (`DLG####` code), severities — and the `DiagnosticBag` that collects them | Implemented |
+| 1 | [Diagnostics and Validation](./Diagnostics%20and%20Validation.md) | The whole effort: the diagnostic model (built), the collect-and-continue collection seam, the validator and rules, and the renderer | In progress |
 
 ### Command-line interface
 

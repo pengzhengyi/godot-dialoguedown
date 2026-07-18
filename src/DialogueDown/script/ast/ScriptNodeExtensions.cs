@@ -1,11 +1,9 @@
-using DialogueDown.Script.Ast;
-
-namespace DialogueDown.Script.Semantics;
+namespace DialogueDown.Script.Ast;
 
 /// <summary>
-/// Read-only traversal helpers over the dialogue AST, used by the semantic sub-passes.
-/// The AST records stay plain data; walking their shape lives here so every pass shares
-/// one description of the tree.
+/// Read-only traversal helpers over the dialogue AST, shared by every stage that walks the
+/// tree. The AST records stay plain data; walking their shape lives here, beside the nodes,
+/// so the desugar, validation, and semantics passes share one description of the tree.
 /// </summary>
 internal static class ScriptNodeExtensions
 {

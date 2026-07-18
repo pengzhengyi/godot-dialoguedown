@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 
@@ -12,9 +13,9 @@ internal interface IScriptTranspiler
 {
     /// <summary>
     /// Transpiles <paramref name="document"/> into a <see cref="ScriptDocument"/>.
-    /// <paramref name="source"/> is the original script text; it anchors diagnostics that
-    /// point back at the source and is validated here, though the transpile itself reads
-    /// text and spans from the Markdown AST.
+    /// <paramref name="context"/> carries the source a diagnostic is anchored to and the sink to
+    /// report into; it is validated here, though the transpile itself reads text and spans from
+    /// the Markdown AST.
     /// </summary>
-    ScriptDocument Transpile(MarkdownDocument document, string source);
+    ScriptDocument Transpile(MarkdownDocument document, DiagnosticsContext context);
 }

@@ -1,10 +1,9 @@
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
-using DialogueDown.Script.Semantics;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 
-namespace DialogueDown.Tests.Script.Semantics;
+namespace DialogueDown.Tests.Script.Desugar;
 
 public sealed class DialogueTreeIndexTests
 {

@@ -18,6 +18,12 @@ changes easy to categorize.
   invalid references. Wire it up with `AddDialogueDown()` (DI) or
   `ScriptCompilerFactory.CreateDefault()`. See the
   [design notes](docs/contributing/design-notes/README.md).
+- **Collect-and-continue diagnostics** — the compiler now gathers diagnostics as it
+  runs and surfaces whether a script has errors through `CompilationResult.HasErrors`,
+  laying the groundwork for reporting several problems from one compile instead of
+  stopping at the first. The first structural check warns when a line carries more
+  than one jump. See the
+  [Diagnostics and Validation](docs/contributing/design-notes/Diagnostics%20and%20Validation.md) note.
 - **Configurable speakers, in code or from a `dialogue.toml`** — supply speakers (and
   mark one the default) through `CompilerOptions`, and the compiler binds them
   alongside a script's own: a configured default covers speaker-less lines when the

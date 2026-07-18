@@ -29,6 +29,7 @@ internal static class Architecture
     public const string Script = "DialogueDown.Script";
     public const string ScriptAst = "DialogueDown.Script.Ast";
     public const string ScriptDesugar = "DialogueDown.Script.Desugar";
+    public const string ScriptValidation = "DialogueDown.Script.Validation";
     public const string ScriptSemantics = "DialogueDown.Script.Semantics";
     public const string ScriptTranspiler = "DialogueDown.Script.Transpiler";
     public const string Compilation = "DialogueDown.Compilation";

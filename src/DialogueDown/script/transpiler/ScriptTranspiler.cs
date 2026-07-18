@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
@@ -10,15 +11,14 @@ namespace DialogueDown.Script.Transpiler;
 /// </summary>
 internal sealed class ScriptTranspiler(BlockBuilder blockBuilder) : IScriptTranspiler
 {
-    public ScriptDocument Transpile(MarkdownDocument document, string source)
+    public ScriptDocument Transpile(MarkdownDocument document, DiagnosticsContext context)
     {
         ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(context);
 
-        // TODO(diagnostics): source is validated but not yet read — the transpile works
-        // off the text and spans already in the Markdown AST. Thread source into error
-        // reporting when the diagnostics phase lands, so a message can quote the offending
-        // text at a node's span.
+        // TODO(diagnostics): the context is validated but not yet read — the transpile works
+        // off the text and spans already in the Markdown AST. Report source-anchored errors into
+        // context.Diagnostics when the producers land, quoting the offending text at a node's span.
         return new ScriptDocument(blockBuilder.Build(document.Blocks));
     }
 }

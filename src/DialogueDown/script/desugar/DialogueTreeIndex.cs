@@ -1,7 +1,6 @@
 using DialogueDown.Script.Ast;
-using DialogueDown.Script.Desugar;
 
-namespace DialogueDown.Script.Semantics;
+namespace DialogueDown.Script.Desugar;
 
 /// <summary>
 /// A build-once index of every node in a desugared tree, grouped by type, so a semantic

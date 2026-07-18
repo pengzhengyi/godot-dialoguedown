@@ -1,4 +1,5 @@
 using DialogueDown.Configuration;
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 
@@ -21,10 +22,10 @@ internal sealed class SemanticAnalyzer : ISemanticAnalyzer
         _options = options;
     }
 
-    public SemanticModel Analyze(DesugaredScriptDocument document, string source)
+    public SemanticModel Analyze(DesugaredScriptDocument document, DiagnosticsContext context)
     {
         ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(context);
 
         var index = DialogueTreeIndex.Build(document);
 
@@ -35,9 +36,9 @@ internal sealed class SemanticAnalyzer : ISemanticAnalyzer
         var jumps = JumpResolver.Resolve(index.OfType<Jump>(), anchors);
         TagValidator.Validate(index.OfType<ReservedTag>());
 
-        // TODO(diagnostics): source is validated but not yet read — analysis works off the tree
-        // and the spans it carries. Thread source (and a DiagnosticBag) in when the diagnostics
-        // phase replaces the sub-passes' throw sites with collected, source-anchored reports.
+        // TODO(diagnostics): the context is validated but not yet read — analysis works off the
+        // tree and the spans it carries. Report source-anchored diagnostics into
+        // context.Diagnostics when the producers replace the sub-passes' throw sites.
         return new SemanticModel(document, speakers, sceneRoot, anchors, jumps);
     }
 }

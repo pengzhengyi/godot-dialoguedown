@@ -20,7 +20,7 @@ public sealed class ScriptTranspilerTests
             """;
         var document = Document(Heading(1, Text("The Cave")), TextParagraph("Alice: Hi"));
 
-        var script = _transpiler.Transpile(document, source);
+        var script = _transpiler.Transpile(document, DiagnosticsContextFactory.Context(source));
 
         Assert.Equal(2, script.Body.Count);
         AssertSceneHeading(script.Body[0], "The Cave", 1);
@@ -31,14 +31,14 @@ public sealed class ScriptTranspilerTests
 
     [Fact]
     public void Transpile_EmptyDocument_HasEmptyBody() =>
-        Assert.Empty(_transpiler.Transpile(Document(), string.Empty).Body);
+        Assert.Empty(_transpiler.Transpile(Document(), DiagnosticsContextFactory.Context()).Body);
 
     [Fact]
     public void Transpile_NullDocument_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => _transpiler.Transpile(null!, "source"));
+        Assert.Throws<ArgumentNullException>(() => _transpiler.Transpile(null!, DiagnosticsContextFactory.Context("source")));
 
     [Fact]
-    public void Transpile_NullSource_Throws() =>
+    public void Transpile_NullContext_Throws() =>
         Assert.Throws<ArgumentNullException>(() => _transpiler.Transpile(Document(), null!));
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class ScriptTranspilerTests
             """;
         var document = MarkdownParserFactory.MarkdownParser().Parse(source);
 
-        var script = _transpiler.Transpile(document, source);
+        var script = _transpiler.Transpile(document, DiagnosticsContextFactory.Context(source));
 
         Assert.Equal(3, script.Body.Count);
         AssertSceneHeading(script.Body[0], "The Cave", 1);
@@ -77,7 +77,7 @@ public sealed class ScriptTranspilerTests
         var source = @"A: x \* y";
         var document = MarkdownParserFactory.MarkdownParser().Parse(source);
 
-        var script = _transpiler.Transpile(document, source);
+        var script = _transpiler.Transpile(document, DiagnosticsContextFactory.Context(source));
 
         var speech = AssertLine(Assert.Single(script.Body)).Speech;
         var star = AssertText(speech[^1], "* y");

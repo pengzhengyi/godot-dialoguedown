@@ -12,16 +12,16 @@ public sealed class ScriptDesugarerTests
 
     [Fact]
     public void Desugar_NullDocument_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => _desugarer.Desugar(null!, "source"));
+        Assert.Throws<ArgumentNullException>(() => _desugarer.Desugar(null!, DiagnosticsContextFactory.Context("source")));
 
     [Fact]
-    public void Desugar_NullSource_Throws() =>
+    public void Desugar_NullContext_Throws() =>
         Assert.Throws<ArgumentNullException>(() => _desugarer.Desugar(new ScriptDocument([]), null!));
 
     [Fact]
     public void Desugar_WrapsTheDesugaredResult()
     {
-        var result = _desugarer.Desugar(new ScriptDocument([Line(Text("hi"))]), "hi");
+        var result = _desugarer.Desugar(new ScriptDocument([Line(Text("hi"))]), DiagnosticsContextFactory.Context("hi"));
 
         var line = AssertLine(Assert.Single(result.Body));
         AssertDefaultSpeaker(line.Speaker);
@@ -54,7 +54,7 @@ public sealed class ScriptDesugarerTests
     private DesugaredScriptDocument Desugar(string source)
     {
         var document = MarkdownParserFactory.MarkdownParser().Parse(source);
-        var script = TranspilerBuilderFactory.ScriptTranspiler().Transpile(document, source);
-        return _desugarer.Desugar(script, source);
+        var script = TranspilerBuilderFactory.ScriptTranspiler().Transpile(document, DiagnosticsContextFactory.Context(source));
+        return _desugarer.Desugar(script, DiagnosticsContextFactory.Context(source));
     }
 }

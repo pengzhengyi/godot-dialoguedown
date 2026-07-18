@@ -24,8 +24,8 @@
     href: CLI Configuration.md
 - name: Diagnostics
   items:
-  - name: Diagnostic Model
-    href: Diagnostic Model.md
+  - name: Diagnostics and Validation
+    href: Diagnostics and Validation.md
 - name: Command-line interface
   items:
   - name: Command-Line Interface

@@ -37,6 +37,9 @@ cd src/DialogueDown.Visualization/web && npm run e2e:live
 VS Code tasks (**Terminal → Run Task**) mirror these: `build`, `test`,
 `web: check`, `verify: all`, and more.
 
+Use `build: fast` only for inner-loop compile feedback after restore; it skips
+analyzers. The normal `build`/`test` tasks remain the required full gate.
+
 ## Conventions
 
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/); one

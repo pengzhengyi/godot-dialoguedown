@@ -86,6 +86,16 @@ license does not affect the library's MIT license or reach consumers.
 
 ## Before pushing
 
+For fast compile feedback during an edit, after restoring once:
+
+```bash
+dotnet build DialogueDown.sln --configuration Release --no-restore \
+  -p:RunAnalyzers=false
+```
+
+This is an inner-loop build only. It deliberately skips StyleCop and Sonar; run
+the normal analyzer-enabled build and tests before pushing:
+
 ```bash
 dotnet test DialogueDown.sln --configuration Release
 ```

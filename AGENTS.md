@@ -36,6 +36,10 @@ cd src/DialogueDown.Visualization/web && npm run e2e:live
 
 ## Conventions
 
+For inner-loop compile feedback, the non-default VS Code task `build: fast`
+builds Release with `RunAnalyzers=false` after restore. It never replaces the
+normal analyzer-enabled `build` and `test` tasks before pushing.
+
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/); one
   logical change each; mark breaking changes with `BREAKING CHANGE:` in the footer.
 - **Tests:** test-driven — a failing test first, then the code, then refactor. C#

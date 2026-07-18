@@ -21,6 +21,14 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build: fast",
+      "detail": ".NET inner loop: build Release without analyzers (run restore once first; never substitutes for the full build).",
+      "type": "shell",
+      "command": "dotnet build DialogueDown.sln --configuration Release --no-restore -p:RunAnalyzers=false",
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "test",
       "detail": ".NET: run the test suite.",
       "type": "shell",

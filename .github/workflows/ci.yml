@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "8.0.x"
 
@@ -96,7 +96,7 @@ jobs:
           cache-dependency-path: src/DialogueDown.Visualization/web/package-lock.json
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "8.0.x"
 

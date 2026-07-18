@@ -33,7 +33,7 @@ internal sealed class SemanticAnalyzer : ISemanticAnalyzer
         var configured = _options.ConfiguredSpeakers.Select(ConfiguredSpeakerBuilder.ToDeclaration);
         var speakers = SpeakerBinder.Bind(configured, index.OfType<Speaker>());
 
-        var jumps = JumpResolver.Resolve(index.OfType<Jump>(), anchors);
+        var jumps = JumpResolver.Resolve(index.OfType<Jump>(), anchors, context.Diagnostics);
         TagValidator.Validate(index.OfType<ReservedTag>());
 
         // TODO(diagnostics): the context is validated but not yet read — analysis works off the

@@ -238,9 +238,8 @@ Detection is purely structural: the validator builds a `DialogueTreeIndex` once 
 rule; `MultipleJumpsOnLineRule` takes each `Line` from the index and counts the `Jump` fragments
 directly in its `Speech` — more than one is a `DLG1003`, and the message carries the count. Because
 the validator emits a real diagnostic, the facade's collect-and-continue path is now exercised by a
-genuine producer, not only a test spy. The rule owns its `DiagnosticDescriptor` (co-located with the
-producer, per [DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); a central catalog can consolidate
-descriptors later.
+genuine producer, not only a test spy. The rule reports the `DiagnosticDescriptor` it owns in the
+central `DiagnosticCatalog` (per [DD3](#dd3--a-descriptor-catalog-with-dlg-codes)).
 
 **Injection.** `StructuralValidator` sits behind an `IStructuralValidator` seam and is composed with
 its rules, then injected into the facade like the other stages (wired by `ScriptCompilerFactory` and
@@ -329,9 +328,9 @@ DialogueDown deliberately **does not** auto-disambiguate duplicates the way GitH
 two headings with the same title (or any two titles that slug alike) claim one anchor and the
 second is reported and dropped as a jump target.
 
-The codes extend the [DD3](#dd3--a-descriptor-catalog-with-dlg-codes) catalog. Each reporting site
-owns its `DiagnosticDescriptor`, co-located with the throw it replaces — exactly as a validation
-rule owns its own; a central catalog can consolidate them later if the count grows.
+The codes are added to the central `DiagnosticCatalog` (per
+[DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); each reporting site reports by referencing the
+descriptor it owns there, and a test enforces that every code is unique.
 
 ### The unified exception
 
@@ -422,8 +421,9 @@ plus a leading-digit check). Codes make a diagnostic greppable, documentable, li
 editor, and (later) suppressible. The descriptor also owns a **message format** template; a
 diagnostic carries the **arguments** that fill it, so composing the final text is a rendering
 concern, never the model's — leaving room for localization later. The model defines the code
-scheme and the descriptor type; the **catalog of real descriptors is populated later**, each entry
-arriving with the producer that reports it.
+scheme and the descriptor type; the real descriptors live in one central `DiagnosticCatalog`, so
+the codes stay greppable and documentable and a test can enforce that each is unique — each entry
+arriving alongside the producer that reports it.
 
 ### DD4 — The validator is a set of pluggable rules
 

@@ -1,21 +1,25 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
-using DialogueDown.Script.Semantics.Errors;
 
 namespace DialogueDown.Script.Semantics;
 
 /// <summary>
 /// Resolves each <c>Jump</c>'s target against the <see cref="AnchorTable"/>, producing a
-/// per-jump <see cref="JumpResolution"/>. A local anchor resolves to its scene, or is a hard
-/// error when no scene slugs to it; a target that names a file is deferred; an empty target is
-/// left unresolved.
+/// per-jump <see cref="JumpResolution"/>. A local anchor resolves to its scene, or — when no scene
+/// slugs to it — is reported and left unresolved; a target that names a file is deferred; an empty
+/// target is left unresolved.
 /// </summary>
 internal static class JumpResolver
 {
-    /// <summary>Resolves every jump in <paramref name="jumps"/> against <paramref name="anchors"/>.</summary>
-    public static JumpResolutionTable Resolve(IEnumerable<Jump> jumps, AnchorTable anchors) =>
-        new(jumps.ToDictionary(jump => jump, jump => Resolve(jump, anchors)));
+    /// <summary>
+    /// Resolves every jump in <paramref name="jumps"/> against <paramref name="anchors"/>, reporting
+    /// a jump to a missing local anchor into <paramref name="diagnostics"/>.
+    /// </summary>
+    public static JumpResolutionTable Resolve(
+        IEnumerable<Jump> jumps, AnchorTable anchors, IDiagnosticSink diagnostics) =>
+        new(jumps.ToDictionary(jump => jump, jump => Resolve(jump, anchors, diagnostics)));
 
-    private static JumpResolution Resolve(Jump jump, AnchorTable anchors)
+    private static JumpResolution Resolve(Jump jump, AnchorTable anchors, IDiagnosticSink diagnostics)
     {
         var target = JumpTarget.Parse(jump.Target);
 
@@ -36,8 +40,9 @@ internal static class JumpResolver
             return new SceneJump(scene);
         }
 
-        throw new DialogueSemanticError(
-            $"Jump target '#{target.Anchor}' does not match any scene. Check the anchor, or add "
-            + "a heading it can point to.", jump.Span);
+        // A missing local anchor is recoverable: report it and leave the jump unresolved so the
+        // rest of analysis keeps running.
+        diagnostics.Report(new Diagnostic(DiagnosticCatalog.MissingScene, jump.Span, [target.Anchor!]));
+        return new UnresolvedJump();
     }
 }

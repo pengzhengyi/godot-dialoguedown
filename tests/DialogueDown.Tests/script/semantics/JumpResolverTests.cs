@@ -1,8 +1,9 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
-using DialogueDown.Script.Semantics.Errors;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 
 namespace DialogueDown.Tests.Script.Semantics;
 
@@ -20,14 +21,15 @@ public sealed class JumpResolverTests
     }
 
     [Fact]
-    public void Resolve_SameFileAnchor_MissingScene_Throws()
+    public void Resolve_SameFileAnchor_MissingScene_ReportsAndLeavesItUnresolved()
     {
         var anchors = AnchorsFor(SceneHeading("Play tennis", 1));
 
-        var error = Assert.Throws<DialogueSemanticError>(
-            () => ResolveOne(Jump("#no-such-scene"), anchors));
+        var resolution = ResolveOne(Jump("#no-such-scene"), anchors, out var diagnostics);
 
-        Assert.Contains("#no-such-scene", error.Message);
+        Assert.IsType<UnresolvedJump>(resolution);
+        var diagnostic = AssertReported(diagnostics.Diagnostics, "DLG2009");
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 
     [Fact]
@@ -73,14 +75,20 @@ public sealed class JumpResolverTests
         var scene = Jump("#play-tennis");
         var external = Jump("chapter-02.md");
 
-        var resolutions = JumpResolver.Resolve([scene, external], anchors);
+        var resolutions = JumpResolver.Resolve([scene, external], anchors, new DiagnosticBag());
 
         Assert.IsType<SceneJump>(resolutions.Resolve(scene));
         Assert.IsType<FileScopedJump>(resolutions.Resolve(external));
     }
 
     private static JumpResolution ResolveOne(Jump jump, AnchorTable anchors) =>
-        JumpResolver.Resolve([jump], anchors).Resolve(jump);
+        ResolveOne(jump, anchors, out _);
+
+    private static JumpResolution ResolveOne(Jump jump, AnchorTable anchors, out DiagnosticBag diagnostics)
+    {
+        diagnostics = new DiagnosticBag();
+        return JumpResolver.Resolve([jump], anchors, diagnostics).Resolve(jump);
+    }
 
     private static AnchorTable AnchorsFor(params ScriptBlock[] blocks)
     {

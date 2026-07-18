@@ -22,3 +22,6 @@ e2e-live/.live-edit-doc.dialogue.md
 
 # Config-edit e2e temp tree
 e2e-live/.config-edit-tree/
+
+# Config-create e2e temp tree
+e2e-live/.config-create-tree/

@@ -42,3 +42,12 @@ export const CONFIG_EDIT_DOC = join(CONFIG_EDIT_TREE, "scene.dialogue.md");
 export const CONFIG_EDIT_TOML = join(CONFIG_EDIT_TREE, "dialogue.toml");
 export const CONFIG_EDIT_SOURCE = "# Scene\n\nAlice: Hello.\n";
 export const CONFIG_EDIT_CONFIG = '[[speakers]]\nname = "Alice"\nid = "A"\n';
+
+// A config-create server: a script with NO `dialogue.toml`, served in --edit, so the Config
+// tab shows the no-config state with the "Create dialogue.toml" call to action. The tree is
+// isolated (its own folder) so creating a config there does not touch the source tree.
+export const CONFIG_CREATE_PORT = 5182;
+export const CONFIG_CREATE_TREE = join(here, ".config-create-tree");
+export const CONFIG_CREATE_DOC = join(CONFIG_CREATE_TREE, "scene.dialogue.md");
+export const CONFIG_CREATE_TOML = join(CONFIG_CREATE_TREE, "dialogue.toml");
+export const CONFIG_CREATE_SOURCE = "# Scene\n\nAlice: Hello.\n";

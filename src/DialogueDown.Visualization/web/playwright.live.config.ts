@@ -5,6 +5,7 @@ import {
     LAUNCHER_PORT,
     LIVE_EDIT_PORT,
     CONFIG_EDIT_PORT,
+    CONFIG_CREATE_PORT,
 } from "./e2e-live/fixture.mjs";
 
 // Live e2e: exercises the real .NET live server end-to-end in a browser — hot
@@ -50,6 +51,12 @@ export default defineConfig({
         {
             command: "node ./e2e-live/serve-config-edit.mjs",
             url: `http://127.0.0.1:${CONFIG_EDIT_PORT}`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 180_000,
+        },
+        {
+            command: "node ./e2e-live/serve-config-create.mjs",
+            url: `http://127.0.0.1:${CONFIG_CREATE_PORT}`,
             reuseExistingServer: !process.env.CI,
             timeout: 180_000,
         },

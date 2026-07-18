@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { CompletionContext, type CompletionResult } from "@codemirror/autocomplete";

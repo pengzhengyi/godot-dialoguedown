@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, it, expect, vi } from "vitest";
 import { createModeController, type ModeControllerPorts } from "./view-edit";
 import type { LiveEditController } from "./live-edit";

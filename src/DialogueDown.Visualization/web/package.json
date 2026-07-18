@@ -13,7 +13,7 @@
     "test:infra": "node --test e2e-live/*.test.mjs",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "lint:js": "eslint .",
+    "lint:js": "eslint . --cache --cache-location .cache/eslint/",
     "lint:css": "stylelint \"src/**/*.css\"",
     "format": "prettier --check .",
     "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format && npm run test && npm run test:infra",

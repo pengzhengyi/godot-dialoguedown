@@ -23,3 +23,9 @@ test("TypeScript stores incremental state only in the ignored frontend cache", (
     assert.ok(clean);
     assert.match(clean.command, /web\/\.cache/);
 });
+
+test("ESLint stores its native cache under the ignored frontend cache", () => {
+    assert.match(packageJson.scripts["lint:js"], /--cache/);
+    assert.match(packageJson.scripts["lint:js"], /--cache-location \.cache\/eslint\//);
+    assert.match(gitignore, /^\.cache\/$/m);
+});

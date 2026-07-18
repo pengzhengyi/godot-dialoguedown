@@ -30,9 +30,18 @@ dotnet test DialogueDown.sln --settings coverage.runsettings --collect:"XPlat Co
 
 # Visualization client — only needed when changing web/ sources
 cd src/DialogueDown.Visualization/web && npm ci && npm run check && npm run build
+# Live integration — builds the CLI once, then launches the built DLL per server
+cd src/DialogueDown.Visualization/web && npm run e2e:live
 ```
 
 ## Conventions
+
+For inner-loop compile feedback, the non-default VS Code task `build: fast`
+builds Release with `RunAnalyzers=false` after restore. It never replaces the
+normal analyzer-enabled `build` and `test` tasks before pushing. After a build,
+`test: project` and `test: filter` run only the affected test scope. Frontend
+inner-loop tasks similarly select one Vitest or Playwright scope; full
+verification remains required before pushing.
 
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/); one
   logical change each; mark breaking changes with `BREAKING CHANGE:` in the footer.

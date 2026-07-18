@@ -88,15 +88,21 @@ dotnet run -- path/to/scene.dialogue.md -o out.html --no-open   # write, don't o
 
 Watch mode starts a `127.0.0.1`-only server that pushes recompiled stages to the
 browser over Server-Sent Events; it is a development tool, not a hosted service.
-The live end-to-end tests run with `npm run e2e:live` in `web/` (they build and
-launch this server automatically).
+The live end-to-end tests run with `npm run e2e:live` in `web/`. The command
+builds the CLI once, then launches each loopback server from that Release DLL
+without repeating project builds.
 
 ### Editor tasks (VS Code)
 
 Common tasks are wired up in `.vscode/tasks.json` (**Terminal → Run Task**), so
 you can build, test, and clean without memorising commands: `build` / `test`
-(.NET), `web: build` / `web: check` / `web: e2e` (frontend), `build: all` and
-`verify: all` (both stacks), and `clean` (remove build/test artifacts).
+(.NET), `build: fast` (inner-loop compile without analyzers), `test: project` /
+`test: filter` (one already-built .NET test scope), `web: build` / `web: check` /
+`web: e2e` (frontend), targeted `web: test file` / `web: test watch` /
+`web: e2e file` / `web: e2e grep` / `web: e2e live file`, `build: all` and
+`verify: all` (both stacks), and `clean` (remove build/test artifacts). Always
+run the normal analyzer-enabled build/test and full frontend gates before
+pushing.
 
 ## Commit style
 

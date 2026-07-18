@@ -25,9 +25,9 @@ public static class TomlConfigurationLoader
     /// <summary>
     /// Parses <paramref name="toml"/> into a <see cref="CompilerOptions"/>. The required
     /// <paramref name="sourceName"/> names the source in diagnostics (a file path, or a synthetic
-    /// name for in-memory config).
+    /// name for in-memory config). Use this to parse an edited buffer without a disk round-trip.
     /// </summary>
-    internal static CompilerOptions Parse(string toml, string sourceName)
+    public static CompilerOptions Parse(string toml, string sourceName)
     {
         ArgumentNullException.ThrowIfNull(toml);
         ArgumentNullException.ThrowIfNull(sourceName);

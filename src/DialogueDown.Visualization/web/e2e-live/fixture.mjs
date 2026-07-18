@@ -33,3 +33,28 @@ export const LAUNCHER_SUB_SOURCE = "# Nested Scene\n\nBob: The script in a sub-f
 export const LIVE_EDIT_PORT = 5180;
 export const LIVE_EDIT_DOC = join(here, ".live-edit-doc.dialogue.md");
 export const LIVE_EDIT_SOURCE = "# Scene\n\nAlice: The first line.\n";
+
+// A config-edit server: a script WITH a `dialogue.toml`, so the Config tab is an editable
+// TOML editor. The browser edits the config and saves it back, recompiling the speakers.
+export const CONFIG_EDIT_PORT = 5181;
+export const CONFIG_EDIT_TREE = join(here, ".config-edit-tree");
+export const CONFIG_EDIT_DOC = join(CONFIG_EDIT_TREE, "scene.dialogue.md");
+export const CONFIG_EDIT_TOML = join(CONFIG_EDIT_TREE, "dialogue.toml");
+export const CONFIG_EDIT_SOURCE = "# Scene\n\nAlice: Hello.\n";
+export const CONFIG_EDIT_CONFIG = '[[speakers]]\nname = "Alice"\nid = "A"\n';
+
+// A config-create server: a script with NO `dialogue.toml`, served in --edit, so the Config
+// tab shows the no-config state with the "Create dialogue.toml" call to action. The tree is
+// isolated (its own folder) so creating a config there does not touch the source tree.
+export const CONFIG_CREATE_PORT = 5182;
+export const CONFIG_CREATE_TREE = join(here, ".config-create-tree");
+export const CONFIG_CREATE_DOC = join(CONFIG_CREATE_TREE, "scene.dialogue.md");
+export const CONFIG_CREATE_TOML = join(CONFIG_CREATE_TREE, "dialogue.toml");
+export const CONFIG_CREATE_SOURCE = "# Scene\n\nAlice: Hello.\n";
+
+// Semantic-autocomplete owns its document because the test replaces the editor buffer.
+// Sharing LIVE_EDIT_DOC let this spec race live-edit.spec.ts when Playwright ran files in
+// parallel.
+export const SEMANTIC_AUTOCOMPLETE_PORT = 5183;
+export const SEMANTIC_AUTOCOMPLETE_DOC = join(here, ".semantic-autocomplete.dialogue.md");
+export const SEMANTIC_AUTOCOMPLETE_SOURCE = "# Scene\n\nAlice: The first line.\n";

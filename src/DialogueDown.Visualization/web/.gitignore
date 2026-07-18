@@ -3,6 +3,7 @@ coverage/
 playwright-report/
 test-results/
 .vite/
+.cache/
 
 # The single-file build outputs are committed for the .NET embed (freshness is
 # verified in CI); ignore everything else Vite may emit under dist/.
@@ -19,3 +20,10 @@ e2e-live/.render-root/
 # Launcher e2e temp tree
 e2e-live/.launcher-tree/
 e2e-live/.live-edit-doc.dialogue.md
+e2e-live/.semantic-autocomplete.dialogue.md
+
+# Config-edit e2e temp tree
+e2e-live/.config-edit-tree/
+
+# Config-create e2e temp tree
+e2e-live/.config-create-tree/

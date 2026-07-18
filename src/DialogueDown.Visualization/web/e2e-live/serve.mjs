@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { spawnCli } from "./cli-runner.mjs";
 import { LIVE_DOC, LIVE_PORT, INITIAL_SOURCE } from "./fixture.mjs";
 
 // The Playwright webServer for the live e2e. Writes a fresh temp document (so the
@@ -9,27 +9,12 @@ import { LIVE_DOC, LIVE_PORT, INITIAL_SOURCE } from "./fixture.mjs";
 // respond, then runs the specs; on teardown it terminates this process tree.
 writeFileSync(LIVE_DOC, INITIAL_SOURCE);
 
-const server = spawn(
-    "dotnet",
-    [
-        "run",
-        "--project",
-        "../../DialogueDown.Cli",
-        "-c",
-        "Release",
-        "--",
-        "visualize",
-        LIVE_DOC,
-        "--root",
-        dirname(LIVE_DOC),
-        "--port",
-        String(LIVE_PORT),
-        "--no-open",
-    ],
-    { stdio: "inherit" },
-);
-
-const stop = () => server.kill("SIGTERM");
-process.on("SIGTERM", stop);
-process.on("SIGINT", stop);
-server.on("exit", (code) => process.exit(code ?? 0));
+spawnCli([
+    "visualize",
+    LIVE_DOC,
+    "--root",
+    dirname(LIVE_DOC),
+    "--port",
+    String(LIVE_PORT),
+    "--no-open",
+]);

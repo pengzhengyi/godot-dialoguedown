@@ -20,7 +20,8 @@ import {
     foldKeymap,
     foldService,
 } from "@codemirror/language";
-import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { compactSearch } from "./search-panel";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { tags } from "@lezer/highlight";
 import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
@@ -224,7 +225,7 @@ export function createSourceView(
                 highlightActiveLine(),
                 highlightSelectionMatches(),
                 bracketMatching(),
-                search(),
+                compactSearch(),
                 history(),
                 markdown(),
                 syntaxHighlighting(markdownHighlightStyle),
@@ -278,14 +279,19 @@ export function createSourceView(
     };
 }
 
-/** Wire the divider so dragging it re-proportions the source pane (via `--source-split`). */
-function initSplitDivider(container: HTMLElement, divider: HTMLElement): void {
+/** Wire the divider so dragging it re-proportions the source pane (via a CSS split variable). */
+export function initSplitDivider(
+    container: HTMLElement,
+    divider: HTMLElement,
+    splitVar = "--source-split",
+    collapsedClass = "preview-collapsed",
+): void {
     let dragging = false;
 
     divider.addEventListener("mousedown", (event) => {
-        // A collapsed preview has nothing to resize — the divider is just its re-open
+        // A collapsed side panel has nothing to resize — the divider is just its re-open
         // handle, so ignore drags (the toggle itself already swallows its own mousedown).
-        if (container.classList.contains("preview-collapsed")) return;
+        if (container.classList.contains(collapsedClass)) return;
         dragging = true;
         document.body.style.userSelect = "none";
         event.preventDefault();
@@ -297,7 +303,7 @@ function initSplitDivider(container: HTMLElement, divider: HTMLElement): void {
         if (bounds.width === 0) return;
         const ratio = (event.clientX - bounds.left) / bounds.width;
         const clamped = Math.max(MIN_RATIO, Math.min(MAX_RATIO, ratio));
-        container.style.setProperty("--source-split", `${(clamped * 100).toFixed(2)}%`);
+        container.style.setProperty(splitVar, `${(clamped * 100).toFixed(2)}%`);
     });
 
     document.addEventListener("mouseup", () => {

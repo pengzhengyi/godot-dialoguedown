@@ -15,6 +15,10 @@ public sealed record CompilerOptions
     /// </summary>
     public IReadOnlyList<ConfiguredSpeaker> Speakers { get; init; } = [];
 
+    /// <summary>How far a compile proceeds after an error; the default is
+    /// <see cref="CompilationMode.StageBoundary"/>.</summary>
+    public CompilationMode Mode { get; init; } = CompilationMode.StageBoundary;
+
     /// <summary>The unconfigured options: every knob at its built-in default.</summary>
     public static CompilerOptions Default { get; } = new();
 

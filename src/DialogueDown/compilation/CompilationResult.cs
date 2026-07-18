@@ -42,7 +42,7 @@ public sealed record CompilationResult
     public string Source { get; }
 
     /// <summary>Whether any collected diagnostic is an error — the script is not valid.</summary>
-    public bool HasErrors => Diagnostics.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    public bool HasErrors => Diagnostics.Any(diagnostic => diagnostic.IsError);
 
     /// <summary>The parsed Markdown AST — the front-end stage's artifact.</summary>
     internal MarkdownDocument Markdown { get; }

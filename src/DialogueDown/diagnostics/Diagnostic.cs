@@ -39,6 +39,10 @@ internal sealed record Diagnostic
     /// <summary>This diagnostic's severity: the descriptor's default unless a producer overrode it.</summary>
     public DiagnosticSeverity Severity { get; }
 
+    /// <summary>Whether this diagnostic is an <see cref="DiagnosticSeverity.Error"/> — the severity
+    /// that fails a compile.</summary>
+    public bool IsError => Severity == DiagnosticSeverity.Error;
+
     // The message arguments are compared by value (element-wise), so two diagnostics reporting the
     // same problem are equal even when built with separate argument lists — the record default
     // would compare the list by reference.

@@ -11,6 +11,9 @@ namespace DialogueDown.Script.Validation;
 /// </summary>
 internal abstract class DiagnosticRule : IDiagnosticRule
 {
+    /// <summary>Reports a finding of this rule at <paramref name="span"/> with message arguments.</summary>
+    protected delegate void Reporter(SourceSpan span, params object[] arguments);
+
     /// <summary>The kind of diagnostic this rule reports.</summary>
     protected abstract DiagnosticDescriptor Descriptor { get; }
 
@@ -28,7 +31,4 @@ internal abstract class DiagnosticRule : IDiagnosticRule
 
     /// <summary>Inspects the indexed nodes and reports findings through <paramref name="report"/>.</summary>
     protected abstract void Analyze(DialogueTreeIndex nodes, Reporter report);
-
-    /// <summary>Reports a finding of this rule at <paramref name="span"/> with message arguments.</summary>
-    protected delegate void Reporter(SourceSpan span, params object[] arguments);
 }

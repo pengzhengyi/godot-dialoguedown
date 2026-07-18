@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | **1. Diagnostic model** | the value types that describe a located problem, and the bag that collects them | **Implemented** |
 | **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Implemented** |
-| **3. Validator + first rule** | the rule framework (`IDiagnosticRule` + `Validator`) and the first structural rule — multiple jumps on a line | **Proposed (next)** |
+| **3. Structural validator + first rule** | the rule framework (`IDiagnosticRule` + `StructuralValidator`) and the first structural rule — multiple jumps on a line | **Proposed (next)** |
 | **4. Producers** | migrating recoverable throw sites to reported diagnostics | Deferred |
 | **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
 | **6. Editor seams** | an LSP projection and a web-report overlay | Deferred |
@@ -91,7 +91,7 @@ its own surface.
 ```mermaid
 flowchart TB
     subgraph compile["ScriptCompiler.Compile"]
-        FE["Front-end"] --> TR["Transpiler"] --> DE["Desugar"] --> VAL["Validator<br/>(rules)"] --> SA["Semantic analyzer"]
+        FE["Front-end"] --> TR["Transpiler"] --> DE["Desugar"] --> VAL["Structural validator<br/>(rules)"] --> SA["Semantic analyzer"]
     end
     FE -- report --> BAG["DiagnosticBag<br/>(sink)"]
     TR -- report --> BAG
@@ -217,7 +217,7 @@ end. It ships the rule framework and the one rule the desugared tree can honestl
 | Type | Visibility | Responsibility |
 | --- | --- | --- |
 | `IDiagnosticRule` | internal | one check: inspect the desugared document and report zero or more diagnostics into an `IDiagnosticSink` |
-| `Validator` | internal | runs a composed set of rules over the desugared document, reporting into the sink |
+| `StructuralValidator` | internal | runs a composed set of rules over the desugared document, reporting into the sink |
 | `MultipleJumpsOnLineRule` | internal | the first rule: a `Line` whose speech holds more than one `Jump` reports `DLG1003` (`Warning`), anchored on the line's span |
 | `ScriptCompiler` (facade) | internal | runs the validator over the desugared tree, between desugar and analyze, reporting into the context's sink |
 
@@ -228,7 +228,7 @@ only a test spy. The rule owns its `DiagnosticDescriptor` (co-located with the p
 [DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); a central catalog can consolidate descriptors
 later.
 
-**Injection.** The `Validator` is composed with its rules and injected into the facade like the
+**Injection.** The `StructuralValidator` is composed with its rules and injected into the facade like the
 other stages (wired by `ScriptCompilerFactory` and `AddDialogueDown`), so validation is a real
 pipeline pass and the rule set can grow without touching the facade.
 
@@ -294,11 +294,11 @@ arriving with the producer that reports it.
 
 Validation is **rule-based**, like Roslyn analyzers or ESLint rules: each `IDiagnosticRule` owns
 one descriptor, inspects an artifact, and reports into the sink. A registry composes the rules the
-`Validator` runs, so each check is independently unit-testable and rules are added without touching
+`StructuralValidator` runs, so each check is independently unit-testable and rules are added without touching
 the pipeline. Rules split by what they need to see:
 
 - **Structural rules** need only the **desugared AST** — no resolved model. They run in the
-  `Validator` pass. The first rules are all structural.
+  `StructuralValidator` pass. The first rules are all structural.
 - **Semantic rules** would need the **semantic model** and can only run after the analyzer. A
   **planned seam**, not built.
 

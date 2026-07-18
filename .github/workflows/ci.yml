@@ -170,13 +170,28 @@ jobs:
 
           npm run build:cli &
           cli_build_pid=$!
-          trap 'kill "$cli_build_pid" 2>/dev/null || true' EXIT
 
-          npm ci
-          npx playwright install --with-deps --only-shell chromium
+          (
+            npm ci
+            npx playwright install --with-deps --only-shell chromium
+          ) &
+          provision_pid=$!
 
+          cleanup() {
+            local status=$?
+            trap - EXIT INT TERM
+            kill "$cli_build_pid" "$provision_pid" 2>/dev/null || true
+            wait "$cli_build_pid" "$provision_pid" 2>/dev/null || true
+            exit "$status"
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          wait -n "$cli_build_pid" "$provision_pid" || exit $?
           wait "$cli_build_pid"
-          trap - EXIT
+          wait "$provision_pid"
+          trap - EXIT INT TERM
 
       - name: End-to-end tests (Playwright, live server)
         run: npx playwright test --config playwright.live.config.ts

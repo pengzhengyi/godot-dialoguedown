@@ -98,9 +98,11 @@ Common tasks are wired up in `.vscode/tasks.json` (**Terminal → Run Task**), s
 you can build, test, and clean without memorising commands: `build` / `test`
 (.NET), `build: fast` (inner-loop compile without analyzers), `test: project` /
 `test: filter` (one already-built .NET test scope), `web: build` / `web: check` /
-`web: e2e` (frontend), `build: all` and `verify: all` (both stacks), and `clean`
-(remove build/test artifacts). Always run the normal analyzer-enabled build/test
-before pushing.
+`web: e2e` (frontend), targeted `web: test file` / `web: test watch` /
+`web: e2e file` / `web: e2e grep` / `web: e2e live file`, `build: all` and
+`verify: all` (both stacks), and `clean` (remove build/test artifacts). Always
+run the normal analyzer-enabled build/test and full frontend gates before
+pushing.
 
 ## Commit style
 

@@ -39,7 +39,9 @@ cd src/DialogueDown.Visualization/web && npm run e2e:live
 For inner-loop compile feedback, the non-default VS Code task `build: fast`
 builds Release with `RunAnalyzers=false` after restore. It never replaces the
 normal analyzer-enabled `build` and `test` tasks before pushing. After a build,
-`test: project` and `test: filter` run only the affected test scope.
+`test: project` and `test: filter` run only the affected test scope. Frontend
+inner-loop tasks similarly select one Vitest or Playwright scope; full
+verification remains required before pushing.
 
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/); one
   logical change each; mark breaking changes with `BREAKING CHANGE:` in the footer.

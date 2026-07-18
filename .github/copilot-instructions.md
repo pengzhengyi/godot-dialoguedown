@@ -39,7 +39,9 @@ VS Code tasks (**Terminal → Run Task**) mirror these: `build`, `test`,
 
 Use `build: fast` only for inner-loop compile feedback after restore; it skips
 analyzers. Use `test: project` or `test: filter` after a build for targeted
-feedback. The normal `build`/`test` tasks remain the required full gate.
+feedback. Frontend inner-loop tasks select one Vitest file or Playwright
+file/title. The normal `build`/`test` and full frontend tasks remain the required
+gate.
 
 ## Conventions
 

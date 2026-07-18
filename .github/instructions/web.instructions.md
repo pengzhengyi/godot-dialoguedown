@@ -23,6 +23,11 @@ npm run e2e      # Playwright end-to-end + accessibility (needs: npx playwright 
 npm run e2e:live # build the CLI once, then run the real loopback-server E2E suite
 ```
 
+For inner-loop feedback, use the VS Code tasks `web: test file`,
+`web: test watch`, `web: e2e file`, `web: e2e grep`, or
+`web: e2e live file`. These narrow the test scope; they never replace
+`web: check` and the full static/live suites before pushing.
+
 ## Rules
 
 - **Run `npm run check` before committing.** It must pass — it is the same gate CI

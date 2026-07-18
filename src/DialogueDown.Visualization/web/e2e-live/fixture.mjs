@@ -51,3 +51,10 @@ export const CONFIG_CREATE_TREE = join(here, ".config-create-tree");
 export const CONFIG_CREATE_DOC = join(CONFIG_CREATE_TREE, "scene.dialogue.md");
 export const CONFIG_CREATE_TOML = join(CONFIG_CREATE_TREE, "dialogue.toml");
 export const CONFIG_CREATE_SOURCE = "# Scene\n\nAlice: Hello.\n";
+
+// Semantic-autocomplete owns its document because the test replaces the editor buffer.
+// Sharing LIVE_EDIT_DOC let this spec race live-edit.spec.ts when Playwright ran files in
+// parallel.
+export const SEMANTIC_AUTOCOMPLETE_PORT = 5183;
+export const SEMANTIC_AUTOCOMPLETE_DOC = join(here, ".semantic-autocomplete.dialogue.md");
+export const SEMANTIC_AUTOCOMPLETE_SOURCE = "# Scene\n\nAlice: The first line.\n";

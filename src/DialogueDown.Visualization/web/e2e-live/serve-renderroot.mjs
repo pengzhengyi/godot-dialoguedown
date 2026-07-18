@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { spawnCli } from "./cli-runner.mjs";
 import {
     RENDER_ROOT_TREE,
     RENDER_ROOT_DOC,
@@ -23,27 +23,12 @@ mkdirSync(dirname(RENDER_ROOT_IMAGE), { recursive: true });
 writeFileSync(RENDER_ROOT_IMAGE, PNG_1x1);
 writeFileSync(RENDER_ROOT_DOC, RENDER_ROOT_SOURCE);
 
-const server = spawn(
-    "dotnet",
-    [
-        "run",
-        "--project",
-        "../../DialogueDown.Cli",
-        "-c",
-        "Release",
-        "--",
-        "visualize",
-        RENDER_ROOT_DOC,
-        "--port",
-        String(RENDER_ROOT_PORT),
-        "--root",
-        RENDER_ROOT_TREE,
-        "--no-open",
-    ],
-    { stdio: "inherit" },
-);
-
-const stop = () => server.kill("SIGTERM");
-process.on("SIGTERM", stop);
-process.on("SIGINT", stop);
-server.on("exit", (code) => process.exit(code ?? 0));
+spawnCli([
+    "visualize",
+    RENDER_ROOT_DOC,
+    "--port",
+    String(RENDER_ROOT_PORT),
+    "--root",
+    RENDER_ROOT_TREE,
+    "--no-open",
+]);

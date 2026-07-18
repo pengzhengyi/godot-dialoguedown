@@ -86,6 +86,21 @@ license does not affect the library's MIT license or reach consumers.
 
 ## Before pushing
 
+For fast compile feedback during an edit, after restoring once:
+
+```bash
+dotnet build DialogueDown.sln --configuration Release --no-restore \
+  -p:RunAnalyzers=false
+```
+
+This is an inner-loop build only. It deliberately skips StyleCop and Sonar; run
+the normal analyzer-enabled build and tests before pushing:
+
+Use the VS Code tasks `test: project` and `test: filter` after a successful build
+to run only the affected test project or behavior. `dotnet watch test` was
+measured slower than a direct project run on the development machine, so it is
+not part of the recommended loop.
+
 ```bash
 dotnet test DialogueDown.sln --configuration Release
 ```

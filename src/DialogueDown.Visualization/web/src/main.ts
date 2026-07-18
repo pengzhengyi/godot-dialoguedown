@@ -8,6 +8,7 @@ import { createLiveEdit, type LiveEditController } from "./live-edit";
 import { initLiveEditUi } from "./live-edit-ui";
 import { createModeToggle } from "./mode-toggle";
 import { createModeController } from "./view-edit";
+import { browserConfigCreatePorts, createConfig } from "./config-create";
 import { initModeBadge } from "./mode-badge";
 import { initPathDisplay, initConfigPath } from "./path-display";
 import { initBackToLauncher } from "./back-link";
@@ -66,6 +67,7 @@ if (report.mode === "view" || report.mode === "edit") {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
         configOnChange: (buffer) => controller.onConfigEditorChange(buffer),
+        onCreateConfig: () => createConfig(browserConfigCreatePorts()),
         confirmNavigation: guardNavigation,
         symbols: createSemanticSymbolSource(() => currentSymbols),
     });

@@ -5,6 +5,7 @@ import type { CameraTransform } from "./graph-camera";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
 import { createConfigView, type ConfigViewHandle, type ConfigViewOptions } from "./config-view";
+import { consumeOpenConfigTab } from "./config-create";
 import type { DialogueSymbolSource } from "./dialogue-symbols";
 import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
@@ -43,6 +44,11 @@ export interface SourceOptions {
     onChange(buffer: string): void;
     /** Called with the new config (TOML) buffer on every config-editor change. */
     configOnChange?(buffer: string): void;
+    /**
+     * Create a `dialogue.toml` for a project that has none — the Config tab's no-config call to
+     * action (Edit only). Absent for the static export.
+     */
+    onCreateConfig?(): Promise<void>;
     /**
      * Where the Source editor's autocompletion draws its symbols. Defaults to a document
      * scan; a served session supplies the semantic analyzer's resolved symbols merged
@@ -197,6 +203,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 onToggleFullscreen: fullscreen.toggle,
                 editable: source?.editable ?? false,
                 ...(source?.configOnChange ? { onChange: source.configOnChange } : {}),
+                ...(source?.onCreateConfig ? { onCreateConfig: source.onCreateConfig } : {}),
             } satisfies ConfigViewOptions);
             section.appendChild(configHandle.element);
             addTab("Config", section, null, CONFIG_TIP, null, GEAR_ICON);
@@ -218,8 +225,12 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         for (const stage of report.stages) {
             addStageTab(stage);
         }
-        // Open on Source when present (after the Config tab), else the first tab.
-        if (views.length > 0) activate(sourcePresent ? (configPresent ? 1 : 0) : 0);
+        // Open on Source when present (after the Config tab), else the first tab — unless a
+        // just-created config asked the reloaded page to land on the Config tab.
+        if (views.length > 0) {
+            const openConfig = configPresent && consumeOpenConfigTab();
+            activate(openConfig ? 0 : sourcePresent ? (configPresent ? 1 : 0) : 0);
+        }
     }
 
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its

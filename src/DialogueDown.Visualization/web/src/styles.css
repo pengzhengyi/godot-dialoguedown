@@ -2135,6 +2135,33 @@ button.tab.tab-with-icon {
     margin: 0 0 0.75rem;
 }
 
+/* The create-a-config call to action in the no-config state (shown in Edit). */
+.config-create-button {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+    width: auto;
+    margin-top: 0.25rem;
+    padding: 0.5rem 1rem;
+}
+
+.config-create-icon {
+    flex: none;
+}
+
+.config-create-hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.85em;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.config-create-error {
+    margin: 0.6rem 0 0;
+    color: var(--pico-del-color);
+    font-size: 0.9em;
+}
+
 /* The status-bar config path sits beside the document path, marked by a small gear. */
 .config-path[disabled] {
     cursor: default;

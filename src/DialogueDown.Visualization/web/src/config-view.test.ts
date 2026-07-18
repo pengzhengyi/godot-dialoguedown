@@ -63,6 +63,75 @@ describe("createConfigView", () => {
         );
     });
 
+    describe("no-config create call to action", () => {
+        const noFile = (): ConfigReport => ({ speakers: [] });
+
+        it("shows the create button in Edit and the hint in View", () => {
+            const edit = mount(noFile(), {
+                editable: true,
+                onCreateConfig: () => Promise.resolve(),
+            });
+            expect(edit.querySelector<HTMLButtonElement>(".config-create-button")?.hidden).toBe(
+                false,
+            );
+            expect(edit.querySelector<HTMLElement>(".config-create-hint")?.hidden).toBe(true);
+
+            const view = mount(noFile(), {
+                editable: false,
+                onCreateConfig: () => Promise.resolve(),
+            });
+            expect(view.querySelector<HTMLButtonElement>(".config-create-button")?.hidden).toBe(
+                true,
+            );
+            expect(view.querySelector<HTMLElement>(".config-create-hint")?.hidden).toBe(false);
+        });
+
+        it("shows neither button nor hint in the static export (no create handler)", () => {
+            const view = mount(noFile(), { editable: false });
+
+            expect(view.querySelector(".config-create-button")).toBeNull();
+            expect(view.querySelector(".config-create-hint")).toBeNull();
+        });
+
+        it("flips the call to action with setEditable", () => {
+            const handle = createConfigView(noFile(), {
+                editable: false,
+                onCreateConfig: () => Promise.resolve(),
+            });
+            const button = handle.element.querySelector<HTMLButtonElement>(".config-create-button");
+
+            expect(button?.hidden).toBe(true);
+            handle.setEditable(true);
+            expect(button?.hidden).toBe(false);
+        });
+
+        it("invokes the create handler on click", () => {
+            const onCreateConfig = vi.fn(() => Promise.resolve());
+            const view = mount(noFile(), { editable: true, onCreateConfig });
+
+            view.querySelector<HTMLButtonElement>(".config-create-button")!.click();
+
+            expect(onCreateConfig).toHaveBeenCalledOnce();
+        });
+
+        it("shows the error and re-enables the button when the create fails", async () => {
+            const onCreateConfig = vi.fn(() =>
+                Promise.reject(new Error("A dialogue.toml already exists.")),
+            );
+            const view = mount(noFile(), { editable: true, onCreateConfig });
+            const button = view.querySelector<HTMLButtonElement>(".config-create-button")!;
+
+            button.click();
+            expect(button.disabled).toBe(true); // busy while creating
+
+            await new Promise((resolve) => setTimeout(resolve)); // let the rejection settle
+            const error = view.querySelector<HTMLElement>(".config-create-error")!;
+            expect(error.hidden).toBe(false);
+            expect(error.textContent).toContain("already exists");
+            expect(button.disabled).toBe(false); // re-enabled to retry
+        });
+    });
+
     it("shows an empty-speakers note when a file has no configured speakers", () => {
         const view = mount({
             file: { path: "/p/dialogue.toml", source: "# empty\n" },

@@ -40,6 +40,13 @@ export interface ConfigViewOptions {
     editable?: boolean;
     /** Called with the new buffer on every edit — for the config buffer and dirty state. */
     onChange?: (source: string) => void;
+    /**
+     * Create a `dialogue.toml` for a project that has none. Shown as a call to action in the
+     * no-config state, in Edit only; resolves once the create is under way (the caller
+     * navigates), rejects with a reader-facing message on conflict or failure. Absent for the
+     * static export (no server to write with).
+     */
+    onCreateConfig?: () => Promise<void>;
 }
 
 /**
@@ -120,6 +127,7 @@ export function createConfigView(
 
     let editor: EditorView | null = null;
     let speakers: HTMLElement | null = null;
+    let noConfig: NoConfigControls | null = null;
     const reservedTags = config.reservedTags ?? [];
     if (isConfiguredFromFile(config)) {
         editor = mountEditor(
@@ -132,7 +140,8 @@ export function createConfigView(
         speakers = renderSpeakers(config.speakers);
         side.append(staleHint, speakers);
     } else {
-        pane.appendChild(renderNoConfigExplanation());
+        noConfig = renderNoConfig(options.editable ?? false, options.onCreateConfig);
+        pane.appendChild(noConfig.element);
         side.appendChild(renderNoSpeakers());
     }
 
@@ -161,10 +170,12 @@ export function createConfigView(
 
     return {
         element: container,
-        setEditable: (next) =>
+        setEditable: (next) => {
             editor?.dispatch({
                 effects: editability.reconfigure(editableConfig(next, reservedTags)),
-            }),
+            });
+            noConfig?.setEditable(next);
+        },
         setContent: (next) =>
             editor?.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: next } }),
         updateSpeakers: (next) => {
@@ -321,8 +332,28 @@ function tagChip(tag: { name: string; value?: string; reserved: boolean }): stri
     );
 }
 
-/** The friendly left pane when there is no config file — defaults are in play. */
-function renderNoConfigExplanation(): HTMLElement {
+/** A controller over the no-config pane: it flips its create call to action with View⇄Edit. */
+interface NoConfigControls {
+    readonly element: HTMLElement;
+    /** Show the create button (Edit) or the quiet "switch to Edit" hint (View). */
+    setEditable(editable: boolean): void;
+}
+
+// Feather Icons (MIT) `file-plus`, leading the create call to action.
+const FILE_PLUS_ICON =
+    '<svg class="config-create-icon" viewBox="0 0 24 24" width="15" height="15" fill="none"' +
+    ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' +
+    ' aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />' +
+    '<polyline points="14 2 14 8 20 8" /><line x1="12" y1="18" x2="12" y2="12" />' +
+    '<line x1="9" y1="15" x2="15" y2="15" /></svg>';
+
+/**
+ * The friendly left pane when there is no config file — the built-in defaults are in play. When
+ * the session can create one (a served session passes `onCreate`), it grows a call to action: a
+ * create button in Edit, or a quiet "switch to Edit" hint in View. The static export passes no
+ * `onCreate`, so it shows the explanation alone.
+ */
+function renderNoConfig(editable: boolean, onCreate?: () => Promise<void>): NoConfigControls {
     const note = document.createElement("div");
     note.className = "config-empty-state";
     note.innerHTML =
@@ -330,7 +361,45 @@ function renderNoConfigExplanation(): HTMLElement {
         `built-in defaults.</p>` +
         `<p>Add one to declare speakers that every script can use — their names, ids, tags, ` +
         `and a default speaker.</p>`;
-    return note;
+
+    if (!onCreate) {
+        return { element: note, setEditable: () => {} };
+    }
+
+    const error = document.createElement("p");
+    error.className = "config-create-error";
+    error.hidden = true;
+
+    const hint = document.createElement("p");
+    hint.className = "config-create-hint";
+    hint.textContent = "Switch to Edit to add one.";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "config-create-button";
+    button.innerHTML = `${FILE_PLUS_ICON}<span>Create dialogue.toml</span>`;
+    button.addEventListener("click", () => {
+        button.disabled = true;
+        error.hidden = true;
+        // On success the caller reloads onto the Config tab (the button stays disabled as the
+        // page navigates); on conflict or failure, surface the message and re-enable.
+        onCreate().catch((reason: unknown) => {
+            error.textContent = reason instanceof Error ? reason.message : String(reason);
+            error.hidden = false;
+            button.disabled = false;
+        });
+    });
+
+    note.append(button, hint, error);
+    const controls: NoConfigControls = {
+        element: note,
+        setEditable: (next) => {
+            button.hidden = !next;
+            hint.hidden = next;
+        },
+    };
+    controls.setEditable(editable);
+    return controls;
 }
 
 /** The right pane's empty configured-speakers note. */

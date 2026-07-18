@@ -520,9 +520,10 @@ run serially on the critical path.
 
 **Design:** keep the local `npm run e2e:live` entry point unchanged. In CI,
 run `npm run build:cli` and the dependency/browser provisioning sequence as
-tracked peer jobs. Fail on the first unsuccessful peer, stop and reap the other,
-and otherwise wait for both before invoking Playwright directly. The local
-signal and exit traps preserve the failing status while cleaning up both jobs.
+tracked peer process groups. Fail on the first unsuccessful peer, stop and reap
+the other group, and otherwise wait for both before invoking Playwright
+directly. The local signal and exit traps preserve the failing status while
+cleaning up both groups and their descendants.
 
 **Result:** the live-job runs fell from 90/85/89 seconds (median 89 seconds) to
 66/72/73 seconds (median 72 seconds): a 17-second / 19.1% reduction and 1.24×
@@ -631,7 +632,7 @@ approval.
 | Headed browser test added later | Remove `--only-shell` or install the full browser when that test is introduced. |
 | Parallel jobs duplicate setup | Report runner-minutes; retain the split only when wall-time value justifies the cost. |
 | Concurrent tests share files/ports | Preserve current fixture isolation; any collision or flake rejects the change. |
-| Concurrent CI preparation fails on one path | Strict shell handling propagates the failure and the exit trap stops the background CLI build. |
+| Concurrent CI preparation fails on one path | Strict shell handling propagates the failure and stops the surviving peer process group. |
 | A Node-environment test gains a DOM dependency | Move that file back to the default jsdom environment rather than adding browser shims. |
 | Cache returns stale results | Use tool-native content-aware caches and add all cache paths to ignores. |
 | Cancellation crosses PRs/branches | Fix the concurrency key before merging. |

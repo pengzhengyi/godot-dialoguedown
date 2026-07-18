@@ -34,7 +34,7 @@ internal sealed class SemanticAnalyzer : ISemanticAnalyzer
         var speakers = SpeakerBinder.Bind(configured, index.OfType<Speaker>());
 
         var jumps = JumpResolver.Resolve(index.OfType<Jump>(), anchors, context.Diagnostics);
-        TagValidator.Validate(index.OfType<ReservedTag>());
+        TagValidator.Validate(index.OfType<ReservedTag>(), context.Diagnostics);
 
         // TODO(diagnostics): the context is validated but not yet read — analysis works off the
         // tree and the spans it carries. Report source-anchored diagnostics into

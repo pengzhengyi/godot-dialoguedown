@@ -21,6 +21,15 @@ internal static class DiagnosticCatalog
 
     // Semantic — DLG2xxx: a meaning-level conflict found during analysis.
 
+    /// <summary>DLG2008 — a <c>##reserved</c> tag name is not one DialogueDown knows.</summary>
+    public static readonly DiagnosticDescriptor UnknownReservedTag = new(
+        "DLG2008",
+        "Unknown reserved tag",
+        "'##{0}' is not a known reserved tag. Use a custom tag ('#{0}') or one of DialogueDown's "
+            + "reserved tags.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
     /// <summary>DLG2009 — a jump targets a local anchor that no scene owns.</summary>
     public static readonly DiagnosticDescriptor MissingScene = new(
         "DLG2009",

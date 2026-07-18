@@ -3,7 +3,6 @@ using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
-using DialogueDown.Script.Semantics.Errors;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.ConfigurationFactory;
 using static DialogueDown.Tests.Support.DiagnosticsAssert;
@@ -113,11 +112,11 @@ public sealed class SemanticAnalyzerTests
     }
 
     [Fact]
-    public void Analyze_ValidatesReservedTags()
+    public void Analyze_ReportsAnUnknownReservedTag()
     {
-        var error = Assert.Throws<DialogueSemanticError>(() => Analyze("Alice ##bogus: Hi."));
+        Analyze("Alice ##bogus: Hi.", out var diagnostics);
 
-        Assert.Contains("##bogus", error.Message);
+        AssertReported(diagnostics.Diagnostics, "DLG2008");
     }
 
     private SemanticModel Analyze(string source) => Analyze(source, out _);

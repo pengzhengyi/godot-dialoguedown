@@ -228,6 +228,43 @@ public sealed class LauncherServerTests
         Assert.Equal(HttpStatusCode.BadRequest, create.StatusCode);
     }
 
+    [Fact]
+    public async Task CreateConfig_AfterOpeningEdit_WritesADialogueTomlAtTheLaunchRoot()
+    {
+        using var tree = new TempTree();
+        var root = tree.Dir("root");
+        tree.File("root/scene.dialogue.md", "# Scene");
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+        await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "edit" });
+
+        var create = await client.PostAsync("/api/create-config", content: null);
+
+        Assert.True(create.IsSuccessStatusCode);
+        Assert.True(File.Exists(Path.Combine(root, "dialogue.toml"))); // created at the launch root
+        Assert.Contains("dialogue.toml", await create.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Save_WithConfigTarget_AfterCreatingConfig_WritesTheDialogueToml()
+    {
+        using var tree = new TempTree();
+        var root = tree.Dir("root");
+        tree.File("root/scene.dialogue.md", "# Scene");
+        await using var server = await Started(tree);
+        using var client = Client(server, followRedirects: false);
+        await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "edit" });
+        await client.PostAsync("/api/create-config", content: null); // adopt a config
+
+        var save = await client.PostAsJsonAsync(
+            "/api/save",
+            new { source = "[[speakers]]\nname = \"Bob\"\nid = \"B\"\n", target = "config" });
+
+        Assert.True(save.IsSuccessStatusCode);
+        Assert.Contains("Bob", await File.ReadAllTextAsync(Path.Combine(root, "dialogue.toml")));
+        Assert.Contains("\"name\":\"Bob\"", await save.Content.ReadAsStringAsync());
+    }
+
     private static async Task<LauncherServer> Started(TempTree tree)
     {
         var server = new LauncherServer(LaunchRoot.At(tree.Dir("root")), LauncherHtml);

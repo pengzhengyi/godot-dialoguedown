@@ -4,12 +4,13 @@ import "./styles.css";
 
 import { runApp } from "./app";
 import { watchServerEvents } from "./live-client";
-import { createLiveEdit } from "./live-edit";
+import { createLiveEdit, type LiveEditController } from "./live-edit";
 import { initLiveEditUi } from "./live-edit-ui";
 import { createModeToggle } from "./mode-toggle";
 import { createModeController } from "./view-edit";
+import { browserConfigCreatePorts, createConfig } from "./config-create";
 import { initModeBadge } from "./mode-badge";
-import { initPathDisplay } from "./path-display";
+import { initPathDisplay, initConfigPath } from "./path-display";
 import { initBackToLauncher } from "./back-link";
 import { initTheme } from "./theme";
 import { initHelpToggle } from "./help";
@@ -39,41 +40,84 @@ const header = document.querySelector<HTMLElement>(".app-header");
 initTheme(header?.querySelector(".header-controls") ?? null);
 
 if (report.mode === "view" || report.mode === "edit") {
-    // A served session: one editor toggled between View (read-only, auto-updating) and
-    // Edit (editable, owns its buffer). The wiring closures reference `live`/`controller`
-    // only when invoked (after they are created below).
+    // A served session: two editable inputs to one dialogue compile — the dialogue source
+    // (Source tab) and the config `dialogue.toml` (Config tab) — each read-only in View and
+    // editable in Edit. The wiring closures reference the controllers only when invoked
+    // (after they are created below).
     const initialMode: ServedMode = report.mode;
     const toggle = createModeToggle(initialMode, (mode) => controller.switchTo(mode));
     // The semantic analyzer's resolved symbols, refreshed on each hot-reload. The editor's
     // completion source reads this holder every call, so a reload updates completions in place.
     let currentSymbols: DialogueSymbols | undefined = report.symbols;
-    // Navigation (switching tabs or selecting another node) is locked while the session has
-    // unsaved edits, so a stale graph is never shown beside them. Resolve it here: discard to
-    // continue, or cancel to keep editing (then Save). One dirty document, one Save/Discard.
+    // Navigation (switching tabs or selecting another node) is locked while a document has
+    // unsaved edits, so a stale graph is never shown beside them. At most one document is dirty
+    // at a time (the nav-lock guarantees it); resolve it here: discard to continue, or cancel to
+    // keep editing (then Save).
     const guardNavigation = (): boolean => {
-        if (!live.dirty) return true;
+        const dirtyLive = configLive?.dirty ? configLive : dialogueLive.dirty ? dialogueLive : null;
+        if (!dirtyLive) return true;
         const discard = window.confirm(
             "You have unsaved changes. Discard them to continue? " +
                 "Click Cancel to keep editing, then Save.",
         );
-        if (discard) live.discardChanges();
+        if (discard) dirtyLive.discardChanges();
         return discard;
     };
     const app = runApp(report, {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
+        configOnChange: (buffer) => controller.onConfigEditorChange(buffer),
+        onCreateConfig: () => createConfig(browserConfigCreatePorts()),
         confirmNavigation: guardNavigation,
         symbols: createSemanticSymbolSource(() => currentSymbols),
     });
+    // Save (⌘S or the button) acts on the active document: the config when the Config tab is
+    // active, else the dialogue. Since only one document can be dirty at a time, this always
+    // targets the dirty one (or is a no-op).
+    const activeLive = (): LiveEditController =>
+        configLive && app.isConfigTabActive() ? configLive : dialogueLive;
     const ui = initLiveEditUi(
         app,
-        () => void live.save(),
-        () => live.discardChanges(),
+        () => void activeLive().save(),
+        () => activeLive().discardChanges(),
     );
-    const live = createLiveEdit(ui, report.source ?? "");
+    const dialogueLive = createLiveEdit(
+        ui.portsFor({
+            markDirty: app.markSourceDirty,
+            setContent: app.setContent,
+            // A save recompiles, so the analyzer's symbols change too — refresh the
+            // completion source's holder or the editor keeps offering the old speakers/ids.
+            onSaved: (saved) => {
+                currentSymbols = saved.symbols;
+            },
+        }),
+        report.source ?? "",
+    );
+    const configLive: LiveEditController | null = report.configuration?.file
+        ? createLiveEdit(
+              ui.portsFor({
+                  target: "config",
+                  // A dirty config also marks its speakers pane stale until the next Save.
+                  markDirty: (dirty) => {
+                      app.markConfigDirty(dirty);
+                      app.setConfigStale(dirty);
+                  },
+                  setContent: (source) => app.setConfigContent(source),
+                  onSaved: (saved) => {
+                      if (saved.configuration) app.updateConfigSpeakers(saved.configuration);
+                      // Editing the config changes the resolved speakers/ids, so refresh the
+                      // Source editor's completion symbols too (the reported bug: a new id
+                      // did not appear in `@` completion until a reload).
+                      currentSymbols = saved.symbols;
+                  },
+              }),
+              report.configuration.file.source,
+          )
+        : null;
     const controller = createModeController(initialMode, {
         app,
-        live,
+        dialogueLive,
+        configLive,
         setEditControlsVisible: ui.setEditControlsVisible,
         reflect: (mode) => {
             // Drive the blue (View) / green (Edit) accent, then the toggle's pressed state.
@@ -100,4 +144,5 @@ if (report.mode === "view" || report.mode === "edit") {
 }
 
 initPathDisplay(report.path);
+initConfigPath(report.configuration);
 initHelpToggle();

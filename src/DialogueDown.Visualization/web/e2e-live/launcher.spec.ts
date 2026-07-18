@@ -24,8 +24,9 @@ test("opens a root script (static) and returns via Back to launcher", async ({ p
 
     // The open POST answers 303 to the report under the /r/ mount.
     await expect(page).toHaveURL(/\/r\//);
-    await expect(page.locator(".tab")).toHaveCount(5); // Source + Markdown/Dialogue/Desugared AST + Semantic Model
-    await expect(page.locator(".tab").first()).toHaveText("Source");
+    await expect(page.locator(".tab")).toHaveCount(6); // Config + Source + Markdown/Dialogue/Desugared AST + Semantic Model
+    await expect(page.locator(".tab").first()).toHaveText("Config");
+    await expect(page.locator(".tab.active")).toHaveText("Source");
 
     await page.locator("a.back-to-launcher").click();
     await expect(page.locator(".launcher-title")).toHaveText("Open a script");
@@ -42,7 +43,7 @@ test("browses into a sub-folder and opens a nested script in View", async ({ pag
     await page.locator(".launcher-open").click();
 
     await expect(page).toHaveURL(/\/r\//);
-    await expect(page.locator(".tab")).toHaveCount(5);
+    await expect(page.locator(".tab")).toHaveCount(6);
 });
 
 // The create tests write into the launch tree; remove the file afterward so a rerun and the

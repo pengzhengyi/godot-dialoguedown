@@ -163,14 +163,23 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Prepare live E2E
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps --only-shell chromium
+          npm run build:cli &
+          cli_build_pid=$!
+          trap 'kill "$cli_build_pid" 2>/dev/null || true' EXIT
+
+          npm ci
+          npx playwright install --with-deps --only-shell chromium
+
+          wait "$cli_build_pid"
+          trap - EXIT
 
       - name: End-to-end tests (Playwright, live server)
-        run: npm run e2e:live
+        run: npx playwright test --config playwright.live.config.ts
 
   frontend:
     name: Frontend

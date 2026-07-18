@@ -32,8 +32,13 @@ test("frontend verification is split into independent quality and E2E lanes", ()
     const liveE2e = job("frontend_live", "frontend");
     assert.match(liveE2e, /name: Frontend live E2E/);
     assert.match(liveE2e, /actions\/setup-dotnet/);
+    assert.match(liveE2e, /name: Prepare live E2E/);
+    assert.match(liveE2e, /npm run build:cli &/);
+    assert.match(liveE2e, /npm ci/);
     assert.match(liveE2e, /playwright install --with-deps --only-shell chromium/);
-    assert.match(liveE2e, /run: npm run e2e:live/);
+    assert.match(liveE2e, /wait "\$cli_build_pid"/);
+    assert.match(liveE2e, /run: npx playwright test --config playwright\.live\.config\.ts/);
+    assert.doesNotMatch(liveE2e, /run: npm run e2e:live/);
 });
 
 test("the stable Frontend check aggregates every frontend lane", () => {

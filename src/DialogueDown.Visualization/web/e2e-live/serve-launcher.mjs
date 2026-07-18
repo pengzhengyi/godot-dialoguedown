@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { spawnCli } from "./cli-runner.mjs";
 import {
     LAUNCHER_TREE,
     LAUNCHER_TOP_DOC,
@@ -19,26 +19,4 @@ mkdirSync(dirname(LAUNCHER_SUB_DOC), { recursive: true });
 writeFileSync(LAUNCHER_TOP_DOC, LAUNCHER_TOP_SOURCE);
 writeFileSync(LAUNCHER_SUB_DOC, LAUNCHER_SUB_SOURCE);
 
-const server = spawn(
-    "dotnet",
-    [
-        "run",
-        "--project",
-        "../../DialogueDown.Cli",
-        "-c",
-        "Release",
-        "--",
-        "visualize",
-        "--root",
-        LAUNCHER_TREE,
-        "--port",
-        String(LAUNCHER_PORT),
-        "--no-open",
-    ],
-    { stdio: "inherit" },
-);
-
-const stop = () => server.kill("SIGTERM");
-process.on("SIGTERM", stop);
-process.on("SIGINT", stop);
-server.on("exit", (code) => process.exit(code ?? 0));
+spawnCli(["visualize", "--root", LAUNCHER_TREE, "--port", String(LAUNCHER_PORT), "--no-open"]);

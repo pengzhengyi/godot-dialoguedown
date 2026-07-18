@@ -10,13 +10,15 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:infra": "node --test e2e-live/*.test.mjs",
     "test:watch": "vitest",
     "e2e": "playwright test",
     "lint:js": "eslint .",
     "lint:css": "stylelint \"src/**/*.css\"",
     "format": "prettier --check .",
-    "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format && npm run test",
-    "e2e:live": "playwright test --config playwright.live.config.ts"
+    "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format && npm run test && npm run test:infra",
+    "build:cli": "dotnet build ../../DialogueDown.Cli/DialogueDown.Cli.csproj -c Release",
+    "e2e:live": "npm run build:cli && playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

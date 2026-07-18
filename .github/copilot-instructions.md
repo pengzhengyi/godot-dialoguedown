@@ -30,6 +30,8 @@ dotnet test DialogueDown.sln --settings coverage.runsettings --collect:"XPlat Co
 
 # Visualization client — only needed when changing web/ sources
 cd src/DialogueDown.Visualization/web && npm ci && npm run check && npm run build
+# Live integration — builds the CLI once, then launches the built DLL per server
+cd src/DialogueDown.Visualization/web && npm run e2e:live
 ```
 
 VS Code tasks (**Terminal → Run Task**) mirror these: `build`, `test`,

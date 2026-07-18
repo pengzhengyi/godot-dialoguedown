@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { spawnCli } from "./cli-runner.mjs";
 import {
     CONFIG_EDIT_TREE,
     CONFIG_EDIT_DOC,
@@ -16,28 +16,13 @@ mkdirSync(CONFIG_EDIT_TREE, { recursive: true });
 writeFileSync(CONFIG_EDIT_DOC, CONFIG_EDIT_SOURCE);
 writeFileSync(CONFIG_EDIT_TOML, CONFIG_EDIT_CONFIG);
 
-const server = spawn(
-    "dotnet",
-    [
-        "run",
-        "--project",
-        "../../DialogueDown.Cli",
-        "-c",
-        "Release",
-        "--",
-        "visualize",
-        CONFIG_EDIT_DOC,
-        "--edit",
-        "--root",
-        CONFIG_EDIT_TREE,
-        "--port",
-        String(CONFIG_EDIT_PORT),
-        "--no-open",
-    ],
-    { stdio: "inherit" },
-);
-
-const stop = () => server.kill("SIGTERM");
-process.on("SIGTERM", stop);
-process.on("SIGINT", stop);
-server.on("exit", (code) => process.exit(code ?? 0));
+spawnCli([
+    "visualize",
+    CONFIG_EDIT_DOC,
+    "--edit",
+    "--root",
+    CONFIG_EDIT_TREE,
+    "--port",
+    String(CONFIG_EDIT_PORT),
+    "--no-open",
+]);

@@ -88,8 +88,9 @@ dotnet run -- path/to/scene.dialogue.md -o out.html --no-open   # write, don't o
 
 Watch mode starts a `127.0.0.1`-only server that pushes recompiled stages to the
 browser over Server-Sent Events; it is a development tool, not a hosted service.
-The live end-to-end tests run with `npm run e2e:live` in `web/` (they build and
-launch this server automatically).
+The live end-to-end tests run with `npm run e2e:live` in `web/`. The command
+builds the CLI once, then launches each loopback server from that Release DLL
+without repeating project builds.
 
 ### Editor tasks (VS Code)
 

@@ -20,6 +20,7 @@ npm run dev      # live-reloading dev server with sample data
 npm run check    # typecheck + eslint + stylelint + prettier + vitest
 npm run build    # rebuild the committed dist/report.html
 npm run e2e      # Playwright end-to-end + accessibility (needs: npx playwright install chromium)
+npm run e2e:live # build the CLI once, then run the real loopback-server E2E suite
 ```
 
 ## Rules
@@ -37,5 +38,6 @@ npm run e2e      # Playwright end-to-end + accessibility (needs: npx playwright 
 - **Preview UI changes before committing.** Open the dev server (`npm run dev`) or
   a built report (`npm run build`, then open `dist/report.html`) and interact with
   the change to confirm it looks and behaves right.
-- Live end-to-end tests run with `npm run e2e:live` (they build and launch the
-  loopback server automatically).
+- Live end-to-end tests run with `npm run e2e:live`. The command builds the CLI
+  once; each Playwright server launches that Release DLL directly. Do not replace
+  the shared launcher with per-server `dotnet run` calls.

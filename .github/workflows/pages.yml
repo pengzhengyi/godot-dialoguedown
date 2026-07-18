@@ -54,7 +54,7 @@ jobs:
             visualize examples/gallery.dialogue.md -o site/demo/gallery.html
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v5

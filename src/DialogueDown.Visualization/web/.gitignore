@@ -20,6 +20,7 @@ e2e-live/.render-root/
 # Launcher e2e temp tree
 e2e-live/.launcher-tree/
 e2e-live/.live-edit-doc.dialogue.md
+e2e-live/.semantic-autocomplete.dialogue.md
 
 # Config-edit e2e temp tree
 e2e-live/.config-edit-tree/

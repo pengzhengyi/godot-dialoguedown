@@ -114,6 +114,31 @@ public sealed class CompilationResultTests
         Assert.Null(exception);
     }
 
+    [Fact]
+    public void Complete_BuildsACompleteResultWithEveryArtifact()
+    {
+        var script = new ScriptDocument([]);
+        var desugared = new DesugaredScriptDocument(script);
+        var semantics = SemanticModelFactory.Minimal(desugared);
+
+        var result = CompilationResult.Complete(
+            "source", new MarkdownDocument([]), script, desugared, semantics, []);
+
+        Assert.True(result.IsComplete);
+        Assert.Same(desugared, result.Desugared);
+        Assert.Same(semantics, result.Semantics);
+    }
+
+    [Fact]
+    public void Halted_BuildsAPartialResultWithoutTheLaterArtifacts()
+    {
+        var result = CompilationResult.Halted(
+            "source", new MarkdownDocument([]), new ScriptDocument([]), []);
+
+        Assert.False(result.IsComplete);
+        Assert.Throws<InvalidOperationException>(() => result.Semantics);
+    }
+
     private static CompilationResult Result(params Diagnostic[] diagnostics)
     {
         var script = new ScriptDocument([]);

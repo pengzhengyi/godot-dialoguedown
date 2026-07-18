@@ -69,6 +69,25 @@ public sealed record CompilationResult
     /// <summary>The diagnostics collected while compiling, in report order.</summary>
     internal IReadOnlyList<Diagnostic> Diagnostics { get; }
 
+    /// <summary>A result for a compile that ran to completion, carrying every stage artifact.</summary>
+    internal static CompilationResult Complete(
+        string source,
+        MarkdownDocument markdown,
+        ScriptDocument script,
+        DesugaredScriptDocument desugared,
+        SemanticModel semantics,
+        IReadOnlyList<Diagnostic> diagnostics) =>
+        new(source, markdown, script, desugared, semantics, diagnostics);
+
+    /// <summary>A result for a compile that halted after an erroring stage, without the artifacts
+    /// the skipped stages would have produced.</summary>
+    internal static CompilationResult Halted(
+        string source,
+        MarkdownDocument markdown,
+        ScriptDocument script,
+        IReadOnlyList<Diagnostic> diagnostics) =>
+        new(source, markdown, script, desugared: null, semantics: null, diagnostics);
+
     private static InvalidOperationException NotProduced(string artifact) =>
         new($"{artifact} was not produced: the compile halted at an earlier stage. Check "
             + $"{nameof(IsComplete)} (or compile in best-effort mode) before reading it.");

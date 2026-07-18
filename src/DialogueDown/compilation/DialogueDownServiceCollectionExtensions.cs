@@ -38,7 +38,8 @@ public static class DialogueDownServiceCollectionExtensions
             provider.GetRequiredService<IScriptTranspiler>(),
             provider.GetRequiredService<IScriptDesugarer>(),
             provider.GetRequiredService<IStructuralValidator>(),
-            provider.GetRequiredService<ISemanticAnalyzer>()));
+            provider.GetRequiredService<ISemanticAnalyzer>(),
+            options.Mode));
 
         return services;
     }

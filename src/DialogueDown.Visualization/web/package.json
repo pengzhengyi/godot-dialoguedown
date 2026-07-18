@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "lint:js": "eslint . --cache --cache-location .cache/eslint/",
-    "lint:css": "stylelint \"src/**/*.css\"",
+    "lint:css": "stylelint \"src/**/*.css\" --cache --cache-location .cache/stylelint/",
     "format": "prettier --check .",
     "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format && npm run test && npm run test:infra",
     "build:cli": "dotnet build ../../DialogueDown.Cli/DialogueDown.Cli.csproj -c Release",

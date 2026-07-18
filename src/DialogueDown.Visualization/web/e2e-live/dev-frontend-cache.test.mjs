@@ -29,3 +29,9 @@ test("ESLint stores its native cache under the ignored frontend cache", () => {
     assert.match(packageJson.scripts["lint:js"], /--cache-location \.cache\/eslint\//);
     assert.match(gitignore, /^\.cache\/$/m);
 });
+
+test("Stylelint stores its native cache under the ignored frontend cache", () => {
+    assert.match(packageJson.scripts["lint:css"], /--cache/);
+    assert.match(packageJson.scripts["lint:css"], /--cache-location \.cache\/stylelint\//);
+    assert.match(gitignore, /^\.cache\/$/m);
+});

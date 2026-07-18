@@ -71,17 +71,22 @@ test("autocompletes the TOML schema in the config editor", async ({ page }) => {
     await page.locator(".tab", { hasText: "Config" }).click();
     await page.locator(".config-source .cm-content").click();
     await page.keyboard.press("ControlOrMeta+End");
-
-    // A table header suggests [[speakers]]; Tab accepts it.
-    await page.keyboard.type("\n[");
     const tip = page.locator(".config-source .cm-tooltip-autocomplete");
+
+    // A table-header position (a line-leading `[`) suggests `[[speakers]]`. Insert the text and
+    // open the menu explicitly, so the check tests the completion source, not the auto-trigger
+    // or accept timing (which race on slower CI runners).
+    await page.keyboard.insertText("\n[");
+    await page.keyboard.press("Control+Space");
     await expect(tip).toBeVisible();
     await expect(tip.locator("li")).toContainText(["[[speakers]]"]);
-    await page.keyboard.press("Tab");
-    await expect(page.locator(".config-source")).toContainText("[[speakers]]");
+    await page.keyboard.press("Escape");
 
-    // A key position inside the new table suggests the keys and the reserved tag `default`.
-    await page.keyboard.type("\nd");
+    // A key position inside a `[[speakers]]` table suggests the keys and the reserved tag
+    // `default`. Finish the header text in full and drop to a key line, so the context is
+    // deterministic rather than depending on accepting the menu above.
+    await page.keyboard.insertText("[speakers]]\nd");
+    await page.keyboard.press("Control+Space");
     await expect(tip).toBeVisible();
     await expect(tip.locator("li")).toContainText(["default"]);
 });

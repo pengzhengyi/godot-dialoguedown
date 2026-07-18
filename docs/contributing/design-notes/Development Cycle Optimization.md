@@ -1,11 +1,9 @@
 # Development Cycle Optimization
 
 > [!NOTE]
-> Status: **approved — implementation pending**. This note defines a measured,
-> incremental optimization of DialogueDown's local edit loop and continuous
-> integration (CI) pipeline. The approved increments will run in headless mode,
-> one
-> measured and reversible commit at a time.
+> Status: **implemented on the optimization branch — awaiting merge**.
+> Increments 1 and 3–9 are built and measured. Increment 2 was deliberately
+> skipped because Release coverage changed the sequence-point denominator.
 
 DialogueDown's verification remains comprehensive, but avoidable orchestration
 work delays feedback: repeated project evaluation, duplicate test execution,
@@ -37,8 +35,8 @@ bundle verification, or end-to-end behavior.
 - [Approval-gated follow-ups](#approval-gated-follow-ups)
 - [Boundary cases and rollback](#boundary-cases-and-rollback)
 - [Testability and measurement](#testability-and-measurement)
-- [Implementation and commit plan](#implementation-and-commit-plan)
-- [Approved scope](#approved-scope)
+- [Implementation discipline](#implementation-discipline)
+- [Final scope](#final-scope)
 
 ## Goal and scope
 
@@ -82,7 +80,7 @@ Out of scope without a separate approval:
 ## Measured baseline
 
 Baseline commit: `4a97605` (`main`). Measurements were refreshed on July 18,
-2026 after synchronizing the optimization branch. CI values average four
+2026, after synchronizing the optimization branch. CI values average four
 successful GitHub Actions runs; local values are diagnostic measurements on the
 development Mac and are most useful for before/after ratios on the same machine.
 
@@ -179,6 +177,12 @@ run).
 | 1. Direct built-CLI launch | **Achieved** | Warm live E2E: 84.48 s → 28.29 s; 56.19 s / 66.5% reduction; 2.99× speedup | Frontend wall: 158 s → 144 s; 14 s / 8.9%; combined CLI-build + live-E2E: 61.3 s → 47.0 s; 23.3%; three green runs |
 | 2. Release/no-build coverage | **Skipped** | Warm coverage: 127.64 s → 95.96 s; 24.8% faster, but valid sequence-point lines changed 3,601 → 2,828 | Not pushed; exact Debug coverage retained by approval |
 | 3. Headless-shell-only Chromium | **Achieved** | Fresh install: 67.21 s → 19.67 s; 47.54 s / 70.7%; 3.42× speedup; installed data 65.5% smaller | Browser install: 24.5 s → 17.0 s; 30.6%; frontend wall from Increment 1: 144 s → 128 s; 11.1%; three green runs |
+| 4. Stale-run cancellation | **Achieved** | Not a timing target | A rapid second push cancelled only the obsolete run for the same PR; the survivor and two reruns passed |
+| 5. Parallel frontend lanes | **Achieved** | The split exposed and eliminated a shared semantic-autocomplete fixture race | Frontend wall: 128 s → 87 s; 41 s / 32.0%; 1.47×; runner time 179 s, below the 237 s ceiling; three green runs |
+| 6. Analyzer-free local build | **Achieved** | Clean: 18.64 s → 11.64 s; 37.6%; 1.60×. Warm edit: 10.12 s → 6.27 s; 38.0%; 1.61× | CI keeps analyzers enabled |
+| 7. Targeted .NET tests | **Achieved with change** | Full: 27.70 s. Project: 7.74 s (72.1%, 3.58×). Filter: 6.96 s (74.9%, 3.98×). Watch was slower and omitted | Full solution test remains the gate |
+| 8. Targeted frontend tests | **Achieved** | Vitest file: 14.28 s → 4.16 s (70.9%, 3.43×). Static spec: 29.70 s → 10.74 s (63.8%, 2.77×). Live spec: 48.15 s → 24.95 s (48.2%, 1.93×) | Full frontend lanes remain the gate |
+| 9a–9d. Frontend caches | **Achieved** | Warm TypeScript 57.3% faster; ESLint 55.9%; Stylelint 29.8%; Prettier 83.5%. Every cache invalidation was tested | CI starts cold; caches target the local repeated loop |
 
 Increment 1 had one non-reproducing local cold launcher timeout. It then passed
 an isolated retry, one full retry, one clean-output run, three consecutive warm
@@ -228,8 +232,8 @@ Parallelism should reduce wall time without hiding a failure.
 
 ## Optimization increments
 
-Implement these in order. Each increment runs its targeted benchmark and the
-full relevant suite before it is committed.
+The implementation evaluated these increments in order. Each retained increment
+ran its targeted benchmark and the full relevant suite before commit.
 
 ### 1. Launch the built CLI directly in live E2E
 
@@ -244,13 +248,15 @@ Playwright starts. Resolve that build's CLI DLL and run:
 dotnet path/to/DialogueDown.Cli.dll <arguments>
 ```
 
-Keep one shared launcher helper so all six fixtures derive the DLL path and
+Keep one shared launcher helper so all seven fixtures derive the DLL path and
 arguments consistently. A clean `npm run e2e:live` must perform the one build;
-the six server processes must never build independently. This makes a stale or
+the seven server processes must never build independently. This makes a stale or
 missing DLL impossible on the supported entry point.
 
-**Measured hypothesis:** six concurrent startup probes fell from 70.82 seconds
-to 2.91 seconds (67.91 seconds / 95.9% reduction; 24.3× startup speedup).
+**Result:** the six-server baseline startup probe fell from 70.82 seconds to
+2.91 seconds (67.91 seconds / 95.9% reduction; 24.3× startup speedup). The later
+semantic-autocomplete isolation added a seventh direct-DLL server without
+reintroducing project builds.
 
 **Acceptance:**
 
@@ -276,8 +282,10 @@ dotnet test DialogueDown.sln \
   --collect:"XPlat Code Coverage"
 ```
 
-**Measured hypothesis:** the local coverage stage fell from 101.9 seconds to
-53.4 seconds (48.5 seconds / 47.6% reduction; 1.91× speedup).
+**Result:** Release/no-build coverage was faster, but it changed valid
+sequence-point lines from 3,601 to 2,828 while retaining the same 203 files and
+207 classes. The exact Debug-scope alternative was not faster. The increment was
+skipped and the original coverage policy remains.
 
 **Acceptance:**
 
@@ -299,8 +307,9 @@ Removing the separate normal test pass is a later approval-gated decision.
 npx playwright install --with-deps --only-shell chromium
 ```
 
-**Measured hypothesis:** omitting full Chrome avoids about 5–6 seconds in the
-sampled CI download. Linux system dependencies remain and still need measurement.
+**Result:** local fresh installation fell from 67.21 seconds to 19.67 seconds
+(70.7%; 3.42×) and installed data fell 65.5%. CI provisioning median fell from
+24.5 seconds to 17.0 seconds (30.6%; 1.44×).
 
 **Acceptance:**
 
@@ -335,6 +344,9 @@ other.
 - the newest run completes all applicable checks;
 - cancellation does not leave a required check pending.
 
+**Result:** a rapid follow-up push cancelled only the obsolete same-PR run. The
+surviving run and two reruns passed.
+
 ### 5. Run frontend CI lanes in parallel
 
 **Problem:** quality, static E2E, CLI build, and live E2E execute serially in one
@@ -354,12 +366,12 @@ All three start without `needs` dependencies. Quality failures can therefore
 report without waiting for browser provisioning. Preserve stable check names
 and report total runner-minutes as well as wall time.
 
-**Measured hypothesis:** existing averages predict the longest lane at roughly
-106 seconds before other improvements: about 52 seconds / 32.9% less frontend
-wall time (1.49× speedup). The unoptimized lane sum is about 202 seconds versus
-the current 158 seconds: 44 additional runner-seconds / 27.8% more runner time.
-After increments 1 and 3 it should be lower, but must remain at or below **1.5×
-the 158-second baseline (237 runner-seconds)**.
+**Result:** frontend wall median fell from 128 seconds to 87 seconds (32.0%;
+1.47×). Against the synchronized original baseline, it fell from 158 seconds to
+87 seconds (44.9%; 1.82×). Runner median rose to 179 seconds (39.8%) but stayed
+below the approved 237-second ceiling. The first CI run exposed a shared
+semantic-autocomplete document race; isolating that fixture produced three
+green runs.
 
 **Acceptance:**
 
@@ -384,9 +396,8 @@ check only.
 
 The analyzer-free build is never used for CI or the final pre-PR verification.
 
-**Measured hypothesis:** a clean local solution build fell from 48.1 seconds to
-23.6 seconds with analyzers disabled (24.5 seconds / 50.9% reduction; 2.04×
-speedup).
+**Result:** clean build fell from 18.64 seconds to 11.64 seconds (37.6%; 1.60×);
+warm edit build fell from 10.12 seconds to 6.27 seconds (38.0%; 1.61×).
 
 **Acceptance:**
 
@@ -415,6 +426,9 @@ Do not alter xUnit parallelization or replace the full test task.
 - the full solution test inventory remains green;
 - startup and first-rerun timings are reported separately.
 
+**Result:** project and filtered commands were retained. `dotnet watch test`
+measured slower than a direct project run and was omitted.
+
 ### 8. Add targeted local frontend test commands
 
 **Problem:** frontend contributors run broad unit/browser suites when one
@@ -438,12 +452,15 @@ Do not override Vitest's worker/pool defaults: the measured default warm run
 - full frontend verification remains green;
 - process startup and first-rerun timings are reported.
 
+**Result:** file/title-scoped tasks were retained. Interactive Vitest watch is
+available, but no non-TTY speed claim is recorded.
+
 ### 9. Evaluate frontend quality caches independently
 
 **Problem:** TypeScript, ESLint, Stylelint, and Prettier repeat unchanged-file
 analysis across local runs.
 
-**Design:** Treat each tool as its own subincrement and commit:
+**Design:** Treat each tool as its own sub-increment and commit:
 
 | Subincrement | Tool-native mechanism |
 | --- | --- |
@@ -452,7 +469,7 @@ analysis across local runs.
 | 9c | Stylelint `--cache` |
 | 9d | Prettier `--cache` |
 
-For each subincrement:
+For each sub-increment:
 
 - use content-aware/tool-managed invalidation;
 - place its data under one ignored project cache directory;
@@ -468,7 +485,16 @@ For each subincrement:
 - deleting that cache restores a valid cold run;
 - no cache file is committed; and
 - `npm run check` and all frontend tests remain green after every accepted
-  subincrement.
+  sub-increment.
+
+**Result:**
+
+| Cache | Warm before | Warm after | Reduction | Speedup |
+| --- | ---: | ---: | ---: | ---: |
+| TypeScript | 4.82 s | 2.06 s | 57.3% | 2.34× |
+| ESLint | 3.24 s | 1.43 s | 55.9% | 2.27× |
+| Stylelint | 3.05 s | 2.14 s | 29.8% | 1.43× |
+| Prettier | 16.87 s | 2.78 s | 83.5% | 6.07× |
 
 ## Approval-gated follow-ups
 
@@ -491,7 +517,7 @@ the live server and account for required-check behavior.
 
 ### Rebalance the browser-test pyramid
 
-The static suite has 50 tests, many loading an 874 KiB report to assert one
+The static suite has 59 tests, many loading a large self-contained report to assert one
 control or visual detail. Moving suitable cases to Vitest could materially
 reduce browser time, but it is a larger test refactor. It requires a separate
 coverage matrix identifying:
@@ -525,7 +551,6 @@ approval.
 | --- | --- |
 | Built CLI DLL missing or stale | The live E2E setup fails before Playwright with the expected build command. |
 | Headed browser test added later | Remove `--only-shell` or install the full browser when that test is introduced. |
-| Coverage runs stale binaries | Enforce the Release build dependency and keep `--no-build` out of standalone coverage usage without that prerequisite. |
 | Parallel jobs duplicate setup | Report runner-minutes; retain the split only when wall-time value justifies the cost. |
 | Concurrent tests share files/ports | Preserve current fixture isolation; any collision or flake rejects the change. |
 | Cache returns stale results | Use tool-native content-aware caches and add all cache paths to ignores. |
@@ -566,7 +591,6 @@ For each CI-affecting increment:
 | Surface | Targeted check | Full check |
 | --- | --- | --- |
 | Live server launch | `npm run e2e:live` | Frontend CI live lane |
-| Coverage reuse | Release coverage command | Full `.NET` CI job + report threshold |
 | Browser provisioning | Static and live Playwright | Both frontend E2E lanes |
 | CI concurrency | Two rapid commits in a test PR | Latest run completes all lanes |
 | Frontend split | Each lane independently | Combined inventory and generated diff |
@@ -575,62 +599,41 @@ For each CI-affecting increment:
 | Targeted frontend tests | Vitest/Playwright scoped commands | Existing `npm run check` + E2E |
 | Frontend caches | Cold/repeat/invalidation commands | Existing uncached-equivalent checks |
 
-## Implementation and commit plan
+## Implementation discipline
 
-After explicit note approval:
+Future optimization changes keep the same discipline:
 
-1. Use **headless implementation mode**.
-2. Commit this approved note alone.
-3. Fetch and merge the latest `origin/main` into the optimization branch before
-   the first implementation increment;
-4. Before each increment, state a short summary of the targeted churn, proposed
-   change, and success measurement;
-5. Implement one optimization increment at a time.
-6. Use a focused failing/characterization test where behavior changes, then make
-   it pass;
-7. Benchmark locally and run the required full checks.
-8. After each increment, report whether its goal was achieved, including
-   baseline, optimized time, reduction, ratio, speedup factor, test results, and
-   any deviation;
-9. Update `AGENTS.md`, `.github/copilot-instructions.md`, relevant path-specific
-   instructions, `CONTRIBUTING.md`, and VS Code task guidance whenever an
-   increment changes the recommended development workflow;
-10. For a local-only increment, commit it after local acceptance.
-11. For a CI-affecting increment, create and push a provisional semantic commit,
-   collect the required three successful CI runs, then retain it only when it
-   meets acceptance; otherwise add a normal revert commit (never rewrite the
-   pushed branch);
-12. Stop and request approval if implementation exposes an application-semantic,
-   coverage-scope, branch-policy, or large test-refactor decision;
-13. After all approved increments, crosscheck code/results against this note and
-   update it with achieved values.
+- synchronize from `origin/main` before implementation;
+- make one independently measurable change per commit;
+- characterize behavior before changing orchestration;
+- report baseline, optimized time, reduction, ratio, and speedup;
+- retain full analyzer/test/coverage gates;
+- use normal revert commits for failed pushed experiments; and
+- update contributor and agent guidance with workflow changes.
 
-Planned commit shape:
+## Final scope
 
-```text
-docs: add development-cycle optimization note
-test(web): launch built CLI directly in live e2e
-ci: reuse release binaries for coverage
-ci: reduce Playwright provisioning churn
-ci: cancel stale workflow runs
-ci: split frontend verification lanes
-chore(dev): add analyzer-free local dotnet build
-chore(dev): add targeted local dotnet tests
-chore(web): add targeted local frontend tests
-chore(web): cache local TypeScript checks
-chore(web): cache local ESLint checks
-chore(web): cache local Stylelint checks
-chore(web): cache local Prettier checks
-docs: reconcile development-cycle optimization results
-```
+Implemented:
 
-## Approved scope
+- one built CLI with direct DLL live-server launches;
+- headless-shell-only Chromium provisioning;
+- same-PR/ref stale-run cancellation;
+- parallel frontend quality/static/live lanes with a stable aggregate check;
+- additive analyzer-free and targeted local tasks; and
+- ignored, content-aware caches for four frontend quality tools.
 
-- Implement increments 1–8 and cache increments 9a–9d in headless mode.
-- Retain an increment only when it meets the fixed `≥5 seconds or ≥20%`
-  threshold and non-overlapping-ranges noise rule.
-- Accept up to 1.5× baseline frontend runner time in exchange for reduced CI wall
-  time.
-- Keep changed-path frontend gating, duplicate-test removal, Playwright-container
-  adoption, test-pyramid refactoring, application semantics, and branch
-  protection outside the initial sequence. Each requires separate approval.
+Changed:
+
+- semantic autocomplete received an isolated live fixture after parallel CI
+  exposed its shared-state race;
+- .NET watch mode was omitted because it was slower than direct project tests.
+
+Not implemented:
+
+- Release coverage reuse (skipped to preserve exact Debug sequence-point scope);
+- changed-path frontend gating;
+- removal of the separate non-coverage test pass;
+- Playwright-container adoption;
+- browser-test-pyramid refactoring;
+- application semantics; and
+- branch-protection changes.

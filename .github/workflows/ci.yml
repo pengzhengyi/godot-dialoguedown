@@ -80,8 +80,67 @@ jobs:
           name: coverage-report
           path: coverage-report
 
-  frontend:
-    name: Frontend
+  frontend_quality:
+    name: Frontend quality
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/DialogueDown.Visualization/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/DialogueDown.Visualization/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check (typecheck, lint, style, format, unit tests)
+        run: npm run check
+
+      - name: Build single-file report
+        run: npm run build
+
+      - name: Verify the committed report and launcher are in sync with web/ sources
+        run: git diff --exit-code -- dist/report.html dist/launcher.html
+
+  frontend_static:
+    name: Frontend static E2E
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/DialogueDown.Visualization/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/DialogueDown.Visualization/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: End-to-end tests (Playwright, static)
+        run: npm run e2e
+
+  frontend_live:
+    name: Frontend live E2E
     runs-on: ubuntu-latest
 
     defaults:
@@ -110,17 +169,22 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps --only-shell chromium
 
-      - name: Check (typecheck, lint, style, format, unit tests)
-        run: npm run check
-
-      - name: Build single-file report
-        run: npm run build
-
-      - name: Verify the committed report and launcher are in sync with web/ sources
-        run: git diff --exit-code -- dist/report.html dist/launcher.html
-
-      - name: End-to-end tests (Playwright, static)
-        run: npm run e2e
-
       - name: End-to-end tests (Playwright, live server)
         run: npm run e2e:live
+
+  frontend:
+    name: Frontend
+    if: always()
+    needs: [frontend_quality, frontend_static, frontend_live]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify every frontend lane passed
+        env:
+          QUALITY_RESULT: ${{ needs.frontend_quality.result }}
+          STATIC_RESULT: ${{ needs.frontend_static.result }}
+          LIVE_RESULT: ${{ needs.frontend_live.result }}
+        run: |
+          test "$QUALITY_RESULT" = "success"
+          test "$STATIC_RESULT" = "success"
+          test "$LIVE_RESULT" = "success"

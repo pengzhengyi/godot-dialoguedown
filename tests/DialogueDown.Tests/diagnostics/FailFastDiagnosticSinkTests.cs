@@ -1,4 +1,5 @@
 using DialogueDown.Diagnostics;
+using DialogueDown.Diagnostics.Errors;
 using static DialogueDown.Tests.Support.DiagnosticsFactory;
 
 namespace DialogueDown.Tests.Diagnostics;

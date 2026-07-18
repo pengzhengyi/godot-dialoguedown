@@ -1,9 +1,10 @@
 using DialogueDown.Common.Errors;
 using DialogueDown.Diagnostics;
+using DialogueDown.Diagnostics.Errors;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DiagnosticsFactory;
 
-namespace DialogueDown.Tests.Diagnostics;
+namespace DialogueDown.Tests.Diagnostics.Errors;
 
 public sealed class DiagnosticExceptionTests
 {

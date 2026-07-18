@@ -1,7 +1,8 @@
 using DialogueDown.Common;
 using DialogueDown.Common.Errors;
+using DialogueDown.Diagnostics;
 
-namespace DialogueDown.Diagnostics;
+namespace DialogueDown.Diagnostics.Errors;
 
 /// <summary>
 /// The exception a <em>fail-fast</em> compile throws when a stage reports its first error: it

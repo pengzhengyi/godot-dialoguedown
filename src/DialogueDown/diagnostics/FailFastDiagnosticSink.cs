@@ -1,3 +1,5 @@
+using DialogueDown.Diagnostics.Errors;
+
 namespace DialogueDown.Diagnostics;
 
 /// <summary>

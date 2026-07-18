@@ -4,7 +4,7 @@ namespace DialogueDown.Architecture.Tests;
 
 /// <summary>
 /// Group B — layering inside the core. The compiler pipeline flows
-/// <c>Markdown -> Script.Ast -> Desugar -> Semantics -> Transpiler -> Compilation</c>
+/// <c>Markdown -> Script.Ast -> Desugar -> Validation -> Semantics -> Transpiler -> Compilation</c>
 /// atop the <c>Common</c> and <c>Graph</c> foundations. Each stage may depend only
 /// on stages beneath it, so a change to a later stage never ripples backward.
 /// </summary>
@@ -96,6 +96,21 @@ public sealed class CoreLayeringTests
             .ResideInNamespace(Architecture.ScriptDesugar)
             .ShouldNot()
             .HaveDependencyOnAny(
+                Architecture.Markdown,
+                Architecture.ScriptTranspiler)
+            .GetResult()
+            .ShouldPass();
+    }
+
+    [Fact]
+    public void Validation_RunsBeforeSemantics_SoItDoesNotDependOnTheSemanticModel()
+    {
+        Types.InAssembly(Architecture.CoreAssembly)
+            .That()
+            .ResideInNamespace(Architecture.ScriptValidation)
+            .ShouldNot()
+            .HaveDependencyOnAny(
+                Architecture.ScriptSemantics,
                 Architecture.Markdown,
                 Architecture.ScriptTranspiler)
             .GetResult()

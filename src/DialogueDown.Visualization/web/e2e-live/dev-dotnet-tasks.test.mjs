@@ -22,3 +22,18 @@ test("the fast .NET build skips analyzers without replacing the full build", () 
     assert.doesNotMatch(full.command, /RunAnalyzers=false/);
     assert.deepEqual(full.group, { kind: "build", isDefault: true });
 });
+
+test("targeted .NET tasks select a project and optional filter", () => {
+    const project = tasks.find((task) => task.label === "test: project");
+    const filtered = tasks.find((task) => task.label === "test: filter");
+
+    assert.ok(project);
+    assert.match(project.command, /\$\{input:dotnetTestProject\}/);
+    assert.match(project.command, /--no-build/);
+    assert.match(project.command, /--no-restore/);
+
+    assert.ok(filtered);
+    assert.match(filtered.command, /\$\{input:dotnetTestProject\}/);
+    assert.match(filtered.command, /\$\{input:dotnetTestFilter\}/);
+    assert.match(filtered.command, /--filter/);
+});

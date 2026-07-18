@@ -41,6 +41,22 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "test: project",
+      "detail": ".NET inner loop: run one already-built test project.",
+      "type": "shell",
+      "command": "dotnet test ${input:dotnetTestProject} --configuration Release --no-build --no-restore",
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test: filter",
+      "detail": ".NET inner loop: run a dotnet test filter in one already-built project.",
+      "type": "shell",
+      "command": "dotnet test ${input:dotnetTestProject} --configuration Release --no-build --no-restore --filter \"${input:dotnetTestFilter}\"",
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "coverage",
       "detail": ".NET: run tests with coverage and generate a report.",
       "type": "shell",
@@ -119,6 +135,28 @@
       "type": "shell",
       "command": "lychee --no-progress --timeout 10 README.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md CHANGELOG.md .github/pull_request_template.md",
       "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "dotnetTestProject",
+      "type": "pickString",
+      "description": "Test project",
+      "options": [
+        "tests/DialogueDown.Tests/DialogueDown.Tests.csproj",
+        "tests/DialogueDown.ConfigurationLoader.Tests/DialogueDown.ConfigurationLoader.Tests.csproj",
+        "tests/DialogueDown.Cli.Tests/DialogueDown.Cli.Tests.csproj",
+        "tests/DialogueDown.Visualization.Tests/DialogueDown.Visualization.Tests.csproj",
+        "tests/DialogueDown.Visualization.Live.Tests/DialogueDown.Visualization.Live.Tests.csproj",
+        "tests/DialogueDown.Architecture.Tests/DialogueDown.Architecture.Tests.csproj"
+      ],
+      "default": "tests/DialogueDown.Tests/DialogueDown.Tests.csproj"
+    },
+    {
+      "id": "dotnetTestFilter",
+      "type": "promptString",
+      "description": "dotnet test filter (for example: FullyQualifiedName~TextTests)",
+      "default": "FullyQualifiedName~"
     }
   ]
 }

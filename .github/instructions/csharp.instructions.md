@@ -96,6 +96,11 @@ dotnet build DialogueDown.sln --configuration Release --no-restore \
 This is an inner-loop build only. It deliberately skips StyleCop and Sonar; run
 the normal analyzer-enabled build and tests before pushing:
 
+Use the VS Code tasks `test: project` and `test: filter` after a successful build
+to run only the affected test project or behavior. `dotnet watch test` was
+measured slower than a direct project run on the development machine, so it is
+not part of the recommended loop.
+
 ```bash
 dotnet test DialogueDown.sln --configuration Release
 ```

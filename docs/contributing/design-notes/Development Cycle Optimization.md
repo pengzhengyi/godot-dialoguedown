@@ -80,36 +80,36 @@ Out of scope without a separate approval:
 
 ## Measured baseline
 
-Baseline commit: `03623e5` (`main`, after PR #95). Measurements were collected
-on July 18, 2026. CI values average four successful GitHub Actions runs; local
-values are diagnostic measurements on the development Mac and are most useful
-for before/after ratios on the same machine.
+Baseline commit: `4a97605` (`main`). Measurements were refreshed on July 18,
+2026 after synchronizing the optimization branch. CI values average four
+successful GitHub Actions runs; local values are diagnostic measurements on the
+development Mac and are most useful for before/after ratios on the same machine.
 
 ### CI baseline
 
 | Job | Average wall time | Recent range |
 | --- | ---: | ---: |
-| Frontend | **140 s** | 127–149 s |
-| .NET | **81 s** | 73–89 s |
+| Frontend | **158 s** | 152–166 s |
+| .NET | **83 s** | 75–88 s |
 
 The frontend job controls the overall CI duration.
 
 | Frontend step | Average | Share of frontend job |
 | --- | ---: | ---: |
-| Live Playwright E2E | **29.5 s** | 21% |
-| Install Playwright browser | **26.0 s** | 19% |
-| Typecheck/lint/format/Vitest | **24.0 s** | 17% |
-| Build CLI for live E2E | **20.8 s** | 15% |
-| Static Playwright E2E | **15.8 s** | 11% |
+| Live Playwright E2E | **41.8 s** | 26% |
+| Typecheck/lint/format/Vitest | **28.5 s** | 18% |
+| Install Playwright browser | **24.5 s** | 16% |
+| Build CLI for live E2E | **19.5 s** | 12% |
+| Static Playwright E2E | **19.0 s** | 12% |
 
-The five steps above account for about 83% of frontend wall time.
+The five steps above account for about 84% of frontend wall time.
 
 | .NET step | Average |
 | --- | ---: |
-| Collect coverage | **27.0 s** |
-| Build | **17.2 s** |
-| Test | **8.5 s** |
-| Set up .NET | **8.2 s** |
+| Collect coverage | **28.5 s** |
+| Build | **18.2 s** |
+| Test | **8.8 s** |
+| Set up .NET | **8.5 s** |
 | Restore | **6.8 s** |
 | Restore local tools | **5.5 s** |
 
@@ -120,19 +120,22 @@ Debug after the explicit Release build and Release test pass.
 
 | Command or operation | Measured time |
 | --- | ---: |
-| `npm run check` (warm) | 40.5 s |
-| Vitest (cold / warm) | 49.1 s / 15.7 s |
-| Static Playwright E2E (warm) | 36.8 s |
-| Live Playwright E2E | 112.7 s |
+| Release CLI build before live E2E | 46.2 s |
+| Live Playwright E2E (cold) | 157.6 s |
+| Live Playwright E2E (warm median of three) | 84.5 s |
+| Six concurrent `dotnet run` startup probes | 70.82 s |
+| Six concurrent built-DLL startup probes | 2.91 s |
+| `npm run check` (pre-sync diagnostic) | 40.5 s |
+| Vitest cold/warm (pre-sync diagnostic) | 49.1 s / 15.7 s |
+| Static Playwright E2E (pre-sync diagnostic) | 36.8 s |
 | Current coverage pass | 101.9 s |
 | Release/no-build coverage experiment | 53.4 s |
 | Clean Release solution build, analyzers on/off | 48.1 s / 23.6 s |
-| Four concurrent `dotnet run` CLI launches | 21.85 s |
-| Four concurrent built-DLL launches | 1.31 s |
 
 The local runtime differs from CI (Node 26 vs Node 20; .NET SDK 10 vs SDK 8), so
 absolute local/CI values are not compared directly. Each implementation
-increment compares before/after runs in the same environment.
+increment refreshes its own baseline and compares before/after runs in the same
+environment.
 
 ## Success metrics
 
@@ -216,7 +219,7 @@ full relevant suite before it is committed.
 
 ### 1. Launch the built CLI directly in live E2E
 
-**Problem:** CI explicitly builds `DialogueDown.Cli`, then four Playwright
+**Problem:** CI explicitly builds `DialogueDown.Cli`, then six Playwright
 web-server launchers invoke `dotnet run --project ...`, repeating MSBuild/project
 evaluation and contending on the same project graph.
 
@@ -227,17 +230,17 @@ Playwright starts. Resolve that build's CLI DLL and run:
 dotnet path/to/DialogueDown.Cli.dll <arguments>
 ```
 
-Keep one shared launcher helper so all four fixtures derive the DLL path and
+Keep one shared launcher helper so all six fixtures derive the DLL path and
 arguments consistently. A clean `npm run e2e:live` must perform the one build;
-the four server processes must never build independently. This makes a stale or
+the six server processes must never build independently. This makes a stale or
 missing DLL impossible on the supported entry point.
 
-**Measured hypothesis:** four concurrent startup probes fell from 21.85 seconds
-to 1.31 seconds (20.54 seconds / 94% reduction; 16.7× startup speedup).
+**Measured hypothesis:** six concurrent startup probes fell from 70.82 seconds
+to 2.91 seconds (67.91 seconds / 95.9% reduction; 24.3× startup speedup).
 
 **Acceptance:**
 
-- all 31 live E2E tests pass without retries;
+- all 36 live E2E tests pass without retries;
 - a clean `npm run e2e:live` builds the CLI exactly once;
 - process-tree teardown still stops each server;
 - local and CI live-E2E wall time is reported.
@@ -287,7 +290,7 @@ sampled CI download. Linux system dependencies remain and still need measurement
 
 **Acceptance:**
 
-- all 50 static and 31 live tests launch Chromium successfully;
+- all 59 static and 36 live tests launch Chromium successfully;
 - no test requires headed Chrome;
 - CI browser-provisioning and green-run time are reported.
 
@@ -321,7 +324,7 @@ other.
 ### 5. Run frontend CI lanes in parallel
 
 **Problem:** quality, static E2E, CLI build, and live E2E execute serially in one
-140-second job, although most work is independent.
+158-second job, although most work is independent.
 
 **Design:** Split into three self-contained lanes:
 
@@ -329,29 +332,29 @@ other.
   typecheck/lint/format/Vitest, two-page Vite build, committed-bundle
   verification;
 - **Frontend static E2E** — checkout, Node setup, `npm ci`, Chromium
-  provisioning, and 50 static tests;
+  provisioning, and 59 static tests;
 - **Frontend live E2E** — checkout, Node + .NET setup, `npm ci`, one Release CLI
-  build, Chromium provisioning, and 31 live tests launched from the built DLL.
+  build, Chromium provisioning, and 36 live tests launched from the built DLL.
 
 All three start without `needs` dependencies. Quality failures can therefore
 report without waiting for browser provisioning. Preserve stable check names
 and report total runner-minutes as well as wall time.
 
 **Measured hypothesis:** existing averages predict the longest lane at roughly
-96 seconds before other improvements: about 44 seconds / 31% less frontend wall
-time (1.46× speedup). The unoptimized lane sum is about 186 seconds versus the
-current 140 seconds: 46 additional runner-seconds / 33% more runner time. After
-increments 1 and 3 it should be lower, but must remain at or below **1.5× the
-140-second baseline (210 runner-seconds)**.
+106 seconds before other improvements: about 52 seconds / 32.9% less frontend
+wall time (1.49× speedup). The unoptimized lane sum is about 202 seconds versus
+the current 158 seconds: 44 additional runner-seconds / 27.8% more runner time.
+After increments 1 and 3 it should be lower, but must remain at or below **1.5×
+the 158-second baseline (237 runner-seconds)**.
 
 **Acceptance:**
 
 - every verification responsibility belongs to exactly one lane; setup steps
   may repeat where lane isolation requires them and count toward runner time;
 - each lane passes three consecutive CI runs;
-- combined test counts remain 249 Vitest + 50 static + 31 live;
+- combined test counts remain 293 Vitest + 59 static + 36 live;
 - frontend wall time improves without increased retries/flakes;
-- total frontend runner time stays at or below 210 seconds unless separately
+- total frontend runner time stays at or below 237 seconds unless separately
   approved;
 - generated bundles are still verified before merge.
 

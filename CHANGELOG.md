@@ -48,7 +48,8 @@ changes easy to categorize.
   **create** in place when a project has none — or edits the source behind any graph node in
   the inspector, or creates a new script from the launcher or a not-yet-existing
   path — or discards unsaved edits to restore the last saved version — with
-  search, section folding, Markdown formatting shortcuts, document-aware autocomplete
+  a compact find-and-replace panel, section folding, Markdown formatting shortcuts,
+  document-aware autocomplete
   you accept with Tab or Enter, with an icon per symbol kind, synchronized
   editor/preview scrolling, and a
   **light/dark** theme.

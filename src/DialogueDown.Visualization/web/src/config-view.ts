@@ -19,7 +19,7 @@ import {
     foldService,
     bracketMatching,
 } from "@codemirror/language";
-import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { tags } from "@lezer/highlight";
 import type { ConfigReport, ConfiguredSpeakerView } from "./model";
@@ -30,6 +30,7 @@ import { createMaximizeButton } from "./maximize-button";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { showToast } from "./toast";
 import { configCompletions } from "./config-completions";
+import { compactSearch } from "./search-panel";
 import { escapeHtml } from "./text";
 
 /** Options for the Config tab. */
@@ -236,7 +237,7 @@ function mountEditor(
                 highlightActiveLine(),
                 highlightSelectionMatches(),
                 bracketMatching(),
-                search(),
+                compactSearch(),
                 configCloseBrackets,
                 editability.of(editableConfig(editable, reservedTags)),
                 StreamLanguage.define(toml),

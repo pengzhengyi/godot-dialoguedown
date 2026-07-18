@@ -21,6 +21,7 @@ bundle verification, or end-to-end behavior.
   - [CI baseline](#ci-baseline)
   - [Local baseline](#local-baseline)
 - [Success metrics](#success-metrics)
+- [Implementation results](#implementation-results)
 - [Safety invariants](#safety-invariants)
 - [Target verification flow](#target-verification-flow)
 - [Optimization increments](#optimization-increments)
@@ -170,6 +171,19 @@ noise and revert the increment.
 The timing threshold does not apply when an increment removes recurring churn
 whose value is primarily reliability (for example, cancelling an obsolete CI
 run).
+
+## Implementation results
+
+| Increment | Result | Local measurement | CI measurement |
+| --- | --- | --- | --- |
+| 1. Direct built-CLI launch | **Achieved** | Warm live E2E: 84.48 s → 28.29 s; 56.19 s / 66.5% reduction; 2.99× speedup | Frontend wall: 158 s → 144 s; 14 s / 8.9%; combined CLI-build + live-E2E: 61.3 s → 47.0 s; 23.3%; three green runs |
+| 2. Release/no-build coverage | **Skipped** | Warm coverage: 127.64 s → 95.96 s; 24.8% faster, but valid sequence-point lines changed 3,601 → 2,828 | Not pushed; exact Debug coverage retained by approval |
+| 3. Headless-shell-only Chromium | **Achieved** | Fresh install: 67.21 s → 19.67 s; 47.54 s / 70.7%; 3.42× speedup; installed data 65.5% smaller | Browser install: 24.5 s → 17.0 s; 30.6%; frontend wall from Increment 1: 144 s → 128 s; 11.1%; three green runs |
+
+Increment 1 had one non-reproducing local cold launcher timeout. It then passed
+an isolated retry, one full retry, one clean-output run, three consecutive warm
+runs, and three CI runs without retry. The incident remains recorded for the
+final flakiness crosscheck.
 
 ## Safety invariants
 

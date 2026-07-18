@@ -120,6 +120,10 @@ flowchart TB
     TABS --> GX["6. Graph Position Preservation"]
     GX --> AC["7. Source Editor Autocompletion"]
     AC --> LIVE["8-12. Live session:<br/>Hot Reload → File Launcher → Live Edit → View and Edit Modes → Node Editing"]
+    LIVE --> CFG["13. Configuration Tab"]
+    CFG --> CFGLE["14. Configuration Tab — Live Edit"]
+    CFGLE --> CFGAC["15. Configuration Tab — Autocompletion"]
+    CFGAC --> CFGCN["16. Configuration Tab — Create New"]
 ```
 
 | Order | Note | What it covers | Status |
@@ -136,6 +140,10 @@ flowchart TB
 | 10 | [Live Visualization — Live Edit](./Live%20Visualization%20-%20Live%20Edit.md) | Edit the source in the report; compile-as-you-type and save to disk | Implemented |
 | 11 | [Live Visualization — View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) | The current unified model: a served session with a runtime View⇄Edit toggle; static becomes an export | Implemented |
 | 12 | [Live Visualization — Node Editing](./Live%20Visualization%20-%20Node%20Editing.md) | Edit the source behind a graph node in the inspector; splice it back and recompile | Implemented |
+| 13 | [Configuration Tab](./Configuration%20Tab.md) | The applied `dialogue.toml` as a first tab: TOML source beside its configured speakers (Stage 1, read-only) | Implemented |
+| 14 | [Configuration Tab — Live Edit](./Configuration%20Tab%20-%20Live%20Edit.md) | Edit the `dialogue.toml` in the report; Save recompiles and refreshes the configured speakers (Stage 2a) | Implemented |
+| 15 | [Configuration Tab — Autocompletion](./Configuration%20Tab%20-%20Autocompletion.md) | Schema autocompletion for the editable `dialogue.toml`: the `[[speakers]]` table, its keys, and the reserved tag names (Stage 2b) | Implemented |
+| 16 | [Configuration Tab — Create New](./Configuration%20Tab%20-%20Create%20New.md) | Create a `dialogue.toml` in place when a project has none, then drop into the editable Config tab (Stage 3) | Implemented |
 
 ### Other notes
 

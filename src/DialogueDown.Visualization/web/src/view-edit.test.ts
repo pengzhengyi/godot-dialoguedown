@@ -18,11 +18,19 @@ function fakePorts(overrides: Partial<ModeControllerPorts> = {}) {
         updateStages: vi.fn(),
         setEditable: vi.fn(),
         setContent: vi.fn(),
+        setConfigEditable: vi.fn(),
+        setConfigContent: vi.fn(),
+        updateConfigSpeakers: vi.fn(),
+        setConfigStale: vi.fn(),
+        markSourceDirty: vi.fn(),
+        markConfigDirty: vi.fn(),
+        isConfigTabActive: vi.fn(() => false),
         showBanner: vi.fn(),
     };
     const ports: ModeControllerPorts = {
         app,
-        live: fakeLive(),
+        dialogueLive: fakeLive(),
+        configLive: null,
         setEditControlsVisible: vi.fn(),
         reflect: vi.fn(),
         confirmDiscard: vi.fn(() => true),
@@ -47,11 +55,11 @@ describe("createModeController", () => {
         const c = createModeController("view", ports);
 
         c.onEditorChange("# a"); // View: a reload, not a user edit
-        expect(ports.live.onEdit).not.toHaveBeenCalled();
+        expect(ports.dialogueLive.onEdit).not.toHaveBeenCalled();
 
         c.switchTo("edit");
         c.onEditorChange("# b");
-        expect(ports.live.onEdit).toHaveBeenCalledWith("# b");
+        expect(ports.dialogueLive.onEdit).toHaveBeenCalledWith("# b");
     });
 
     it("re-syncs the editor and graphs on a reload in View", () => {
@@ -63,7 +71,7 @@ describe("createModeController", () => {
         expect(app.setContent).toHaveBeenCalledWith("# fresh");
         expect(app.updateStages).toHaveBeenCalledWith([]);
         expect(app.showBanner).toHaveBeenCalledWith(null);
-        expect(ports.live.onDiskChange).not.toHaveBeenCalled();
+        expect(ports.dialogueLive.onDiskChange).not.toHaveBeenCalled();
     });
 
     it("only chips (never reloads) on a disk change in Edit", () => {
@@ -72,7 +80,7 @@ describe("createModeController", () => {
 
         c.onReload({ source: "# fresh", stages: [] });
 
-        expect(ports.live.onDiskChange).toHaveBeenCalledOnce();
+        expect(ports.dialogueLive.onDiskChange).toHaveBeenCalledOnce();
         expect(app.setContent).not.toHaveBeenCalled();
     });
 
@@ -89,7 +97,7 @@ describe("createModeController", () => {
 
     it("prompts before leaving Edit while dirty and stays put when declined", () => {
         const { ports, app } = fakePorts({
-            live: fakeLive(true),
+            dialogueLive: fakeLive(true),
             confirmDiscard: vi.fn(() => false),
         });
         const c = createModeController("edit", ports);
@@ -100,12 +108,12 @@ describe("createModeController", () => {
         expect(c.mode).toBe("edit");
         expect(ports.confirmDiscard).toHaveBeenCalledOnce();
         expect(app.setEditable).not.toHaveBeenCalled();
-        expect(ports.live.discard).not.toHaveBeenCalled();
+        expect(ports.dialogueLive.discard).not.toHaveBeenCalled();
     });
 
     it("discards dirty edits and switches when the prompt is accepted", () => {
         const { ports, app } = fakePorts({
-            live: fakeLive(true),
+            dialogueLive: fakeLive(true),
             confirmDiscard: vi.fn(() => true),
         });
         const c = createModeController("edit", ports);
@@ -113,7 +121,7 @@ describe("createModeController", () => {
         c.switchTo("view");
 
         expect(c.mode).toBe("view");
-        expect(ports.live.discard).toHaveBeenCalledOnce();
+        expect(ports.dialogueLive.discard).toHaveBeenCalledOnce();
         expect(app.setEditable).toHaveBeenLastCalledWith(false);
     });
 
@@ -124,6 +132,42 @@ describe("createModeController", () => {
 
         c.switchTo("view");
 
-        expect(ports.live.discard).not.toHaveBeenCalled();
+        expect(ports.dialogueLive.discard).not.toHaveBeenCalled();
+    });
+
+    it("makes both the Source and config editors editable in Edit", () => {
+        const { ports, app } = fakePorts({ configLive: fakeLive() });
+        const c = createModeController("view", ports);
+
+        c.switchTo("edit");
+
+        expect(app.setEditable).toHaveBeenLastCalledWith(true);
+        expect(app.setConfigEditable).toHaveBeenLastCalledWith(true);
+    });
+
+    it("routes config edits to the config state machine only in Edit", () => {
+        const configLive = fakeLive();
+        const { ports } = fakePorts({ configLive });
+        const c = createModeController("view", ports);
+
+        c.onConfigEditorChange("x = 1"); // View: ignored
+        expect(configLive.onEdit).not.toHaveBeenCalled();
+
+        c.switchTo("edit");
+        c.onConfigEditorChange("y = 2");
+        expect(configLive.onEdit).toHaveBeenCalledWith("y = 2");
+    });
+
+    it("prompts before leaving Edit when only the config is dirty, and discards both", () => {
+        const configLive = fakeLive(true);
+        const { ports } = fakePorts({ configLive, confirmDiscard: vi.fn(() => true) });
+        const c = createModeController("edit", ports);
+
+        c.switchTo("view");
+
+        expect(ports.confirmDiscard).toHaveBeenCalledOnce();
+        expect(configLive.discard).toHaveBeenCalledOnce();
+        expect(ports.dialogueLive.discard).toHaveBeenCalledOnce();
+        expect(c.mode).toBe("view");
     });
 });

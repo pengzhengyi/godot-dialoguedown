@@ -1,9 +1,11 @@
-import type { Report, Stage } from "./model";
+import type { Report, Stage, ConfigReport } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
+import { createConfigView, type ConfigViewHandle, type ConfigViewOptions } from "./config-view";
+import { consumeOpenConfigTab } from "./config-create";
 import type { DialogueSymbolSource } from "./dialogue-symbols";
 import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
@@ -11,11 +13,28 @@ import { initFullscreen } from "./fullscreen";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { initTooltips, initTabTooltips } from "./tooltips";
 import { isTextEntryTarget } from "./text-entry";
+import { escapeHtml } from "./text";
 import { setHelp } from "./help";
 
 // The Source tab shows the compiler input, not a projected stage, so its hover
 // tip is a constant here rather than a field on the model.
 const SOURCE_TIP = "The document as written, beside a live Markdown preview.";
+
+// The Config tab shows the applied dialogue.toml, so its tip is a constant here too.
+const CONFIG_TIP = "The applied configuration — its dialogue.toml beside the configured speakers.";
+
+// Feather Icons (MIT) `settings` gear, marking the Config tab.
+const GEAR_ICON =
+    '<svg class="tab-icon" viewBox="0 0 24 24" width="14" height="14" fill="none"' +
+    ' stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' +
+    ' aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0' +
+    " .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1" +
+    " 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0" +
+    " 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65" +
+    " 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0" +
+    " 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0" +
+    " 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2" +
+    ' 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>';
 
 /** How the Source tab's editor is wired for a served session. */
 export interface SourceOptions {
@@ -23,6 +42,13 @@ export interface SourceOptions {
     editable: boolean;
     /** Called with the new buffer on every editor change (edits, or a View-mode reload). */
     onChange(buffer: string): void;
+    /** Called with the new config (TOML) buffer on every config-editor change. */
+    configOnChange?(buffer: string): void;
+    /**
+     * Create a `dialogue.toml` for a project that has none — the Config tab's no-config call to
+     * action (Edit only). Absent for the static export.
+     */
+    onCreateConfig?(): Promise<void>;
     /**
      * Where the Source editor's autocompletion draws its symbols. Defaults to a document
      * scan; a served session supplies the semantic analyzer's resolved symbols merged
@@ -44,6 +70,20 @@ export interface AppController {
     setEditable(editable: boolean): void;
     /** Replace the Source buffer (a View-mode hot-reload), keeping the one editor instance. */
     setContent(source: string): void;
+    /** Switch the config (TOML) editor between editable (Edit) and read-only (View) in place. */
+    setConfigEditable(editable: boolean): void;
+    /** Replace the config editor's content — a discard/restore of the last saved TOML. */
+    setConfigContent(source: string): void;
+    /** Re-render the configured speakers after a config recompile. */
+    updateConfigSpeakers(config: ConfigReport): void;
+    /** Mark the config speakers pane as stale (unsaved edits) or up to date. */
+    setConfigStale(stale: boolean): void;
+    /** Toggle the Source tab's unsaved (dirty) marker. */
+    markSourceDirty(dirty: boolean): void;
+    /** Toggle the Config tab's unsaved (dirty) marker. */
+    markConfigDirty(dirty: boolean): void;
+    /** Whether the Config tab is the active tab (so a save/⌘S targets the config). */
+    isConfigTabActive(): boolean;
     /** Show a status message (e.g. a live compile error), or clear it with `null`. */
     showBanner(message: string | null): void;
 }
@@ -59,7 +99,11 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     const bannerEl = document.getElementById("live-banner")!;
     let activeIndex = 0;
     let sourcePresent = false;
+    let configPresent = false;
     let sourceHandle: SourceViewHandle | null = null;
+    let configHandle: ConfigViewHandle | null = null;
+    let sourceTab: Element | null = null;
+    let configTab: Element | null = null;
     // The current View/Edit state, so the inspector knows whether a node is editable.
     let editable = source?.editable ?? false;
 
@@ -129,6 +173,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             panel.setEditable(next);
         },
         setContent: (next) => sourceHandle?.setContent(next),
+        setConfigEditable: (next) => configHandle?.setEditable(next),
+        setConfigContent: (next) => configHandle?.setContent(next),
+        updateConfigSpeakers: (config) => configHandle?.updateSpeakers(config),
+        setConfigStale: (stale) => configHandle?.setStale(stale),
+        markSourceDirty: (dirty) => sourceTab?.classList.toggle("dirty", dirty),
+        markConfigDirty: (dirty) => configTab?.classList.toggle("dirty", dirty),
+        isConfigTabActive: () => configPresent && activeIndex === 0,
         showBanner(message) {
             bannerEl.textContent = message ?? "";
             bannerEl.hidden = message === null;
@@ -141,6 +192,23 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         views = [];
         keys = [];
         sourcePresent = report.source != null;
+        configPresent = report.configuration != null;
+
+        // The Config tab comes first (a gear icon marks it), but the report still opens on
+        // Source below — Config is one click away for a reader who just wants the dialogue.
+        if (report.configuration != null) {
+            const section = document.createElement("section");
+            section.className = "stage config-stage";
+            configHandle = createConfigView(report.configuration, {
+                onToggleFullscreen: fullscreen.toggle,
+                editable: source?.editable ?? false,
+                ...(source?.configOnChange ? { onChange: source.configOnChange } : {}),
+                ...(source?.onCreateConfig ? { onCreateConfig: source.onCreateConfig } : {}),
+            } satisfies ConfigViewOptions);
+            section.appendChild(configHandle.element);
+            addTab("Config", section, null, CONFIG_TIP, null, GEAR_ICON);
+            configTab = tabsEl.lastElementChild;
+        }
 
         if (report.source != null) {
             const section = document.createElement("section");
@@ -152,11 +220,17 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             });
             section.appendChild(sourceHandle.element);
             addTab("Source", section, null, SOURCE_TIP, null);
+            sourceTab = tabsEl.lastElementChild;
         }
         for (const stage of report.stages) {
             addStageTab(stage);
         }
-        if (views.length > 0) activate(0);
+        // Open on Source when present (after the Config tab), else the first tab — unless a
+        // just-created config asked the reloaded page to land on the Config tab.
+        if (views.length > 0) {
+            const openConfig = configPresent && consumeOpenConfigTab();
+            activate(openConfig ? 0 : sourcePresent ? (configPresent ? 1 : 0) : 0);
+        }
     }
 
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
@@ -164,7 +238,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     // fold are recorded live (as the reader adjusts them), so a rebuilt stage restores
     // its position from the store.
     function updateStages(stages: Stage[]): void {
-        const keep = sourcePresent ? 1 : 0;
+        const keep = (configPresent ? 1 : 0) + (sourcePresent ? 1 : 0);
         while (tabsEl.children.length > keep) tabsEl.lastElementChild!.remove();
         while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
         views = views.slice(0, keep);
@@ -224,12 +298,18 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         view: TreeView | null,
         tip: string,
         key: string | null,
+        icon?: string,
     ): void {
         const index = views.length;
         const tab = document.createElement("button");
         tab.className = "tab";
         tab.type = "button";
-        tab.textContent = title;
+        if (icon) {
+            tab.classList.add("tab-with-icon");
+            tab.innerHTML = `${icon}<span class="tab-label">${escapeHtml(title)}</span>`;
+        } else {
+            tab.textContent = title;
+        }
         tab.setAttribute("data-tip", tip);
         // Switching tabs is navigation: block it while there are unsaved edits so a stale
         // graph is never shown beside them (the reader saves or discards first).

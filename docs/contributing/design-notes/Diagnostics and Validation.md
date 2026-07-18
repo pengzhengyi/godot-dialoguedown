@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | **1. Diagnostic model** | the value types that describe a located problem, and the bag that collects them | **Implemented** |
 | **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Implemented** |
-| **3. Structural validator + first rule** | the rule framework (`IDiagnosticRule` + `StructuralValidator`) and the first structural rule — multiple jumps on a line | **Proposed (next)** |
+| **3. Structural validator + first rule** | the rule framework (`IDiagnosticRule` + `StructuralValidator`) and the first structural rule — multiple jumps on a line | **Implemented** |
 | **4. Producers** | migrating recoverable throw sites to reported diagnostics | Deferred |
 | **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
 | **6. Editor seams** | an LSP projection and a web-report overlay | Deferred |
@@ -29,7 +29,7 @@
 - [The diagnostic model — options compared](#the-diagnostic-model--options-compared)
 - [Component 1 — the diagnostic model (implemented)](#component-1--the-diagnostic-model-implemented)
 - [Component 2 — the collection seam (implemented)](#component-2--the-collection-seam-implemented)
-- [Component 3 — the validator (proposed)](#component-3--the-validator-proposed)
+- [Component 3 — the structural validator (implemented)](#component-3--the-structural-validator-implemented)
 - [Later components (deferred)](#later-components-deferred)
 - [Key design decisions](#key-design-decisions)
   - [DD1 — One offset-based core model, internal for now](#dd1--one-offset-based-core-model-internal-for-now)
@@ -207,7 +207,7 @@ Because no stage reports yet, the seam is proved end to end with a **spy stage**
 diagnostic when invoked; a facade test asserts it surfaces on `CompilationResult.Diagnostics` and
 flips `HasErrors`.
 
-## Component 3 — the validator (proposed)
+## Component 3 — the structural validator (implemented)
 
 The first **producer**: a pluggable structural lint pass that inspects the desugared tree and
 reports diagnostics into the sink, turning the collection seam's spy into a real diagnostic end to
@@ -216,28 +216,33 @@ end. It ships the rule framework and the one rule the desugared tree can honestl
 
 | Type | Visibility | Responsibility |
 | --- | --- | --- |
-| `IDiagnosticRule` | internal | one check: inspect the desugared document and report zero or more diagnostics into an `IDiagnosticSink` |
-| `StructuralValidator` | internal | runs a composed set of rules over the desugared document, reporting into the sink |
+| `IDiagnosticRule` | internal | one check: inspect the indexed desugared tree and report zero or more diagnostics into an `IDiagnosticSink` |
+| `DiagnosticRule` | internal (abstract) | base for a rule: guards its arguments, builds each diagnostic from the rule's descriptor, and hands the rule a `Reporter` closure, so a concrete rule only walks the nodes and reports a span with arguments |
 | `MultipleJumpsOnLineRule` | internal | the first rule: a `Line` whose speech holds more than one `Jump` reports `DLG1003` (`Warning`), anchored on the line's span |
+| `IStructuralValidator` / `StructuralValidator` | internal | the pass seam and its implementation: build the tree index once, run each composed rule over it, reporting into the sink |
 | `ScriptCompiler` (facade) | internal | runs the validator over the desugared tree, between desugar and analyze, reporting into the context's sink |
 
-Detection is purely structural: for each `Line`, count the `Jump` fragments directly in its
-`Speech`; more than one is a `DLG1003`. The message carries the count. Because the validator emits a
-real diagnostic, the facade's collect-and-continue path is now exercised by a genuine producer, not
-only a test spy. The rule owns its `DiagnosticDescriptor` (co-located with the producer, per
-[DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); a central catalog can consolidate descriptors
-later.
+Detection is purely structural: the validator builds a `DialogueTreeIndex` once and hands it to every
+rule; `MultipleJumpsOnLineRule` takes each `Line` from the index and counts the `Jump` fragments
+directly in its `Speech` — more than one is a `DLG1003`, and the message carries the count. Because
+the validator emits a real diagnostic, the facade's collect-and-continue path is now exercised by a
+genuine producer, not only a test spy. The rule owns its `DiagnosticDescriptor` (co-located with the
+producer, per [DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); a central catalog can consolidate
+descriptors later.
 
-**Injection.** The `StructuralValidator` is composed with its rules and injected into the facade like the
-other stages (wired by `ScriptCompilerFactory` and `AddDialogueDown`), so validation is a real
-pipeline pass and the rule set can grow without touching the facade.
+**Injection.** `StructuralValidator` sits behind an `IStructuralValidator` seam and is composed with
+its rules, then injected into the facade like the other stages (wired by `ScriptCompilerFactory` and
+`AddDialogueDown`), so validation is a real pipeline pass and the rule set can grow without touching
+the facade.
 
-**Tree-walking helpers move to `Script.Ast`.** The rule must find every `Line`, including lines
-nested in choices. The traversal helpers (`DescendantsAndSelf`, `Children`) live in
-`Script.Semantics` today, but the validator runs **before** the analyzer and must not depend on that
-later layer. They are **relocated to `Script.Ast`** — beside the nodes they walk — so the desugar,
-validation, and semantics stages can share them without an upward dependency. With two consumers now
-needing them, this is a fitting home rather than premature generalization.
+**Shared traversal moves beneath the validator.** The rule must find every `Line`, including lines
+nested in choices, without depending on the later analyzer. Two pieces that lived in
+`Script.Semantics` relocated beneath the validator: the tree-walking helpers (`DescendantsAndSelf`,
+`Children`) to `Script.Ast` — beside the nodes they walk — and the `DialogueTreeIndex` (which groups
+a document's descendants by type) to `Script.Desugar`. Desugar, validation, and semantics now share
+them without an upward dependency, and an architecture test guards that validation never reaches into
+semantics. With two consumers now needing them, this is a fitting home rather than premature
+generalization.
 
 ## Later components (deferred)
 
@@ -398,8 +403,8 @@ severity; it would appear only in this projection.
 - **Core** (`DialogueDown`): the model module (done); then `DiagnosticsContext`, the stage
   signature change, the facade building and threading the bag, and `CompilationResult` gaining
   `Diagnostics` (internal) + `HasErrors` (public). No new runtime dependency.
-- **Facade** (`ScriptCompiler`): creates the bag, threads it, and (later) runs the validator and
-  aggregates onto the result.
+- **Facade** (`ScriptCompiler`): creates the bag, threads it, runs the validator, and aggregates
+  the diagnostics onto the result.
 - **CLI** (`DialogueDown.Cli`): later adds Errata; `compile` renders `Diagnostics` and derives its
   exit code from the worst severity plus the warnings switches.
 - **Error-model note** (`README.md`): later updated so the cross-cutting error section describes
@@ -416,8 +421,12 @@ severity; it would appear only in this projection.
   surfaces on `CompilationResult.Diagnostics` and flips `HasErrors`. A clean compile is empty and
   `HasErrors` is false. Existing stage/facade tests thread a `DiagnosticsContext` through a shared
   `DiagnosticsContextFactory` object mother, so the signature change touches one test helper.
-- **Rules** (later) — each rule unit-tested in isolation: feed a small desugared artifact, assert
-  the emitted descriptor, severity, and span.
+- **Rules and the validator** — each rule is unit-tested in isolation: feed a small desugared
+  artifact and assert the emitted descriptor, severity, and span. The `StructuralValidator` pass is
+  tested separately — it builds one shared index and runs each composed rule over it — and an
+  integration test through `ScriptCompilerFactory` confirms a two-jump line surfaces `DLG1003` end
+  to end. A **NetArchTest** rule pins that validation never depends on the semantic layer. Built at
+  100% line and branch coverage.
 - **Renderer** (later) — assert the mapping (severity→kind, span→label via `LineMap`, code,
   message) against an injected `IAnsiConsole`, not rendered pixels.
 

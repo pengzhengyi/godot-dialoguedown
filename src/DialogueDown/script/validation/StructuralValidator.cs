@@ -9,7 +9,7 @@ namespace DialogueDown.Script.Validation;
 /// report into the same sink. Composing the rules here keeps validation open to new rules without
 /// touching the pipeline. A later <c>SemanticValidator</c> would lint the resolved model instead.
 /// </summary>
-internal sealed class StructuralValidator
+internal sealed class StructuralValidator : IStructuralValidator
 {
     private readonly IReadOnlyList<IDiagnosticRule> _rules;
 

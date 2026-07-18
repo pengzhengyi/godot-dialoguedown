@@ -5,6 +5,7 @@ using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
 using DialogueDown.Script.Transpiler;
+using DialogueDown.Script.Validation;
 using DialogueDown.Tests.Support;
 using NSubstitute;
 using NSubstitute.Extensions;
@@ -25,9 +26,10 @@ public sealed class ScriptCompilerTests
         var parser = Substitute<IMarkdownParser, MarkdownDocument>(markdown);
         var transpiler = Substitute<IScriptTranspiler, ScriptDocument>(script);
         var desugarer = Substitute<IScriptDesugarer, DesugaredScriptDocument>(desugared);
+        var validator = NSubstitute.Substitute.For<IStructuralValidator>();
         var analyzer = Substitute<ISemanticAnalyzer, SemanticModel>(semantics);
 
-        var result = new ScriptCompiler(parser, transpiler, desugarer, analyzer).Compile(source);
+        var result = new ScriptCompiler(parser, transpiler, desugarer, validator, analyzer).Compile(source);
 
         Assert.Equal(source, result.Source);
         Assert.Same(markdown, result.Markdown);
@@ -39,6 +41,7 @@ public sealed class ScriptCompilerTests
             parser.Parse(source);
             transpiler.Transpile(Arg.Is(markdown), Arg.Is<DiagnosticsContext>(c => c.Source == source));
             desugarer.Desugar(Arg.Is(script), Arg.Is<DiagnosticsContext>(c => c.Source == source));
+            validator.Validate(Arg.Is(desugared), Arg.Any<IDiagnosticSink>());
             analyzer.Analyze(Arg.Is(desugared), Arg.Is<DiagnosticsContext>(c => c.Source == source));
         });
     }
@@ -75,15 +78,17 @@ public sealed class ScriptCompilerTests
     [InlineData(1)]
     [InlineData(2)]
     [InlineData(3)]
+    [InlineData(4)]
     public void Constructor_NullDependency_Throws(int nullIndex)
     {
         var parser = nullIndex == 0 ? null! : Substitute<IMarkdownParser, MarkdownDocument>();
         var transpiler = nullIndex == 1 ? null! : Substitute<IScriptTranspiler, ScriptDocument>();
         var desugarer = nullIndex == 2 ? null! : Substitute<IScriptDesugarer, DesugaredScriptDocument>();
-        var analyzer = nullIndex == 3 ? null! : Substitute<ISemanticAnalyzer, SemanticModel>();
+        var validator = nullIndex == 3 ? null! : NSubstitute.Substitute.For<IStructuralValidator>();
+        var analyzer = nullIndex == 4 ? null! : Substitute<ISemanticAnalyzer, SemanticModel>();
 
         Assert.Throws<ArgumentNullException>(
-            () => new ScriptCompiler(parser, transpiler, desugarer, analyzer));
+            () => new ScriptCompiler(parser, transpiler, desugarer, validator, analyzer));
     }
 
     // Builds a compiler whose stages are substitutes that yield empty artifacts, so a test can
@@ -97,6 +102,7 @@ public sealed class ScriptCompilerTests
             Substitute<IMarkdownParser, MarkdownDocument>(new MarkdownDocument([])),
             Substitute<IScriptTranspiler, ScriptDocument>(new ScriptDocument([])),
             Substitute<IScriptDesugarer, DesugaredScriptDocument>(desugared),
+            NSubstitute.Substitute.For<IStructuralValidator>(),
             analyzer);
     }
 

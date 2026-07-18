@@ -4,6 +4,7 @@ using DialogueDown.Markdown;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
 using DialogueDown.Script.Transpiler;
+using DialogueDown.Script.Validation;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -30,11 +31,13 @@ public static class DialogueDownServiceCollectionExtensions
         services.TryAddSingleton<IMarkdownParser>(_ => new MarkdigMarkdownParser());
         services.TryAddSingleton<IScriptTranspiler>(_ => ScriptTranspilerFactory.CreateDefault());
         services.TryAddSingleton<IScriptDesugarer, ScriptDesugarer>();
+        services.TryAddSingleton<IStructuralValidator>(_ => new StructuralValidator([new MultipleJumpsOnLineRule()]));
         services.TryAddSingleton<ISemanticAnalyzer>(_ => new SemanticAnalyzer(options.ForSemanticAnalyzer()));
         services.TryAddSingleton<IScriptCompiler>(provider => new ScriptCompiler(
             provider.GetRequiredService<IMarkdownParser>(),
             provider.GetRequiredService<IScriptTranspiler>(),
             provider.GetRequiredService<IScriptDesugarer>(),
+            provider.GetRequiredService<IStructuralValidator>(),
             provider.GetRequiredService<ISemanticAnalyzer>()));
 
         return services;

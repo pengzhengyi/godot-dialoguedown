@@ -67,4 +67,18 @@ describe("speakerKeyCompletions", () => {
             "tags",
         ]);
     });
+
+    it("gives each suggestion an icon type (reusing the Source editor's for the keys)", () => {
+        const doc = "[[speakers]]\nn";
+        const result = speakerKeyCompletions(["default"])(contextAt(doc, doc.length));
+        const byLabel = Object.fromEntries(
+            (result && "options" in result ? result.options : []).map((o) => [o.label, o.type]),
+        );
+        expect(byLabel).toMatchObject({
+            name: "dd-speaker",
+            id: "dd-speaker-id",
+            tags: "dd-tag",
+            default: "dd-config-reserved",
+        });
+    });
 });

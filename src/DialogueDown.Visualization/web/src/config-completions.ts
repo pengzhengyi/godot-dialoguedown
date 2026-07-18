@@ -9,18 +9,21 @@ import { keymap } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
 import { completionsFrom } from "./editor-completions";
 
-// Completion `type`s select CodeMirror's built-in tooltip icon: the `[[speakers]]` table is a
-// structural "type", the `name`/`id`/`tags` keys are "property"s, and a reserved tag name
-// (`default`) is a "keyword" — so a reserved key reads apart from the custom ones.
-const TABLE = "type";
-const KEY = "property";
-const RESERVED = "keyword";
+// Completion `type`s select the tooltip icon (styled in styles.css). The `[[speakers]]` table
+// and the reserved tag name get their own icons; the structural keys reuse the Source editor's
+// icons for the matching concept — a person for `name`, `@` for `id`, `#` for `tags`.
+const TABLE = "dd-config-table";
+const RESERVED = "dd-config-reserved";
 
 /** The `[[speakers]]` table DialogueDown's config format defines. */
 const SPEAKERS_TABLE = "speakers";
 
 /** The structural keys of a `[[speakers]]` entry — the config schema, stable and client-side. */
-const SPEAKER_KEYS = ["name", "id", "tags"];
+const SPEAKER_KEYS: ReadonlyArray<{ label: string; type: string }> = [
+    { label: "name", type: "dd-speaker" },
+    { label: "id", type: "dd-speaker-id" },
+    { label: "tags", type: "dd-tag" },
+];
 
 /** The name of the nearest TOML table/array-of-tables header at or above `lineNumber`, or null. */
 function nearestTableAbove(state: EditorState, lineNumber: number): string | null {
@@ -62,7 +65,7 @@ export function speakerKeyCompletions(reservedTags: readonly string[]): Completi
         if (line.text.trimStart().startsWith("#")) return null; // a comment
         if (nearestTableAbove(context.state, line.number) !== SPEAKERS_TABLE) return null;
         const options = [
-            ...SPEAKER_KEYS.map((key) => ({ label: key, type: KEY })),
+            ...SPEAKER_KEYS.map((key) => ({ label: key.label, type: key.type })),
             ...reservedTags.map((tag) => ({ label: tag, type: RESERVED })),
         ];
         return completionsFrom(context, match.from, options, /^[\w-]*$/);

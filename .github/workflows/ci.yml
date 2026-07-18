@@ -167,6 +167,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          set -m
 
           npm run build:cli &
           cli_build_pid=$!
@@ -176,11 +177,12 @@ jobs:
             npx playwright install --with-deps --only-shell chromium
           ) &
           provision_pid=$!
+          set +m
 
           cleanup() {
             local status=$?
             trap - EXIT INT TERM
-            kill "$cli_build_pid" "$provision_pid" 2>/dev/null || true
+            kill -- "-$cli_build_pid" "-$provision_pid" 2>/dev/null || true
             wait "$cli_build_pid" "$provision_pid" 2>/dev/null || true
             exit "$status"
           }

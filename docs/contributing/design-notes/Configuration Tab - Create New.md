@@ -1,7 +1,7 @@
 # Implementation note: Configuration tab — Create New
 
 > [!NOTE]
-> Status: **proposed**. This is **Stage 3** of the Configuration tab: when a
+> Status: **implemented**. This is **Stage 3** of the Configuration tab: when a
 > compile found no `dialogue.toml`, the Config tab offers a **call to action** to
 > create one, right where the reader already sees the no-config state. Creating it
 > writes a friendly starter file, recompiles, and drops the reader into the editable
@@ -240,9 +240,17 @@ edit it," never a silent overwrite. This mirrors the launcher's create route, wh
   its script `create` route.
 - **`LiveSession.CreateConfig()`** performs the adopt-and-recompile; it shares the
   visualizer-rebuild helper with `SaveConfig`.
+- **Launcher config editing** was a Stage 2a gap this stage closes as a prerequisite:
+  the launcher now threads the resolved config path into its sessions and routes config
+  saves (`target: "config"`) to `SaveConfig`, so a config created — or already present —
+  in a launched session is editable, not just displayed.
 - **`config-view.ts`** renders the create button in the no-config pane (Edit only) and
-  reloads onto the Config tab on success; **`main.ts`** already reloads cleanly because
-  the reloaded payload carries `configuration.file`.
+  reloads onto the Config tab on success; the reloaded payload carries
+  `configuration.file`, so `main.ts` wires the config editor the normal way. A small
+  `config-create.ts` module owns the POST, the one-shot "open Config" flag, and the
+  reload, injected so it is unit-testable.
+- **The config file name** is one constant, `ConfigurationFile.DefaultName`, shared by
+  CLI discovery (`ProjectConfiguration.FileName`) and this create flow.
 - **No core change.** The engine and the configuration loader are untouched; the file
   is written and parsed with the existing `TomlConfigurationLoader`.
 

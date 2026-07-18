@@ -110,6 +110,7 @@ flowchart TB
     LIVE --> CFG["13. Configuration Tab"]
     CFG --> CFGLE["14. Configuration Tab — Live Edit"]
     CFGLE --> CFGAC["15. Configuration Tab — Autocompletion"]
+    CFGAC --> CFGCN["16. Configuration Tab — Create New"]
 ```
 
 | Order | Note | What it covers | Status |
@@ -129,6 +130,7 @@ flowchart TB
 | 13 | [Configuration Tab](./Configuration%20Tab.md) | The applied `dialogue.toml` as a first tab: TOML source beside its configured speakers (Stage 1, read-only) | Implemented |
 | 14 | [Configuration Tab — Live Edit](./Configuration%20Tab%20-%20Live%20Edit.md) | Edit the `dialogue.toml` in the report; Save recompiles and refreshes the configured speakers (Stage 2a) | Implemented |
 | 15 | [Configuration Tab — Autocompletion](./Configuration%20Tab%20-%20Autocompletion.md) | Schema autocompletion for the editable `dialogue.toml`: the `[[speakers]]` table, its keys, and the reserved tag names (Stage 2b) | Implemented |
+| 16 | [Configuration Tab — Create New](./Configuration%20Tab%20-%20Create%20New.md) | Create a `dialogue.toml` in place when a project has none, then drop into the editable Config tab (Stage 3) | Implemented |
 
 ### Other notes
 

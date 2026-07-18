@@ -34,10 +34,13 @@ changes easy to categorize.
 - **Interactive `visualize` report** — explore each compiler stage as a graph — the
   Markdown, Dialogue, and Desugared ASTs, and the **semantic model** shown as a scene tree
   (each scene expandable to its script blocks, any node clickable for its source and preview)
-  beside cross-linked, resizable speaker, anchor, and jump-resolution tables — with a runtime
+  beside cross-linked, resizable speaker, anchor, and jump-resolution tables — plus a
+  **Configuration** tab showing the applied `dialogue.toml` beside its configured speakers —
+  with a runtime
   **View ⇄ Edit** toggle: a read-only, auto-updating **View** and an in-browser editor that
-  saves back to the file — or edits the source behind any graph node in the inspector, or
-  creates a new script from the launcher or a not-yet-existing
+  saves back to the file — the dialogue **or** its `dialogue.toml`, which you can also
+  **create** in place when a project has none — or edits the source behind any graph node in
+  the inspector, or creates a new script from the launcher or a not-yet-existing
   path — or discards unsaved edits to restore the last saved version — with
   search, section folding, Markdown formatting shortcuts, document-aware autocomplete
   you accept with Tab or Enter, with an icon per symbol kind, synchronized

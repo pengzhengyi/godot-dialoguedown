@@ -1,3 +1,5 @@
+using DialogueDown.ConfigurationLoader;
+using DialogueDown.Visualization.Configuration;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.FileProviders;
@@ -94,6 +96,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         app.MapGet("/api/browse", (string? path) => Browse(path ?? string.Empty));
         app.MapPost("/api/open", (OpenRequest request, HttpContext context) => Open(request, context));
         app.MapPost("/api/create", (CreateRequest request, HttpContext context) => Create(request, context));
+        app.MapPost("/api/create-config", CreateConfig);
         app.MapGet("/api/document", Document);
         app.MapPost("/api/save", (SaveRequest request) => Save(request));
         app.MapGet("/api/events", HandleEventsAsync);
@@ -196,9 +199,9 @@ internal sealed class LauncherServer : IAsyncDisposable
             : Results.Content(active.Session.CurrentDocumentJson(), "application/json; charset=utf-8");
     }
 
-    // Saves the edited buffer to the active document. A served session always accepts
-    // this (the client only calls it in Edit); there is just nothing active before a
-    // script is opened.
+    // Saves the edited buffer to the active document — the dialogue, or its dialogue.toml
+    // when the target is "config". A served session always accepts this (the client only
+    // calls it in Edit); there is just nothing active before a script is opened.
     private IResult Save(SaveRequest request)
     {
         var active = Active();
@@ -209,10 +212,43 @@ internal sealed class LauncherServer : IAsyncDisposable
 
         try
         {
-            var json = active.Session.Save(request.Source ?? string.Empty);
+            var source = request.Source ?? string.Empty;
+            var isConfig = string.Equals(request.Target, "config", StringComparison.OrdinalIgnoreCase);
+            var json = isConfig ? active.Session.SaveConfig(source) : active.Session.Save(source);
             return Results.Content(json, "application/json; charset=utf-8");
         }
-        catch (IOException ex)
+        catch (Exception ex)
+            when (ex is IOException or InvalidOperationException or DialogueConfigurationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Creates a dialogue.toml at the launch root for an active session that has none, then
+    // returns the recompiled payload. The path is composed server-side from the launch root —
+    // never from the request — so no request value reaches the filesystem. An existing file is
+    // a conflict (409), left untouched; a write failure is 400.
+    private IResult CreateConfig()
+    {
+        var active = Active();
+        if (active is null)
+        {
+            return Results.NotFound();
+        }
+
+        var configPath = Path.Combine(_root.RootDirectory, ConfigurationFile.DefaultName);
+        if (File.Exists(configPath))
+        {
+            return Results.Conflict(
+                new { message = "A dialogue.toml already exists — reload to edit it." });
+        }
+
+        try
+        {
+            var json = active.Session.CreateConfig(configPath);
+            return Results.Content(json, "application/json; charset=utf-8");
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
             return Results.BadRequest(new { message = ex.Message });
         }
@@ -255,5 +291,5 @@ internal sealed class LauncherServer : IAsyncDisposable
 
     private sealed record CreateRequest(string? Path);
 
-    private sealed record SaveRequest(string? Source);
+    private sealed record SaveRequest(string? Source, string? Target = null);
 }

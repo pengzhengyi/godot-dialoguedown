@@ -9,11 +9,12 @@ namespace DialogueDown.Visualization.Live;
 /// demand (for the initial page and the document API) and pushes hot-reload events
 /// to connected clients; the watcher calls <see cref="Refresh"/> when the file
 /// changes on disk. When the compile applied a <c>dialogue.toml</c>, the session can
-/// also save an edited configuration (<see cref="SaveConfig"/>) and recompile with it.
+/// also save an edited configuration (<see cref="SaveConfig"/>) and recompile with it;
+/// a session with no configuration file can create one (<see cref="CreateConfig"/>).
 /// </summary>
 internal sealed class LiveSession
 {
-    private readonly string? _configPath;
+    private string? _configPath;
     private CompilationVisualizer _visualizer;
     private volatile string? _lastSaved;
 
@@ -81,11 +82,27 @@ internal sealed class LiveSession
             throw new InvalidOperationException("This session has no configuration file to save.");
         }
 
-        File.WriteAllText(_configPath, source);
-        var options = TomlConfigurationLoader.Parse(source, _configPath);
-        _visualizer = new CompilationVisualizer(
-            AppliedConfiguration.FromFile(_configPath, source, options));
-        return _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
+        return ApplyConfig(_configPath, source);
+    }
+
+    /// <summary>
+    /// Creates a <c>dialogue.toml</c> at <paramref name="configPath"/> for a session that has
+    /// none, seeds it with the <see cref="ConfigStarter.Template">starter template</see>, adopts
+    /// it (so later <see cref="SaveConfig"/> calls and reloads apply it), and returns the
+    /// recompiled document payload. Throws <see cref="InvalidOperationException"/> when the
+    /// session already has a configuration file; the caller guards against overwriting an
+    /// existing file on disk (see the server's create route).
+    /// </summary>
+    public string CreateConfig(string configPath)
+    {
+        ArgumentNullException.ThrowIfNull(configPath);
+        if (_configPath is not null)
+        {
+            throw new InvalidOperationException("This session already has a configuration file.");
+        }
+
+        _configPath = configPath;
+        return ApplyConfig(configPath, ConfigStarter.Template);
     }
 
     /// <summary>
@@ -118,4 +135,17 @@ internal sealed class LiveSession
 
     private static string ProblemJson(string message) =>
         JsonSerializer.Serialize(new { message });
+
+    // Writes source to the configuration file, re-parses it, rebuilds the visualizer with the
+    // parsed options, and returns the recompiled document payload — shared by SaveConfig (an
+    // edit of an existing file) and CreateConfig (a new file seeded with the starter template).
+    // Malformed TOML throws after the write, exactly as an edit would.
+    private string ApplyConfig(string configPath, string source)
+    {
+        File.WriteAllText(configPath, source);
+        var options = TomlConfigurationLoader.Parse(source, configPath);
+        _visualizer = new CompilationVisualizer(
+            AppliedConfiguration.FromFile(configPath, source, options));
+        return _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
+    }
 }

@@ -51,7 +51,8 @@ public sealed class LauncherRunner : ILauncherRunner
         var html = LauncherPage.Render(launchRoot.RootDirectory, source, ModeToString(mode));
         await using var server = new LauncherServer(
             launchRoot, html, port ?? 0,
-            (path, sessionMode) => new LiveSession(path, sessionMode, new CompilationVisualizer(configuration)));
+            (path, sessionMode) => new LiveSession(
+                path, sessionMode, new CompilationVisualizer(configuration), configuration.File?.Path));
         await server.StartAsync();
 
         var url = server.BaseUrl;

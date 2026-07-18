@@ -1,4 +1,5 @@
 using DialogueDown.ConfigurationLoader;
+using DialogueDown.Visualization.Configuration;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.FileProviders;
@@ -95,6 +96,10 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         // A served session always accepts the write route; the client only calls it in
         // Edit. (The offline export has no server, so it can never reach this.)
         app.MapPost("/api/save", (SaveRequest request) => Save(request));
+
+        // A session with no dialogue.toml can create one at the serve root; the client only
+        // calls this in Edit, from the Config tab's no-config state.
+        app.MapPost("/api/create-config", CreateConfig);
     }
 
     private async Task HandleEventsAsync(HttpContext context, CancellationToken cancellationToken)
@@ -131,6 +136,37 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
             return Results.Content(json, "application/json; charset=utf-8");
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or DialogueConfigurationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Creates a dialogue.toml at the serve root for a session that has none, then returns the
+    // recompiled payload (now carrying the configuration). The path is composed server-side
+    // from the known serve root — never from the request — so no request value reaches the
+    // filesystem. An existing file is a conflict (409), left untouched; a write failure is 400.
+    private IResult CreateConfig()
+    {
+        var root = _serveRoot?.RootDirectory
+            ?? Path.GetDirectoryName(Path.GetFullPath(_session.DocumentPath));
+        if (root is null)
+        {
+            return Results.BadRequest(new { message = "The serve root could not be determined." });
+        }
+
+        var configPath = Path.Combine(root, ConfigurationFile.DefaultName);
+        if (File.Exists(configPath))
+        {
+            return Results.Conflict(
+                new { message = "A dialogue.toml already exists — reload to edit it." });
+        }
+
+        try
+        {
+            var json = _session.CreateConfig(configPath);
+            return Results.Content(json, "application/json; charset=utf-8");
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
             return Results.BadRequest(new { message = ex.Message });
         }

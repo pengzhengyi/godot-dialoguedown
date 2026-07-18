@@ -139,6 +139,37 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void CreateConfig_WritesTheStarterFileAndAdoptsIt()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var session = new LiveSession(docPath, VisualizationMode.Edit); // no configuration
+        var configPath = Path.Combine(tree.Root, "dialogue.toml");
+
+        var json = session.CreateConfig(configPath);
+
+        Assert.True(File.Exists(configPath)); // the starter file is on disk
+        Assert.Contains("[[speakers]]", File.ReadAllText(configPath)); // seeded with the template
+        Assert.Contains("dialogue.toml", json); // the payload now carries the configuration file
+        // Adopted: a later edit saves to the same file and recompiles with the new speaker.
+        var saved = session.SaveConfig(Speaker("Bob", "B"));
+        Assert.Contains("\"name\":\"Bob\"", saved);
+        Assert.Contains("Bob", File.ReadAllText(configPath));
+    }
+
+    [Fact]
+    public void CreateConfig_WhenTheSessionAlreadyHasAConfig_Throws()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var configPath = tree.File("dialogue.toml", Speaker("Alice", "A"));
+        var session = ConfiguredSession(docPath, configPath);
+
+        Assert.Throws<InvalidOperationException>(
+            () => session.CreateConfig(Path.Combine(tree.Root, "other.toml")));
+    }
+
+    [Fact]
     public void SaveConfig_MalformedToml_WritesThenThrows()
     {
         using var tree = new TempTree();

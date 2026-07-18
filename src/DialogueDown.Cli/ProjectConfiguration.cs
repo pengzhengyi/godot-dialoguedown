@@ -15,7 +15,7 @@ namespace DialogueDown.Cli;
 internal sealed class ProjectConfiguration
 {
     /// <summary>The configuration file the CLI discovers by walking up the directory tree.</summary>
-    public const string FileName = "dialogue.toml";
+    public const string FileName = ConfigurationFile.DefaultName;
 
     /// <summary>
     /// Resolves the options for a compile. An <paramref name="explicitConfigPath"/> (the

@@ -38,6 +38,8 @@ For inner-loop feedback, use the VS Code tasks `web: test file`,
   it yourself keeps CI green on the first run.
 - Let the tooling format and lint: follow `eslint.config.js`, `.stylelintrc.json`,
   and `.prettierrc.json` rather than hand-formatting or overriding rules inline.
+- Frontend quality tools keep content-aware incremental data under ignored
+  `web/.cache/`; the repository `clean` task removes it for a cold run.
 - Write tests for behavior with **Vitest** (unit) and **Playwright** (end-to-end);
   keep the report **self-contained** and offline-capable — no external CDNs.
 - **Preview UI changes before committing.** Open the dev server (`npm run dev`) or

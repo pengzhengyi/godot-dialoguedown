@@ -166,7 +166,7 @@
       "label": "clean",
       "detail": "Remove build/test artifacts (keeps node_modules and the committed report).",
       "type": "shell",
-      "command": "dotnet clean DialogueDown.sln --nologo && rm -rf coverage-report TestResults src/DialogueDown.Visualization/web/playwright-report src/DialogueDown.Visualization/web/test-results src/DialogueDown.Visualization/web/coverage src/DialogueDown.Visualization/web/.vite",
+      "command": "dotnet clean DialogueDown.sln --nologo && rm -rf coverage-report TestResults src/DialogueDown.Visualization/web/playwright-report src/DialogueDown.Visualization/web/test-results src/DialogueDown.Visualization/web/coverage src/DialogueDown.Visualization/web/.vite src/DialogueDown.Visualization/web/.cache",
       "group": "build",
       "problemMatcher": []
     },

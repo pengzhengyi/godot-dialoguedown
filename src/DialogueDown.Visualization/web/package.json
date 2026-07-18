@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build && VITE_ENTRY=launcher vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental --tsBuildInfoFile .cache/typescript/tsconfig.tsbuildinfo",
     "test": "vitest run",
     "test:infra": "node --test e2e-live/*.test.mjs",
     "test:watch": "vitest",

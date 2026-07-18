@@ -13,7 +13,7 @@ test.beforeEach(() => {
 });
 
 async function edit(page: Page, text: string) {
-    await page.locator(".cm-content").click();
+    await page.locator(".source-pane .cm-content").click();
     await page.keyboard.press("End");
     await page.keyboard.type(text);
 }
@@ -83,13 +83,15 @@ test("the Discard button confirms, then restores the last saved version", async 
     // Cancelling the confirmation keeps the edits.
     page.once("dialog", (dialog) => void dialog.dismiss());
     await discard.click();
-    await expect(page.locator(".cm-content")).toContainText("unwanted trailing note");
+    await expect(page.locator(".source-pane .cm-content")).toContainText("unwanted trailing note");
     await expect(page.locator(".tab.dirty")).toHaveCount(1);
 
     // Accepting it restores the editor to the last saved version and clears dirty.
     page.once("dialog", (dialog) => void dialog.accept());
     await discard.click();
-    await expect(page.locator(".cm-content")).not.toContainText("unwanted trailing note");
+    await expect(page.locator(".source-pane .cm-content")).not.toContainText(
+        "unwanted trailing note",
+    );
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
     await expect(discard).toBeDisabled();
     await expect(save).toBeDisabled();
@@ -112,8 +114,8 @@ test("Discard after a save restores to the saved version, not the original", asy
     page.once("dialog", (dialog) => void dialog.accept());
     await page.locator(".discard-button").click();
 
-    await expect(page.locator(".cm-content")).toContainText("FIRST");
-    await expect(page.locator(".cm-content")).not.toContainText("SECOND");
+    await expect(page.locator(".source-pane .cm-content")).toContainText("FIRST");
+    await expect(page.locator(".source-pane .cm-content")).not.toContainText("SECOND");
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
 });
 
@@ -157,7 +159,7 @@ test("formatting shortcuts and emphasis auto-surround wrap the selection", async
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
 
-    const content = page.locator(".cm-content");
+    const content = page.locator(".source-pane .cm-content");
     await content.click();
 
     // Bold via the ⌘/Ctrl+B shortcut wraps the selected word.
@@ -182,13 +184,13 @@ test("an external change surfaces the passive chip without discarding local edit
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
 
     // Make a local edit, then change the file on disk from outside the editor.
-    await page.locator(".cm-content").click();
+    await page.locator(".source-pane .cm-content").click();
     await page.keyboard.type("X");
     writeFileSync(LIVE_EDIT_DOC, "# Rewritten from disk\n");
 
     // The chip appears; the live editor is not reloaded, so the local buffer survives.
     await expect(page.locator(".disk-chip")).toBeVisible();
-    await expect(page.locator(".cm-content")).toContainText("Alice");
+    await expect(page.locator(".source-pane .cm-content")).toContainText("Alice");
 });
 
 // A long, multi-scene document so both panes actually scroll. Headings anchor the sync.

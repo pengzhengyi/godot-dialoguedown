@@ -1,5 +1,6 @@
 using DialogueDown.Configuration;
 using DialogueDown.Visualization;
+using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Live;
 using Spectre.Console.Cli;
 
@@ -46,14 +47,16 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
             && VisualizeSettings.TryParseEmitFormat(settings.Emit, out var format))
         {
             return Task.FromResult(
-                _runner.RunEmit(settings.Script, format, settings.Output, OptionsForScript(settings)));
+                _runner.RunEmit(
+                    settings.Script, format, settings.Output, ConfigurationForScript(settings).Options));
         }
 
         // A non-interactive HTML export never opens a server or the launcher.
         if (settings.Output is not null)
         {
             return Task.FromResult(
-                _runner.RunStatic(settings.Script, settings.Output, settings.NoOpen, OptionsForScript(settings)));
+                _runner.RunStatic(
+                    settings.Script, settings.Output, settings.NoOpen, ConfigurationForScript(settings)));
         }
 
         var mode = settings.Edit ? LaunchMode.Edit : LaunchMode.View;
@@ -65,12 +68,12 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
             return _runner.RunServedAsync(
                 settings.Script, settings.Port, settings.NoOpen, settings.Root,
                 settings.Edit ? VisualizationMode.Edit : VisualizationMode.View,
-                OptionsForScript(settings), cancellationToken);
+                ConfigurationForScript(settings), cancellationToken);
         }
 
         var (root, source) = ResolveLaunch(settings.Script, hasScript, settings.Root);
-        var options = _configuration.Resolve(settings.Config, root, root);
-        return _launcher.RunAsync(root, source, mode, settings.Port, settings.NoOpen, options, cancellationToken);
+        var configuration = _configuration.ResolveApplied(settings.Config, root, root);
+        return _launcher.RunAsync(root, source, mode, settings.Port, settings.NoOpen, configuration, cancellationToken);
     }
 
     private static (string Root, string? Source) ResolveLaunch(string script, bool hasScript, string? rootOption)
@@ -99,8 +102,9 @@ internal sealed class VisualizeCommand : AsyncCommand<VisualizeSettings>
     private static string Relative(string root, string fullPath) =>
         Path.GetRelativePath(Path.GetFullPath(root), fullPath).Replace(Path.DirectorySeparatorChar, '/');
 
-    // Discover the project's options from the script's folder upward, never above --root.
-    private CompilerOptions OptionsForScript(VisualizeSettings settings) =>
-        _configuration.Resolve(
+    // Discover the project's applied configuration from the script's folder upward, never
+    // above --root, so the report shows the exact dialogue.toml the compile used.
+    private AppliedConfiguration ConfigurationForScript(VisualizeSettings settings) =>
+        _configuration.ResolveApplied(
             settings.Config, Path.GetDirectoryName(Path.GetFullPath(settings.Script))!, settings.Root);
 }

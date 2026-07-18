@@ -96,4 +96,43 @@ public sealed class ProjectConfigurationTests
 
         Assert.Equal("Narrator", Assert.Single(options.Speakers).Name);
     }
+
+    [Fact]
+    public void ResolveApplied_NoFile_UsesDefaultsWithNoFile()
+    {
+        using var dir = new TempDir();
+
+        var applied = new ProjectConfiguration().ResolveApplied(null, dir.Path);
+
+        Assert.True(applied.UsesDefaultConfiguration);
+        Assert.Null(applied.File);
+        Assert.Same(CompilerOptions.Default, applied.Options);
+    }
+
+    [Fact]
+    public void ResolveApplied_DiscoveredFile_CarriesItsPathTextAndOptions()
+    {
+        using var dir = new TempDir();
+        var path = dir.Write(ProjectConfiguration.FileName, NarratorConfig);
+
+        var applied = new ProjectConfiguration().ResolveApplied(null, dir.Path);
+
+        Assert.True(applied.IsConfiguredFromFile);
+        Assert.Equal(path, applied.File!.Path);
+        Assert.Equal(NarratorConfig, applied.File.Source);
+        Assert.Equal("Narrator", Assert.Single(applied.Options.Speakers).Name);
+    }
+
+    [Fact]
+    public void ResolveApplied_ExplicitConfig_CarriesThatFile()
+    {
+        using var dir = new TempDir();
+        var path = dir.Write("elsewhere/custom.toml", NarratorConfig);
+
+        var applied = new ProjectConfiguration().ResolveApplied(path, dir.Path);
+
+        Assert.True(applied.IsConfiguredFromFile);
+        Assert.Equal(path, applied.File!.Path);
+        Assert.Equal(NarratorConfig, applied.File.Source);
+    }
 }

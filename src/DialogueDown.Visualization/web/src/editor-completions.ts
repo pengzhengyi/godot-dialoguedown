@@ -24,7 +24,7 @@ const TAG = "dd-tag";
  * token is itself scanned as a symbol (e.g. typing `@gu` scans `gu`), so suggesting it
  * back is noise; excluding it keeps the tooltip to real, other candidates.
  */
-function completionsFrom(
+export function completionsFrom(
     context: CompletionContext,
     from: number,
     options: Completion[],

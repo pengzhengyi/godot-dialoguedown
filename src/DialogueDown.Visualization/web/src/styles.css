@@ -662,12 +662,12 @@ g.node.entity-highlight text.label {
 }
 
 /* Fold markers in the gutter, and the placeholder shown for a folded section. */
-.source-pane .cm-foldGutter .cm-gutterElement {
+:is(.source-pane, .config-source) .cm-foldGutter .cm-gutterElement {
     color: var(--pico-muted-color);
     cursor: pointer;
 }
 
-.source-pane .cm-foldPlaceholder {
+:is(.source-pane, .config-source) .cm-foldPlaceholder {
     margin: 0 0.2rem;
     padding: 0 0.35rem;
     border: none;
@@ -677,34 +677,34 @@ g.node.entity-highlight text.label {
 }
 
 /* Subtle, theme-neutral highlights for the active line and other matches of the selection. */
-.source-pane .cm-activeLine,
-.source-pane .cm-activeLineGutter {
+:is(.source-pane, .config-source) .cm-activeLine,
+:is(.source-pane, .config-source) .cm-activeLineGutter {
     background: rgb(128 128 128 / 10%);
 }
 
-.source-pane .cm-selectionMatch {
+:is(.source-pane, .config-source) .cm-selectionMatch {
     background: rgb(120 160 255 / 25%);
 }
 
 /* The search/replace panel, themed to match the page instead of CodeMirror's light default. */
-.source-pane .cm-panels {
+:is(.source-pane, .config-source) .cm-panels {
     background: var(--pico-card-background-color);
     color: var(--pico-color);
     border-top: 1px solid var(--pico-muted-border-color);
 }
 
-.source-pane .cm-panel.cm-search {
+:is(.source-pane, .config-source) .cm-panel.cm-search {
     padding: 0.5rem 0.6rem;
     font-size: 0.78rem;
 }
 
-.source-pane .cm-panel.cm-search label {
+:is(.source-pane, .config-source) .cm-panel.cm-search label {
     color: var(--pico-color);
     font-size: 0.76rem;
 }
 
-.source-pane .cm-panel.cm-search input,
-.source-pane .cm-panel.cm-search button {
+:is(.source-pane, .config-source) .cm-panel.cm-search input,
+:is(.source-pane, .config-source) .cm-panel.cm-search button {
     margin: 0 0.15rem;
     padding: 0.15rem 0.45rem;
     border: 1px solid var(--pico-form-element-border-color);
@@ -714,15 +714,15 @@ g.node.entity-highlight text.label {
     font-size: 0.76rem;
 }
 
-.source-pane .cm-panel.cm-search button {
+:is(.source-pane, .config-source) .cm-panel.cm-search button {
     cursor: pointer;
 }
 
-.source-pane .cm-panel.cm-search button:hover:not(:disabled) {
+:is(.source-pane, .config-source) .cm-panel.cm-search button:hover:not(:disabled) {
     border-color: var(--pico-primary);
 }
 
-.source-pane .cm-panel.cm-search button[name="close"] {
+:is(.source-pane, .config-source) .cm-panel.cm-search button[name="close"] {
     border: none;
     background: transparent;
     color: var(--pico-muted-color);
@@ -1043,7 +1043,8 @@ body.maximized .maximize-button .icon-compress {
 
 /* The Source tab has no zoom cluster, so its maximize toggle sits in a matching pill,
    floating bottom-right over the preview. */
-.source-controls {
+.source-controls,
+.config-controls {
     position: absolute;
     right: 0.75rem;
     bottom: 0.75rem;
@@ -1055,7 +1056,8 @@ body.maximized .maximize-button .icon-compress {
     box-shadow: 0 1px 5px rgb(0 0 0 / 18%);
 }
 
-.source-controls .maximize-button {
+.source-controls .maximize-button,
+.config-controls .maximize-button {
     /* Pico inverts --pico-color on buttons; reset it so the glyph uses the normal
        foreground rather than white-on-white (as the zoom buttons do). */
     --pico-color: inherit;
@@ -1070,7 +1072,8 @@ body.maximized .maximize-button .icon-compress {
     cursor: pointer;
 }
 
-.source-controls .maximize-button:hover {
+.source-controls .maximize-button:hover,
+.config-controls .maximize-button:hover {
     --pico-color: inherit;
 
     background: var(--pico-muted-border-color);
@@ -1151,6 +1154,7 @@ body.maximized #app {
 .collapse-toggle:focus-visible,
 .detail-collapsed .collapse-toggle,
 .preview-collapsed .collapse-toggle,
+.config-collapsed .collapse-toggle,
 .tables-collapsed .collapse-toggle {
     --pico-color: inherit;
 
@@ -1174,12 +1178,14 @@ body.maximized #app {
 
 .detail-collapsed .collapse-toggle .icon-collapse,
 .preview-collapsed .collapse-toggle .icon-collapse,
+.config-collapsed .collapse-toggle .icon-collapse,
 .tables-collapsed .collapse-toggle .icon-collapse {
     display: none;
 }
 
 .detail-collapsed .collapse-toggle .icon-expand,
 .preview-collapsed .collapse-toggle .icon-expand,
+.config-collapsed .collapse-toggle .icon-expand,
 .tables-collapsed .collapse-toggle .icon-expand {
     display: block;
 }
@@ -1481,7 +1487,7 @@ body.maximized #app {
        caps it so a long path is middle-ellipsised (below) instead of stretching
        across the row. */
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     min-width: 0;
     max-width: 24rem;
     width: auto;
@@ -1866,14 +1872,18 @@ body.maximized #app {
 .cm-completionIcon-dd-speaker,
 .cm-completionIcon-dd-speaker-id,
 .cm-completionIcon-dd-tag,
-.cm-completionIcon-dd-jump {
+.cm-completionIcon-dd-jump,
+.cm-completionIcon-dd-config-table,
+.cm-completionIcon-dd-config-reserved {
     opacity: 1;
 }
 
 .cm-completionIcon-dd-speaker::after,
 .cm-completionIcon-dd-speaker-id::after,
 .cm-completionIcon-dd-tag::after,
-.cm-completionIcon-dd-jump::after {
+.cm-completionIcon-dd-jump::after,
+.cm-completionIcon-dd-config-table::after,
+.cm-completionIcon-dd-config-reserved::after {
     content: "";
     display: inline-block;
     width: 1em;
@@ -1897,4 +1907,306 @@ body.maximized #app {
 
 .cm-completionIcon-dd-jump::after {
     --dd-completion-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%271.6%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M2.8%208%20H12.2%20M9%204.8%20L12.4%208%20L9%2011.2%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* The config schema completions: a group of people for the `[[speakers]]` table, and a star
+   for a reserved tag name (`default`). The keys reuse the person / `@` / `#` icons above. */
+.cm-completionIcon-dd-config-table::after {
+    --dd-completion-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%272.2%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M17%2021v-2a4%204%200%200%200-4-4H5a4%204%200%200%200-4%204v2%27%2F%3E%3Ccircle%20cx%3D%279%27%20cy%3D%277%27%20r%3D%274%27%2F%3E%3Cpath%20d%3D%27M23%2021v-2a4%204%200%200%200-3-3.87%27%2F%3E%3Cpath%20d%3D%27M16%203.13a4%204%200%200%201%200%207.75%27%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-completionIcon-dd-config-reserved::after {
+    --dd-completion-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%272.2%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%202.5l2.9%205.9%206.5.95-4.7%204.6%201.1%206.45L12%2017.9%206.2%2020.9l1.1-6.45-4.7-4.6%206.5-.95z%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* ---- Configuration tab ------------------------------------------------------ */
+
+/* A tab that leads with an icon (the Config gear) keeps the glyph and label on one row. */
+button.tab.tab-with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.tab-icon {
+    flex: none;
+}
+
+/* The Config tab mirrors the Source split (its own `--config-split` variable) with a
+   read-only TOML editor on the left and a scrollable speakers table on the right. */
+.config-view {
+    position: relative;
+    display: flex;
+    height: 100%;
+    min-height: 0;
+}
+
+.config-source {
+    flex: 0 0 var(--config-split, 50%);
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+}
+
+.config-side {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 0.75rem 1rem;
+}
+
+.config-divider {
+    position: relative;
+    flex: 0 0 6px;
+    cursor: col-resize;
+    background: var(--pico-muted-border-color);
+}
+
+.config-divider:hover {
+    background: var(--pico-primary);
+}
+
+/* Collapsed: hide the speakers panel so the source fills, and turn the divider into a
+   plain rail (no resize cursor) that still hosts the re-open handle. */
+.config-view.config-collapsed .config-source {
+    flex-basis: 100%;
+}
+
+.config-view.config-collapsed .config-side {
+    display: none;
+}
+
+.config-view.config-collapsed .config-divider {
+    cursor: default;
+    background: var(--pico-muted-border-color);
+}
+
+/* The read-only TOML editor fills its pane, blends with the background, and follows
+   the theme foreground — the same treatment the Source editor gets. */
+.config-source .cm-editor {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    background: transparent;
+    font-size: 0.82rem;
+}
+
+.config-source .cm-editor.cm-focused {
+    outline: none;
+}
+
+.config-source .cm-scroller {
+    font-family: var(--pico-font-family-monospace);
+}
+
+.config-source .cm-gutters {
+    background: transparent;
+    border-right: 1px solid var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+}
+
+.config-source .cm-content {
+    color: var(--pico-color);
+    caret-color: var(--pico-color);
+}
+
+/* A visible caret and a readable selection in both themes — `drawSelection` draws its own
+   cursor/selection element (so `caret-color` above is only a fallback), which would be
+   invisible on the dark background without these, unlike the themed Source editor. */
+.config-source .cm-cursor,
+.config-source .cm-dropCursor {
+    border-left-width: 2px;
+    border-left-color: var(--pico-color);
+}
+
+.config-source .cm-selectionBackground,
+.config-source .cm-focused .cm-selectionBackground {
+    background-color: var(--cm-selection) !important;
+}
+
+.config-source ::selection {
+    background-color: var(--cm-selection);
+}
+
+.config-speakers-heading {
+    margin: 0 0 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--pico-muted-color);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.config-speakers-table {
+    width: 100%;
+}
+
+.config-speakers-table .config-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+/* Tag chips: reserved names (like `default`) take a distinct accent so they read apart
+   from custom tags at a glance. */
+.config-tag {
+    display: inline-block;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+/* Two hues tell the tag kinds apart at a glance, both chosen to avoid the mode
+   accents (View blue, Edit green): custom tags wear the palette's canonical "tag"
+   pink; reserved names DialogueDown owns (like `default`) wear a distinct violet. */
+.config-tag-custom {
+    background: rgb(236 72 153 / 12%);
+    border-color: rgb(236 72 153 / 32%);
+    color: #be185d;
+}
+
+.config-tag-reserved {
+    background: rgb(124 58 237 / 14%);
+    border-color: rgb(124 58 237 / 38%);
+    color: #6d28d9;
+}
+
+[data-theme="dark"] .config-tag-custom {
+    color: #f9a8d4;
+}
+
+[data-theme="dark"] .config-tag-reserved {
+    color: #c4b5fd;
+}
+
+/* Click-to-copy affordance: value cells and tag chips copy their text on click and give a
+   subtle hover cue, so a writer can lift a name, `@id`, or tag straight into a script. */
+.config-copy,
+.config-tag {
+    cursor: pointer;
+}
+
+.config-copy {
+    border-radius: var(--pico-border-radius);
+    transition: background-color 0.12s ease;
+}
+
+.config-copy:hover {
+    background: rgb(128 128 128 / 12%);
+}
+
+.config-tag:hover {
+    box-shadow: 0 0 0 1px currentcolor inset;
+}
+
+.config-empty {
+    color: var(--pico-muted-color);
+    font-style: italic;
+}
+
+/* A quiet "unsaved — save to refresh the speakers" cue on the speakers pane while the config
+   is dirty. Amber (like the disk chip) signals staleness without reading as an error. */
+.config-stale-hint {
+    margin: 0 0 0.7rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--pico-border-radius);
+    background: rgb(217 119 6 / 12%);
+    color: #b45309;
+    font-size: 0.72rem;
+}
+
+[data-theme="dark"] .config-stale-hint {
+    color: #fbbf24;
+}
+
+/* The no-config left pane: a plain-language explanation, not an empty code block. */
+.config-empty-state {
+    max-width: 40ch;
+    margin: auto;
+    padding: 1.5rem;
+    color: var(--pico-muted-color);
+    text-align: center;
+}
+
+.config-empty-state p {
+    margin: 0 0 0.75rem;
+}
+
+/* The create-a-config call to action in the no-config state (shown in Edit). */
+.config-create-button {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+    width: auto;
+    margin-top: 0.25rem;
+    padding: 0.5rem 1rem;
+}
+
+.config-create-icon {
+    flex: none;
+}
+
+.config-create-hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.85em;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.config-create-error {
+    margin: 0.6rem 0 0;
+    color: var(--pico-del-color);
+    font-size: 0.9em;
+}
+
+/* The status-bar config path sits beside the document path, marked by a small gear. */
+.config-path[disabled] {
+    cursor: default;
+    opacity: 0.75;
+}
+
+/* Both status paths lead with a small icon (a document for the dialogue file, a gear for
+   the config). The icon carries its own right margin instead of a row `gap`, so the
+   directory and filename stay flush (a `gap` would wedge a space between them). */
+.path-icon {
+    flex: none;
+    opacity: 0.7;
+    margin-right: 0.3rem;
+}
+
+/* A single shared confirmation toast (e.g. "Copied @N"). It sits just above the status
+   footer, centered, and fades in only while visible so it never blocks the content. */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 3rem;
+    z-index: 50;
+    transform: translate(-50%, 0.5rem);
+    padding: 0.4rem 0.9rem;
+    max-width: min(90vw, 26rem);
+    border-radius: 999px;
+    background: var(--pico-contrast, #1f2933);
+    color: var(--pico-contrast-inverse, #fff);
+    font-size: 0.78rem;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 28%);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        opacity 0.14s ease,
+        transform 0.14s ease;
+}
+
+.toast.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast {
+        transition: opacity 0.14s ease;
+        transform: translate(-50%, 0);
+    }
 }

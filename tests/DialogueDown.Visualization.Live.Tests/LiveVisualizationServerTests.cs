@@ -203,4 +203,39 @@ public sealed class LiveVisualizationServerTests
         Assert.True(response.IsSuccessStatusCode);
         Assert.Equal(bytes, await response.Content.ReadAsByteArrayAsync());
     }
+
+    [Fact]
+    public async Task CreateConfig_WritesADialogueTomlAtTheServeRoot_AndReturnsTheConfiguredPayload()
+    {
+        using var tree = new TempTree();
+        var documentPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        await using var server = new LiveVisualizationServer(
+            new LiveSession(documentPath, VisualizationMode.Edit));
+        await server.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+
+        var response = await client.PostAsync("/api/create-config", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(File.Exists(Path.Combine(tree.Root, "dialogue.toml"))); // created at the serve root
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("dialogue.toml", json); // the payload now carries the configuration file
+    }
+
+    [Fact]
+    public async Task CreateConfig_WhenAConfigAlreadyExists_Returns409AndLeavesItUntouched()
+    {
+        using var tree = new TempTree();
+        var documentPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var existing = tree.File("dialogue.toml", "# hand-written\n");
+        await using var server = new LiveVisualizationServer(
+            new LiveSession(documentPath, VisualizationMode.Edit));
+        await server.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+
+        var response = await client.PostAsync("/api/create-config", content: null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("# hand-written\n", File.ReadAllText(existing)); // left untouched
+    }
 }

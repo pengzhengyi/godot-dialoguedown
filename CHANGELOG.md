@@ -71,6 +71,9 @@ changes easy to categorize.
 
 ### Changed
 
+- Development verification now provides faster targeted local loops and
+  parallel, overlapped frontend CI while retaining the full test, analyzer,
+  coverage, accessibility, and generated-bundle gates.
 - `visualize <script>` now opens a **served session** (read-only **View** by default)
   instead of a one-shot static file; write an offline snapshot with `-o`.
 - The `visualize` servers now compress responses (gzip), cutting the report's

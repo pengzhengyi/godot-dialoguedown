@@ -1,4 +1,4 @@
-using DialogueDown.Configuration;
+using DialogueDown.Visualization.Configuration;
 
 namespace DialogueDown.Visualization.Live;
 
@@ -14,7 +14,7 @@ public interface ILauncherRunner
     /// Serves the launcher rooted at <paramref name="root"/> on a loopback port, pre-filled
     /// with an optional root-relative <paramref name="source"/> and a <paramref name="mode"/>,
     /// opening the browser unless <paramref name="noOpen"/>. Each report the launcher opens is
-    /// compiled with the project's <paramref name="options"/>. Runs until
+    /// showing the applied <paramref name="configuration"/>. Runs until
     /// <paramref name="cancellationToken"/> is canceled. Returns a process exit code.
     /// </summary>
     Task<int> RunAsync(
@@ -23,6 +23,6 @@ public interface ILauncherRunner
         LaunchMode mode,
         int? port,
         bool noOpen,
-        CompilerOptions options,
+        AppliedConfiguration configuration,
         CancellationToken cancellationToken);
 }

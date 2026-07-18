@@ -1,4 +1,5 @@
 using DialogueDown.Configuration;
+using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
@@ -14,7 +15,7 @@ public sealed class StaticModeTests
 
         try
         {
-            var code = StaticMode.Run(doc.Path, output, noOpen: false, CompilerOptions.Default, browser, new StringWriter());
+            var code = StaticMode.Run(doc.Path, output, noOpen: false, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new StringWriter());
 
             Assert.Equal(0, code);
             Assert.True(File.Exists(output));
@@ -40,7 +41,7 @@ public sealed class StaticModeTests
 
         try
         {
-            var code = StaticMode.Run(doc.Path, output, noOpen: true, CompilerOptions.Default, browser, new StringWriter());
+            var code = StaticMode.Run(doc.Path, output, noOpen: true, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new StringWriter());
 
             Assert.Equal(0, code);
             Assert.True(File.Exists(output));
@@ -58,7 +59,7 @@ public sealed class StaticModeTests
         using var doc = new TempDocument();
         var browser = new FakeBrowserLauncher();
 
-        var code = StaticMode.Run(doc.Path, output: null, noOpen: false, CompilerOptions.Default, browser, new StringWriter());
+        var code = StaticMode.Run(doc.Path, output: null, noOpen: false, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new StringWriter());
 
         var opened = Assert.Single(browser.Opened);
         try
@@ -82,7 +83,7 @@ public sealed class StaticModeTests
             "/tmp/missing.dialogue.md",
             output: null,
             noOpen: false,
-            CompilerOptions.Default,
+            AppliedConfiguration.WithoutFile(CompilerOptions.Default),
             browser,
             error);
 

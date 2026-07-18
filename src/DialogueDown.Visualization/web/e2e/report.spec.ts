@@ -87,9 +87,9 @@ test("the editor supports search and code folding (read-only)", async ({ page })
 
     // Search panel opens with the shortcut and closes with Escape.
     await page.keyboard.press("ControlOrMeta+f");
-    await expect(page.locator(".cm-panel.cm-search")).toBeVisible();
+    await expect(page.locator(".dd-search")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.locator(".cm-panel.cm-search")).toHaveCount(0);
+    await expect(page.locator(".dd-search")).toHaveCount(0);
 
     // Folding a section from the gutter chevron collapses it to a placeholder.
     await page.locator(".cm-foldGutter .cm-gutterElement", { hasText: "⌄" }).first().click();

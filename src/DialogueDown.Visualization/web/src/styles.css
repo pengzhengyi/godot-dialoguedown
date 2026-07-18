@@ -686,46 +686,193 @@ g.node.entity-highlight text.label {
     background: rgb(120 160 255 / 25%);
 }
 
-/* The search/replace panel, themed to match the page instead of CodeMirror's light default. */
+/* The compact find/replace panel floats over the top-right of the editor, VS Code-style, rather
+   than sitting in a full-width bar. The panels container is made transparent and absolute so the
+   card styling lives on `.dd-search` itself. */
 :is(.source-pane, .config-source) .cm-panels {
+    background: transparent;
+    color: var(--pico-color);
+    border: none;
+}
+
+:is(.source-pane, .config-source) .cm-panels-top {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.7rem;
+    left: auto; /* shrink-wrap to the panel and anchor it to the right, VS Code-style */
+    z-index: 20;
+    width: auto;
+    border: none;
+}
+
+.dd-search {
+    display: grid;
+    grid-template-columns: auto minmax(5rem, 13rem) auto; /* chevron | inputs (shrink if tight) | controls */
+    align-items: center;
+    gap: 0.3rem;
+    width: auto; /* shrink-wrap so it floats compactly at the top-right */
+    max-width: calc(100% - 1.4rem);
+    padding: 0.35rem 0.4rem;
     background: var(--pico-card-background-color);
-    color: var(--pico-color);
-    border-top: 1px solid var(--pico-muted-border-color);
-}
-
-:is(.source-pane, .config-source) .cm-panel.cm-search {
-    padding: 0.5rem 0.6rem;
-    font-size: 0.78rem;
-}
-
-:is(.source-pane, .config-source) .cm-panel.cm-search label {
-    color: var(--pico-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
     font-size: 0.76rem;
 }
 
-:is(.source-pane, .config-source) .cm-panel.cm-search input,
-:is(.source-pane, .config-source) .cm-panel.cm-search button {
-    margin: 0 0.15rem;
-    padding: 0.15rem 0.45rem;
+/* Pico's global form-element rules (a `:not()` chain plus a bottom margin) outrank a single
+   class, so reset the panel's inputs and buttons with `!important` to keep them compact. */
+.dd-search :is(input, button) {
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+/* The count + prev/next/close (row 1) and the Replace/All actions (row 2) share the grid's third
+   column, left-aligned, so the Replace/All buttons sit right after the input, under the count. */
+.dd-search-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.25rem;
+}
+
+/* The find field wraps the input and the inline case/regex/word toggles in one bordered box. */
+.dd-search-field {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding-right: 0.15rem;
+    border: 1px solid var(--pico-form-element-border-color);
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-form-element-background-color);
+}
+
+.dd-search-field:focus-within {
+    border-color: var(--pico-primary);
+}
+
+.dd-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: auto !important;
+    padding: 0.22rem 0.4rem !important;
+    border: none;
+    background: transparent;
+    color: var(--pico-color);
+    font-size: 0.76rem;
+    line-height: 1.4 !important;
+}
+
+.dd-search-input:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.dd-search-toggles {
+    display: flex;
+    flex: none;
+    gap: 0.1rem;
+}
+
+.dd-search-toggle {
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.dd-search-toggle:hover {
+    background: var(--pico-secondary-background);
+    color: var(--pico-color);
+}
+
+.dd-search-toggle[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--mode-accent, var(--pico-primary)) 22%, transparent);
+    border-color: var(--mode-accent, var(--pico-primary));
+    color: var(--pico-color);
+}
+
+.dd-search-count {
+    min-width: 4.5rem;
+    padding: 0 0.15rem;
+    color: var(--pico-muted-color);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.dd-search-nav,
+.dd-search-close,
+.dd-search-expand {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--pico-muted-color);
+    cursor: pointer;
+}
+
+.dd-search-nav:hover,
+.dd-search-close:hover,
+.dd-search-expand:hover {
+    background: var(--pico-secondary-background);
+    color: var(--pico-color);
+}
+
+.dd-search-expand svg {
+    transition: transform 0.12s ease;
+}
+
+.dd-search-expand.expanded svg {
+    transform: rotate(90deg);
+}
+
+/* The replace input sits in the grid's second column (under the find field) so the two inputs
+   line up and share a width; it carries its own border since it is not wrapped in a field. */
+.dd-search-replace-input {
+    grid-column: 2;
+    min-width: 0;
+    padding: 0.22rem 0.4rem !important;
     border: 1px solid var(--pico-form-element-border-color);
     border-radius: var(--pico-border-radius);
     background: var(--pico-form-element-background-color);
     color: var(--pico-color);
     font-size: 0.76rem;
+    line-height: 1.4 !important;
 }
 
-:is(.source-pane, .config-source) .cm-panel.cm-search button {
-    cursor: pointer;
-}
-
-:is(.source-pane, .config-source) .cm-panel.cm-search button:hover:not(:disabled) {
+.dd-search-replace-input:focus {
+    outline: none;
     border-color: var(--pico-primary);
 }
 
-:is(.source-pane, .config-source) .cm-panel.cm-search button[name="close"] {
-    border: none;
-    background: transparent;
-    color: var(--pico-muted-color);
+.dd-search-action {
+    flex: none;
+    width: auto;
+    margin: 0;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--pico-form-element-border-color);
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-secondary-background);
+    color: var(--pico-color);
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.dd-search-action:hover {
+    border-color: var(--pico-primary);
 }
 
 .source-divider {

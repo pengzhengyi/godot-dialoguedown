@@ -20,7 +20,8 @@ import {
     foldKeymap,
     foldService,
 } from "@codemirror/language";
-import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { compactSearch } from "./search-panel";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { tags } from "@lezer/highlight";
 import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
@@ -224,7 +225,7 @@ export function createSourceView(
                 highlightActiveLine(),
                 highlightSelectionMatches(),
                 bracketMatching(),
-                search(),
+                compactSearch(),
                 history(),
                 markdown(),
                 syntaxHighlighting(markdownHighlightStyle),

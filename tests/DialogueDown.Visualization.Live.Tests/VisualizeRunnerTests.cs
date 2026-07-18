@@ -1,4 +1,5 @@
 using DialogueDown.Configuration;
+using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
@@ -12,7 +13,7 @@ public sealed class VisualizeRunnerTests
         var browser = new FakeBrowserLauncher();
         var runner = new VisualizeRunner(browser);
 
-        var code = runner.RunStatic(doc.Path, output: null, noOpen: false, CompilerOptions.Default);
+        var code = runner.RunStatic(doc.Path, output: null, noOpen: false, AppliedConfiguration.WithoutFile(CompilerOptions.Default));
 
         Assert.Equal(0, code);
         var opened = Assert.Single(browser.Opened);
@@ -31,7 +32,7 @@ public sealed class VisualizeRunnerTests
 
         try
         {
-            var code = runner.RunStatic(doc.Path, target, noOpen: true, CompilerOptions.Default);
+            var code = runner.RunStatic(doc.Path, target, noOpen: true, AppliedConfiguration.WithoutFile(CompilerOptions.Default));
 
             Assert.Equal(0, code);
             Assert.True(File.Exists(target));
@@ -51,7 +52,7 @@ public sealed class VisualizeRunnerTests
         var runner = new VisualizeRunner(browser);
         using var stop = new CancellationTokenSource();
 
-        var task = runner.RunServedAsync(doc.Path, port: 0, noOpen: false, renderRoot: null, VisualizationMode.View, CompilerOptions.Default, stop.Token);
+        var task = runner.RunServedAsync(doc.Path, port: 0, noOpen: false, renderRoot: null, VisualizationMode.View, AppliedConfiguration.WithoutFile(CompilerOptions.Default), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
         Assert.StartsWith("http://127.0.0.1:", browser.Opened[0]);

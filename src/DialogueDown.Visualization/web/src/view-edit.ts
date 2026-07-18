@@ -4,10 +4,12 @@ import type { Report, ServedMode } from "./model";
 
 /** The side-effecting collaborators the mode controller drives (injected for testing). */
 export interface ModeControllerPorts {
-    /** Reconfigures the editor (editable/read-only, content) and the graph tabs. */
+    /** Reconfigures the editors (editable/read-only, content) and the graph tabs. */
     app: AppController;
-    /** The Edit-mode dirty/save state machine. */
-    live: LiveEditController;
+    /** The dialogue document's Edit-mode dirty/save state machine. */
+    dialogueLive: LiveEditController;
+    /** The config document's state machine, when the compile applied a `dialogue.toml`. */
+    configLive: LiveEditController | null;
     /** Shows or hides the Save and Discard buttons (Edit only). */
     setEditControlsVisible(visible: boolean): void;
     /** Reflects the active mode on the toggle control. */
@@ -20,8 +22,10 @@ export interface ModeControllerPorts {
 export interface ModeController {
     /** The active mode. */
     readonly mode: ServedMode;
-    /** Route an editor change: dirty tracking in Edit, ignored in View (a reload). */
+    /** Route a Source-editor change: dirty tracking in Edit, ignored in View (a reload). */
     onEditorChange(buffer: string): void;
+    /** Route a config-editor change: dirty tracking in Edit, ignored in View. */
+    onConfigEditorChange(buffer: string): void;
     /** Route a pushed report: View re-syncs the editor + graphs; Edit raises the chip. */
     onReload(report: Report): void;
     /** Request a mode switch (from the toggle). */
@@ -30,10 +34,11 @@ export interface ModeController {
 
 /**
  * The View ⇄ Edit controller for a served session. View is read-only and auto-updating
- * (a disk change re-syncs the editor and graphs); Edit is editable and owns its buffer
- * (a disk change only raises the passive chip). Switching reconfigures the one editor in
- * place — the buffer, cursor, and history survive — and prompts before discarding unsaved
- * edits when leaving Edit.
+ * (a disk change re-syncs the editor and graphs); Edit is editable and owns its buffers
+ * (a disk change only raises the passive chip). Switching reconfigures both editors in
+ * place — the buffers, cursors, and history survive — and prompts before discarding unsaved
+ * edits when leaving Edit. At most one document is dirty at a time (navigation is locked
+ * while dirty), so leaving Edit discards whichever one it is.
  */
 export function createModeController(
     initial: ServedMode,
@@ -44,6 +49,7 @@ export function createModeController(
     function apply(next: ServedMode): void {
         mode = next;
         ports.app.setEditable(next === "edit");
+        ports.app.setConfigEditable(next === "edit");
         ports.setEditControlsVisible(next === "edit");
         ports.reflect(next);
     }
@@ -55,11 +61,14 @@ export function createModeController(
             return mode;
         },
         onEditorChange(buffer) {
-            if (mode === "edit") ports.live.onEdit(buffer);
+            if (mode === "edit") ports.dialogueLive.onEdit(buffer);
+        },
+        onConfigEditorChange(buffer) {
+            if (mode === "edit") ports.configLive?.onEdit(buffer);
         },
         onReload(report) {
             if (mode === "edit") {
-                ports.live.onDiskChange(); // passive chip; never reload over edits
+                ports.dialogueLive.onDiskChange(); // passive chip; never reload over edits
                 return;
             }
             ports.app.showBanner(null);
@@ -68,8 +77,12 @@ export function createModeController(
         },
         switchTo(next) {
             if (next === mode) return;
-            if (mode === "edit" && ports.live.dirty && !ports.confirmDiscard()) return;
-            if (mode === "edit") ports.live.discard();
+            if (mode === "edit") {
+                const dirty = ports.dialogueLive.dirty || (ports.configLive?.dirty ?? false);
+                if (dirty && !ports.confirmDiscard()) return;
+                ports.dialogueLive.discard();
+                ports.configLive?.discard();
+            }
             apply(next);
         },
     };

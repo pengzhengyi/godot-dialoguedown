@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using DialogueDown.Configuration;
+using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
@@ -16,7 +17,7 @@ public sealed class ServeModeTests
             port: null,
             noOpen: true,
             renderRoot: null,
-            CompilerOptions.Default,
+            AppliedConfiguration.WithoutFile(CompilerOptions.Default),
             new FakeBrowserLauncher(),
             new FakeHostConsent(allow: false),
             new StringWriter(),
@@ -35,7 +36,7 @@ public sealed class ServeModeTests
         using var stop = new CancellationTokenSource();
 
         var task = ServeMode.RunAsync(
-            doc.Path, port: 0, noOpen: false, renderRoot: null, CompilerOptions.Default, browser, new FakeHostConsent(allow: false),
+            doc.Path, port: 0, noOpen: false, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new FakeHostConsent(allow: false),
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
@@ -56,7 +57,7 @@ public sealed class ServeModeTests
         using var stop = new CancellationTokenSource();
 
         var task = ServeMode.RunAsync(
-            doc.Path, port: 0, noOpen: false, renderRoot: null, CompilerOptions.Default, browser, new FakeHostConsent(allow: false),
+            doc.Path, port: 0, noOpen: false, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new FakeHostConsent(allow: false),
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
@@ -104,7 +105,7 @@ public sealed class ServeModeTests
         using var stop = new CancellationTokenSource();
 
         var task = ServeMode.RunAsync(
-            documentPath, port: 0, noOpen: false, renderRoot: tree.Root, CompilerOptions.Default, browser, consent,
+            documentPath, port: 0, noOpen: false, renderRoot: tree.Root, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, consent,
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
@@ -128,7 +129,7 @@ public sealed class ServeModeTests
         var error = new StringWriter();
 
         var code = await ServeMode.RunAsync(
-            documentPath, port: 0, noOpen: false, renderRoot: elsewhere, CompilerOptions.Default, browser,
+            documentPath, port: 0, noOpen: false, renderRoot: elsewhere, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser,
             new FakeHostConsent(allow: false), new StringWriter(), error, CancellationToken.None);
 
         Assert.Equal(1, code);
@@ -153,7 +154,7 @@ public sealed class ServeModeTests
         using var stop = new CancellationTokenSource();
 
         var task = ServeMode.RunAsync(
-            documentPath, port: 0, noOpen: false, renderRoot: null, CompilerOptions.Default, browser, consent,
+            documentPath, port: 0, noOpen: false, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, consent,
             new StringWriter(), new StringWriter(), stop.Token);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
@@ -176,7 +177,7 @@ public sealed class ServeModeTests
         using var stop = new CancellationTokenSource();
 
         var task = ServeMode.RunAsync(
-            doc.Path, port: 0, noOpen: false, renderRoot: null, CompilerOptions.Default, browser, new FakeHostConsent(allow: false),
+            doc.Path, port: 0, noOpen: false, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new FakeHostConsent(allow: false),
             new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.Edit);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
@@ -201,7 +202,7 @@ public sealed class ServeModeTests
         using var stop = new CancellationTokenSource();
 
         var task = ServeMode.RunAsync(
-            doc.Path, port: 0, noOpen: false, renderRoot: null, CompilerOptions.Default, browser, new FakeHostConsent(allow: false),
+            doc.Path, port: 0, noOpen: false, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new FakeHostConsent(allow: false),
             new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.View);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
@@ -225,7 +226,7 @@ public sealed class ServeModeTests
         using var stop = new CancellationTokenSource();
 
         var task = ServeMode.RunAsync(
-            newPath, port: 0, noOpen: false, renderRoot: null, CompilerOptions.Default, browser, new FakeHostConsent(allow: false),
+            newPath, port: 0, noOpen: false, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new FakeHostConsent(allow: false),
             new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.Edit);
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
@@ -246,7 +247,7 @@ public sealed class ServeModeTests
         var error = new StringWriter();
 
         var code = await ServeMode.RunAsync(
-            newPath, port: 0, noOpen: true, renderRoot: null, CompilerOptions.Default, new FakeBrowserLauncher(),
+            newPath, port: 0, noOpen: true, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), new FakeBrowserLauncher(),
             new FakeHostConsent(allow: false), new StringWriter(), error, CancellationToken.None,
             mode: VisualizationMode.View);
 

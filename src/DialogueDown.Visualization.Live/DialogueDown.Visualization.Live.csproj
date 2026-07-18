@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DialogueDown.Visualization\DialogueDown.Visualization.csproj" />
+    <ProjectReference Include="..\DialogueDown.ConfigurationLoader\DialogueDown.ConfigurationLoader.csproj" />
   </ItemGroup>
 
 </Project>

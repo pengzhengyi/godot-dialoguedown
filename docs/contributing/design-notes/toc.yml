@@ -64,6 +64,8 @@
   items:
   - name: BBCode Rendering
     href: BBCode Rendering.md
+  - name: Development Cycle Optimization
+    href: Development Cycle Optimization.md
   - name: Interactive Playthrough
     href: Interactive Playthrough.md
   - name: README Shipping-Status Refresh

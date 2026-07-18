@@ -1,17 +1,21 @@
 import { test, expect } from "@playwright/test";
 import { writeFileSync } from "node:fs";
-import { LIVE_EDIT_PORT, LIVE_EDIT_DOC, LIVE_EDIT_SOURCE } from "./fixture.mjs";
+import {
+    SEMANTIC_AUTOCOMPLETE_PORT,
+    SEMANTIC_AUTOCOMPLETE_DOC,
+    SEMANTIC_AUTOCOMPLETE_SOURCE,
+} from "./fixture.mjs";
 
 // Semantic autocompletion end-to-end against the real .NET --edit server. The analyzer
 // resolves the document's speakers, scenes, and jumps and carries them in the report
 // payload; the Source editor's completion draws on those resolved symbols merged with a
 // live scan. The fixture "# Scene / Alice: …" resolves to a `scene` jump target, which we
 // prove still feeds completion after the heading — the scan's only source for it — is gone.
-const base = `http://127.0.0.1:${LIVE_EDIT_PORT}`;
+const base = `http://127.0.0.1:${SEMANTIC_AUTOCOMPLETE_PORT}`;
 const tooltip = ".cm-tooltip-autocomplete";
 
 test.beforeEach(() => {
-    writeFileSync(LIVE_EDIT_DOC, LIVE_EDIT_SOURCE);
+    writeFileSync(SEMANTIC_AUTOCOMPLETE_DOC, SEMANTIC_AUTOCOMPLETE_SOURCE);
 });
 
 test("completes a jump target from the analyzer's resolved symbols", async ({ page }) => {

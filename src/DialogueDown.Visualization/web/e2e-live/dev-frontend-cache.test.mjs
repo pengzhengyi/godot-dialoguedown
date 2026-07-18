@@ -35,3 +35,12 @@ test("Stylelint stores its native cache under the ignored frontend cache", () =>
     assert.match(packageJson.scripts["lint:css"], /--cache-location \.cache\/stylelint\//);
     assert.match(gitignore, /^\.cache\/$/m);
 });
+
+test("Prettier stores its native cache under the ignored frontend cache", () => {
+    assert.match(packageJson.scripts.format, /--cache/);
+    assert.match(
+        packageJson.scripts.format,
+        /--cache-location \.cache\/prettier\/\.prettier-cache/,
+    );
+    assert.match(gitignore, /^\.cache\/$/m);
+});

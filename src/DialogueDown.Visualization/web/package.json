@@ -15,7 +15,7 @@
     "e2e": "playwright test",
     "lint:js": "eslint . --cache --cache-location .cache/eslint/",
     "lint:css": "stylelint \"src/**/*.css\" --cache --cache-location .cache/stylelint/",
-    "format": "prettier --check .",
+    "format": "prettier --check . --cache --cache-location .cache/prettier/.prettier-cache",
     "check": "npm run typecheck && npm run lint:js && npm run lint:css && npm run format && npm run test && npm run test:infra",
     "build:cli": "dotnet build ../../DialogueDown.Cli/DialogueDown.Cli.csproj -c Release",
     "e2e:live": "npm run build:cli && playwright test --config playwright.live.config.ts"

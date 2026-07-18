@@ -21,6 +21,14 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "build: fast",
+      "detail": ".NET inner loop: build Release without analyzers (run restore once first; never substitutes for the full build).",
+      "type": "shell",
+      "command": "dotnet build DialogueDown.sln --configuration Release --no-restore -p:RunAnalyzers=false",
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "test",
       "detail": ".NET: run the test suite.",
       "type": "shell",
@@ -30,6 +38,22 @@
         "isDefault": true
       },
       "dependsOn": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test: project",
+      "detail": ".NET inner loop: run one already-built test project.",
+      "type": "shell",
+      "command": "dotnet test ${input:dotnetTestProject} --configuration Release --no-build --no-restore",
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test: filter",
+      "detail": ".NET inner loop: run a dotnet test filter in one already-built project.",
+      "type": "shell",
+      "command": "dotnet test ${input:dotnetTestProject} --configuration Release --no-build --no-restore --filter \"${input:dotnetTestFilter}\"",
+      "group": "test",
       "problemMatcher": "$msCompile"
     },
     {
@@ -68,12 +92,58 @@
       "problemMatcher": ["$tsc", "$eslint-stylish"]
     },
     {
+      "label": "web: test file",
+      "detail": "Frontend inner loop: run one Vitest file.",
+      "type": "shell",
+      "command": "npm run test -- ${input:webVitestTarget}",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "web: test watch",
+      "detail": "Frontend inner loop: watch one Vitest file.",
+      "type": "shell",
+      "command": "npm run test:watch -- ${input:webVitestTarget}",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "group": "test",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
       "label": "web: e2e",
       "detail": "Frontend: Playwright end-to-end + accessibility tests (builds first).",
       "type": "shell",
       "command": "npm run e2e",
       "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
       "dependsOn": "web: build",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "web: e2e file",
+      "detail": "Frontend inner loop: run one static Playwright spec.",
+      "type": "shell",
+      "command": "npm run e2e -- ${input:webStaticE2ETarget}",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "web: e2e grep",
+      "detail": "Frontend inner loop: run static Playwright tests matching a title.",
+      "type": "shell",
+      "command": "npm run e2e -- --grep \"${input:webPlaywrightGrep}\"",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "web: e2e live file",
+      "detail": "Frontend inner loop: build the CLI once and run one live Playwright spec.",
+      "type": "shell",
+      "command": "npm run e2e:live -- ${input:webLiveE2ETarget}",
+      "options": { "cwd": "${workspaceFolder}/src/DialogueDown.Visualization/web" },
       "group": "test",
       "problemMatcher": []
     },
@@ -96,7 +166,7 @@
       "label": "clean",
       "detail": "Remove build/test artifacts (keeps node_modules and the committed report).",
       "type": "shell",
-      "command": "dotnet clean DialogueDown.sln --nologo && rm -rf coverage-report TestResults src/DialogueDown.Visualization/web/playwright-report src/DialogueDown.Visualization/web/test-results src/DialogueDown.Visualization/web/coverage src/DialogueDown.Visualization/web/.vite",
+      "command": "dotnet clean DialogueDown.sln --nologo && rm -rf coverage-report TestResults src/DialogueDown.Visualization/web/playwright-report src/DialogueDown.Visualization/web/test-results src/DialogueDown.Visualization/web/coverage src/DialogueDown.Visualization/web/.vite src/DialogueDown.Visualization/web/.cache",
       "group": "build",
       "problemMatcher": []
     },
@@ -111,6 +181,52 @@
       "type": "shell",
       "command": "lychee --no-progress --timeout 10 README.md CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md CHANGELOG.md .github/pull_request_template.md",
       "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "dotnetTestProject",
+      "type": "pickString",
+      "description": "Test project",
+      "options": [
+        "tests/DialogueDown.Tests/DialogueDown.Tests.csproj",
+        "tests/DialogueDown.ConfigurationLoader.Tests/DialogueDown.ConfigurationLoader.Tests.csproj",
+        "tests/DialogueDown.Cli.Tests/DialogueDown.Cli.Tests.csproj",
+        "tests/DialogueDown.Visualization.Tests/DialogueDown.Visualization.Tests.csproj",
+        "tests/DialogueDown.Visualization.Live.Tests/DialogueDown.Visualization.Live.Tests.csproj",
+        "tests/DialogueDown.Architecture.Tests/DialogueDown.Architecture.Tests.csproj"
+      ],
+      "default": "tests/DialogueDown.Tests/DialogueDown.Tests.csproj"
+    },
+    {
+      "id": "dotnetTestFilter",
+      "type": "promptString",
+      "description": "dotnet test filter (for example: FullyQualifiedName~TextTests)",
+      "default": "FullyQualifiedName~"
+    },
+    {
+      "id": "webVitestTarget",
+      "type": "promptString",
+      "description": "Vitest file",
+      "default": "src/editor-completions.test.ts"
+    },
+    {
+      "id": "webStaticE2ETarget",
+      "type": "promptString",
+      "description": "Static Playwright spec",
+      "default": "e2e/autocomplete.spec.ts"
+    },
+    {
+      "id": "webPlaywrightGrep",
+      "type": "promptString",
+      "description": "Static Playwright test-title pattern",
+      "default": "completes a known speaker"
+    },
+    {
+      "id": "webLiveE2ETarget",
+      "type": "promptString",
+      "description": "Live Playwright spec",
+      "default": "e2e-live/semantic-autocomplete.spec.ts"
     }
   ]
 }

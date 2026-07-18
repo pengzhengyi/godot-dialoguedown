@@ -1,4 +1,5 @@
 using DialogueDown.Script.Transpiler;
+using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
 using static DialogueDown.Tests.Support.MarkdownAstFactory;
 
@@ -11,7 +12,8 @@ public sealed class ScriptTranspilerFactoryTests
     {
         var document = Document(TextParagraph("Alice: Hi"));
 
-        var script = ScriptTranspilerFactory.CreateDefault().Transpile(document, "Alice: Hi");
+        var script = ScriptTranspilerFactory.CreateDefault()
+            .Transpile(document, DiagnosticsContextFactory.Context("Alice: Hi"));
 
         var line = AssertLine(Assert.Single(script.Body));
         AssertSpeakerNameReference(line.Speaker!, "Alice");

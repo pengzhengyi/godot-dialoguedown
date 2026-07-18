@@ -14,10 +14,10 @@ public sealed class SemanticAnalyzerTests
 
     [Fact]
     public void Analyze_NullDocument_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => _analyzer.Analyze(null!, "source"));
+        Assert.Throws<ArgumentNullException>(() => _analyzer.Analyze(null!, DiagnosticsContextFactory.Context("source")));
 
     [Fact]
-    public void Analyze_NullSource_Throws() =>
+    public void Analyze_NullContext_Throws() =>
         Assert.Throws<ArgumentNullException>(
             () => _analyzer.Analyze(new DesugaredScriptDocument(new ScriptDocument([])), null!));
 
@@ -26,7 +26,7 @@ public sealed class SemanticAnalyzerTests
     {
         var desugared = Pipeline.UntilDesugared("Alice: Hi.");
 
-        var model = _analyzer.Analyze(desugared, "Alice: Hi.");
+        var model = _analyzer.Analyze(desugared, DiagnosticsContextFactory.Context("Alice: Hi."));
 
         Assert.Same(desugared, model.Desugared);
     }
@@ -48,7 +48,7 @@ public sealed class SemanticAnalyzerTests
     {
         var analyzer = new SemanticAnalyzer(new SemanticAnalyzerOptions([DefaultConfiguredSpeaker("Narrator")]));
 
-        var model = analyzer.Analyze(Pipeline.UntilDesugared("Hi."), "Hi.");
+        var model = analyzer.Analyze(Pipeline.UntilDesugared("Hi."), DiagnosticsContextFactory.Context("Hi."));
 
         var speaker = model.Speakers.Resolve(new DefaultSpeaker(SourceSpanFactory.Span()));
         Assert.Equal("Narrator", speaker.Name);
@@ -61,7 +61,7 @@ public sealed class SemanticAnalyzerTests
         var analyzer = new SemanticAnalyzer(new SemanticAnalyzerOptions([DefaultConfiguredSpeaker("Narrator")]));
         var source = "Bob ##default: Hi.";
 
-        var model = analyzer.Analyze(Pipeline.UntilDesugared(source), source);
+        var model = analyzer.Analyze(Pipeline.UntilDesugared(source), DiagnosticsContextFactory.Context(source));
 
         Assert.Equal("Bob", model.Speakers.Resolve(new DefaultSpeaker(SourceSpanFactory.Span())).Name);
     }
@@ -117,5 +117,5 @@ public sealed class SemanticAnalyzerTests
         Assert.Contains("##bogus", error.Message);
     }
 
-    private SemanticModel Analyze(string source) => _analyzer.Analyze(Pipeline.UntilDesugared(source), source);
+    private SemanticModel Analyze(string source) => _analyzer.Analyze(Pipeline.UntilDesugared(source), DiagnosticsContextFactory.Context(source));
 }

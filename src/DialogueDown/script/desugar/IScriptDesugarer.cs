@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 
 namespace DialogueDown.Script.Desugar;
@@ -11,8 +12,8 @@ internal interface IScriptDesugarer
 {
     /// <summary>
     /// Desugars <paramref name="document"/> into a <see cref="DesugaredScriptDocument"/>.
-    /// <paramref name="source"/> is the original script text; it anchors future diagnostics
-    /// and is validated here, though desugaring itself reads only the tree.
+    /// <paramref name="context"/> carries the source future diagnostics anchor to and the sink to
+    /// report into; it is validated here, though desugaring itself reads only the tree.
     /// </summary>
-    DesugaredScriptDocument Desugar(ScriptDocument document, string source);
+    DesugaredScriptDocument Desugar(ScriptDocument document, DiagnosticsContext context);
 }

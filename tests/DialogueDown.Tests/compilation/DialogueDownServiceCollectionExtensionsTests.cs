@@ -1,5 +1,6 @@
 using DialogueDown.Compilation;
 using DialogueDown.Configuration;
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler;
@@ -49,7 +50,7 @@ public sealed class DialogueDownServiceCollectionExtensionsTests
     {
         // A stage registered before AddDialogueDown wins, because each default uses TryAdd.
         var transpiler = Substitute.For<IScriptTranspiler>();
-        transpiler.Transpile(Arg.Any<MarkdownDocument>(), Arg.Any<string>())
+        transpiler.Transpile(Arg.Any<MarkdownDocument>(), Arg.Any<DiagnosticsContext>())
             .Returns(new ScriptDocument([]));
         using var provider = new ServiceCollection()
             .AddSingleton<IScriptTranspiler>(transpiler)
@@ -58,7 +59,8 @@ public sealed class DialogueDownServiceCollectionExtensionsTests
 
         provider.GetRequiredService<IScriptCompiler>().Compile("Alice: hi");
 
-        transpiler.Received(1).Transpile(Arg.Any<MarkdownDocument>(), "Alice: hi");
+        transpiler.Received(1)
+            .Transpile(Arg.Any<MarkdownDocument>(), Arg.Is<DiagnosticsContext>(c => c.Source == "Alice: hi"));
     }
 
     [Fact]

@@ -23,11 +23,13 @@ internal static class Architecture
     // Core internal layers, in pipeline order.
     public const string Common = "DialogueDown.Common";
     public const string Configuration = "DialogueDown.Configuration";
+    public const string Diagnostics = "DialogueDown.Diagnostics";
     public const string Markdown = "DialogueDown.Markdown";
     public const string Graph = "DialogueDown.Graph";
     public const string Script = "DialogueDown.Script";
     public const string ScriptAst = "DialogueDown.Script.Ast";
     public const string ScriptDesugar = "DialogueDown.Script.Desugar";
+    public const string ScriptValidation = "DialogueDown.Script.Validation";
     public const string ScriptSemantics = "DialogueDown.Script.Semantics";
     public const string ScriptTranspiler = "DialogueDown.Script.Transpiler";
     public const string Compilation = "DialogueDown.Compilation";

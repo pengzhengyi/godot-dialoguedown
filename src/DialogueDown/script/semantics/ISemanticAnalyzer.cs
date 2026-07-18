@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Desugar;
 
 namespace DialogueDown.Script.Semantics;
@@ -11,8 +12,8 @@ internal interface ISemanticAnalyzer
 {
     /// <summary>
     /// Analyzes <paramref name="document"/> into a <see cref="SemanticModel"/>.
-    /// <paramref name="source"/> is the original script text; it anchors future diagnostics and
-    /// is validated here, though analysis itself reads only the tree and the spans it carries.
+    /// <paramref name="context"/> carries the source future diagnostics anchor to and the sink to
+    /// report into; it is validated here, though analysis itself reads only the tree and spans.
     /// </summary>
-    SemanticModel Analyze(DesugaredScriptDocument document, string source);
+    SemanticModel Analyze(DesugaredScriptDocument document, DiagnosticsContext context);
 }

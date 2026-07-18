@@ -1,5 +1,6 @@
 using DialogueDown.Compilation;
 using DialogueDown.Configuration;
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Semantics;
 using DialogueDown.Tests.Support;
@@ -54,5 +55,24 @@ public sealed class ScriptCompilerFactoryTests
 
         var speaker = result.Semantics.Speakers.Resolve(new DefaultSpeaker(SourceSpanFactory.Span()));
         Assert.Equal("Narrator", speaker.Name);
+    }
+
+    [Fact]
+    public void CreateDefault_ALineWithTwoJumps_SurfacesTheMultipleJumpsWarning()
+    {
+        var source =
+            """
+            # A
+
+            # B
+
+            Alice: Go => [A](#a) => [B](#b)
+            """;
+
+        var result = ScriptCompilerFactory.CreateDefault().Compile(source);
+
+        var warning = Assert.Single(result.Diagnostics, d => d.Descriptor.Code == "DLG1003");
+        Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
+        Assert.False(result.HasErrors);
     }
 }

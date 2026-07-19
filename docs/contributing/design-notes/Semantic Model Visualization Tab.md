@@ -152,7 +152,7 @@ scenes by anchor and speakers by name/id.
 │         full screen)         │   #the-forest → The Forest│
 │                              ├───────────────────────────┤
 │                              │ ▾ Jumps (2)               │
-│                              │   [east] → The Market     │
+│                              │   [east] => The Market    │
 └──────────────────────────────┴───────────────────────────┘
 ```
 

@@ -123,7 +123,7 @@ const report: Report = {
                                 { text: "Leave", category: "jump" },
                                 { text: "#the-square" },
                                 {
-                                    text: "→ The Square",
+                                    text: "=> The Square",
                                     refKey: "scene:the-square",
                                     category: "structure",
                                 },

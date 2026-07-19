@@ -182,7 +182,7 @@ public sealed class SemanticProjectionTests
         var row = Assert.Single(jumps.Rows);
         Assert.Equal("east", row.Cells[0].Text);
         Assert.Equal("#the-forest", row.Cells[1].Text);
-        Assert.StartsWith("\u2192", row.Cells[2].Text); // "→ The Forest"
+        Assert.StartsWith("=> ", row.Cells[2].Text); // "=> The Forest"
         // The jump's target cell references the same key the scene node and anchor row carry.
         Assert.Equal("scene:the-forest", row.Cells[2].RefKey);
         Assert.Contains(graph.Nodes, node => node.EntityKey == "scene:the-forest");

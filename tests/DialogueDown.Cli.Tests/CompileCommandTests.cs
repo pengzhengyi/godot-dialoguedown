@@ -35,6 +35,7 @@ public sealed class CompileCommandTests
             """;
         using var script = new TempScript(source);
         var compiler = Substitute.For<IScriptCompiler>();
+        compiler.Compile(Arg.Any<string>()).Returns(ScriptCompilerFactory.CreateDefault().Compile(""));
         var tester = CliTester.Create(compiler);
 
         var result = tester.Run("compile", script.Path);
@@ -50,6 +51,7 @@ public sealed class CompileCommandTests
         var configPath = dir.Write("dialogue.toml", NarratorConfig);
         using var script = new TempScript("# Scene");
         var compiler = Substitute.For<IScriptCompiler>();
+        compiler.Compile(Arg.Any<string>()).Returns(ScriptCompilerFactory.CreateDefault().Compile(""));
         var factory = Substitute.For<Func<CompilerOptions, IScriptCompiler>>();
         factory(Arg.Any<CompilerOptions>()).Returns(compiler);
         var tester = CliTester.Create(compilerFactory: factory);
@@ -60,6 +62,39 @@ public sealed class CompileCommandTests
         factory.Received(1).Invoke(
             Arg.Is<CompilerOptions>(o => o.Speakers.Any(s => s.Name == "Narrator")));
         compiler.Received(1).Compile(Arg.Any<string>());
+    }
+
+    [Fact]
+    public void Compile_ScriptWithAnError_RendersErrataAndReturnsDataError()
+    {
+        using var script = new TempScript("#lonely: Hi"); // tags without a speaker → DLG1101
+        var tester = CliTester.Create();
+
+        var result = tester.Run("compile", script.Path);
+
+        Assert.Equal(ExitCodes.DataError, result.ExitCode);
+        Assert.Contains("DLG1101", result.Output, StringComparison.Ordinal);
+        Assert.Contains("error", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Compile_ScriptWithOnlyAWarning_RendersErrataButSucceeds()
+    {
+        var source = """
+            # A
+
+            # B
+
+            Alice: Go => [A](#a) => [B](#b)
+            """;
+        using var script = new TempScript(source);
+        var tester = CliTester.Create();
+
+        var result = tester.Run("compile", script.Path);
+
+        Assert.Equal(ExitCodes.Success, result.ExitCode);
+        Assert.Contains("DLG1003", result.Output, StringComparison.Ordinal);
+        Assert.Contains("warning", result.Output, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -96,7 +131,7 @@ public sealed class CompileCommandTests
 
         var result = tester.Run("compile", script.Path, "--config", configPath);
 
-        Assert.Equal(ExitCodes.Error, result.ExitCode);
+        Assert.Equal(ExitCodes.DataError, result.ExitCode);
         Assert.Contains("dialogue.toml", result.Output, StringComparison.OrdinalIgnoreCase);
     }
 

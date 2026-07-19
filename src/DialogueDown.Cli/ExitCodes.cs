@@ -9,6 +9,9 @@ internal static class ExitCodes
     /// <summary>An unexpected failure.</summary>
     public const int Error = 1;
 
+    /// <summary>The input data was incorrect (EX_DATAERR): a script or config error.</summary>
+    public const int DataError = 65;
+
     /// <summary>A bad argument or usage (EX_USAGE).</summary>
     public const int UsageError = 64;
 

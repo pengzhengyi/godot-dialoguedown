@@ -43,7 +43,7 @@ internal static class CliConfigurator
                 return ExitCodes.UsageError;
             case DialogueConfigurationException configError:
                 console.MarkupLineInterpolated($"[red]{configError.Location}: {configError.Message}[/]");
-                return ExitCodes.Error;
+                return ExitCodes.DataError;
             default:
                 console.WriteException(exception);
                 return ExitCodes.Error;

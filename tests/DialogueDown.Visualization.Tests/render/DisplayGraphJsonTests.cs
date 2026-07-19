@@ -34,6 +34,28 @@ public sealed class DisplayGraphJsonTests
     }
 
     [Fact]
+    public void Serialize_IncludesUnavailableReasonForADisabledStage()
+    {
+        var graph = DisplayGraph.ForUnavailableStage(
+            "Semantic Model", "What it would show.", "Unavailable due to compilation errors.");
+
+        var json = DisplayGraphJson.Serialize([graph]);
+
+        Assert.Contains("\"unavailable\":{\"reason\":\"Unavailable due to compilation errors.\"}", json);
+        Assert.Contains("\"nodes\":[]", json);
+    }
+
+    [Fact]
+    public void Serialize_OmitsUnavailableForAProducedStage()
+    {
+        var graph = MakeGraph("Markdown AST", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.Serialize([graph]);
+
+        Assert.DoesNotContain("unavailable", json);
+    }
+
+    [Fact]
     public void Serialize_IncludesNodeSourceWhenPresentAndOmitsWhenNull()
     {
         var graph = MakeGraph(

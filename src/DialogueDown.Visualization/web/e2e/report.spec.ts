@@ -128,6 +128,20 @@ test("the tabs sit together at the start, not spread across the header", async (
     expect(second!.x - (first!.x + first!.width)).toBeLessThan(20);
 });
 
+test("a refresh returns to the tab that was open, not the default Source tab", async ({ page }) => {
+    // Leave the default Source tab for a graph tab, then reload as a reader would.
+    await showAst(page);
+    await expect(page.locator(".tab.active")).toHaveText("Markdown AST");
+
+    await page.reload();
+
+    // The report reopens on the Markdown AST tab it was left on (remembered in sessionStorage),
+    // instead of resetting to Source.
+    await expect(page.locator(".tab.active")).toHaveText("Markdown AST");
+    await expect(page.locator("section.stage.active")).toHaveClass(/stage/);
+    await expect(page.locator("section.stage.active g.node")).toHaveCount(nodeCount);
+});
+
 // --- Markdown AST graph (second tab) ---
 
 test("renders every node with a colored circle and a legend of counts", async ({ page }) => {

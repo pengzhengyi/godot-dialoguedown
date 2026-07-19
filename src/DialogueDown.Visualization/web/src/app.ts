@@ -6,6 +6,7 @@ import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
 import { createConfigView, type ConfigViewHandle, type ConfigViewOptions } from "./config-view";
 import { consumeOpenConfigTab } from "./config-create";
+import { rememberActiveTab, rememberedActiveTab } from "./active-tab";
 import type { DialogueSymbolSource } from "./dialogue-symbols";
 import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
@@ -128,6 +129,9 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     // Per tab: its camera-store key — the stage title for a graph tab, or null for
     // the Source tab (which has no graph and no camera).
     let keys: (string | null)[] = [];
+    // Per tab: its title, the stable identifier used to remember the last-open tab so a
+    // refresh returns to it (indices shift when the Config tab is present, titles do not).
+    let titles: string[] = [];
     // Remembers each stage's zoom/pan and fold across tab switches and rebuilds.
     const cameras = new GraphCameraStore();
 
@@ -191,6 +195,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         stagesEl.replaceChildren();
         views = [];
         keys = [];
+        titles = [];
         sourcePresent = report.source != null;
         configPresent = report.configuration != null;
 
@@ -225,11 +230,14 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         for (const stage of report.stages) {
             addStageTab(stage);
         }
-        // Open on Source when present (after the Config tab), else the first tab — unless a
-        // just-created config asked the reloaded page to land on the Config tab.
+        // Open on the tab the reader last had open (remembered across a refresh), else Source
+        // when present (after the Config tab), else the first tab — unless a just-created config
+        // asked the reloaded page to land on the Config tab.
         if (views.length > 0) {
             const openConfig = configPresent && consumeOpenConfigTab();
-            activate(openConfig ? 0 : sourcePresent ? (configPresent ? 1 : 0) : 0);
+            const remembered = titles.indexOf(rememberedActiveTab() ?? "");
+            const fallback = sourcePresent ? (configPresent ? 1 : 0) : 0;
+            activate(openConfig ? 0 : remembered >= 0 ? remembered : fallback);
         }
     }
 
@@ -243,6 +251,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
         views = views.slice(0, keep);
         keys = keys.slice(0, keep);
+        titles = titles.slice(0, keep);
         for (const stage of stages) {
             addStageTab(stage);
         }
@@ -322,10 +331,12 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         stagesEl.appendChild(section);
         views.push(view);
         keys.push(key);
+        titles.push(title);
     }
 
     function activate(index: number): void {
         activeIndex = index;
+        rememberActiveTab(titles[index]);
         Array.from(tabsEl.children).forEach((el, i) => el.classList.toggle("active", i === index));
         Array.from(stagesEl.children).forEach((el, i) =>
             el.classList.toggle("active", i === index),

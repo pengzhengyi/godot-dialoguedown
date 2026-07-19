@@ -109,7 +109,7 @@ internal sealed class SemanticProjection
     private static (string Text, string? RefKey) ResolutionCell(JumpResolution resolution) =>
         resolution switch
         {
-            SceneJump scene => ($"→ {SceneEntity.Label(scene.Scene)}", SceneEntity.Key(scene.Scene)),
+            SceneJump scene => ($"=> {SceneEntity.Label(scene.Scene)}", SceneEntity.Key(scene.Scene)),
             FileScopedJump file => ($"{file.File}{Anchor(file.Anchor)} (deferred)", null),
             UnresolvedJump => ("unresolved", null),
             _ => (resolution.ToString() ?? "", null),

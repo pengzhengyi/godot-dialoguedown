@@ -1,29 +1,28 @@
 # Unavailable Stage Tabs
 
 > [!NOTE]
-> Status: **proposed / draft** — awaiting review. Now that the diagnostics work is on
-> `main` (`CompilationResult.IsComplete`, the `CompilationMode` policy), this reframes
-> the earlier mock-only draft into a real end-to-end integration.
+> Status: **implemented**. Building on the diagnostics work on `main`
+> (`CompilationResult.IsComplete`, the `CompilationMode` policy), the visualizer now
+> projects a partial result end to end: an unproduced stage becomes a disabled tab.
 
 ## Goal and scope
 
 The report has one tab per compiler stage — **Markdown AST → Dialogue AST → Desugared
 AST → Semantic Model**. When a **stage-boundary** compile hits a transpiler error it
 **halts**: `CompilationResult.IsComplete` is false and the later artifacts (`Desugared`,
-`Semantics`) were never produced. Today the visualizer sidesteps this by *forcing
-best-effort* — the [Diagnostics note](./Diagnostics%20and%20Validation.md) says so
-outright: *"because a stage-boundary halt yields a partial result the stage projector
-cannot read, the visualizer compiles in best-effort … (#111)."*
+`Semantics`) were never produced.
 
-This component makes the report **able to project a partial result**: an absent stage
-becomes a **disabled tab** — greyed, non-navigable, with a tooltip saying why — while the
-produced stages stay fully interactive.
+The report **projects this partial result** — an absent stage becomes a **disabled tab**
+(grayed, non-navigable, with a tooltip saying why) while the produced stages stay fully
+interactive. This lets the visualizer compile at the real stage-boundary policy (see the
+[Diagnostics note](./Diagnostics%20and%20Validation.md)) and render a broken script
+honestly, resolving [#111](https://github.com/pengzhengyi/godot-dialoguedown/issues/111).
 
 **In scope:**
 
 - A payload seam, **end to end**, marking a stage **unavailable** with a short reason:
   the TypeScript `Stage` model and the `.NET` `DisplayGraph`/payload.
-- The disabled-tab display: greyed, blocked navigation, an explanatory tooltip; the
+- The disabled-tab display: grayed, blocked navigation, an explanatory tooltip; the
   default and remembered tab never land on it.
 - `CompilationVisualizer` **projecting a partial result** — available stages plus
   unavailable ones — instead of assuming a complete one.
@@ -52,17 +51,17 @@ produced stages stay fully interactive.
 
 ## Functionality checklist
 
-- [ ] `Stage` (TS) and `DisplayGraph` (`.NET`) can mark a stage **unavailable** with a
+- [x] `Stage` (TS) and `DisplayGraph` (`.NET`) can mark a stage **unavailable** with a
       short, reader-facing reason, carried through the payload.
-- [ ] `CompilationVisualizer` projects a **partial** `CompilationResult`: available
+- [x] `CompilationVisualizer` projects a **partial** `CompilationResult`: available
       stages as graphs, absent ones as unavailable; editor symbols degrade to empty.
-- [ ] An unavailable stage renders a **disabled tab**: muted, `cursor: not-allowed`,
+- [x] An unavailable stage renders a **disabled tab**: muted, `cursor: not-allowed`,
       `aria-disabled="true"`, with the reason as its tooltip.
-- [ ] A disabled tab **cannot be entered** (click/keyboard blocked); available stages are
+- [x] A disabled tab **cannot be entered** (click/keyboard blocked); available stages are
       unchanged.
-- [ ] The **default** and **remembered** (refresh) active tab never land on a disabled
+- [x] The **default** and **remembered** (refresh) active tab never land on a disabled
       tab.
-- [ ] Exercised by a **real halted compile** (a broken script compiled stage-boundary),
+- [x] Exercised by a **real halted compile** (a broken script compiled stage-boundary),
       not only a hand-built mock.
 
 ## Interfaces and abstractions
@@ -71,7 +70,8 @@ produced stages stay fully interactive.
 | --- | --- | --- |
 | `StageUnavailable` (TS `model.ts`) | The reason a stage tab is disabled. | `Stage` |
 | `Stage.unavailable?` (TS) | Marks a stage unavailable; absent ⇒ a normal graph tab. | `app.ts` tab builder |
-| `DisplayGraph` unavailable marker (`.NET`) | A stage placeholder carrying a title, description, and reason but no graph. | `DisplayGraphJson`, `CompilationVisualizer` |
+| `StageUnavailable` (`.NET` `DisplayGraph.cs`) | The reason record on the `.NET` side, mirroring the TS type. | `DisplayGraph` |
+| `DisplayGraph.Unavailable` + `DisplayGraph.ForUnavailableStage` (`.NET`) | A stage placeholder carrying a title, description, and reason but no graph; the factory builds one with empty nodes/edges. | `DisplayGraphJson`, `CompilationVisualizer` |
 | `CompilationVisualizer.BuildContent` (`.NET`) | Project the produced stages and emit the absent ones as unavailable when `!IsComplete`. | `CompilationResult`, `SymbolProjection` |
 | `app.ts` tab builder (`addStageTab` / `addTab` / `activate`) | Build a disabled vs interactive tab; block entry; skip disabled tabs when choosing the active tab. | `Stage`, tab tooltip, tab persistence |
 
@@ -107,7 +107,7 @@ nodes/edges), and `DisplayGraphJson` serializes it into the same field.
 
 2. **Disable with `aria-disabled` + a class + a JS click-guard — never the `disabled`
    attribute.** A `disabled` button suppresses pointer events, so its tooltip would never
-   fire and the reader would not learn *why*. `aria-disabled` keeps the hover tooltip and
+   fire, and the reader would not learn *why*. `aria-disabled` keeps the hover tooltip and
    reads correctly to assistive tech; it stays focusable-but-inert.
 
 3. **Block entry, mirroring the dirty-tab guard.** `activate` refuses to switch **into** an
@@ -125,9 +125,9 @@ nodes/edges), and `DisplayGraphJson` serializes it into the same field.
    than throwing).
 
 6. **The visualizer compiles stage-boundary.** `ForVisualization` forces
-   `CompilationMode.StageBoundary` (replacing the old best-effort override): a valid script
-   completes with all four stages; a broken one halts, so its later stages are unavailable
-   and render disabled. Fail-fast is never used — it throws instead of returning a
+   `CompilationMode.StageBoundary`: a valid script completes with all four stages; a broken
+   one halts, so its later stages are unavailable and render disabled. Fail-fast is never
+   used — it throws instead of returning a
    renderable result. Exposing the mode to the reader (best-effort included) is a later
    step ([#110](https://github.com/pengzhengyi/godot-dialoguedown/issues/110)); until then
    the report is deterministic.

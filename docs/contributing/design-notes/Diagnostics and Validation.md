@@ -16,7 +16,7 @@
 | **1. Diagnostic model** | the value types that describe a located problem, and the bag that collects them | **Implemented** |
 | **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Implemented** |
 | **3. Structural validator + first rule** | the rule framework (`IDiagnosticRule` + `StructuralValidator`) and the first structural rule — multiple jumps on a line | **Implemented** |
-| **4. Error reporting and recovery** | recoverable throw sites report diagnostics and recover, under a configurable compile mode | **Proposed (next)** |
+| **4. Error reporting and recovery** | recoverable throw sites report diagnostics and recover, under a configurable compile mode | **Implemented** |
 | **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
 | **6. Editor seams** | an LSP projection and a web-report overlay | Deferred |
 
@@ -34,7 +34,7 @@
   - [Component 1 — the diagnostic model (implemented)](#component-1--the-diagnostic-model-implemented)
   - [Component 2 — the collection seam (implemented)](#component-2--the-collection-seam-implemented)
   - [Component 3 — the structural validator (implemented)](#component-3--the-structural-validator-implemented)
-  - [Component 4 — error reporting and recovery (proposed)](#component-4--error-reporting-and-recovery-proposed)
+  - [Component 4 — error reporting and recovery (implemented)](#component-4--error-reporting-and-recovery-implemented)
     - [Reporting and recovering](#reporting-and-recovering)
     - [The throw sites and their recovery](#the-throw-sites-and-their-recovery)
     - [The unified exception](#the-unified-exception)
@@ -255,7 +255,7 @@ them without an upward dependency, and an architecture test guards that validati
 semantics. With two consumers now needing them, this is a fitting home rather than premature
 generalization.
 
-## Component 4 — error reporting and recovery (proposed)
+## Component 4 — error reporting and recovery (implemented)
 
 Where the collect-and-continue model finally pays off: the compiler's recoverable **throw sites**
 report a `Diagnostic` and **recover** — returning a sensible stand-in so the rest of the stage keeps
@@ -305,7 +305,7 @@ flowchart LR
 
 | Site              | Trigger                                                            | Code      | Recovery value                                                                 |
 | ----------------- | ------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------ |
-| speaker builder   | a line has tags but names no speaker                               | `DLG1101` | drop the tags; the line has no speaker prefix, so the default speaker fills in |
+| speaker builder   | a line has tags but names no speaker                               | `DLG1101` | drop the tags; recover the line to the default speaker                         |
 | game-call builder | a code span is not a valid game call                               | `DLG1102` | keep the span's inner text as a literal text fragment                          |
 | label/alt policy  | a link, image, code span, or break sits inside a label or alt text | `DLG1103` | drop the disallowed element; keep the surrounding text and styling             |
 
@@ -338,7 +338,8 @@ The two message-only exception types (`DialogueSyntaxError`, `DialogueSemanticEr
 **retired**: a reporting site no longer throws, and *fail-fast* mode throws a single
 **`DiagnosticException`** that carries the full `Diagnostic` (code, span, arguments) rather than a
 bare message. One exception type serves every site because the diagnostic already names the problem.
-The base `ScriptCompilationException` hierarchy stays for any genuinely unrecoverable fault a future
+Their now-childless abstract branches (`SyntaxError`, `SemanticError`) are removed with them; the
+base `ScriptCompilationException` hierarchy stays for any genuinely unrecoverable fault a future
 stage may hit.
 
 ### Pipeline integration
@@ -353,6 +354,10 @@ stage may hit.
 - **Result:** under the default mode a script with a bad jump or a duplicate anchor no longer throws
   out of `Compile`; it returns a `CompilationResult` whose `Diagnostics` carry the errors and whose
   `HasErrors` is true.
+- **Visualizer:** because a stage-boundary halt yields a partial result the stage projector cannot
+  read, the visualizer compiles in *best-effort* so every stage always renders with its errors
+  recovered — a stopgap until the report surfaces diagnostics itself
+  ([#111](https://github.com/pengzhengyi/godot-dialoguedown/issues/111)).
 - **CLI (next component):** with the stages reporting, the CLI can render the collected diagnostics
   and set an exit code — the reason this component comes before CLI notification.
 

@@ -28,7 +28,7 @@ public sealed class JumpResolverTests
         var resolution = ResolveOne(Jump("#no-such-scene"), anchors, out var diagnostics);
 
         Assert.IsType<UnresolvedJump>(resolution);
-        var diagnostic = AssertReported(diagnostics.Diagnostics, "DLG2009");
+        var diagnostic = AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MissingScene);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 

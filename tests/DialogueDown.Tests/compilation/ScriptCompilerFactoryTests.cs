@@ -71,7 +71,7 @@ public sealed class ScriptCompilerFactoryTests
 
         var result = ScriptCompilerFactory.CreateDefault().Compile(source);
 
-        var warning = Assert.Single(result.Diagnostics, d => d.Descriptor.Code == "DLG1003");
+        var warning = Assert.Single(result.Diagnostics, d => d.Descriptor.Code == DiagnosticCatalog.MultipleJumpsOnLine.Code);
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
         Assert.False(result.HasErrors);
     }

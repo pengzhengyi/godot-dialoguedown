@@ -20,14 +20,14 @@ public sealed class TagValidatorTests
     [Fact]
     public void Validate_UnknownReservedTag_ReportsItAsAnError() =>
         Assert.Equal(
-            DiagnosticSeverity.Error, AssertReported(Diagnostics(Reserved("bogus")), "DLG2008").Severity);
+            DiagnosticSeverity.Error, AssertReported(Diagnostics(Reserved("bogus")), DiagnosticCatalog.UnknownReservedTag).Severity);
 
     [Fact]
     public void Validate_ReportsAtTheOffendingTagSpan()
     {
         var span = new SourceSpan(4, 6);
 
-        Assert.Equal(span, AssertReported(Diagnostics(new ReservedTag("bogus", null, span)), "DLG2008").Span);
+        Assert.Equal(span, AssertReported(Diagnostics(new ReservedTag("bogus", null, span)), DiagnosticCatalog.UnknownReservedTag).Span);
     }
 
     [Fact]

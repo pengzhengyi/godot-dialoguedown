@@ -166,7 +166,7 @@ public sealed class SpeakerBinderTests
             configured: [DefaultSpeakerDeclaration("Narrator"), DefaultSpeakerDeclaration("Alice")],
             script: []);
 
-        AssertReported(diagnostics.Diagnostics, "DLG2006");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MultipleDefaultSpeakers);
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public sealed class SpeakerBinderTests
     {
         Bind(out var diagnostics, SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Alice", "B"));
 
-        AssertReported(diagnostics.Diagnostics, "DLG2005");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.NameBoundToAnotherId);
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public sealed class SpeakerBinderTests
     {
         Bind(out var diagnostics, SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Bob", "A"));
 
-        AssertReported(diagnostics.Diagnostics, "DLG2004");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.IdBoundToAnotherName);
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed class SpeakerBinderTests
             SpeakerIdReference("A"),
             SpeakerDeclaration("Alice", "A"));
 
-        AssertReported(diagnostics.Diagnostics, "DLG2003");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.SpeakerNameIdConflict);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public sealed class SpeakerBinderTests
     {
         Bind(out var diagnostics, DefaultSpeakerDeclaration("Alice"), DefaultSpeakerDeclaration("Bob"));
 
-        AssertReported(diagnostics.Diagnostics, "DLG2006");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MultipleDefaultSpeakers);
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public sealed class SpeakerBinderTests
             new PartialSpeakerDeclaration("A", [ReservedTag("default")], SourceSpanFactory.Span()),
             DefaultSpeakerDeclaration("Bob"));
 
-        var diagnostic = AssertReported(diagnostics.Diagnostics, "DLG2006");
+        var diagnostic = AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MultipleDefaultSpeakers);
         Assert.Equal("@A", diagnostic.MessageArguments[0]);
         Assert.Equal("Bob", diagnostic.MessageArguments[1]);
     }
@@ -247,7 +247,7 @@ public sealed class SpeakerBinderTests
         Bind(out var diagnostics, reference);
 
         // points at where @A was first used
-        Assert.Equal(reference.Span, AssertReported(diagnostics.Diagnostics, "DLG2007").Span);
+        Assert.Equal(reference.Span, AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.UnnamedSpeakerId).Span);
     }
 
     private static SpeakerTable Bind(params Speaker[] speakers) => Bind(out _, speakers);

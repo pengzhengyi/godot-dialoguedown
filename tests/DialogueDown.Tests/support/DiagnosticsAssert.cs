@@ -9,6 +9,15 @@ namespace DialogueDown.Tests.Support;
 internal static class DiagnosticsAssert
 {
     /// <summary>
+    /// Asserts exactly one diagnostic matching <paramref name="descriptor"/> was reported,
+    /// returning it so a test can make further assertions on its severity, span, or arguments.
+    /// Prefer this overload: naming the catalog descriptor reads better than a bare DLG code.
+    /// </summary>
+    public static Diagnostic AssertReported(
+        IReadOnlyList<Diagnostic> diagnostics, DiagnosticDescriptor descriptor) =>
+        AssertReported(diagnostics, descriptor.Code);
+
+    /// <summary>
     /// Asserts exactly one diagnostic with <paramref name="code"/> was reported, returning it so a
     /// test can make further assertions on its severity, span, or arguments.
     /// </summary>

@@ -108,7 +108,7 @@ public sealed class SemanticAnalyzerTests
             """,
             out var diagnostics);
 
-        AssertReported(diagnostics.Diagnostics, "DLG2009");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MissingScene);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class SemanticAnalyzerTests
     {
         Analyze("Alice ##bogus: Hi.", out var diagnostics);
 
-        AssertReported(diagnostics.Diagnostics, "DLG2008");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.UnknownReservedTag);
     }
 
     private SemanticModel Analyze(string source) => Analyze(source, out _);

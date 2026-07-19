@@ -39,7 +39,7 @@ public sealed class StructuralValidatorTests
 
         new StructuralValidator([new MultipleJumpsOnLineRule()]).Validate(document, sink);
 
-        Assert.Equal("DLG1003", Assert.Single(sink.Diagnostics).Descriptor.Code);
+        Assert.Equal(DiagnosticCatalog.MultipleJumpsOnLine.Code, Assert.Single(sink.Diagnostics).Descriptor.Code);
     }
 
     [Fact]

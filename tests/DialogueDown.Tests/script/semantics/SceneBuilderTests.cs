@@ -90,7 +90,7 @@ public sealed class SceneBuilderTests
     {
         Build(out var diagnostics, SceneHeading("Play tennis", 1), SceneHeading("Play Tennis", 2));
 
-        AssertReported(diagnostics.Diagnostics, "DLG2001");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.DuplicateAnchor);
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public sealed class SceneBuilderTests
     {
         Build(out var diagnostics, SceneHeading("!!!", 1));
 
-        AssertReported(diagnostics.Diagnostics, "DLG2002");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.HeadingWithoutAnchor);
     }
 
     private static (Scene Root, AnchorTable Anchors) Build(params ScriptBlock[] blocks) =>

@@ -39,7 +39,7 @@ public sealed class AnchorTableTests
 
         table.Add("play-tennis", second, SourceSpanFactory.Span(), diagnostics);
 
-        AssertReported(diagnostics.Diagnostics, "DLG2001");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.DuplicateAnchor);
         Assert.True(table.TryResolve("play-tennis", out var resolved));
         Assert.Same(first, resolved);
     }

@@ -16,9 +16,9 @@ internal sealed class ScriptTranspiler(BlockBuilder blockBuilder) : IScriptTrans
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(context);
 
-        // TODO(diagnostics): the context is validated but not yet read — the transpile works
-        // off the text and spans already in the Markdown AST. Report source-anchored errors into
-        // context.Diagnostics when the producers land, quoting the offending text at a node's span.
-        return new ScriptDocument(blockBuilder.Build(document.Blocks));
+        // TODO(diagnostics): the inline builders (game calls, disallowed labels) still throw; they
+        // will report into context.Diagnostics when their producers land. The speaker prefix
+        // already reports here through the block builder.
+        return new ScriptDocument(blockBuilder.Build(document.Blocks, context.Diagnostics));
     }
 }

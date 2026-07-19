@@ -19,6 +19,16 @@ internal static class DiagnosticCatalog
         DiagnosticCategory.Syntax,
         DiagnosticSeverity.Warning);
 
+    /// <summary>DLG1101 — a speaker prefix binds tags but names no speaker.</summary>
+    public static readonly DiagnosticDescriptor TagsWithoutSpeaker = new(
+        "DLG1101",
+        "Tags without a speaker",
+        "\"{0}\" has tags but names no speaker for them to attach to. Begin the line with a name "
+            + "to declare a speaker (Alice #excited:), or with an @id to add tags to an "
+            + "already-declared one (@alice #excited:).",
+        DiagnosticCategory.Syntax,
+        DiagnosticSeverity.Error);
+
     // Semantic — DLG2xxx: a meaning-level conflict found during analysis.
 
     /// <summary>DLG2001 — two headings slug to the same anchor.</summary>

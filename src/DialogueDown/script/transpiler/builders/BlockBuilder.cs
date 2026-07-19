@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using MarkdownLineBreak = DialogueDown.Markdown.LineBreak;
@@ -14,12 +15,13 @@ namespace DialogueDown.Script.Transpiler.Builders;
 /// </summary>
 internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder lineBuilder)
 {
-    public IReadOnlyList<ScriptBlock> Build(IReadOnlyList<MarkdownBlock> blocks)
+    public IReadOnlyList<ScriptBlock> Build(
+        IReadOnlyList<MarkdownBlock> blocks, IDiagnosticSink diagnostics)
     {
         var result = new List<ScriptBlock>();
         foreach (var block in blocks)
         {
-            Append(block, result);
+            Append(block, result, diagnostics);
         }
 
         return result;
@@ -55,7 +57,7 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder line
         }
     }
 
-    private void Append(MarkdownBlock block, List<ScriptBlock> blocks)
+    private void Append(MarkdownBlock block, List<ScriptBlock> blocks, IDiagnosticSink diagnostics)
     {
         switch (block)
         {
@@ -66,12 +68,12 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder line
             case Paragraph paragraph:
                 foreach (var group in SplitAtHardBreaks(paragraph.Inlines))
                 {
-                    blocks.Add(lineBuilder.Build(group));
+                    blocks.Add(lineBuilder.Build(group, diagnostics));
                 }
 
                 break;
             case ListBlock list:
-                blocks.Add(BuildChoices(list));
+                blocks.Add(BuildChoices(list, diagnostics));
                 break;
             default:
                 throw new ArgumentOutOfRangeException(
@@ -83,10 +85,10 @@ internal sealed class BlockBuilder(InlineBuilder inlineBuilder, LineBuilder line
 
     // Each list item's blocks recurse through the same walk, so a nested list inside an item
     // becomes a nested Choices inside that Choice.
-    private Choices BuildChoices(ListBlock list)
+    private Choices BuildChoices(ListBlock list, IDiagnosticSink diagnostics)
     {
         var options = list.Items
-            .Select(item => new Choice(Build(item.Blocks), item.Span))
+            .Select(item => new Choice(Build(item.Blocks, diagnostics), item.Span))
             .ToList();
         return new Choices(list.IsOrdered, options, list.Span);
     }

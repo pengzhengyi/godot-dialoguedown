@@ -27,7 +27,7 @@ public sealed class CompilationVisualizer
 
     /// <summary>Creates a visualizer using the default compiler pipeline.</summary>
     public CompilationVisualizer()
-        : this(ScriptCompilerFactory.CreateDefault())
+        : this(CompilerOptions.Default)
     {
     }
 
@@ -36,7 +36,7 @@ public sealed class CompilationVisualizer
     /// report — including the editor's completion symbols — reflects the project's speakers.
     /// </summary>
     public CompilationVisualizer(CompilerOptions options)
-        : this(ScriptCompilerFactory.CreateDefault(options))
+        : this(ScriptCompilerFactory.CreateDefault(ForVisualization(options)))
     {
     }
 
@@ -46,8 +46,8 @@ public sealed class CompilationVisualizer
     /// file and configured speakers are projected into the report payload.
     /// </summary>
     public CompilationVisualizer(AppliedConfiguration configuration)
-        : this(ScriptCompilerFactory.CreateDefault(
-            (configuration ?? throw new ArgumentNullException(nameof(configuration))).Options))
+        : this(ScriptCompilerFactory.CreateDefault(ForVisualization(
+            (configuration ?? throw new ArgumentNullException(nameof(configuration))).Options)))
     {
         _configuration = configuration;
     }
@@ -184,6 +184,12 @@ public sealed class CompilationVisualizer
         !source.StartsWith("//", StringComparison.Ordinal)
         && !(Uri.TryCreate(source, UriKind.Absolute, out var uri)
             && uri.Scheme is "http" or "https" or "data" or "ftp" or "mailto");
+
+    // A visualization always renders every stage, so it compiles in best-effort mode: a
+    // recoverable error is reported but never halts the pipeline, so the report shows the
+    // recovered stages and their diagnostics instead of an incomplete result it cannot project.
+    private static CompilerOptions ForVisualization(CompilerOptions options) =>
+        options with { Mode = CompilationMode.BestEffort };
 
     // Compiles the source once and projects both the stage graphs and the editor's resolved
     // symbols, so the report and the live document API share a single compilation.

@@ -1,6 +1,7 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Semantics;
-using DialogueDown.Script.Semantics.Errors;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 
 namespace DialogueDown.Tests.Script.Semantics;
@@ -12,7 +13,7 @@ public sealed class AnchorTableTests
     {
         var table = new AnchorTable();
         var scene = Scene.ForHeading(SceneHeading("Play tennis", 1), "play-tennis");
-        table.Add("play-tennis", scene, SourceSpanFactory.Span());
+        table.Add("play-tennis", scene, SourceSpanFactory.Span(), new DiagnosticBag());
 
         Assert.True(table.TryResolve("play-tennis", out var resolved));
         Assert.Same(scene, resolved);
@@ -28,16 +29,18 @@ public sealed class AnchorTableTests
     }
 
     [Fact]
-    public void Add_DuplicateAnchor_Throws()
+    public void Add_DuplicateAnchor_ReportsAndKeepsTheFirst()
     {
         var table = new AnchorTable();
         var first = Scene.ForHeading(SceneHeading("Play tennis", 1), "play-tennis");
         var second = Scene.ForHeading(SceneHeading("Play Tennis", 2), "play-tennis");
-        table.Add("play-tennis", first, SourceSpanFactory.Span());
+        var diagnostics = new DiagnosticBag();
+        table.Add("play-tennis", first, SourceSpanFactory.Span(), diagnostics);
 
-        var error = Assert.Throws<DialogueSemanticError>(
-            () => table.Add("play-tennis", second, SourceSpanFactory.Span()));
+        table.Add("play-tennis", second, SourceSpanFactory.Span(), diagnostics);
 
-        Assert.Contains("#play-tennis", error.Message);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.DuplicateAnchor);
+        Assert.True(table.TryResolve("play-tennis", out var resolved));
+        Assert.Same(first, resolved);
     }
 }

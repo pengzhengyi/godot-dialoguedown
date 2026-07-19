@@ -1,4 +1,5 @@
 using DialogueDown.Common;
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Parsing;
@@ -14,7 +15,7 @@ namespace DialogueDown.Script.Transpiler.Builders;
 /// </summary>
 internal sealed class LineBuilder(SpeakerBuilder speakerBuilder, InlineBuilder inlineBuilder)
 {
-    public Line Build(IReadOnlyList<MarkdownInline> group)
+    public Line Build(IReadOnlyList<MarkdownInline> group, IDiagnosticSink diagnostics)
     {
         if (group.Count == 0)
         {
@@ -23,8 +24,8 @@ internal sealed class LineBuilder(SpeakerBuilder speakerBuilder, InlineBuilder i
         }
 
         var span = SourceSpan.Covering(group[0].Span, group[^1].Span);
-        var (speaker, speech) = SplitSpeakerAndSpeech(group);
-        return new Line(speaker, inlineBuilder.Build(speech), span);
+        var (speaker, speech) = SplitSpeakerAndSpeech(group, diagnostics);
+        return new Line(speaker, inlineBuilder.Build(speech, diagnostics), span);
     }
 
     // The speech inlines: the leftover leading text (if any), then the rest of the group.
@@ -42,17 +43,23 @@ internal sealed class LineBuilder(SpeakerBuilder speakerBuilder, InlineBuilder i
     }
 
     private (Speaker?, IReadOnlyList<MarkdownInline>) SplitSpeakerAndSpeech(
-        IReadOnlyList<MarkdownInline> group) =>
-        TryBuildSpeaker(group[0], out var speaker, out var speechHead)
-            ? (speaker, AssembleSpeechInlines(speechHead, group))
-            : (null, group);
+        IReadOnlyList<MarkdownInline> group, IDiagnosticSink diagnostics)
+    {
+        if (!TryBuildSpeaker(group[0], diagnostics, out var speaker, out var speechHead))
+        {
+            return (null, group);
+        }
+
+        return (speaker, AssembleSpeechInlines(speechHead, group));
+    }
 
     // True when the leading inline is a speaker prefix. On success, `speaker` is the parsed
     // speaker and `speechHead` is the leftover text after the prefix (re-anchored), or null
     // when the prefix consumed the whole leading text. A prefix that binds tags but names no
-    // speaker throws (surfaced from the speaker builder).
+    // speaker reports through the speaker builder and recovers to a default speaker.
     private bool TryBuildSpeaker(
-        MarkdownInline leadingInline, out Speaker? speaker, out TextInline? speechHead)
+        MarkdownInline leadingInline, IDiagnosticSink diagnostics,
+        out Speaker? speaker, out TextInline? speechHead)
     {
         speaker = null;
         speechHead = null;
@@ -64,7 +71,7 @@ internal sealed class LineBuilder(SpeakerBuilder speakerBuilder, InlineBuilder i
         // Anchor at ContentSpan: the speaker prefix is parsed from the unescaped Text,
         // whose source position sits past any stripped leading backslash.
         var input = new ParseInput(leading.Text, leading.ContentSpan.Start);
-        var result = speakerBuilder.Build(input);
+        var result = speakerBuilder.Build(input, diagnostics);
         if (!result.Success)
         {
             return false;

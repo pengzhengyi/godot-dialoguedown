@@ -1,6 +1,6 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
-using DialogueDown.Script.Semantics.Errors;
 
 namespace DialogueDown.Script.Semantics;
 
@@ -14,7 +14,8 @@ namespace DialogueDown.Script.Semantics;
 internal static class SceneBuilder
 {
     /// <summary>Builds the scene tree (its root) and the anchor table for <paramref name="document"/>.</summary>
-    public static (Scene Root, AnchorTable Anchors) Build(DesugaredScriptDocument document)
+    public static (Scene Root, AnchorTable Anchors) Build(
+        DesugaredScriptDocument document, IDiagnosticSink diagnostics)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -30,7 +31,7 @@ internal static class SceneBuilder
         {
             if (block is SceneHeading heading)
             {
-                OpenScene(heading, openScenes, anchors);
+                OpenScene(heading, openScenes, anchors, diagnostics);
             }
             else
             {
@@ -41,7 +42,8 @@ internal static class SceneBuilder
         return (root, anchors);
     }
 
-    private static void OpenScene(SceneHeading heading, Stack<Scene> openScenes, AnchorTable anchors)
+    private static void OpenScene(
+        SceneHeading heading, Stack<Scene> openScenes, AnchorTable anchors, IDiagnosticSink diagnostics)
     {
         // A scene nests under the nearest shallower one, so close every open scene at this
         // heading's level or deeper. The root (level 0) always remains, so the stack never
@@ -52,22 +54,20 @@ internal static class SceneBuilder
         }
 
         var anchor = Slug.From(heading.Title.PlainText());
-        ThrowWhenHeadingHasNoAnchor(anchor, heading);
         var scene = Scene.ForHeading(heading, anchor);
-        anchors.Add(anchor, scene, heading.Span);
-        openScenes.Peek().AddChild(scene);
-        openScenes.Push(scene);
-    }
 
-    // A heading whose title is all punctuation slugs to nothing, so it could never be a jump
-    // target. Reject it at the heading, rather than leaving a link to it silently unresolved.
-    private static void ThrowWhenHeadingHasNoAnchor(string anchor, SceneHeading heading)
-    {
+        // A heading whose title is all punctuation slugs to nothing, so it can never be a jump
+        // target. Recovery: keep the scene in the tree but register no anchor for it.
         if (anchor.Length == 0)
         {
-            throw new DialogueSemanticError(
-                "A heading needs at least one letter or number so it can be a jump target; this "
-                + "one has none. Add sluggable text to the heading.", heading.Span);
+            diagnostics.Report(new Diagnostic(DiagnosticCatalog.HeadingWithoutAnchor, heading.Span, []));
         }
+        else
+        {
+            anchors.Add(anchor, scene, heading.Span, diagnostics);
+        }
+
+        openScenes.Peek().AddChild(scene);
+        openScenes.Push(scene);
     }
 }

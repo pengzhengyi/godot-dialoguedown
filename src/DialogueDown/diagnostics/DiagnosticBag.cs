@@ -16,7 +16,7 @@ internal sealed class DiagnosticBag : IDiagnosticSink
     public IReadOnlyList<Diagnostic> Diagnostics => _reported.ToArray();
 
     /// <summary>Whether any collected diagnostic is an <see cref="DiagnosticSeverity.Error"/>.</summary>
-    public bool HasErrors => _reported.Any(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    public bool HasErrors => _reported.Any(diagnostic => diagnostic.IsError);
 
     public void Report(Diagnostic diagnostic)
     {

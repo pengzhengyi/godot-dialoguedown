@@ -1,10 +1,11 @@
 using DialogueDown.Configuration;
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
-using DialogueDown.Script.Semantics.Errors;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.ConfigurationFactory;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 
 namespace DialogueDown.Tests.Script.Semantics;
 
@@ -97,25 +98,32 @@ public sealed class SemanticAnalyzerTests
     }
 
     [Fact]
-    public void Analyze_PropagatesAMissingJumpTarget_AfterBuildingAnchors()
+    public void Analyze_ReportsAMissingJumpTarget_AfterBuildingAnchors()
     {
-        var error = Assert.Throws<DialogueSemanticError>(() => Analyze(
+        Analyze(
             """
             ## Play tennis
 
             Alice: Ready? => [Go](#no-such-scene)
-            """));
+            """,
+            out var diagnostics);
 
-        Assert.Contains("#no-such-scene", error.Message);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MissingScene);
     }
 
     [Fact]
-    public void Analyze_ValidatesReservedTags()
+    public void Analyze_ReportsAnUnknownReservedTag()
     {
-        var error = Assert.Throws<DialogueSemanticError>(() => Analyze("Alice ##bogus: Hi."));
+        Analyze("Alice ##bogus: Hi.", out var diagnostics);
 
-        Assert.Contains("##bogus", error.Message);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.UnknownReservedTag);
     }
 
-    private SemanticModel Analyze(string source) => _analyzer.Analyze(Pipeline.UntilDesugared(source), DiagnosticsContextFactory.Context(source));
+    private SemanticModel Analyze(string source) => Analyze(source, out _);
+
+    private SemanticModel Analyze(string source, out DiagnosticBag diagnostics)
+    {
+        var context = DiagnosticsContextFactory.Context(out diagnostics, source);
+        return _analyzer.Analyze(Pipeline.UntilDesugared(source), context);
+    }
 }

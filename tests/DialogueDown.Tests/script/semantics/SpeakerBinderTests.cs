@@ -1,8 +1,9 @@
 using DialogueDown.Common;
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Semantics;
-using DialogueDown.Script.Semantics.Errors;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 using static DialogueDown.Tests.Support.SpeakerSymbolAssert;
 
@@ -158,63 +159,59 @@ public sealed class SpeakerBinderTests
     }
 
     [Fact]
-    public void Bind_TwoDefaultsWithinTheConfigLayer_Throws()
+    public void Bind_TwoDefaultsWithinTheConfigLayer_Reports()
     {
-        Assert.Throws<DialogueSemanticError>(() => BindLayers(
-            configured:
-            [
-                DefaultSpeakerDeclaration("Narrator"),
-                DefaultSpeakerDeclaration("Alice"),
-            ],
-            script: []));
+        BindLayers(
+            out var diagnostics,
+            configured: [DefaultSpeakerDeclaration("Narrator"), DefaultSpeakerDeclaration("Alice")],
+            script: []);
+
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MultipleDefaultSpeakers);
     }
 
     [Fact]
     public void Add_UnknownSpeakerKind_Throws()
     {
-        var binder = new SpeakerBinder();
+        var binder = new SpeakerBinder(new DiagnosticBag());
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => binder.Add(new UnknownSpeaker(SourceSpanFactory.Span())));
     }
 
     [Fact]
-    public void Bind_NameBoundToTwoIds_Throws()
+    public void Bind_NameBoundToTwoIds_Reports()
     {
-        var error = Assert.Throws<DialogueSemanticError>(
-            () => Bind(SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Alice", "B")));
+        Bind(out var diagnostics, SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Alice", "B"));
 
-        Assert.Contains("@B", error.Message);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.NameBoundToAnotherId);
     }
 
     [Fact]
-    public void Bind_IdBoundToTwoNames_Throws()
+    public void Bind_IdBoundToTwoNames_Reports()
     {
-        var error = Assert.Throws<DialogueSemanticError>(
-            () => Bind(SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Bob", "A")));
+        Bind(out var diagnostics, SpeakerDeclaration("Alice", "A"), SpeakerDeclaration("Bob", "A"));
 
-        Assert.Contains("Alice", error.Message);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.IdBoundToAnotherName);
     }
 
     [Fact]
-    public void Bind_FusingTwoSeparatelyUsedSpeakers_Throws()
+    public void Bind_FusingTwoSeparatelyUsedSpeakers_Reports()
     {
-        var error = Assert.Throws<DialogueSemanticError>(() => Bind(
+        Bind(
+            out var diagnostics,
             SpeakerNameReference("Alice"),
             SpeakerIdReference("A"),
-            SpeakerDeclaration("Alice", "A")));
+            SpeakerDeclaration("Alice", "A"));
 
-        Assert.Contains("ambiguous", error.Message);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.SpeakerNameIdConflict);
     }
 
     [Fact]
-    public void Bind_TwoDefaultSpeakers_Throws()
+    public void Bind_TwoDefaultSpeakers_Reports()
     {
-        var error = Assert.Throws<DialogueSemanticError>(() => Bind(
-            DefaultSpeakerDeclaration("Alice"),
-            DefaultSpeakerDeclaration("Bob")));
+        Bind(out var diagnostics, DefaultSpeakerDeclaration("Alice"), DefaultSpeakerDeclaration("Bob"));
 
-        Assert.Contains("only one default speaker", error.Message);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MultipleDefaultSpeakers);
     }
 
     [Fact]
@@ -230,31 +227,46 @@ public sealed class SpeakerBinderTests
     [Fact]
     public void Bind_TwoDefaults_LabelsAnIdOnlyDefaultByItsId()
     {
-        // The first default is an @id partial (no name yet); the message names both the
-        // established default (@A) and the offending one (Bob), rendering @A via ToString.
-        var error = Assert.Throws<DialogueSemanticError>(() => Bind(
+        // The first default is an @id partial (no name yet); the diagnostic names both the
+        // established default (@A) and the offending one (Bob), labelling the id-only one by its id.
+        Bind(
+            out var diagnostics,
             new PartialSpeakerDeclaration("A", [ReservedTag("default")], SourceSpanFactory.Span()),
-            DefaultSpeakerDeclaration("Bob")));
+            DefaultSpeakerDeclaration("Bob"));
 
-        Assert.Contains("@A", error.Message);
-        Assert.Contains("Bob", error.Message);
+        var diagnostic = AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.MultipleDefaultSpeakers);
+        Assert.Equal("@A", diagnostic.MessageArguments[0]);
+        Assert.Equal("Bob", diagnostic.MessageArguments[1]);
     }
 
     [Fact]
-    public void Bind_IdNeverGivenAName_ViolatesTheNameInvariant()
+    public void Bind_IdNeverGivenAName_Reports()
     {
         var reference = new SpeakerIdReference("A", new SourceSpan(7, 2));
 
-        var error = Assert.Throws<DialogueSemanticError>(() => Bind(reference));
+        Bind(out var diagnostics, reference);
 
-        Assert.Contains("@A", error.Message);
-        Assert.Equal(reference.Span, error.Span); // points at where @A was first used
+        // points at where @A was first used
+        Assert.Equal(reference.Span, AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.UnnamedSpeakerId).Span);
     }
 
-    private static SpeakerTable Bind(params Speaker[] speakers) => SpeakerBinder.Bind(speakers);
+    private static SpeakerTable Bind(params Speaker[] speakers) => Bind(out _, speakers);
+
+    private static SpeakerTable Bind(out DiagnosticBag diagnostics, params Speaker[] speakers)
+    {
+        diagnostics = new DiagnosticBag();
+        return SpeakerBinder.Bind(speakers, diagnostics);
+    }
 
     private static SpeakerTable BindLayers(Speaker[] configured, Speaker[] script) =>
-        SpeakerBinder.Bind(configured, script);
+        BindLayers(out _, configured, script);
+
+    private static SpeakerTable BindLayers(
+        out DiagnosticBag diagnostics, Speaker[] configured, Speaker[] script)
+    {
+        diagnostics = new DiagnosticBag();
+        return SpeakerBinder.Bind(configured, script, diagnostics);
+    }
 
     private sealed record UnknownSpeaker(SourceSpan Span) : Speaker(Span);
 }

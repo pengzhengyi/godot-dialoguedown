@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
@@ -6,12 +7,30 @@ using static DialogueDown.Tests.Support.DialogueAstAssert;
 namespace DialogueDown.Tests.Support;
 
 /// <summary>
-/// Assertion helpers for <see cref="IInlinePolicy"/> outcomes, so a policy test reads as
-/// "this inline resolves to this text" without repeating the single-fragment plumbing.
+/// Helpers for exercising and asserting <see cref="IInlinePolicy"/> outcomes, so a policy
+/// test resolves an inline and inspects the result without repeating the sink plumbing.
 /// </summary>
 internal static class InlinePolicyAssert
 {
+    /// <summary>
+    /// Resolves <paramref name="inline"/> through <paramref name="policy"/> with a throwaway
+    /// sink, for tests that do not inspect the reported diagnostics.
+    /// </summary>
+    public static IReadOnlyList<InlineFragment> Resolve(IInlinePolicy policy, MarkdownInline inline) =>
+        policy.Resolve(inline, new DiagnosticBag());
+
+    /// <summary>
+    /// Resolves <paramref name="inline"/>, outing the sink so a test can assert what the policy
+    /// reported while recovering.
+    /// </summary>
+    public static IReadOnlyList<InlineFragment> Resolve(
+        IInlinePolicy policy, MarkdownInline inline, out DiagnosticBag diagnostics)
+    {
+        diagnostics = new DiagnosticBag();
+        return policy.Resolve(inline, diagnostics);
+    }
+
     public static Text AssertResolvesToText(
         IInlinePolicy policy, MarkdownInline inline, string expected) =>
-        AssertText(Assert.Single(policy.Resolve(inline)), expected);
+        AssertText(Assert.Single(Resolve(policy, inline)), expected);
 }

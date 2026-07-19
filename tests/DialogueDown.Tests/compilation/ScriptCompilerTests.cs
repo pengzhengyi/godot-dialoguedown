@@ -1,5 +1,7 @@
 using DialogueDown.Compilation;
+using DialogueDown.Configuration;
 using DialogueDown.Diagnostics;
+using DialogueDown.Diagnostics.Errors;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
@@ -29,7 +31,7 @@ public sealed class ScriptCompilerTests
         var validator = NSubstitute.Substitute.For<IStructuralValidator>();
         var analyzer = Substitute<ISemanticAnalyzer, SemanticModel>(semantics);
 
-        var result = new ScriptCompiler(parser, transpiler, desugarer, validator, analyzer).Compile(source);
+        var result = new ScriptCompiler(parser, transpiler, desugarer, validator, analyzer, CompilationMode.BestEffort).Compile(source);
 
         Assert.Equal(source, result.Source);
         Assert.Same(markdown, result.Markdown);
@@ -48,12 +50,12 @@ public sealed class ScriptCompilerTests
 
     [Fact]
     public void Compile_NullSource_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => Compiler(out _).Compile(null!));
+        Assert.Throws<ArgumentNullException>(() => Compiler(out _, out _).Compile(null!));
 
     [Fact]
     public void Compile_NoStageReports_HasEmptyDiagnosticsAndNoErrors()
     {
-        var result = Compiler(out _).Compile("Alice: hi");
+        var result = Compiler(out _, out _).Compile("Alice: hi");
 
         Assert.Empty(result.Diagnostics);
         Assert.False(result.HasErrors);
@@ -62,7 +64,7 @@ public sealed class ScriptCompilerTests
     [Fact]
     public void Compile_AStageReportsAnError_SurfacesItOnTheResultAndFlipsHasErrors()
     {
-        var compiler = Compiler(out var analyzer);
+        var compiler = Compiler(out _, out var analyzer);
         var diagnostic = DiagnosticsFactory.Diagnostic(severity: DiagnosticSeverity.Error);
         analyzer.When(a => a.Analyze(Arg.Any<DesugaredScriptDocument>(), Arg.Any<DiagnosticsContext>()))
             .Do(call => call.Arg<DiagnosticsContext>().Diagnostics.Report(diagnostic));
@@ -71,6 +73,43 @@ public sealed class ScriptCompilerTests
 
         Assert.Contains(diagnostic, result.Diagnostics);
         Assert.True(result.HasErrors);
+    }
+
+    [Fact]
+    public void Compile_FailFast_ATranspileError_ThrowsCarryingTheDiagnostic()
+    {
+        var error = DiagnosticsFactory.Diagnostic(severity: DiagnosticSeverity.Error);
+        var compiler = CompilerWhoseTranspilerReports(CompilationMode.FailFast, error);
+
+        var thrown = Assert.Throws<DiagnosticException>(() => compiler.Compile("Alice: hi"));
+
+        Assert.Same(error, thrown.Diagnostic);
+    }
+
+    [Fact]
+    public void Compile_StageBoundary_ATranspileError_HaltsWithAPartialResult()
+    {
+        var error = DiagnosticsFactory.Diagnostic(severity: DiagnosticSeverity.Error);
+        var compiler = CompilerWhoseTranspilerReports(CompilationMode.StageBoundary, error);
+
+        var result = compiler.Compile("Alice: hi");
+
+        Assert.False(result.IsComplete);
+        Assert.True(result.HasErrors);
+        Assert.Contains(error, result.Diagnostics);
+    }
+
+    [Fact]
+    public void Compile_BestEffort_ATranspileError_RunsEveryStageToACompleteResult()
+    {
+        var error = DiagnosticsFactory.Diagnostic(severity: DiagnosticSeverity.Error);
+        var compiler = CompilerWhoseTranspilerReports(CompilationMode.BestEffort, error);
+
+        var result = compiler.Compile("Alice: hi");
+
+        Assert.True(result.IsComplete);
+        Assert.True(result.HasErrors);
+        Assert.Contains(error, result.Diagnostics);
     }
 
     [Theory]
@@ -88,22 +127,37 @@ public sealed class ScriptCompilerTests
         var analyzer = nullIndex == 4 ? null! : Substitute<ISemanticAnalyzer, SemanticModel>();
 
         Assert.Throws<ArgumentNullException>(
-            () => new ScriptCompiler(parser, transpiler, desugarer, validator, analyzer));
+            () => new ScriptCompiler(parser, transpiler, desugarer, validator, analyzer, CompilationMode.BestEffort));
     }
 
-    // Builds a compiler whose stages are substitutes that yield empty artifacts, so a test can
-    // focus on the facade. Outs the analyzer so a test can install a spy that reports into the
-    // context it is handed.
-    private static ScriptCompiler Compiler(out ISemanticAnalyzer analyzer)
+    // Builds a compiler whose stages are substitutes that yield empty artifacts, so a test can focus
+    // on the facade. Outs the transpiler and analyzer so a test can install a spy on either, and
+    // takes the mode (best-effort by default, so every stage runs).
+    private static ScriptCompiler Compiler(
+        out IScriptTranspiler transpiler,
+        out ISemanticAnalyzer analyzer,
+        CompilationMode mode = CompilationMode.BestEffort)
     {
         var desugared = new DesugaredScriptDocument(new ScriptDocument([]));
+        transpiler = Substitute<IScriptTranspiler, ScriptDocument>(new ScriptDocument([]));
         analyzer = Substitute<ISemanticAnalyzer, SemanticModel>(SemanticModelFactory.Minimal(desugared));
         return new ScriptCompiler(
             Substitute<IMarkdownParser, MarkdownDocument>(new MarkdownDocument([])),
-            Substitute<IScriptTranspiler, ScriptDocument>(new ScriptDocument([])),
+            transpiler,
             Substitute<IScriptDesugarer, DesugaredScriptDocument>(desugared),
             NSubstitute.Substitute.For<IStructuralValidator>(),
-            analyzer);
+            analyzer,
+            mode);
+    }
+
+    // Builds a compiler in the given mode whose transpiler reports the diagnostic while transpiling,
+    // so a test can exercise how the mode reacts to an error raised before analysis.
+    private static ScriptCompiler CompilerWhoseTranspilerReports(CompilationMode mode, Diagnostic diagnostic)
+    {
+        var compiler = Compiler(out var transpiler, out _, mode);
+        transpiler.When(t => t.Transpile(Arg.Any<MarkdownDocument>(), Arg.Any<DiagnosticsContext>()))
+            .Do(call => call.Arg<DiagnosticsContext>().Diagnostics.Report(diagnostic));
+        return compiler;
     }
 
     // Builds a stage substitute and, when a value is given, has every member that returns

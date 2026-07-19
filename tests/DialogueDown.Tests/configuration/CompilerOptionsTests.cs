@@ -10,6 +10,16 @@ public sealed class CompilerOptionsTests
         Assert.Empty(CompilerOptions.Default.Speakers);
 
     [Fact]
+    public void Default_UsesStageBoundaryMode() =>
+        Assert.Equal(CompilationMode.StageBoundary, CompilerOptions.Default.Mode);
+
+    [Fact]
+    public void Mode_CanBeConfigured() =>
+        Assert.Equal(
+            CompilationMode.BestEffort,
+            (CompilerOptions.Default with { Mode = CompilationMode.BestEffort }).Mode);
+
+    [Fact]
     public void Speakers_AreEmptyOnAFreshInstance() =>
         Assert.Empty(new CompilerOptions().Speakers);
 

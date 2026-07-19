@@ -16,34 +16,46 @@
 | **1. Diagnostic model** | the value types that describe a located problem, and the bag that collects them | **Implemented** |
 | **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Implemented** |
 | **3. Structural validator + first rule** | the rule framework (`IDiagnosticRule` + `StructuralValidator`) and the first structural rule — multiple jumps on a line | **Implemented** |
-| **4. Producers** | migrating recoverable throw sites to reported diagnostics | Deferred |
+| **4. Error reporting and recovery** | recoverable throw sites report diagnostics and recover, under a configurable compile mode | **Implemented** |
 | **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
 | **6. Editor seams** | an LSP projection and a web-report overlay | Deferred |
 
 ## Table of contents
 
-- [Goal and scope](#goal-and-scope)
-- [Where it sits](#where-it-sits)
-- [Ubiquitous language](#ubiquitous-language)
-- [Relationship to the error model](#relationship-to-the-error-model)
-- [The diagnostic model — options compared](#the-diagnostic-model--options-compared)
-- [Component 1 — the diagnostic model (implemented)](#component-1--the-diagnostic-model-implemented)
-- [Component 2 — the collection seam (implemented)](#component-2--the-collection-seam-implemented)
-- [Component 3 — the structural validator (implemented)](#component-3--the-structural-validator-implemented)
-- [Later components (deferred)](#later-components-deferred)
-- [Key design decisions](#key-design-decisions)
-  - [DD1 — One offset-based core model, internal for now](#dd1--one-offset-based-core-model-internal-for-now)
-  - [DD2 — Three severities, collect-and-continue](#dd2--three-severities-collect-and-continue)
-  - [DD3 — A descriptor catalog with `DLG####` codes](#dd3--a-descriptor-catalog-with-dlg-codes)
-  - [DD4 — The validator is a set of pluggable rules](#dd4--the-validator-is-a-set-of-pluggable-rules)
-  - [DD5 — The sink threads through the facade via a diagnostics context](#dd5--the-sink-threads-through-the-facade-via-a-diagnostics-context)
-  - [DD6 — Public `HasErrors`, internal diagnostics until the renderer](#dd6--public-haserrors-internal-diagnostics-until-the-renderer)
-  - [DD7 — Errata renders on the CLI, isolated to the CLI](#dd7--errata-renders-on-the-cli-isolated-to-the-cli)
-  - [DD8 — LSP and web rendering are planned projection seams](#dd8--lsp-and-web-rendering-are-planned-projection-seams)
-- [Error and boundary cases](#error-and-boundary-cases)
-- [Integration](#integration)
-- [Testability](#testability)
-- [Resolved decisions](#resolved-decisions)
+- [Implementation note: Diagnostics and validation](#implementation-note-diagnostics-and-validation)
+  - [Component status](#component-status)
+  - [Table of contents](#table-of-contents)
+  - [Goal and scope](#goal-and-scope)
+    - [Build versus buy, and observability](#build-versus-buy-and-observability)
+  - [Where it sits](#where-it-sits)
+  - [Ubiquitous language](#ubiquitous-language)
+  - [Relationship to the error model](#relationship-to-the-error-model)
+  - [The diagnostic model — options compared](#the-diagnostic-model--options-compared)
+  - [Component 1 — the diagnostic model (implemented)](#component-1--the-diagnostic-model-implemented)
+  - [Component 2 — the collection seam (implemented)](#component-2--the-collection-seam-implemented)
+  - [Component 3 — the structural validator (implemented)](#component-3--the-structural-validator-implemented)
+  - [Component 4 — error reporting and recovery (implemented)](#component-4--error-reporting-and-recovery-implemented)
+    - [Reporting and recovering](#reporting-and-recovering)
+    - [The throw sites and their recovery](#the-throw-sites-and-their-recovery)
+    - [The unified exception](#the-unified-exception)
+    - [Pipeline integration](#pipeline-integration)
+    - [Testing](#testing)
+    - [Deferred and out of scope](#deferred-and-out-of-scope)
+  - [Later components (deferred)](#later-components-deferred)
+  - [Key design decisions](#key-design-decisions)
+    - [DD1 — One offset-based core model, internal for now](#dd1--one-offset-based-core-model-internal-for-now)
+    - [DD2 — Three severities; report rather than throw](#dd2--three-severities-report-rather-than-throw)
+    - [DD3 — A descriptor catalog with `DLG####` codes](#dd3--a-descriptor-catalog-with-dlg-codes)
+    - [DD4 — The validator is a set of pluggable rules](#dd4--the-validator-is-a-set-of-pluggable-rules)
+    - [DD5 — The sink threads through the facade via a diagnostics context](#dd5--the-sink-threads-through-the-facade-via-a-diagnostics-context)
+    - [DD6 — Public `HasErrors`, internal diagnostics until the renderer](#dd6--public-haserrors-internal-diagnostics-until-the-renderer)
+    - [DD7 — Errata renders on the CLI, isolated to the CLI](#dd7--errata-renders-on-the-cli-isolated-to-the-cli)
+    - [DD8 — LSP and web rendering are planned projection seams](#dd8--lsp-and-web-rendering-are-planned-projection-seams)
+    - [DD9 — Compilation modes decide how far a compile proceeds](#dd9--compilation-modes-decide-how-far-a-compile-proceeds)
+  - [Error and boundary cases](#error-and-boundary-cases)
+  - [Integration](#integration)
+  - [Testability](#testability)
+  - [Resolved decisions](#resolved-decisions)
 
 ## Goal and scope
 
@@ -144,7 +156,7 @@ The [error model](./README.md#error-model) defines a throw-based exception hiera
 
 The two share one vocabulary: a diagnostic's **kind** (syntax vs semantic) and **location**
 (`SourceSpan`) mean exactly what they mean in the error model, and the **code scheme** is the
-same `DLG####` namespace. When the producer and renderer components land, the error-model note
+same `DLG####` namespace. When error reporting and the renderer land, the error-model note
 is updated so the README describes both channels (throw for unrecoverable, collect for the rest)
 as one coherent story.
 
@@ -226,9 +238,8 @@ Detection is purely structural: the validator builds a `DialogueTreeIndex` once 
 rule; `MultipleJumpsOnLineRule` takes each `Line` from the index and counts the `Jump` fragments
 directly in its `Speech` — more than one is a `DLG1003`, and the message carries the count. Because
 the validator emits a real diagnostic, the facade's collect-and-continue path is now exercised by a
-genuine producer, not only a test spy. The rule owns its `DiagnosticDescriptor` (co-located with the
-producer, per [DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); a central catalog can consolidate
-descriptors later.
+genuine producer, not only a test spy. The rule reports the `DiagnosticDescriptor` it owns in the
+central `DiagnosticCatalog` (per [DD3](#dd3--a-descriptor-catalog-with-dlg-codes)).
 
 **Injection.** `StructuralValidator` sits behind an `IStructuralValidator` seam and is composed with
 its rules, then injected into the facade like the other stages (wired by `ScriptCompilerFactory` and
@@ -244,13 +255,135 @@ them without an upward dependency, and an architecture test guards that validati
 semantics. With two consumers now needing them, this is a fitting home rather than premature
 generalization.
 
+## Component 4 — error reporting and recovery (implemented)
+
+Where the collect-and-continue model finally pays off: the compiler's recoverable **throw sites**
+report a `Diagnostic` and **recover** — returning a sensible stand-in so the rest of the stage keeps
+running — and a configurable **mode** decides how far a compile proceeds after an error. Together
+they turn a dozen fatal exceptions into collected, located errors on the result.
+
+Two stages own the throw sites this component migrates:
+
+- the **transpiler** raises `DialogueSyntaxError` for a malformed line surface (syntax, `DLG1xxx`);
+- the **semantic analyzer** raises `DialogueSemanticError` for meaning-level conflicts
+  (semantic, `DLG2xxx`).
+
+Every current site is **recoverable** — none is a genuine unrecoverable fault — so all twelve
+migrate. Each keeps its existing message and span; only the *mechanism* changes from throw to
+report-and-recover, and the two specific exception types give way to one mode-driven
+`DiagnosticException` (below).
+
+### Reporting and recovering
+
+A reporting site needs two things the throwing code did not: a **sink** to report into, and a
+**recovery value** to return.
+
+- **Threading the sink.** The top-level stage methods already take a `DiagnosticsContext`
+  ([DD5](#dd5--the-sink-threads-through-the-facade-via-a-diagnostics-context)). Each stage passes
+  its `IDiagnosticSink` down to the inner builders that currently throw. A sub-pass takes an
+  `IDiagnosticSink`, not the whole context — it only needs to *report*, so the narrower type keeps
+  the dependency honest.
+- **Recovering.** After reporting, the site returns a value that keeps the model coherent: a
+  duplicate is dropped in favor of the first, a missing jump resolves to an `UnresolvedJump`, a
+  speaker-less line falls back to the default speaker. The recovery is chosen so later passes see a
+  *valid, if diminished*, artifact and keep collecting their own diagnostics.
+- **Staying mode-agnostic.** A site always reports and then returns its recovery value; it never
+  decides *whether* to stop. That decision belongs to the **mode**
+  ([DD9](#dd9--compilation-modes-decide-how-far-a-compile-proceeds)), which lives in the sink and
+  the facade — so the same site code serves every mode.
+
+```mermaid
+flowchart LR
+    IN["offending input"] --> P["reporting site"]
+    P -- "Report(diagnostic)" --> SINK["IDiagnosticSink"]
+    P -- "recovery value" --> NEXT["the stage keeps running"]
+```
+
+### The throw sites and their recovery
+
+**Transpiler — syntax (`DLG1xxx`, `Error`):**
+
+| Site              | Trigger                                                            | Code      | Recovery value                                                                 |
+| ----------------- | ------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------ |
+| speaker builder   | a line has tags but names no speaker                               | `DLG1101` | drop the tags; recover the line to the default speaker                         |
+| game-call builder | a code span is not a valid game call                               | `DLG1102` | keep the span's inner text as a literal text fragment                          |
+| label/alt policy  | a link, image, code span, or break sits inside a label or alt text | `DLG1103` | drop the disallowed element; keep the surrounding text and styling             |
+
+**Semantic analyzer — semantic (`DLG2xxx`, `Error`):**
+
+| Site           | Trigger                                                                     | Code      | Recovery value                                                                 |
+| -------------- | --------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------ |
+| anchor table   | two headings slug to the same anchor — identical titles are the common case | `DLG2001` | keep the first scene for the anchor; the duplicate is not a jump target        |
+| scene builder  | a heading has no sluggable text for an anchor                               | `DLG2002` | build the scene but register no anchor, so nothing can jump to it              |
+| speaker binder | a name and an `@id` already name different speakers                         | `DLG2003` | keep the name's speaker; ignore the conflicting id link                        |
+| speaker binder | an `@id` is already bound to another name                                   | `DLG2004` | keep the existing id binding; ignore the new name                              |
+| speaker binder | a name is already bound to another `@id`                                    | `DLG2005` | keep the first id; ignore the later one                                        |
+| speaker binder | two speakers both claim `##default`                                         | `DLG2006` | keep the first default; ignore later marks                                     |
+| speaker binder | an `@id` is used but never given a name                                     | `DLG2007` | keep the id's speaker as an unnamed placeholder so id references still resolve |
+| tag validator  | a `##tag` is not a known reserved tag                                       | `DLG2008` | leave the tag inert, treated like a custom tag                                 |
+| jump resolver  | a jump targets an anchor no scene owns                                      | `DLG2009` | resolve it to an `UnresolvedJump`; keep resolving the rest                     |
+
+Same-titled headings are the everyday form of `DLG2001`: a heading's anchor is its slug, and
+DialogueDown deliberately **does not** auto-disambiguate duplicates the way GitHub appends `-1`, so
+two headings with the same title (or any two titles that slug alike) claim one anchor and the
+second is reported and dropped as a jump target.
+
+The codes are added to the central `DiagnosticCatalog` (per
+[DD3](#dd3--a-descriptor-catalog-with-dlg-codes)); each reporting site reports by referencing the
+descriptor it owns there, and a test enforces that every code is unique.
+
+### The unified exception
+
+The two message-only exception types (`DialogueSyntaxError`, `DialogueSemanticError`) are
+**retired**: a reporting site no longer throws, and *fail-fast* mode throws a single
+**`DiagnosticException`** that carries the full `Diagnostic` (code, span, arguments) rather than a
+bare message. One exception type serves every site because the diagnostic already names the problem.
+Their now-childless abstract branches (`SyntaxError`, `SemanticError`) are removed with them; the
+base `ScriptCompilationException` hierarchy stays for any genuinely unrecoverable fault a future
+stage may hit.
+
+### Pipeline integration
+
+- **Transpiler / analyzer:** the inner builders and passes gain an `IDiagnosticSink` parameter and
+  a recovery return where they used to throw. The transpiler entry and `SemanticAnalyzer.Analyze`
+  already hold the context, so they pass `context.Diagnostics` down.
+- **Facade:** the mode (from `CompilerOptions`) shapes the sink and the stage loop — a throwing sink
+  for *fail-fast*; the collecting bag plus a **stage-boundary check** (halt when a stage reported an
+  error) for the default; and run-every-stage for *best-effort* (see
+  [DD9](#dd9--compilation-modes-decide-how-far-a-compile-proceeds)).
+- **Result:** under the default mode a script with a bad jump or a duplicate anchor no longer throws
+  out of `Compile`; it returns a `CompilationResult` whose `Diagnostics` carry the errors and whose
+  `HasErrors` is true.
+- **Visualizer:** because a stage-boundary halt yields a partial result the stage projector cannot
+  read, the visualizer compiles in *best-effort* so every stage always renders with its errors
+  recovered — a stopgap until the report surfaces diagnostics itself
+  ([#111](https://github.com/pengzhengyi/godot-dialoguedown/issues/111)).
+- **CLI (next component):** with the stages reporting, the CLI can render the collected diagnostics
+  and set an exit code — the reason this component comes before CLI notification.
+
+### Testing
+
+- **Each reporting site** is unit-tested: feed the triggering input, assert the reported descriptor
+  and span, and assert the recovery value lets the stage return a coherent artifact.
+- **Each mode** is covered: *fail-fast* throws a `DiagnosticException` at the first error;
+  *stage-boundary* (default) collects a stage's errors together and halts at the boundary;
+  *best-effort* collects across stages. A script with *several* independent problems surfaces the
+  right set for its mode through `ScriptCompilerFactory`.
+
+### Deferred and out of scope
+
+- **Warnings as errors.** Every mode keeps warnings as warnings today; promoting them, so an
+  advisory like `DLG1003` can fail a build, is a planned per-run toggle — not built.
+- **Dangling `=>` (`DLG1002`).** DD4 assigns the dangling jump arrow to a desugar producer, but it
+  is a *new detection* (desugar degrades `=>` to text today), not a throw migration — kept out of
+  this component's scope unless folded in.
+
 ## Later components (deferred)
 
-- **Producers** — migrating the existing recoverable throw sites to reported diagnostics: the
-  transpiler's tag-without-speaker `DialogueSyntaxError`, the analyzer's jump/speaker
-  `DialogueSemanticError`, and a **dangling `=>`** reported by desugar at the point it degrades the
-  arrow to text (which the desugared tree cannot otherwise reveal — see the corrected
-  [DD4](#dd4--the-validator-is-a-set-of-pluggable-rules)).
+- **Desugar producer for a dangling `=>`** — a linkless arrow is degraded to plain text today, so
+  reporting it needs desugar to record that it dropped an arrow (see the corrected
+  [DD4](#dd4--the-validator-is-a-set-of-pluggable-rules)). Deferred; not part of the producers
+  component above.
 - **Renderer** ([DD7](#dd7--errata-renders-on-the-cli-isolated-to-the-cli)) — a `LineMap`
   (offset→line/column), the CLI's Errata projection with exit codes and warnings switches, and the
   **public** diagnostic view built on the `LineMap`.
@@ -270,18 +403,19 @@ projects have friend access, so they use the model directly. When the **renderer
 public diagnostic view, it builds a line/column projection through a `LineMap`, so `SourceSpan`
 can stay internal (see [DD6](#dd6--public-haserrors-internal-diagnostics-until-the-renderer)).
 
-### DD2 — Three severities, collect-and-continue
+### DD2 — Three severities; report rather than throw
 
 Severity is `Error`, `Warning`, or `Info`, ordered so `Error` is the worst — enough to answer
-"did anything fail?" (`HasErrors`) and "what is the worst?". Compilation **collects and
-continues**: a stage or rule reports a diagnostic and keeps going, so one run surfaces every
-problem, and `CompilationResult` is returned with its diagnostics even when errors are present
-(**partial compilation**). Only an **unrecoverable** fault still throws. Each **diagnostic carries
-its own severity**, defaulting from its descriptor's `DefaultSeverity` — a field now, so a future
-configuration pass can promote or demote one without reshaping the model. The **diagnostic and
-descriptor are immutable value types** (records), safe to share and compare; a diagnostic compares
-equal to another reporting the same problem, matching its **message arguments by value**
-(element-wise). The **bag is the only mutable piece**, and only during one compilation.
+"did anything fail?" (`HasErrors`) and "what is the worst?". A stage or rule **reports** a
+diagnostic rather than only throwing, so a run can surface many problems at once and
+`CompilationResult` is returned with its diagnostics even when errors are present (**partial
+compilation**). *How far* a compile proceeds after an error is a configurable **mode**
+([DD9](#dd9--compilation-modes-decide-how-far-a-compile-proceeds)); only *fail-fast* still throws.
+Each **diagnostic carries its own severity**, defaulting from its descriptor's `DefaultSeverity` —
+a field now, so a future configuration pass can promote or demote one without reshaping the model.
+The **diagnostic and descriptor are immutable value types** (records), safe to share and compare; a
+diagnostic compares equal to another reporting the same problem, matching its **message arguments by
+value** (element-wise). The **bag is the only mutable piece**, and only during one compilation.
 
 ### DD3 — A descriptor catalog with `DLG####` codes
 
@@ -292,8 +426,9 @@ plus a leading-digit check). Codes make a diagnostic greppable, documentable, li
 editor, and (later) suppressible. The descriptor also owns a **message format** template; a
 diagnostic carries the **arguments** that fill it, so composing the final text is a rendering
 concern, never the model's — leaving room for localization later. The model defines the code
-scheme and the descriptor type; the **catalog of real descriptors is populated later**, each entry
-arriving with the producer that reports it.
+scheme and the descriptor type; the real descriptors live in one central `DiagnosticCatalog`, so
+the codes stay greppable and documentable and a test can enforce that each is unique — each entry
+arriving alongside the producer that reports it.
 
 ### DD4 — The validator is a set of pluggable rules
 
@@ -323,8 +458,8 @@ elsewhere — checking how the pipeline actually represents each condition recla
 
 | Candidate | Why it is not a structural rule | Where it belongs |
 | --- | --- | --- |
-| Dangling jump arrow (`DLG1002`) | desugar rewrites a linkless `=>` into plain `Text("=>")` with no provenance, so the desugared tree cannot tell it from ordinary text | **Producers** — desugar reports it at the point it degrades the arrow |
-| Tag without a speaker (`DLG1101`) | the transpiler already **throws** `DialogueSyntaxError` for tags naming no speaker; the desugared tree never carries it | **Producers** — migrate that throw to a diagnostic |
+| Dangling jump arrow (`DLG1002`) | desugar rewrites a linkless `=>` into plain `Text("=>")` with no provenance, so the desugared tree cannot tell it from ordinary text | **Deferred** — a later desugar reporting site emits it where it degrades the arrow |
+| Tag without a speaker (`DLG1101`) | the transpiler already **throws** `DialogueSyntaxError` for tags naming no speaker; the desugared tree never carries it | **Error reporting and recovery** — migrate that throw to a reported diagnostic |
 | Dropped unmodeled Markdown (`DLG3001`) | an `Ignore`d node is dropped in the front-end and leaves no marker, count, or trace to detect | **Editor seams / future** — needs the front-end to record drops first |
 
 ### DD5 — The sink threads through the facade via a diagnostics context
@@ -383,6 +518,23 @@ model to LSP `Diagnostic`:
 The projection and any LSP package live in a **future adapter**, not the core. The model plus a
 `LineMap` is enough to produce LSP ranges when the editor arrives. An LSP `Hint` is not a core
 severity; it would appear only in this projection.
+
+### DD9 — Compilation modes decide how far a compile proceeds
+
+Reporting-and-recovering lets a stage continue past an error, but continuing blindly through every
+stage piles cascading noise onto unreliable material. So *how far* a compile proceeds is a **mode**,
+chosen through `CompilerOptions`:
+
+| Mode | Behavior | For |
+| --- | --- | --- |
+| **fail-fast** | stop at the first error — the sink throws a `DiagnosticException` carrying the diagnostic | a quick "is it broken?" check |
+| **stage-boundary** (default) | within a stage, recover and collect **every** error; at the stage boundary, halt if that stage reported any error, because its output no longer reliably feeds the next stage | everyday compiles — one stage's errors together, no downstream noise |
+| **best-effort** | recover through **every** stage and collect everything | tools that want the fullest picture, such as an editor |
+
+The mode lives in the **sink and the facade**, never in a reporting site: a site always reports and
+returns its recovery value, so one throwing sink implements *fail-fast* while the collecting
+`DiagnosticBag` plus a facade stage-boundary check implements the other two. Warnings never fail a
+compile today; a **warnings-as-errors** promotion is a planned toggle, not built.
 
 ## Error and boundary cases
 

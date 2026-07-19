@@ -1,8 +1,10 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
 using static DialogueDown.Tests.Support.MarkdownAstFactory;
+using MarkdownBlock = DialogueDown.Markdown.MarkdownBlock;
 
 namespace DialogueDown.Tests.Script.Transpiler.Builders;
 
@@ -12,14 +14,14 @@ public sealed class BlockBuilderTests
 
     [Fact]
     public void EmptyDocument_HasEmptyBody() =>
-        Assert.Empty(_builder.Build([]));
+        Assert.Empty(Build([]));
 
     [Fact]
     public void Heading_BecomesAFlatSceneHeading()
     {
         var heading = Heading(2, Text("The Cave"));
 
-        var body = _builder.Build([heading]);
+        var body = Build([heading]);
 
         var scene = AssertSceneHeading(Assert.Single(body), "The Cave", 2);
         Assert.Equal(heading.Span, scene.Span);
@@ -31,7 +33,7 @@ public sealed class BlockBuilderTests
         // A heading becomes a scene, which is itself a jump target, so a `=>` inside a
         // heading is not a jump — it reads as plain text.
         var scene = Assert.IsType<SceneHeading>(
-            Assert.Single(_builder.Build([Heading(1, Text("=> "), Link("#x", Text("there")))])));
+            Assert.Single(Build([Heading(1, Text("=> "), Link("#x", Text("there")))])));
 
         Assert.Equal(2, scene.Title.Count);
         AssertText(scene.Title[0], "=> ");
@@ -43,7 +45,7 @@ public sealed class BlockBuilderTests
     public void Heading_StillRecognizesTagsAndGameCalls()
     {
         var scene = Assert.IsType<SceneHeading>(
-            Assert.Single(_builder.Build([Heading(1, Text("Chapter #act1"), CodeSpan("\"n\""))])));
+            Assert.Single(Build([Heading(1, Text("Chapter #act1"), CodeSpan("\"n\""))])));
 
         AssertText(scene.Title[0], "Chapter ");
         AssertCustomTag(scene.Title[1], "act1");
@@ -53,7 +55,7 @@ public sealed class BlockBuilderTests
     [Fact]
     public void Paragraph_BecomesALine()
     {
-        var body = _builder.Build([TextParagraph("Alice: Hello there.")]);
+        var body = Build([TextParagraph("Alice: Hello there.")]);
 
         var line = AssertLine(Assert.Single(body));
         AssertSpeakerNameReference(line.Speaker!, "Alice");
@@ -63,7 +65,7 @@ public sealed class BlockBuilderTests
     [Fact]
     public void Paragraph_HardBreak_SplitsIntoOneLinePerSlice()
     {
-        var body = _builder.Build(
+        var body = Build(
             [Paragraph(Text("Alice: Hi"), LineBreak(hard: true), Text("Bob: Yo"))]);
 
         Assert.Equal(2, body.Count);
@@ -78,7 +80,7 @@ public sealed class BlockBuilderTests
     [Fact]
     public void Paragraph_SoftBreak_StaysWithinOneLine()
     {
-        var body = _builder.Build(
+        var body = Build(
             [Paragraph(Text("Alice: Hi"), LineBreak(hard: false), Text("there"))]);
 
         var line = AssertLine(Assert.Single(body));
@@ -92,7 +94,7 @@ public sealed class BlockBuilderTests
     [Fact]
     public void Paragraph_EmptyGroupsAroundHardBreaks_AreDropped()
     {
-        var body = _builder.Build(
+        var body = Build(
         [
             Paragraph(
                 LineBreak(hard: true),                        // leading break -> empty group
@@ -110,12 +112,12 @@ public sealed class BlockBuilderTests
 
     [Fact]
     public void Paragraph_OnlyHardBreaks_EmitsNoLine() =>
-        Assert.Empty(_builder.Build([Paragraph(LineBreak(hard: true))]));
+        Assert.Empty(Build([Paragraph(LineBreak(hard: true))]));
 
     [Fact]
     public void List_BecomesChoices_OneChoicePerItem()
     {
-        var body = _builder.Build(
+        var body = Build(
         [
             ListBlock(
                 ordered: false,
@@ -132,13 +134,13 @@ public sealed class BlockBuilderTests
     [Fact]
     public void OrderedList_KeepsIsOrdered() =>
         AssertChoices(
-            Assert.Single(_builder.Build([ListBlock(ordered: true, ListItem(TextParagraph("First")))])),
+            Assert.Single(Build([ListBlock(ordered: true, ListItem(TextParagraph("First")))])),
             isOrdered: true);
 
     [Fact]
     public void ChoiceItem_MayCarryASpeaker()
     {
-        var body = _builder.Build([ListBlock(ordered: false, ListItem(TextParagraph("Alice: Hi")))]);
+        var body = Build([ListBlock(ordered: false, ListItem(TextParagraph("Alice: Hi")))]);
 
         var choices = AssertChoices(Assert.Single(body), isOrdered: false);
         var line = AssertChoiceLine(Assert.Single(choices.Options));
@@ -149,7 +151,7 @@ public sealed class BlockBuilderTests
     [Fact]
     public void ChoiceItem_WithMultipleBlocks_KeepsThemAll()
     {
-        var body = _builder.Build(
+        var body = Build(
         [
             ListBlock(
                 ordered: false,
@@ -170,7 +172,7 @@ public sealed class BlockBuilderTests
             ordered: false,
             ListItem(TextParagraph("Pick one:"), innerList));
 
-        var body = _builder.Build([outerList]);
+        var body = Build([outerList]);
 
         // The outer list is one Choices with a single option.
         var choice = Assert.Single(AssertChoices(Assert.Single(body), isOrdered: false).Options);
@@ -188,7 +190,7 @@ public sealed class BlockBuilderTests
         var item = ListItem(TextParagraph("Go north"));
         var list = ListBlock(ordered: false, item);
 
-        var choices = AssertChoices(Assert.Single(_builder.Build([list])), isOrdered: false);
+        var choices = AssertChoices(Assert.Single(Build([list])), isOrdered: false);
 
         Assert.Equal(list.Span, choices.Span);
         Assert.Equal(item.Span, Assert.Single(choices.Options).Span);
@@ -197,5 +199,8 @@ public sealed class BlockBuilderTests
     [Fact]
     public void UnknownBlockKind_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => _builder.Build([new UnknownMarkdownBlock(Span())]));
+            () => Build([new UnknownMarkdownBlock(Span())]));
+
+    private IReadOnlyList<ScriptBlock> Build(IReadOnlyList<MarkdownBlock> blocks) =>
+        _builder.Build(blocks, new DiagnosticBag());
 }

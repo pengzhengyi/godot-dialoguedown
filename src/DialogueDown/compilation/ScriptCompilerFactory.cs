@@ -28,6 +28,7 @@ public static class ScriptCompilerFactory
             ScriptTranspilerFactory.CreateDefault(),
             new ScriptDesugarer(),
             new StructuralValidator([new MultipleJumpsOnLineRule()]),
-            new SemanticAnalyzer(options.ForSemanticAnalyzer()));
+            new SemanticAnalyzer(options.ForSemanticAnalyzer()),
+            options.Mode);
     }
 }

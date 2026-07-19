@@ -1,8 +1,9 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
-using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Script.Transpiler.Parsing;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 
@@ -45,7 +46,7 @@ public sealed class SpeakerBuilderTests
     {
         var text = "Alice #mood=happy: Hi";
 
-        var result = _builder.Build(ParseInputFactory.Input(text, 10));
+        var result = _builder.Build(ParseInputFactory.Input(text, 10), new DiagnosticBag());
 
         Assert.True(result.Success);
         var declaration = Assert.IsType<SpeakerDeclaration>(result.MatchedValue);
@@ -58,7 +59,7 @@ public sealed class SpeakerBuilderTests
     [InlineData("Alice:   Hello")]
     public void SpeechStart_LandsAfterAllPostColonWhitespace(string text)
     {
-        var result = _builder.Build(ParseInputFactory.Input(text));
+        var result = _builder.Build(ParseInputFactory.Input(text), new DiagnosticBag());
 
         Assert.True(result.Success);
         Assert.Equal(text.IndexOf("Hello", StringComparison.Ordinal), result.MatchedLength);
@@ -77,15 +78,19 @@ public sealed class SpeakerBuilderTests
         AssertBuildFailed(": Hello");
 
     [Fact]
-    public void TagsWithoutNameOrId_ThrowsDialogueSyntaxError()
+    public void TagsWithoutNameOrId_ReportsAndRecoversToDefaultSpeaker()
     {
-        var error = Assert.Throws<DialogueSyntaxError>(() => Build("#lonely: Hi"));
+        var diagnostics = new DiagnosticBag();
 
-        Assert.Contains("names no speaker", error.Message);
+        var result = _builder.Build(ParseInputFactory.Input("#lonely: Hi"), diagnostics);
+
+        Assert.True(result.Success);
+        Assert.IsType<DefaultSpeaker>(result.MatchedValue);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.TagsWithoutSpeaker);
     }
 
     private static ParseResult<Speaker> Build(string text) =>
-        _builder.Build(ParseInputFactory.Input(text));
+        _builder.Build(ParseInputFactory.Input(text), new DiagnosticBag());
 
     private static Speaker Speaker(string text)
     {

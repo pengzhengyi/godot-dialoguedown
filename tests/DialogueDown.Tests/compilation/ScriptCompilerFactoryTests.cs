@@ -5,6 +5,7 @@ using DialogueDown.Script.Ast;
 using DialogueDown.Script.Semantics;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.ConfigurationFactory;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
 
 namespace DialogueDown.Tests.Compilation;
@@ -71,8 +72,50 @@ public sealed class ScriptCompilerFactoryTests
 
         var result = ScriptCompilerFactory.CreateDefault().Compile(source);
 
-        var warning = Assert.Single(result.Diagnostics, d => d.Descriptor.Code == "DLG1003");
+        var warning = Assert.Single(result.Diagnostics, d => d.Descriptor.Code == DiagnosticCatalog.MultipleJumpsOnLine.Code);
         Assert.Equal(DiagnosticSeverity.Warning, warning.Severity);
         Assert.False(result.HasErrors);
     }
+
+    [Fact]
+    public void CreateDefault_TagsWithoutSpeaker_HaltsAtTheStageBoundary()
+    {
+        // The tags-without-speaker error is reported during transpile, so a stage-boundary
+        // compile stops before analysis and returns a partial result.
+        var result = ScriptCompilerFactory.CreateDefault().Compile("#lonely: Hi");
+
+        Assert.False(result.IsComplete);
+        AssertReported(result.Diagnostics, DiagnosticCatalog.TagsWithoutSpeaker);
+    }
+
+    [Fact]
+    public void CreateDefault_BestEffort_TagsWithoutSpeaker_RecoversToADefaultSpeaker()
+    {
+        var result = BestEffortCompiler().Compile("#lonely: Hi");
+
+        Assert.True(result.IsComplete);
+        AssertReported(result.Diagnostics, DiagnosticCatalog.TagsWithoutSpeaker);
+        AssertDefaultSpeaker(AssertLine(result.Desugared.Body[0]).Speaker);
+    }
+
+    [Fact]
+    public void CreateDefault_NotAGameCall_HaltsAtTheStageBoundary()
+    {
+        var result = ScriptCompilerFactory.CreateDefault().Compile("Alice: say `not a call`");
+
+        Assert.False(result.IsComplete);
+        AssertReported(result.Diagnostics, DiagnosticCatalog.NotAGameCall);
+    }
+
+    [Fact]
+    public void CreateDefault_BestEffort_NotAGameCall_RecoversToLiteralText()
+    {
+        var result = BestEffortCompiler().Compile("Alice: say `not a call`");
+
+        Assert.True(result.IsComplete);
+        AssertReported(result.Diagnostics, DiagnosticCatalog.NotAGameCall);
+    }
+
+    private static IScriptCompiler BestEffortCompiler() =>
+        ScriptCompilerFactory.CreateDefault(new CompilerOptions { Mode = CompilationMode.BestEffort });
 }

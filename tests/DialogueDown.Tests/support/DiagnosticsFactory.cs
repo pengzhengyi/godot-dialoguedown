@@ -28,4 +28,12 @@ internal static class DiagnosticsFactory
             span ?? SourceSpanFactory.Span(),
             messageArguments ?? [],
             severity);
+
+    /// <summary>A fail-fast sink over a fresh bag; <paramref name="collected"/> outs the bag so a
+    /// test can inspect what was forwarded before any throw.</summary>
+    public static FailFastDiagnosticSink FailFastSink(out DiagnosticBag collected)
+    {
+        collected = new DiagnosticBag();
+        return new FailFastDiagnosticSink(collected);
+    }
 }

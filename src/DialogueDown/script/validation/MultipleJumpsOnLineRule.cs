@@ -12,13 +12,7 @@ namespace DialogueDown.Script.Validation;
 /// </summary>
 internal sealed class MultipleJumpsOnLineRule : DiagnosticRule
 {
-    protected override DiagnosticDescriptor Descriptor { get; } = new(
-        "DLG1003",
-        "Multiple jumps on a line",
-        "This line has {0} jumps; multiple jumps on one line run in sequence and are easy to "
-            + "misread — prefer at most one.",
-        DiagnosticCategory.Syntax,
-        DiagnosticSeverity.Warning);
+    protected override DiagnosticDescriptor Descriptor { get; } = DiagnosticCatalog.MultipleJumpsOnLine;
 
     protected override void Analyze(DialogueTreeIndex nodes, Reporter report)
     {

@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 
@@ -22,8 +23,9 @@ internal interface IInlinePolicy
     bool Supports(MarkdownInline inline);
 
     /// <summary>
-    /// Produces the fragments an unsupported inline becomes. Called only when
+    /// Produces the fragments an unsupported inline becomes, reporting into
+    /// <paramref name="diagnostics"/> when the resolution is a recovered error. Called only when
     /// <see cref="Supports"/> is <see langword="false"/>.
     /// </summary>
-    IReadOnlyList<InlineFragment> Resolve(MarkdownInline unsupported);
+    IReadOnlyList<InlineFragment> Resolve(MarkdownInline unsupported, IDiagnosticSink diagnostics);
 }

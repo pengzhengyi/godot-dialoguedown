@@ -16,6 +16,11 @@ design live in [`docs/contributing/design-notes/`](../../docs/contributing/desig
   system directives first; unused usings are a warning (IDE0005).
 - Prefer **`var`** for built-in and apparent types, **expression-bodied members**
   when they fit on one line, and **pattern matching** over `is`/`as` with casts.
+- **Match the construct to the complexity.** Expression-bodied members and the
+  conditional (`?:`) operator are for genuinely simple, one-line logic; when a
+  member's body is complex — a long or nested ternary, multiple `out`
+  parameters, several branches — use a **block body with an `if` statement**
+  instead. A short `if` that returns early reads better than a sprawling ternary.
 - Use **LINQ** when it is a clear readability win over an explicit loop; keep it
   simple, not clever.
 - Four-space indent, LF line endings, UTF-8.

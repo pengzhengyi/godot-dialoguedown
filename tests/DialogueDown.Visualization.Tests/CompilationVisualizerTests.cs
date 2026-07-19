@@ -116,6 +116,19 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
+    public void BuildStages_RealCompiler_ATranspileErrorStillRendersEveryStage()
+    {
+        // "#lonely: Hi" is a tags-without-speaker error reported during transpile: a
+        // stage-boundary compile would halt and leave no desugared or semantic stage. The
+        // visualizer forces best-effort, so the error recovers to a default speaker and every
+        // stage still renders.
+        var stages = new CompilationVisualizer().BuildStages("#lonely: Hi");
+
+        Assert.Equal(4, stages.Count);
+        Assert.Contains(stages[2].Nodes, n => n.Label == "Speaker (default)");
+    }
+
+    [Fact]
     public void BuildStages_RealCompiler_ProducesDialogueStageWithSpeakersChoicesAndCalls()
     {
         var stages = new CompilationVisualizer().BuildStages(

@@ -1,6 +1,6 @@
 using DialogueDown.Common;
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
-using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Script.Transpiler.Parsed;
 using DialogueDown.Script.Transpiler.Parsing;
 
@@ -11,11 +11,12 @@ namespace DialogueDown.Script.Transpiler.Builders;
 /// and/or tags) makes it a declaration, a bare name a name reference, and a bare id an
 /// id reference. An <see cref="Ok"/> result carries the <see cref="Speaker"/> and how
 /// much was consumed; a failure means the line has no speaker. A prefix that binds
-/// metadata but names no speaker is a <see cref="DialogueSyntaxError"/>.
+/// metadata but names no speaker reports <see cref="DiagnosticCatalog.TagsWithoutSpeaker"/>
+/// and recovers to a <see cref="DefaultSpeaker"/>, dropping the orphan tags.
 /// </summary>
 internal sealed class SpeakerBuilder(IParser<SpeakerPrefixData> parser, TagBuilder tagBuilder)
 {
-    public ParseResult<Speaker> Build(ParseInput input)
+    public ParseResult<Speaker> Build(ParseInput input, IDiagnosticSink diagnostics)
     {
         var result = parser.Consume(input);
         if (result.Error is { } error)
@@ -23,20 +24,15 @@ internal sealed class SpeakerBuilder(IParser<SpeakerPrefixData> parser, TagBuild
             return ParseResult<Speaker>.Fail(error);
         }
 
-        var speaker = Classify(result.MatchedValue, result.MatchedRange.ToSourceSpan(), input.Text);
+        var speaker = Classify(
+            result.MatchedValue, result.MatchedRange.ToSourceSpan(), input.Text, diagnostics);
         return speaker is null
             ? ParseResult<Speaker>.Fail(new ParseError("no speaker prefix"))
             : ParseResult<Speaker>.Ok(new ParseMatch<Speaker>(speaker, result.MatchedRange));
     }
 
-    private static string TagsWithoutSpeakerMessage(string content) =>
-        $"""
-        "{content}" has tags but names no speaker for them to attach to. Begin the
-        line with a name to declare a speaker (Alice #excited:), or with an @id to
-        add tags to an already-declared one (@alice #excited:).
-        """;
-
-    private Speaker? Classify(SpeakerPrefixData data, SourceSpan span, string content)
+    private Speaker? Classify(
+        SpeakerPrefixData data, SourceSpan span, string content, IDiagnosticSink diagnostics)
     {
         var tagNodes = data.Tags
             .Select(tag => tagBuilder.Build(tag.Value, tag.Range.ToSourceSpan()))
@@ -58,7 +54,10 @@ internal sealed class SpeakerBuilder(IParser<SpeakerPrefixData> parser, TagBuild
 
         if (tagNodes.Count > 0)
         {
-            throw new DialogueSyntaxError(TagsWithoutSpeakerMessage(content), span);
+            // Tags with no speaker to attach to: report and recover by dropping the tags and
+            // attributing the line to the default speaker, so the rest of the line still compiles.
+            diagnostics.Report(new Diagnostic(DiagnosticCatalog.TagsWithoutSpeaker, span, [content]));
+            return new DefaultSpeaker(span);
         }
 
         return null;

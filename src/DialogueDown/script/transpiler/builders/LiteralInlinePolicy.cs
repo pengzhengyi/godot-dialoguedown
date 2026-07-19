@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using MarkdownLineBreak = DialogueDown.Markdown.LineBreak;
@@ -17,7 +18,8 @@ internal sealed class LiteralInlinePolicy : IInlinePolicy
 
     public bool Supports(MarkdownInline inline) => inline is TextInline or EmphasisInline;
 
-    public IReadOnlyList<InlineFragment> Resolve(MarkdownInline unsupported) =>
+    public IReadOnlyList<InlineFragment> Resolve(
+        MarkdownInline unsupported, IDiagnosticSink diagnostics) =>
         [new Text(Reconstruct(unsupported), unsupported.Span)];
 
     // Rebuild the element's canonical Markdown text from the node, recursing so a nested

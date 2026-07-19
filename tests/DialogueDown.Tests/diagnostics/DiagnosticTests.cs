@@ -40,6 +40,23 @@ public sealed class DiagnosticTests
     }
 
     [Fact]
+    public void IsError_IsTrueForAnError() =>
+        Assert.True(new Diagnostic(
+            DiagnosticsFactory.Descriptor(), SourceSpanFactory.Span(), [], DiagnosticSeverity.Error)
+            .IsError);
+
+    [Fact]
+    public void IsError_IsFalseForAWarningOrInfo()
+    {
+        var descriptor = DiagnosticsFactory.Descriptor();
+
+        Assert.False(
+            new Diagnostic(descriptor, SourceSpanFactory.Span(), [], DiagnosticSeverity.Warning).IsError);
+        Assert.False(
+            new Diagnostic(descriptor, SourceSpanFactory.Span(), [], DiagnosticSeverity.Info).IsError);
+    }
+
+    [Fact]
     public void Equality_SameValuesIncludingEmptyArguments_AreEqual()
     {
         var descriptor = DiagnosticsFactory.Descriptor();

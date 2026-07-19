@@ -1,4 +1,5 @@
 using DialogueDown.Script.Transpiler.Builders;
+using static DialogueDown.Tests.Support.InlinePolicyAssert;
 using Md = DialogueDown.Tests.Support.MarkdownAstFactory;
 
 namespace DialogueDown.Tests.Script.Transpiler.Builders;
@@ -20,5 +21,5 @@ public sealed class AllowAllInlinePolicyTests
 
     [Fact]
     public void Resolve_IsUnreachable_AndThrows() =>
-        Assert.Throws<InvalidOperationException>(() => _policy.Resolve(Md.CodeSpan("q")));
+        Assert.Throws<InvalidOperationException>(() => Resolve(_policy, Md.CodeSpan("q")));
 }

@@ -29,12 +29,12 @@ internal sealed class SemanticAnalyzer : ISemanticAnalyzer
 
         var index = DialogueTreeIndex.Build(document);
 
-        var (sceneRoot, anchors) = SceneBuilder.Build(document);
+        var (sceneRoot, anchors) = SceneBuilder.Build(document, context.Diagnostics);
         var configured = _options.ConfiguredSpeakers.Select(ConfiguredSpeakerBuilder.ToDeclaration);
-        var speakers = SpeakerBinder.Bind(configured, index.OfType<Speaker>());
+        var speakers = SpeakerBinder.Bind(configured, index.OfType<Speaker>(), context.Diagnostics);
 
-        var jumps = JumpResolver.Resolve(index.OfType<Jump>(), anchors);
-        TagValidator.Validate(index.OfType<ReservedTag>());
+        var jumps = JumpResolver.Resolve(index.OfType<Jump>(), anchors, context.Diagnostics);
+        TagValidator.Validate(index.OfType<ReservedTag>(), context.Diagnostics);
 
         // TODO(diagnostics): the context is validated but not yet read — analysis works off the
         // tree and the spans it carries. Report source-anchored diagnostics into

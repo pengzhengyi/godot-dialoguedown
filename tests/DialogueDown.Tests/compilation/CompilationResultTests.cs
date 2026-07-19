@@ -3,6 +3,7 @@ using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
+using DialogueDown.Script.Semantics;
 using DialogueDown.Tests.Support;
 
 namespace DialogueDown.Tests.Compilation;
@@ -53,14 +54,37 @@ public sealed class CompilationResultTests
         Assert.False(Result().HasErrors);
     }
 
+    [Fact]
+    public void Full_IsComplete_AndExposesTheLaterArtifacts()
+    {
+        var script = new ScriptDocument([]);
+        var desugared = new DesugaredScriptDocument(script);
+        var semantics = SemanticModelFactory.Minimal(desugared);
+
+        var result = new CompilationResult("source", new MarkdownDocument([]), script, desugared, semantics, []);
+
+        Assert.True(result.IsComplete);
+        Assert.Same(desugared, result.Desugared);
+        Assert.Same(semantics, result.Semantics);
+    }
+
+    [Fact]
+    public void Partial_IsNotComplete_AndReadingALaterArtifactThrows()
+    {
+        var result = new CompilationResult(
+            "source", new MarkdownDocument([]), new ScriptDocument([]), null, null, []);
+
+        Assert.False(result.IsComplete);
+        Assert.Throws<InvalidOperationException>(() => result.Desugared);
+        Assert.Throws<InvalidOperationException>(() => result.Semantics);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
-    [InlineData(3)]
-    [InlineData(4)]
     [InlineData(5)]
-    public void NullArgument_Throws(int nullIndex)
+    public void NullRequiredArgument_Throws(int nullIndex)
     {
         var script = new ScriptDocument([]);
         var desugared = new DesugaredScriptDocument(script);
@@ -69,9 +93,50 @@ public sealed class CompilationResultTests
             nullIndex == 0 ? null! : "source",
             nullIndex == 1 ? null! : new MarkdownDocument([]),
             nullIndex == 2 ? null! : script,
-            nullIndex == 3 ? null! : desugared,
-            nullIndex == 4 ? null! : SemanticModelFactory.Minimal(desugared),
+            desugared,
+            SemanticModelFactory.Minimal(desugared),
             nullIndex == 5 ? null! : []));
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void NullOptionalArtifact_DoesNotThrow(int nullIndex)
+    {
+        var script = new ScriptDocument([]);
+        var desugared = new DesugaredScriptDocument(script);
+        DesugaredScriptDocument? desugaredArg = nullIndex == 3 ? null : desugared;
+        SemanticModel? semanticsArg = nullIndex == 4 ? null : SemanticModelFactory.Minimal(desugared);
+
+        var exception = Record.Exception(() => new CompilationResult(
+            "source", new MarkdownDocument([]), script, desugaredArg, semanticsArg, []));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void Complete_BuildsACompleteResultWithEveryArtifact()
+    {
+        var script = new ScriptDocument([]);
+        var desugared = new DesugaredScriptDocument(script);
+        var semantics = SemanticModelFactory.Minimal(desugared);
+
+        var result = CompilationResult.Complete(
+            "source", new MarkdownDocument([]), script, desugared, semantics, []);
+
+        Assert.True(result.IsComplete);
+        Assert.Same(desugared, result.Desugared);
+        Assert.Same(semantics, result.Semantics);
+    }
+
+    [Fact]
+    public void Halted_BuildsAPartialResultWithoutTheLaterArtifacts()
+    {
+        var result = CompilationResult.Halted(
+            "source", new MarkdownDocument([]), new ScriptDocument([]), []);
+
+        Assert.False(result.IsComplete);
+        Assert.Throws<InvalidOperationException>(() => result.Semantics);
     }
 
     private static CompilationResult Result(params Diagnostic[] diagnostics)

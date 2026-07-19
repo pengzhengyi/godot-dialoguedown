@@ -18,7 +18,7 @@ public sealed class MultipleJumpsOnLineRuleTests
 
         var diagnostic = Assert.Single(Check(line));
 
-        Assert.Equal("DLG1003", diagnostic.Descriptor.Code);
+        Assert.Equal(DiagnosticCatalog.MultipleJumpsOnLine.Code, diagnostic.Descriptor.Code);
         Assert.Equal(DiagnosticCategory.Syntax, diagnostic.Descriptor.Category);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal(line.Span, diagnostic.Span);

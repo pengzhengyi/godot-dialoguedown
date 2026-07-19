@@ -1,7 +1,7 @@
 using DialogueDown.Common;
 using DialogueDown.Configuration;
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
-using DialogueDown.Script.Semantics.Errors;
 
 namespace DialogueDown.Script.Semantics;
 
@@ -24,13 +24,18 @@ internal sealed class SpeakerBinder
     private readonly Dictionary<string, SpeakerSymbol> _speakerByName = [];
     private readonly Dictionary<string, SpeakerSymbol> _speakerById = [];
     private readonly Dictionary<SpeakerSymbol, Speaker> _originBySymbol = [];
+    private readonly IDiagnosticSink _diagnostics;
     private SpeakerSymbol? _layerDefault;
+
+    // Internal so a test can drive the per-kind dispatch directly; Bind is the entry point.
+    internal SpeakerBinder(IDiagnosticSink diagnostics) => _diagnostics = diagnostics;
 
     /// <summary>
     /// Binds a document's speaker prefixes, in document order, into a speaker table, using an
     /// anonymous default when no <c>##default</c> is tagged.
     /// </summary>
-    public static SpeakerTable Bind(IEnumerable<Speaker> speakers) => Bind([], speakers);
+    public static SpeakerTable Bind(IEnumerable<Speaker> speakers, IDiagnosticSink diagnostics) =>
+        Bind([], speakers, diagnostics);
 
     /// <summary>
     /// Binds two layers of speaker prefixes into one speaker table. Both layers share the
@@ -38,12 +43,14 @@ internal sealed class SpeakerBinder
     /// contributes at most one <c>##default</c>. The default speaker is chosen by precedence —
     /// the <paramref name="scriptSpeakers"/> layer's default wins over the
     /// <paramref name="configuredSpeakers"/> layer's, and an anonymous default when neither
-    /// tags one.
+    /// tags one. Conflicting metadata is reported into <paramref name="diagnostics"/>.
     /// </summary>
     public static SpeakerTable Bind(
-        IEnumerable<Speaker> configuredSpeakers, IEnumerable<Speaker> scriptSpeakers)
+        IEnumerable<Speaker> configuredSpeakers,
+        IEnumerable<Speaker> scriptSpeakers,
+        IDiagnosticSink diagnostics)
     {
-        var binder = new SpeakerBinder();
+        var binder = new SpeakerBinder(diagnostics);
         var configuredDefault = binder.BindLayer(configuredSpeakers);
         var scriptDefault = binder.BindLayer(scriptSpeakers);
         return binder.Build(scriptDefault ?? configuredDefault);
@@ -61,59 +68,66 @@ internal sealed class SpeakerBinder
         }
     }
 
-    private static void ThrowWhenNameAndIdBelongToDifferentSpeakers(
+    private void Report(DiagnosticDescriptor descriptor, SourceSpan span, params object[] arguments) =>
+        _diagnostics.Report(new Diagnostic(descriptor, span, arguments));
+
+    // DLG2003: a name and an @id already name different speakers.
+    private bool ReportWhenNameAndIdBelongToDifferentSpeakers(
         string name, string? id, SpeakerSymbol? byName, SpeakerSymbol? byId, SourceSpan span)
     {
-        if (byName is not null && byId is not null && !ReferenceEquals(byName, byId))
+        if (byName is null || byId is null || ReferenceEquals(byName, byId))
         {
-            throw new DialogueSemanticError(
-                $"Cannot bind name '{name}' to id '@{id}': both are already in use as separate "
-                + "speakers, so joining them now is ambiguous. If they are the same speaker, "
-                + $"declare it (Name @{id}: …) before either is used on its own.", span);
+            return false;
         }
+
+        Report(DiagnosticCatalog.SpeakerNameIdConflict, span, name, id!);
+        return true;
     }
 
-    private static void ThrowWhenIdIsAlreadyBoundToAnotherName(
+    // DLG2004: the @id is already bound to a different speaker name.
+    private bool ReportWhenIdIsAlreadyBoundToAnotherName(
         string? id, string existingName, string declaredName, SourceSpan span)
     {
-        if (existingName != declaredName)
+        if (existingName == declaredName)
         {
-            throw new DialogueSemanticError(
-                $"id '@{id}' is already bound to speaker '{existingName}', so it cannot also be "
-                + $"bound to '{declaredName}'. Use a different id for '{declaredName}'.", span);
+            return false;
         }
+
+        Report(DiagnosticCatalog.IdBoundToAnotherName, span, id!, existingName, declaredName);
+        return true;
     }
 
-    private static void ThrowWhenNameIsAlreadyBoundToAnotherId(
+    // DLG2005: the name is already bound to a different @id.
+    private void ReportWhenNameIsAlreadyBoundToAnotherId(
         string name, string existingId, string declaredId, SourceSpan span)
     {
         if (existingId != declaredId)
         {
-            throw new DialogueSemanticError(
-                $"Speaker '{name}' is already bound to id '@{existingId}', so it cannot also be "
-                + $"bound to id '@{declaredId}'. Give the speaker a single id.", span);
+            Report(DiagnosticCatalog.NameBoundToAnotherId, span, name, existingId, declaredId);
         }
     }
 
-    private static void ThrowWhenAnotherSpeakerIsAlreadyDefault(
+    // DLG2006: another speaker in this layer is already the default.
+    private bool ReportWhenAnotherSpeakerIsAlreadyDefault(
         SpeakerSymbol? currentDefault, SpeakerSymbol candidate, SourceSpan span)
     {
-        if (currentDefault is not null && !ReferenceEquals(currentDefault, candidate))
+        if (currentDefault is null || ReferenceEquals(currentDefault, candidate))
         {
-            throw new DialogueSemanticError(
-                $"Two speakers are marked ##default ('{currentDefault}' and '{candidate}'); "
-                + "only one default speaker is allowed.", span);
+            return false;
         }
+
+        Report(
+            DiagnosticCatalog.MultipleDefaultSpeakers, span,
+            currentDefault.ToString(), candidate.ToString());
+        return true;
     }
 
-    private static void ThrowWhenIdWasNeverNamed(SpeakerSymbol symbol, SourceSpan span)
+    // DLG2007: a stable @id was used but never given a name.
+    private void ReportWhenIdWasNeverNamed(SpeakerSymbol symbol, SourceSpan span)
     {
         if (symbol.Name is null)
         {
-            throw new DialogueSemanticError(
-                $"Speaker '@{symbol.Id}' is used but never declared with a name. Declare it "
-                + $"with a name (Name @{symbol.Id}: …) — a stable id must belong to a named "
-                + "speaker.", span);
+            Report(DiagnosticCatalog.UnnamedSpeakerId, span, symbol.Id!);
         }
     }
 
@@ -167,7 +181,12 @@ internal sealed class SpeakerBinder
     // known (see Build).
     private void MarkAsDefault(SpeakerSymbol symbol, SourceSpan span)
     {
-        ThrowWhenAnotherSpeakerIsAlreadyDefault(_layerDefault, symbol, span);
+        // Recovery: keep the first default; ignore this one.
+        if (ReportWhenAnotherSpeakerIsAlreadyDefault(_layerDefault, symbol, span))
+        {
+            return;
+        }
+
         _layerDefault = symbol;
     }
 
@@ -186,20 +205,20 @@ internal sealed class SpeakerBinder
 
     private SpeakerTable Build(SpeakerSymbol? effectiveDefault)
     {
-        AssertEverySpeakerIdIsNamed();
+        ReportUnnamedSpeakerIds();
 
         var defaultSpeaker = effectiveDefault ?? SpeakerSymbol.Anonymous();
         defaultSpeaker.MarkDefault();
         return new SpeakerTable(_speakerByName, _speakerById, defaultSpeaker);
     }
 
-    // A stable @id must belong to a named speaker, so every id-keyed symbol must have ended
-    // up with a name.
-    private void AssertEverySpeakerIdIsNamed()
+    // A stable @id must belong to a named speaker. Recovery: report each id that never got a name
+    // and keep it as an unnamed placeholder, so id references still resolve.
+    private void ReportUnnamedSpeakerIds()
     {
         foreach (var symbol in _speakerById.Values)
         {
-            ThrowWhenIdWasNeverNamed(symbol, _originBySymbol[symbol].Span);
+            ReportWhenIdWasNeverNamed(symbol, _originBySymbol[symbol].Span);
         }
     }
 
@@ -210,36 +229,59 @@ internal sealed class SpeakerBinder
     {
         var byName = _speakerByName.GetValueOrDefault(name);
         var byId = id is null ? null : _speakerById.GetValueOrDefault(id);
-        ThrowWhenNameAndIdBelongToDifferentSpeakers(name, id, byName, byId, span);
+
+        // Recovery: keep the name's speaker and drop the id link, rather than fusing two identities.
+        if (ReportWhenNameAndIdBelongToDifferentSpeakers(name, id, byName, byId, span))
+        {
+            return byName!;
+        }
 
         var symbol = byName ?? byId ?? SpeakerSymbol.ForName(name);
-
-        if (symbol.Name is null)
+        if (BindName(symbol, name, id, span))
         {
-            symbol.GiveName(name);
-        }
-        else
-        {
-            ThrowWhenIdIsAlreadyBoundToAnotherName(id, symbol.Name, name, span);
-        }
-
-        _speakerByName[name] = symbol;
-
-        if (id is not null)
-        {
-            if (symbol.Id is null)
-            {
-                symbol.GiveId(id);
-            }
-            else
-            {
-                ThrowWhenNameIsAlreadyBoundToAnotherId(name, symbol.Id, id, span);
-            }
-
-            _speakerById[id] = symbol;
+            BindId(symbol, name, id, span);
         }
 
         return symbol;
+    }
+
+    // Gives the symbol its name, or reports DLG2004 and keeps the existing binding. Returns false
+    // when the new name is ignored, so the caller leaves the id link alone too.
+    private bool BindName(SpeakerSymbol symbol, string name, string? id, SourceSpan span)
+    {
+        if (symbol.Name is not null)
+        {
+            if (ReportWhenIdIsAlreadyBoundToAnotherName(id, symbol.Name, name, span))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            symbol.GiveName(name);
+        }
+
+        _speakerByName[name] = symbol;
+        return true;
+    }
+
+    // Gives the symbol its id, or reports DLG2005 and keeps the first id.
+    private void BindId(SpeakerSymbol symbol, string name, string? id, SourceSpan span)
+    {
+        if (id is null)
+        {
+            return;
+        }
+
+        if (symbol.Id is null)
+        {
+            symbol.GiveId(id);
+            _speakerById[id] = symbol;
+        }
+        else
+        {
+            ReportWhenNameIsAlreadyBoundToAnotherId(name, symbol.Id, id, span);
+        }
     }
 
     private SpeakerSymbol DeclareByName(string name)

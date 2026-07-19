@@ -1,8 +1,8 @@
 using DialogueDown.Diagnostics;
 using DialogueDown.Script.Semantics;
 using DialogueDown.Tests.Support;
-using static DialogueDown.Tests.Support.DialogueAstFactory;
 using static DialogueDown.Tests.Support.DiagnosticsAssert;
+using static DialogueDown.Tests.Support.DialogueAstFactory;
 
 namespace DialogueDown.Tests.Script.Semantics;
 

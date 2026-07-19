@@ -2,8 +2,8 @@ using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
-using static DialogueDown.Tests.Support.DialogueAstFactory;
 using static DialogueDown.Tests.Support.DiagnosticsAssert;
+using static DialogueDown.Tests.Support.DialogueAstFactory;
 
 namespace DialogueDown.Tests.Script.Semantics;
 

@@ -18,6 +18,7 @@ public sealed record CompilationResult
 {
     private readonly DesugaredScriptDocument? _desugared;
     private readonly SemanticModel? _semantics;
+    private readonly Lazy<IReadOnlyList<LocatedDiagnostic>> _located;
 
     internal CompilationResult(
         string source,
@@ -37,6 +38,7 @@ public sealed record CompilationResult
         _desugared = desugared;
         _semantics = semantics;
         Diagnostics = diagnostics;
+        _located = new Lazy<IReadOnlyList<LocatedDiagnostic>>(BuildLocatedDiagnostics);
     }
 
     /// <summary>The original script text this result was compiled from.</summary>
@@ -44,6 +46,14 @@ public sealed record CompilationResult
 
     /// <summary>Whether any collected diagnostic is an error — the script is not valid.</summary>
     public bool HasErrors => Diagnostics.Any(diagnostic => diagnostic.IsError);
+
+    /// <summary>
+    /// The located, rendered diagnostics for this compile — the public view a consumer displays:
+    /// each carries its code, severity, final message, and one-based start/end position. Built once
+    /// on first access (cached) by projecting the collected diagnostics through a
+    /// <see cref="LineMap"/> over <see cref="Source"/>, in report order.
+    /// </summary>
+    public IReadOnlyList<LocatedDiagnostic> LocatedDiagnostics => _located.Value;
 
     /// <summary>
     /// Whether the compile ran to completion. It is false when a stage-boundary compile halted
@@ -91,4 +101,10 @@ public sealed record CompilationResult
     private static InvalidOperationException NotProduced(string artifact) =>
         new($"{artifact} was not produced: the compile halted at an earlier stage. Check "
             + $"{nameof(IsComplete)} (or compile in best-effort mode) before reading it.");
+
+    private IReadOnlyList<LocatedDiagnostic> BuildLocatedDiagnostics()
+    {
+        var map = new LineMap(Source);
+        return [.. Diagnostics.Select(diagnostic => LocatedDiagnostic.Project(diagnostic, map))];
+    }
 }

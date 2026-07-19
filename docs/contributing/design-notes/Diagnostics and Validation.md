@@ -17,7 +17,7 @@
 | **2. Collection seam** | a `DiagnosticsContext` threading the sink through the stages; the result surfaces what was collected | **Implemented** |
 | **3. Structural validator + first rule** | the rule framework (`IDiagnosticRule` + `StructuralValidator`) and the first structural rule — multiple jumps on a line | **Implemented** |
 | **4. Error reporting and recovery** | recoverable throw sites report diagnostics and recover, under a configurable compile mode | **Implemented** |
-| **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view | Deferred |
+| **5. Renderer** | a `LineMap`, the CLI's Errata projection, exit codes, and the public diagnostic view — see the [CLI Diagnostic Rendering](CLI%20Diagnostic%20Rendering.md) note | **Implemented** |
 | **6. Editor seams** | an LSP projection and a web-report overlay | Deferred |
 
 ## Table of contents
@@ -384,9 +384,6 @@ stage may hit.
   reporting it needs desugar to record that it dropped an arrow (see the corrected
   [DD4](#dd4--the-validator-is-a-set-of-pluggable-rules)). Deferred; not part of the producers
   component above.
-- **Renderer** ([DD7](#dd7--errata-renders-on-the-cli-isolated-to-the-cli)) — a `LineMap`
-  (offset→line/column), the CLI's Errata projection with exit codes and warnings switches, and the
-  **public** diagnostic view built on the `LineMap`.
 - **Editor seams** ([DD8](#dd8--lsp-and-web-rendering-are-planned-projection-seams)) — an LSP
   projection and a web-report diagnostics overlay, plus a front-end record of **dropped unmodeled
   Markdown** so it can be reported (today an `Ignore`d node leaves no trace).

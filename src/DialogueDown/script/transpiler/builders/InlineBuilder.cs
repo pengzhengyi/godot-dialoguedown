@@ -54,7 +54,7 @@ internal sealed class InlineBuilder(
     {
         if (!policy.Supports(inline))
         {
-            fragments.AddRange(policy.Resolve(inline));
+            fragments.AddRange(policy.Resolve(inline, diagnostics));
             return;
         }
 

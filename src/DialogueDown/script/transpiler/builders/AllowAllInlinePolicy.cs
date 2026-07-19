@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 
@@ -15,7 +16,8 @@ internal sealed class AllowAllInlinePolicy : IInlinePolicy
 
     public bool Supports(MarkdownInline inline) => true;
 
-    public IReadOnlyList<InlineFragment> Resolve(MarkdownInline unsupported) =>
+    public IReadOnlyList<InlineFragment> Resolve(
+        MarkdownInline unsupported, IDiagnosticSink diagnostics) =>
         throw new InvalidOperationException(
             "Speech supports every inline element, so Resolve should never be called.");
 }

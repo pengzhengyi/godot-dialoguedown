@@ -38,6 +38,14 @@ internal static class DiagnosticCatalog
         DiagnosticCategory.Syntax,
         DiagnosticSeverity.Error);
 
+    /// <summary>DLG1103 — a functional element appears inside a label or alt text.</summary>
+    public static readonly DiagnosticDescriptor DisallowedLabelElement = new(
+        "DLG1103",
+        "Disallowed element in a label",
+        "{0} is not allowed inside a label or alt text; only text and styling are.",
+        DiagnosticCategory.Syntax,
+        DiagnosticSeverity.Error);
+
     // Semantic — DLG2xxx: a meaning-level conflict found during analysis.
 
     /// <summary>DLG2001 — two headings slug to the same anchor.</summary>

@@ -1,6 +1,8 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Transpiler.Builders;
-using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
+using static DialogueDown.Tests.Support.InlinePolicyAssert;
 using Md = DialogueDown.Tests.Support.MarkdownAstFactory;
 using MdEmphasisKind = DialogueDown.Markdown.EmphasisKind;
 using MdInline = DialogueDown.Markdown.MarkdownInline;
@@ -27,7 +29,7 @@ public sealed class RejectingInlinePolicyTests
     [InlineData("image")]
     [InlineData("link")]
     [InlineData("break")]
-    public void Resolve_AnyFunctionalElement_Throws(string kind)
+    public void Resolve_AnyFunctionalElement_ReportsAndDropsIt(string kind)
     {
         var inline = kind switch
         {
@@ -37,17 +39,15 @@ public sealed class RejectingInlinePolicyTests
             _ => Md.LineBreak(),
         };
 
-        var error = Assert.Throws<DialogueSyntaxError>(() => _policy.Resolve(inline));
-        Assert.Contains("not allowed inside a label", error.Message);
+        Assert.Empty(Resolve(_policy, inline, out var diagnostics));
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.DisallowedLabelElement);
     }
 
     [Fact]
-    public void Resolve_AnUnnamedElement_StillThrows()
+    public void Resolve_AnUnnamedElement_StillReports()
     {
         // An element with no specific description falls back to a generic message.
-        var error = Assert.Throws<DialogueSyntaxError>(
-            () => _policy.Resolve(new UnknownMarkdownInline(Md.Span())));
-
-        Assert.Contains("not allowed inside a label", error.Message);
+        Assert.Empty(Resolve(_policy, new UnknownMarkdownInline(Md.Span()), out var diagnostics));
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.DisallowedLabelElement);
     }
 }

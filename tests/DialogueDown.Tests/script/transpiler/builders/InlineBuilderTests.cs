@@ -1,7 +1,6 @@
 using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
-using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DiagnosticsAssert;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
@@ -178,14 +177,15 @@ public sealed class InlineBuilderTests
             () => Build([new UnknownMarkdownInline(SourceSpanFactory.Span())]));
 
     [Fact]
-    public void Build_WithStrictPolicy_RejectsACodeSpanInALabel()
+    public void Build_WithStrictPolicy_ReportsAndDropsACodeSpanInALabel()
     {
         var builder = TranspilerBuilderFactory.InlineBuilder(new RejectingInlinePolicy());
 
-        var error = Assert.Throws<DialogueSyntaxError>(
-            () => builder.Build([Md.Link("#x", Md.CodeSpan("q"))], new DiagnosticBag()));
+        var speech = Build(builder, [Md.Link("#x", Md.CodeSpan("q"))], out var diagnostics);
 
-        Assert.Contains("not allowed inside a label", error.Message);
+        var link = AssertLink(Assert.Single(speech), "#x");
+        Assert.Empty(link.Label);
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.DisallowedLabelElement);
     }
 
     private static SpeechStyle StyleOf(MdEmphasisKind kind) =>
@@ -199,5 +199,12 @@ public sealed class InlineBuilderTests
     {
         diagnostics = new DiagnosticBag();
         return _builder.Build(inlines, diagnostics);
+    }
+
+    private static IReadOnlyList<InlineFragment> Build(
+        InlineBuilder builder, IReadOnlyList<MarkdownInline> inlines, out DiagnosticBag diagnostics)
+    {
+        diagnostics = new DiagnosticBag();
+        return builder.Build(inlines, diagnostics);
     }
 }

@@ -59,10 +59,10 @@ public sealed class LiteralInlinePolicyTests
     [Fact]
     public void Resolve_UnknownEmphasisKind_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => _policy.Resolve(Md.Link("#x", Md.Emphasis((MdEmphasisKind)99, Md.Text("x")))));
+            () => Resolve(_policy, Md.Link("#x", Md.Emphasis((MdEmphasisKind)99, Md.Text("x")))));
 
     [Fact]
     public void Resolve_UnknownInline_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => _policy.Resolve(new UnknownMarkdownInline(Md.Span())));
+            () => Resolve(_policy, new UnknownMarkdownInline(Md.Span())));
 }

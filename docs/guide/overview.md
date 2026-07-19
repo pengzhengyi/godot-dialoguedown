@@ -72,5 +72,7 @@ For the proposed script syntax, see
 
 - [Script language specification](./script-language.md)
   — proposed writer-facing syntax for dialogue files.
+- [Error codes](./error-codes.md)
+  — the `DLG####` diagnostics the compiler reports, with each message and how to fix it.
 - [Root README](https://github.com/pengzhengyi/godot-dialoguedown/blob/main/README.md)
   — project purpose, layout, build command, and design intent.

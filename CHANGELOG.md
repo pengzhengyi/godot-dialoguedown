@@ -69,6 +69,10 @@ changes easy to categorize.
   hover-to-spotlight a node's lineage (its ancestors and descendants), and per-graph
   position memory that keeps each stage's zoom, pan, and collapsed branches across
   tab switches and hot-reloads.
+- **Error-code reference in the docs** — the hosted guide now lists every `DLG####`
+  diagnostic the compiler reports, grouped by category with each message and severity,
+  generated from the diagnostic catalog so it never drifts from the code. See the
+  [Error codes](docs/guide/error-codes.md) page.
 - **Broken scripts still visualize what compiled.** When a script fails to compile past
   a stage, the report shows the stages it did produce and disables the ones it could not —
   each grayed tab noting it is unavailable because of compilation errors — instead of

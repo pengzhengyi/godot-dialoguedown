@@ -25,7 +25,7 @@ internal sealed class LineBuilder(SpeakerBuilder speakerBuilder, InlineBuilder i
 
         var span = SourceSpan.Covering(group[0].Span, group[^1].Span);
         var (speaker, speech) = SplitSpeakerAndSpeech(group, diagnostics);
-        return new Line(speaker, inlineBuilder.Build(speech), span);
+        return new Line(speaker, inlineBuilder.Build(speech, diagnostics), span);
     }
 
     // The speech inlines: the leftover leading text (if any), then the rest of the group.

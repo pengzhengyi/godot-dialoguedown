@@ -1,8 +1,11 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
 using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Tests.Support;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 using static DialogueDown.Tests.Support.DialogueAstAssert;
+using MarkdownInline = DialogueDown.Markdown.MarkdownInline;
 using Md = DialogueDown.Tests.Support.MarkdownAstFactory;
 using MdEmphasisKind = DialogueDown.Markdown.EmphasisKind;
 
@@ -15,7 +18,7 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_Text_IsTokenizedIntoTextAndTagFragments()
     {
-        var speech = _builder.Build([Md.Text("mood #happy")]);
+        var speech = Build([Md.Text("mood #happy")]);
 
         Assert.Collection(
             speech,
@@ -26,7 +29,7 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_Emphasis_BecomesStyledText_RecursingItsChildren()
     {
-        var speech = _builder.Build([Md.Emphasis(MdEmphasisKind.Bold, Md.Text("very"))]);
+        var speech = Build([Md.Emphasis(MdEmphasisKind.Bold, Md.Text("very"))]);
 
         var styled = AssertStyledText(Assert.Single(speech), SpeechStyle.Bold);
         AssertText(Assert.Single(styled.Children), "very");
@@ -35,7 +38,7 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_Image_BecomesImage_RecursingItsAlt()
     {
-        var speech = _builder.Build([Md.Image("cat.png", Md.Text("a cat"))]);
+        var speech = Build([Md.Image("cat.png", Md.Text("a cat"))]);
 
         var image = AssertImage(Assert.Single(speech), "cat.png");
         AssertText(Assert.Single(image.Alt), "a cat");
@@ -44,7 +47,7 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_Link_BecomesLink_RecursingItsLabel()
     {
-        var speech = _builder.Build([Md.Link("#scene", Md.Text("go there"))]);
+        var speech = Build([Md.Link("#scene", Md.Text("go there"))]);
 
         var link = AssertLink(Assert.Single(speech), "#scene");
         AssertText(Assert.Single(link.Label), "go there");
@@ -53,15 +56,24 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_CodeSpan_BecomesAGameCall()
     {
-        var speech = _builder.Build([Md.CodeSpan("\"Alice.Mood\"")]);
+        var speech = Build([Md.CodeSpan("\"Alice.Mood\"")]);
 
         AssertQuery(Assert.Single(speech), "Alice.Mood");
     }
 
     [Fact]
+    public void Build_CodeSpanThatIsNotAGameCall_ReportsAndKeepsAsText()
+    {
+        var speech = Build([Md.CodeSpan("just words")], out var diagnostics);
+
+        AssertText(Assert.Single(speech), "just words");
+        AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.NotAGameCall);
+    }
+
+    [Fact]
     public void Build_SoftBreak_BecomesALineBreakFragment()
     {
-        var speech = _builder.Build([Md.LineBreak(hard: false)]);
+        var speech = Build([Md.LineBreak(hard: false)]);
 
         AssertLineBreak(Assert.Single(speech));
     }
@@ -69,7 +81,7 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_ArrowBeforeAndAfterText_BecomesAJumpIndicator()
     {
-        var speech = _builder.Build([Md.Text("go => there")]);
+        var speech = Build([Md.Text("go => there")]);
 
         Assert.Collection(
             speech,
@@ -82,7 +94,7 @@ public sealed class InlineBuilderTests
     public void Build_LabelTagIsKept_ButJumpStaysText()
     {
         // A label admits text and tags, but not jumps: '=>' stays literal there.
-        var speech = _builder.Build([Md.Link("#x", Md.Text("go => #here"))]);
+        var speech = Build([Md.Link("#x", Md.Text("go => #here"))]);
 
         var link = AssertLink(Assert.Single(speech), "#x");
         Assert.Collection(
@@ -95,7 +107,7 @@ public sealed class InlineBuilderTests
     public void Build_CodeSpanInLabel_IsRestoredToLiteralText()
     {
         // A code span carries no game call inside a label, so it comes back as text.
-        var speech = _builder.Build([Md.Link("#x", Md.CodeSpan("q"))]);
+        var speech = Build([Md.Link("#x", Md.CodeSpan("q"))]);
 
         var link = AssertLink(Assert.Single(speech), "#x");
         AssertText(Assert.Single(link.Label), "`q`");
@@ -104,7 +116,7 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_NestedImageInLabel_IsRestoredToLiteralText()
     {
-        var speech = _builder.Build([Md.Link("#x", Md.Image("img.png", Md.Text("alt")))]);
+        var speech = Build([Md.Link("#x", Md.Image("img.png", Md.Text("alt")))]);
 
         var link = AssertLink(Assert.Single(speech), "#x");
         AssertText(Assert.Single(link.Label), "![alt](img.png)");
@@ -114,7 +126,7 @@ public sealed class InlineBuilderTests
     public void Build_StyledLabel_IsKept()
     {
         // Styling is admitted inside a label.
-        var speech = _builder.Build(
+        var speech = Build(
             [Md.Link("#x", Md.Emphasis(MdEmphasisKind.Bold, Md.Text("loud")))]);
 
         var link = AssertLink(Assert.Single(speech), "#x");
@@ -136,7 +148,7 @@ public sealed class InlineBuilderTests
         // A text inline sitting at source offset 4.
         var text = new DialogueDown.Markdown.TextInline("hi", SourceSpanFactory.Span(4, 2));
 
-        var speech = _builder.Build([text]);
+        var speech = Build([text]);
 
         Assert.Equal(4, AssertText(Assert.Single(speech), "hi").Span.Start);
     }
@@ -150,7 +162,7 @@ public sealed class InlineBuilderTests
         var text = new DialogueDown.Markdown.TextInline(
             "* b", SourceSpanFactory.Span(2, 4), SourceSpanFactory.Span(3, 3));
 
-        var speech = _builder.Build([text]);
+        var speech = Build([text]);
 
         Assert.Equal(3, AssertText(Assert.Single(speech), "* b").Span.Start);
     }
@@ -158,12 +170,12 @@ public sealed class InlineBuilderTests
     [Fact]
     public void Build_UnknownEmphasisKind_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => _builder.Build([Md.Emphasis((MdEmphasisKind)99, Md.Text("x"))]));
+            () => Build([Md.Emphasis((MdEmphasisKind)99, Md.Text("x"))]));
 
     [Fact]
     public void Build_UnhandledInlineKind_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => _builder.Build([new UnknownMarkdownInline(SourceSpanFactory.Span())]));
+            () => Build([new UnknownMarkdownInline(SourceSpanFactory.Span())]));
 
     [Fact]
     public void Build_WithStrictPolicy_RejectsACodeSpanInALabel()
@@ -171,11 +183,21 @@ public sealed class InlineBuilderTests
         var builder = TranspilerBuilderFactory.InlineBuilder(new RejectingInlinePolicy());
 
         var error = Assert.Throws<DialogueSyntaxError>(
-            () => builder.Build([Md.Link("#x", Md.CodeSpan("q"))]));
+            () => builder.Build([Md.Link("#x", Md.CodeSpan("q"))], new DiagnosticBag()));
 
         Assert.Contains("not allowed inside a label", error.Message);
     }
 
     private static SpeechStyle StyleOf(MdEmphasisKind kind) =>
-        AssertStyledText(Assert.Single(_builder.Build([Md.Emphasis(kind, Md.Text("x"))]))).Style;
+        AssertStyledText(Assert.Single(Build([Md.Emphasis(kind, Md.Text("x"))]))).Style;
+
+    private static IReadOnlyList<InlineFragment> Build(IReadOnlyList<MarkdownInline> inlines) =>
+        _builder.Build(inlines, new DiagnosticBag());
+
+    private static IReadOnlyList<InlineFragment> Build(
+        IReadOnlyList<MarkdownInline> inlines, out DiagnosticBag diagnostics)
+    {
+        diagnostics = new DiagnosticBag();
+        return _builder.Build(inlines, diagnostics);
+    }
 }

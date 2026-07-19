@@ -29,6 +29,15 @@ internal static class DiagnosticCatalog
         DiagnosticCategory.Syntax,
         DiagnosticSeverity.Error);
 
+    /// <summary>DLG1102 — a code span is not a valid game call.</summary>
+    public static readonly DiagnosticDescriptor NotAGameCall = new(
+        "DLG1102",
+        "Not a game call",
+        "\"{0}\" is not a game call. Write a query that reads a value (\"key\"), a default command "
+            + "((\"do something\")), or a named command (Name(\"arg\", ...)).",
+        DiagnosticCategory.Syntax,
+        DiagnosticSeverity.Error);
+
     // Semantic — DLG2xxx: a meaning-level conflict found during analysis.
 
     /// <summary>DLG2001 — two headings slug to the same anchor.</summary>

@@ -1,3 +1,4 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Markdown;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Parsers;
@@ -18,11 +19,13 @@ namespace DialogueDown.Script.Transpiler.Builders;
 internal sealed class InlineBuilder(
     InlineLeafBuilder leafBuilder, GameCallBuilder gameCallBuilder, IInlinePolicy labelPolicy)
 {
-    public IReadOnlyList<InlineFragment> Build(IReadOnlyList<MarkdownInline> inlines) =>
-        Build(inlines, AllowAllInlinePolicy.Instance);
+    public IReadOnlyList<InlineFragment> Build(
+        IReadOnlyList<MarkdownInline> inlines, IDiagnosticSink diagnostics) =>
+        Build(inlines, AllowAllInlinePolicy.Instance, diagnostics);
 
-    public IReadOnlyList<InlineFragment> BuildTitle(IReadOnlyList<MarkdownInline> inlines) =>
-        Build(inlines, TitleInlinePolicy.Instance);
+    public IReadOnlyList<InlineFragment> BuildTitle(
+        IReadOnlyList<MarkdownInline> inlines, IDiagnosticSink diagnostics) =>
+        Build(inlines, TitleInlinePolicy.Instance, diagnostics);
 
     private static SpeechStyle ToStyle(EmphasisKind kind) => kind switch
     {
@@ -34,18 +37,20 @@ internal sealed class InlineBuilder(
     };
 
     private IReadOnlyList<InlineFragment> Build(
-        IReadOnlyList<MarkdownInline> inlines, IInlinePolicy policy)
+        IReadOnlyList<MarkdownInline> inlines, IInlinePolicy policy, IDiagnosticSink diagnostics)
     {
         var fragments = new List<InlineFragment>();
         foreach (var inline in inlines)
         {
-            Append(inline, policy, fragments);
+            Append(inline, policy, fragments, diagnostics);
         }
 
         return fragments;
     }
 
-    private void Append(MarkdownInline inline, IInlinePolicy policy, List<InlineFragment> fragments)
+    private void Append(
+        MarkdownInline inline, IInlinePolicy policy, List<InlineFragment> fragments,
+        IDiagnosticSink diagnostics)
     {
         if (!policy.Supports(inline))
         {
@@ -60,16 +65,17 @@ internal sealed class InlineBuilder(
                 break;
             case EmphasisInline emphasis:
                 fragments.Add(new StyledText(
-                    ToStyle(emphasis.Kind), Build(emphasis.Children, policy), emphasis.Span));
+                    ToStyle(emphasis.Kind), Build(emphasis.Children, policy, diagnostics), emphasis.Span));
                 break;
             case ImageInline image:
-                fragments.Add(new Image(image.Source, Build(image.Alt, labelPolicy), image.Span));
+                fragments.Add(new Image(image.Source, Build(image.Alt, labelPolicy, diagnostics), image.Span));
                 break;
             case LinkInline link:
-                fragments.Add(new Link(link.Target, Build(link.Label, labelPolicy), link.Span));
+                fragments.Add(new Link(link.Target, Build(link.Label, labelPolicy, diagnostics), link.Span));
                 break;
             case CodeSpanInline code:
-                fragments.Add(gameCallBuilder.Build(new ParseInput(code.Content, code.Span.Start), code.Span));
+                fragments.Add(gameCallBuilder.Build(
+                    new ParseInput(code.Content, code.Span.Start), code.Span, diagnostics));
                 break;
             case MarkdownLineBreak:
                 // A soft break is kept as a display hint; hard breaks are split off earlier.

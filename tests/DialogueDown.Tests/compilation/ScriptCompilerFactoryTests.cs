@@ -98,6 +98,24 @@ public sealed class ScriptCompilerFactoryTests
         AssertDefaultSpeaker(AssertLine(result.Desugared.Body[0]).Speaker);
     }
 
+    [Fact]
+    public void CreateDefault_NotAGameCall_HaltsAtTheStageBoundary()
+    {
+        var result = ScriptCompilerFactory.CreateDefault().Compile("Alice: say `not a call`");
+
+        Assert.False(result.IsComplete);
+        AssertReported(result.Diagnostics, DiagnosticCatalog.NotAGameCall);
+    }
+
+    [Fact]
+    public void CreateDefault_BestEffort_NotAGameCall_RecoversToLiteralText()
+    {
+        var result = BestEffortCompiler().Compile("Alice: say `not a call`");
+
+        Assert.True(result.IsComplete);
+        AssertReported(result.Diagnostics, DiagnosticCatalog.NotAGameCall);
+    }
+
     private static IScriptCompiler BestEffortCompiler() =>
         ScriptCompilerFactory.CreateDefault(new CompilerOptions { Mode = CompilationMode.BestEffort });
 }

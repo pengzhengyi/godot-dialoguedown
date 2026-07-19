@@ -1,20 +1,19 @@
 using DialogueDown.Common;
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
-using DialogueDown.Script.Transpiler.Errors;
 using DialogueDown.Script.Transpiler.Parsed;
 using DialogueDown.Script.Transpiler.Parsing;
 
 namespace DialogueDown.Script.Transpiler.Builders;
 
 /// <summary>
-/// Builds a <see cref="GameCall"/> from a code span's inner text. The whole text must
-/// be one game call: text that is not raises a <see cref="DialogueSyntaxError"/> with
-/// a friendly explanation plus the grammar's technical reason. The node carries the
-/// code span's source span.
+/// Builds a <see cref="GameCall"/> from a code span's inner text. The whole text must be one
+/// game call: text that is not reports <see cref="DiagnosticCatalog.NotAGameCall"/> and recovers
+/// by keeping the code span's text as literal speech. The node carries the code span's source span.
 /// </summary>
 internal sealed class GameCallBuilder(IParser<GameCallData> parser)
 {
-    public GameCall Build(ParseInput input, SourceSpan span)
+    public InlineFragment Build(ParseInput input, SourceSpan span, IDiagnosticSink diagnostics)
     {
         var result = parser.ConsumeAll(input);
         if (result.Success)
@@ -22,7 +21,9 @@ internal sealed class GameCallBuilder(IParser<GameCallData> parser)
             return ToNode(result.MatchedValue, span);
         }
 
-        throw new DialogueSyntaxError(result.Explain(NotAGameCallMessage(input.Text)), span);
+        // Not a game call: report and recover by keeping the text as literal speech.
+        diagnostics.Report(new Diagnostic(DiagnosticCatalog.NotAGameCall, span, [input.Text]));
+        return new Text(input.Text, span);
     }
 
     private static GameCall ToNode(GameCallData data, SourceSpan span)
@@ -40,12 +41,4 @@ internal sealed class GameCallBuilder(IParser<GameCallData> parser)
         var custom = (CustomCommandData)data;
         return new CustomCommand(custom.Name, custom.Args, span);
     }
-
-    private static string NotAGameCallMessage(string content) =>
-        $"""
-        "{content}" is not a game call. Acceptable forms are:
-          - a query that reads a value: "key"
-          - a default command: ("do something")
-          - a named command: Name("arg", ...)
-        """;
 }

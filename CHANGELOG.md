@@ -90,6 +90,11 @@ changes easy to categorize.
 
 ### Fixed
 
+- **The report now renders cleanly on small and phone-sized windows.** Every tab
+  adapts below tablet width instead of overlapping, clipping, or running off-screen:
+  the Source, Config, AST, and Semantic views stack their split panes with a handle
+  to collapse the secondary pane, the footer wraps its controls, and the
+  configured-speaker and node-details panels no longer overlap their neighbors.
 - The brand mark now stays visible on dark backgrounds — it inverts to a light
   bubble across the report and launcher, the favicon, and the demo.
 - Escaped inline punctuation (for example `\*`) no longer shifts the source spans of

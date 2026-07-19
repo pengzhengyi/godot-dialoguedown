@@ -316,7 +316,7 @@ function speakerCells(speaker: ConfiguredSpeakerView): string {
     const tags =
         speaker.tags.length === 0
             ? `<td><span class="config-empty">—</span></td>`
-            : `<td class="config-tags">${speaker.tags.map(tagChip).join(" ")}</td>`;
+            : `<td><div class="config-tags">${speaker.tags.map(tagChip).join(" ")}</div></td>`;
     return copyCell(speaker.name) + id + tags;
 }
 

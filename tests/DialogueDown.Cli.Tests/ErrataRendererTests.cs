@@ -55,7 +55,7 @@ public sealed class ErrataRendererTests
     public void Render_Interactive_RendersRichSourceContext()
     {
         var console = InteractiveConsole();
-        const string source = "Alice: say `bad`"; // the code span `bad` at offsets 11..16 is not a game call
+        var source = "Alice: say `bad`"; // the code span `bad` at offsets 11..16 is not a game call
         var diagnostics = new[]
         {
             new LocatedDiagnostic(
@@ -77,7 +77,7 @@ public sealed class ErrataRendererTests
     public void Render_Interactive_RendersEverySeverityIncludingAZeroWidthSpan()
     {
         var console = InteractiveConsole();
-        const string source = "line one\nline two\n";
+        var source = "line one\nline two\n";
         var diagnostics = new[]
         {
             new LocatedDiagnostic(

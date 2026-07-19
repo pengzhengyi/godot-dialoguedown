@@ -10,7 +10,7 @@ internal sealed class CompileSettings : CommandSettings
 {
     // The --mode option's kebab-case values. Fail-fast is intentionally not offered: it throws at
     // the first error instead of collecting errata, so it is an embedding contract, not a CLI mode.
-    private static readonly IReadOnlyDictionary<string, CompilationMode> Modes =
+    private static readonly IReadOnlyDictionary<string, CompilationMode> _modes =
         new Dictionary<string, CompilationMode>(StringComparer.Ordinal)
         {
             ["stage-boundary"] = CompilationMode.StageBoundary,
@@ -35,7 +35,7 @@ internal sealed class CompileSettings : CommandSettings
 
     /// <summary>The compilation mode from <c>--mode</c>, or null to inherit the resolved options'
     /// mode. Only valid after <see cref="Validate"/> succeeds.</summary>
-    public CompilationMode? ResolvedMode => Mode is null ? null : Modes[Mode];
+    public CompilationMode? ResolvedMode => Mode is null ? null : _modes[Mode];
 
     /// <inheritdoc />
     public override ValidationResult Validate()
@@ -52,7 +52,7 @@ internal sealed class CompileSettings : CommandSettings
             return config;
         }
 
-        if (Mode is not null && !Modes.ContainsKey(Mode))
+        if (Mode is not null && !_modes.ContainsKey(Mode))
         {
             return ValidationResult.Error(
                 $"Unknown --mode '{Mode}'. Use 'stage-boundary' or 'best-effort'.");

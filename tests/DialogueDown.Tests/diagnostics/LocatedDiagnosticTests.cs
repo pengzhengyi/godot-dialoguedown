@@ -10,7 +10,7 @@ public sealed class LocatedDiagnosticTests
     public void Project_RendersTheMessageAndLocatesTheSpan()
     {
         // "line one\nAlice: hi": "Alice" starts at offset 9 (line 2, column 1) and spans 5 chars.
-        const string source = "line one\nAlice: hi";
+        var source = "line one\nAlice: hi";
         var diagnostic = Diagnostic(
             descriptor: Descriptor(
                 code: "DLG2003",

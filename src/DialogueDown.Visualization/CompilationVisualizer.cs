@@ -22,6 +22,11 @@ namespace DialogueDown.Visualization;
 /// </remarks>
 public sealed class CompilationVisualizer
 {
+    // Shown on a disabled stage tab when a halted compile did not produce that stage. The actual
+    // diagnostics are surfaced separately (a planned report overlay), not here.
+    private const string StageUnavailableReason =
+        "This stage is unavailable due to compilation errors.";
+
     private readonly IScriptCompiler _compiler;
     private readonly AppliedConfiguration? _configuration;
 
@@ -185,29 +190,40 @@ public sealed class CompilationVisualizer
         && !(Uri.TryCreate(source, UriKind.Absolute, out var uri)
             && uri.Scheme is "http" or "https" or "data" or "ftp" or "mailto");
 
-    // A visualization always renders every stage, so it compiles in best-effort mode: a
-    // recoverable error is reported but never halts the pipeline, so the report shows the
-    // recovered stages and their diagnostics instead of an incomplete result it cannot project.
+    // A visualization renders whatever the compiler produced. It compiles stage-boundary, so a
+    // valid script yields every stage and a broken one halts: the transpiler's later material is
+    // unreliable, so its stages are unavailable (disabled tabs) rather than projected from noise.
+    // Fail-fast is never used — it throws instead of returning a renderable result.
     private static CompilerOptions ForVisualization(CompilerOptions options) =>
-        options with { Mode = CompilationMode.BestEffort };
+        options with { Mode = CompilationMode.StageBoundary };
 
     // Compiles the source once and projects both the stage graphs and the editor's resolved
     // symbols, so the report and the live document API share a single compilation.
     private ReportContent BuildContent(string source)
     {
         var result = _compiler.Compile(source);
-        IReadOnlyList<DisplayGraph> stages =
-        [
-            result.Markdown.ToDisplayGraph(source),
-            result.Script.ToDisplayGraph(source),
-            result.Desugared.ToDisplayGraph(source),
-            new SemanticProjection().Project(result.Semantics, source),
-        ];
+        IReadOnlyList<DisplayGraph> stages = result.IsComplete
+            ?
+            [
+                result.Markdown.ToDisplayGraph(source),
+                result.Script.ToDisplayGraph(source),
+                result.Desugared.ToDisplayGraph(source),
+                new SemanticProjection().Project(result.Semantics, source),
+            ]
+            :
+            [
+                result.Markdown.ToDisplayGraph(source),
+                result.Script.ToDisplayGraph(source),
+                ScriptDisplayExtensions.DesugaredUnavailable(StageUnavailableReason),
+                SemanticProjection.Unavailable(StageUnavailableReason),
+            ];
+        var symbols = result.IsComplete
+            ? new SymbolProjection().Project(result.Semantics)
+            : SymbolSet.Empty;
         var configuration = _configuration is null
             ? null
             : ConfigurationProjection.Project(_configuration);
-        return new ReportContent(
-            stages, new SymbolProjection().Project(result.Semantics), configuration);
+        return new ReportContent(stages, symbols, configuration);
     }
 
     // The compiled report data shared by the HTML report and the live document payload.

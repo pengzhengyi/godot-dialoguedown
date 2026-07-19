@@ -269,6 +269,16 @@ button.tab.active {
     font-weight: 600;
 }
 
+/* A disabled stage tab: its artifact was not produced (a halted compile), so the reader
+   cannot enter it. Grayed and non-interactive; the tooltip says why. It keeps
+   `aria-disabled` (not the `disabled` attribute) so its hover tooltip still fires. */
+button.tab.unavailable,
+button.tab.unavailable:hover {
+    color: var(--pico-muted-color);
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 /* A dot on the Source tab marks unsaved edits in Live Edit. */
 button.tab.dirty::after {
     content: "";

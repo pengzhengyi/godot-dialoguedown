@@ -102,6 +102,74 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
+    public void BuildStages_HaltedResult_KeepsProducedStagesAndDisablesTheRest()
+    {
+        var markdown = new MarkdownDocument(
+        [
+            new Paragraph([new TextInline("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
+        ]);
+        var script = new ScriptDocument(
+        [
+            new Line(null, [new Text("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
+        ]);
+        var compiler = Substitute.For<IScriptCompiler>();
+        // A halted compile: the transpiler produced the Dialogue AST, but desugar and semantic
+        // analysis never ran, so their stages are unavailable.
+        compiler.Compile("broken").Returns(
+            new CompilationResult("broken", markdown, script, desugared: null, semantics: null, []));
+
+        var stages = new CompilationVisualizer(compiler).BuildStages("broken");
+
+        Assert.Collection(
+            stages,
+            markdownStage =>
+            {
+                Assert.Equal("Markdown AST", markdownStage.Title);
+                Assert.Null(markdownStage.Unavailable);
+            },
+            dialogueStage =>
+            {
+                Assert.Equal("Dialogue AST", dialogueStage.Title);
+                Assert.Null(dialogueStage.Unavailable);
+            },
+            desugaredStage =>
+            {
+                Assert.Equal("Desugared AST", desugaredStage.Title);
+                Assert.NotNull(desugaredStage.Unavailable);
+                Assert.Empty(desugaredStage.Nodes);
+            },
+            semanticStage =>
+            {
+                Assert.Equal("Semantic Model", semanticStage.Title);
+                Assert.NotNull(semanticStage.Unavailable);
+                Assert.Empty(semanticStage.Nodes);
+            });
+    }
+
+    [Fact]
+    public void RenderHtmlReport_HaltedResult_HasEmptyEditorSymbols()
+    {
+        var markdown = new MarkdownDocument(
+        [
+            new Paragraph([new TextInline("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
+        ]);
+        var script = new ScriptDocument(
+        [
+            new Line(null, [new Text("Hi", new SourceSpan(0, 2))], new SourceSpan(0, 2)),
+        ]);
+        var compiler = Substitute.For<IScriptCompiler>();
+        compiler.Compile("broken").Returns(
+            new CompilationResult("broken", markdown, script, desugared: null, semantics: null, []));
+
+        var html = new CompilationVisualizer(compiler).RenderHtmlReport("broken");
+
+        Assert.Contains(
+            "\"symbols\":{\"jumpTargets\":[],\"speakers\":[],\"speakerIds\":[],\"tags\":[]}",
+            html,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildStages_RealCompiler_DesugaredStageFillsADefaultSpeakerOnASpeakerlessLine()
     {
         var stages = new CompilationVisualizer().BuildStages("The room is quiet.");
@@ -116,16 +184,21 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
-    public void BuildStages_RealCompiler_ATranspileErrorStillRendersEveryStage()
+    public void BuildStages_RealCompiler_ATranspileErrorHaltsAndDisablesTheLaterStages()
     {
-        // "#lonely: Hi" is a tags-without-speaker error reported during transpile: a
-        // stage-boundary compile would halt and leave no desugared or semantic stage. The
-        // visualizer forces best-effort, so the error recovers to a default speaker and every
-        // stage still renders.
+        // "#lonely: Hi" is a tags-without-speaker error reported during transpile: the
+        // stage-boundary compile halts, so the desugared and semantic stages are never produced
+        // and render as disabled tabs.
         var stages = new CompilationVisualizer().BuildStages("#lonely: Hi");
 
         Assert.Equal(4, stages.Count);
-        Assert.Contains(stages[2].Nodes, n => n.Label == "Speaker (default)");
+        Assert.Null(stages[0].Unavailable); // Markdown AST — produced
+        Assert.Null(stages[1].Unavailable); // Dialogue AST — produced
+        Assert.Equal("Desugared AST", stages[2].Title);
+        Assert.NotNull(stages[2].Unavailable); // disabled
+        Assert.Empty(stages[2].Nodes);
+        Assert.Equal("Semantic Model", stages[3].Title);
+        Assert.NotNull(stages[3].Unavailable); // disabled
     }
 
     [Fact]

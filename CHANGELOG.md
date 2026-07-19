@@ -69,6 +69,11 @@ changes easy to categorize.
   hover-to-spotlight a node's lineage (its ancestors and descendants), and per-graph
   position memory that keeps each stage's zoom, pan, and collapsed branches across
   tab switches and hot-reloads.
+- **Broken scripts still visualize what compiled.** When a script fails to compile past
+  a stage, the report shows the stages it did produce and disables the ones it could not —
+  each grayed tab noting it is unavailable because of compilation errors — instead of
+  failing to open. See the
+  [Unavailable Stage Tabs](docs/contributing/design-notes/Unavailable%20Stage%20Tabs.md) note.
 - **Documentation site and live demo** — a
   [DocFX site](https://pengzhengyi.github.io/godot-dialoguedown/) (a writer Guide, a
   Contributing section with the design notes, and a generated C# API reference) and a

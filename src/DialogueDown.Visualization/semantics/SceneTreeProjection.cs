@@ -16,6 +16,13 @@ namespace DialogueDown.Visualization.Semantics;
 /// </summary>
 internal sealed class SceneTreeProjection : INodeProjection<object>
 {
+    internal const string StageTitle = "Semantic Model";
+
+    internal const string StageDescription =
+        "The semantic model the analyzer resolves — the scene tree and its script blocks beside "
+        + "the speaker, anchor, and jump-resolution tables, cross-linked so hovering a scene, "
+        + "speaker, or jump highlights it everywhere.";
+
     private const string StructureCategory = "structure";
     private const string DocumentCategory = "document";
 
@@ -36,12 +43,9 @@ internal sealed class SceneTreeProjection : INodeProjection<object>
         _blocks = new DialogueAstProjection(source);
     }
 
-    public string Title => "Semantic Model";
+    public string Title => StageTitle;
 
-    public string Description =>
-        "The semantic model the analyzer resolves — the scene tree and its script blocks beside "
-        + "the speaker, anchor, and jump-resolution tables, cross-linked so hovering a scene, "
-        + "speaker, or jump highlights it everywhere.";
+    public string Description => StageDescription;
 
     public NodeDescription Describe(object node)
     {

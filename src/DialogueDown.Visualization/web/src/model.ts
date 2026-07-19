@@ -74,6 +74,17 @@ export interface Stage {
      * jump-resolution tables. Absent for a plain graph stage.
      */
     tables?: SemanticTable[];
+    /**
+     * Present when the stage's artifact was not produced (a halted compile). The stage
+     * renders as a disabled tab; `nodes`/`edges` are empty.
+     */
+    unavailable?: StageUnavailable;
+}
+
+/** Why a stage's tab is disabled — its artifact was not produced (a halted compile). */
+export interface StageUnavailable {
+    /** A short, reader-facing reason, shown as the disabled tab's tooltip. */
+    reason: string;
 }
 
 /**

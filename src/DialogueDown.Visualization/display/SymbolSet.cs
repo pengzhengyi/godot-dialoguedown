@@ -11,7 +11,11 @@ internal sealed record SymbolSet(
     IReadOnlyList<JumpTargetSymbol> JumpTargets,
     IReadOnlyList<string> Speakers,
     IReadOnlyList<string> SpeakerIds,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags)
+{
+    /// <summary>No completable symbols — used when a halted compile produced no semantic model.</summary>
+    public static SymbolSet Empty { get; } = new([], [], [], []);
+}
 
 /// <summary>One completable jump destination: a scene's anchor slug and its heading text.</summary>
 internal sealed record JumpTargetSymbol(string Slug, string Heading);

@@ -354,10 +354,10 @@ stage may hit.
 - **Result:** under the default mode a script with a bad jump or a duplicate anchor no longer throws
   out of `Compile`; it returns a `CompilationResult` whose `Diagnostics` carry the errors and whose
   `HasErrors` is true.
-- **Visualizer:** because a stage-boundary halt yields a partial result the stage projector cannot
-  read, the visualizer compiles in *best-effort* so every stage always renders with its errors
-  recovered — a stopgap until the report surfaces diagnostics itself
-  ([#111](https://github.com/pengzhengyi/godot-dialoguedown/issues/111)).
+- **Visualizer:** a stage-boundary halt yields a partial result, and the visualizer projects it
+  directly — the produced stages render as graphs while each unproduced stage becomes a disabled
+  tab (see [Unavailable Stage Tabs](./Unavailable%20Stage%20Tabs.md), resolving
+  [#111](https://github.com/pengzhengyi/godot-dialoguedown/issues/111)).
 - **CLI (next component):** with the stages reporting, the CLI can render the collected diagnostics
   and set an exit code — the reason this component comes before CLI notification.
 

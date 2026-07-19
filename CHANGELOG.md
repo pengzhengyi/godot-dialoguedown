@@ -10,6 +10,9 @@ changes easy to categorize.
 
 ### Added
 
+- **The report reopens on the tab you left it on.** After a refresh, the visualization
+  returns to the last tab you were viewing (Source, an AST stage, or the Semantic model)
+  instead of always resetting to the Source tab.
 - **Documentation link in the visualization and demo** — the report header now carries a link to the documentation site, and the live-demo landing page gains a Documentation button, so readers can get back to the docs from the hosted report.
 - **Compiler pipeline behind one `IScriptCompiler` facade** — compiles a Markdown
   dialogue script through parse → transpile → desugar → semantic analysis: it builds

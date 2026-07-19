@@ -24,6 +24,7 @@ public sealed class LocatedDiagnosticTests
 
         Assert.Equal("DLG2003", located.Code);
         Assert.Equal(DiagnosticSeverity.Error, located.Severity);
+        Assert.Equal(DiagnosticCategory.Semantic, located.Category);
         Assert.Equal("Name 'Alice' clashes.", located.Message);
         Assert.Equal(new LinePosition(2, 1), located.Start);
         Assert.Equal(new LinePosition(2, 6), located.End);

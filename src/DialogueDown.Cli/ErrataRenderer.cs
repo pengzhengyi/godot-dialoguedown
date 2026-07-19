@@ -93,7 +93,12 @@ internal sealed class ErrataRenderer(IAnsiConsole console) : IErrataRenderer
             DiagnosticSeverity.Warning => Diagnostic.Warning(diagnostic.Message),
             _ => Diagnostic.Info(diagnostic.Message),
         };
-        return errata.WithCode(diagnostic.Code);
+
+        // Errata shows the category in place of the severity word, so combine them into a natural
+        // phrase — "syntax error", "semantic warning" — to keep both visible (the color still
+        // conveys severity). The greppable one-liner stays clean; only this rich header carries it.
+        var header = $"{diagnostic.Category} {LabelOf(diagnostic.Severity)}".ToLowerInvariant();
+        return errata.WithCode(diagnostic.Code).WithCategory(header);
     }
 
     private static IEnumerable<LocatedDiagnostic> Ordered(IReadOnlyList<LocatedDiagnostic> diagnostics) =>

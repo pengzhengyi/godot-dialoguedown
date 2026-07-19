@@ -59,7 +59,7 @@ public sealed class ErrataRendererTests
         var diagnostics = new[]
         {
             new LocatedDiagnostic(
-                "DLG1102", DiagnosticSeverity.Error, "not a game call",
+                "DLG1102", DiagnosticSeverity.Error, DiagnosticCategory.Syntax, "not a game call",
                 new LinePosition(1, 12), new LinePosition(1, 17), StartOffset: 11, EndOffset: 16),
         };
 
@@ -68,7 +68,8 @@ public sealed class ErrataRendererTests
         var output = console.Output;
         Assert.Contains("DLG1102", output, StringComparison.Ordinal);
         Assert.Contains("not a game call", output, StringComparison.Ordinal);
-        // Errata draws the offending source line in its block.
+        // Errata's header shows the category and severity together, and draws the source line.
+        Assert.Contains("syntax error", output, StringComparison.Ordinal);
         Assert.Contains("Alice: say", output, StringComparison.Ordinal);
     }
 
@@ -80,13 +81,13 @@ public sealed class ErrataRendererTests
         var diagnostics = new[]
         {
             new LocatedDiagnostic(
-                "DLG0001", DiagnosticSeverity.Error, "an error",
+                "DLG0001", DiagnosticSeverity.Error, DiagnosticCategory.Syntax, "an error",
                 new LinePosition(1, 1), new LinePosition(1, 5), StartOffset: 0, EndOffset: 4),
             new LocatedDiagnostic(
-                "DLG0002", DiagnosticSeverity.Warning, "a warning",
+                "DLG0002", DiagnosticSeverity.Warning, DiagnosticCategory.Syntax, "a warning",
                 new LinePosition(2, 1), new LinePosition(2, 5), StartOffset: 9, EndOffset: 13),
             new LocatedDiagnostic(
-                "DLG0003", DiagnosticSeverity.Info, "a note",
+                "DLG0003", DiagnosticSeverity.Info, DiagnosticCategory.Semantic, "a note",
                 new LinePosition(1, 6), new LinePosition(1, 6), StartOffset: 5, EndOffset: 5), // zero-width
         };
 
@@ -119,7 +120,7 @@ public sealed class ErrataRendererTests
     private static LocatedDiagnostic Located(
         string code, DiagnosticSeverity severity, string message, int line, int column) =>
         new(
-            code, severity, message,
+            code, severity, DiagnosticCategory.Syntax, message,
             new LinePosition(line, column), new LinePosition(line, column),
             StartOffset: 0, EndOffset: 0);
 }

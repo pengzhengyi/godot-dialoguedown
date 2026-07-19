@@ -59,5 +59,8 @@ public sealed class ErrataRendererTests
 
     private static LocatedDiagnostic Located(
         string code, DiagnosticSeverity severity, string message, int line, int column) =>
-        new(code, severity, message, new LinePosition(line, column), new LinePosition(line, column));
+        new(
+            code, severity, message,
+            new LinePosition(line, column), new LinePosition(line, column),
+            StartOffset: 0, EndOffset: 0);
 }

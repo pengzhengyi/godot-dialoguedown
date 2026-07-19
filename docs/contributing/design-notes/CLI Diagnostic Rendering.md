@@ -91,7 +91,7 @@ The work splits into two cleanly bounded passes; 5a has no CLI dependency and 5b
 | --- | --- | --- |
 | `LineMap` (value object, engine) | precompute line starts from source; `Locate(offset) → LinePosition` (called twice for a span's start and end) | `SourceSpan`, `LinePosition` |
 | `LinePosition` (public readonly struct) | a one-based `(Line, Column)`; `ToString()` → `line,column` | — |
-| `LocatedDiagnostic` (public record) | one located diagnostic: `Code`, `Severity`, `Message`, `Start`, `End` | `LinePosition`, `DiagnosticSeverity` (public) |
+| `LocatedDiagnostic` (public record) | one located diagnostic: `Code`, `Severity`, `Message`, `Start`, `End` (line/column), and the half-open character range `StartOffset`/`EndOffset` | `LinePosition`, `DiagnosticSeverity` (public) |
 | `CompilationResult.LocatedDiagnostics` (public) | the located diagnostics for the compile, projected once (cached) from the internal bag | `LineMap`, `LocatedDiagnostic` |
 | `ErrataRenderer` (CLI) | render the located diagnostics to an `IAnsiConsole`: Errata blocks with source context when interactive, else the one-line fallback, plus a summary | `IAnsiConsole`, Errata, `LocatedDiagnostic`, the source text |
 | `CompileCommand` (CLI) | compile, render errata, choose the exit code; parse `--mode` | `ErrataRenderer`, `CompilerOptions` |
@@ -113,8 +113,12 @@ flowchart LR
 `Diagnostic`, `SourceSpan`, and `DiagnosticDescriptor` are internal and, per the existing
 `CompilationResult` remark, "still under active design." Rather than make them public, project to
 a small, stable public **`LocatedDiagnostic`** (code string, public severity, rendered message,
-line/column start/end). Consumers depend on the projection, not the evolving internals — the same
-seam serves the CLI now and the LSP/web later (Component 6). One internal type is deliberately
+line/column start/end, and the half-open character range `StartOffset`/`EndOffset`). Consumers
+depend on the projection, not the evolving internals — the same seam serves the CLI now and the
+LSP/web later (Component 6). The **offsets** are exposed alongside line/column because a tool
+indexes the source directly by character: the errata renderer underlines the exact range (via
+Errata's `TextSpan`), and an editor maps them to a selection. They are plain integers, not the
+internal `SourceSpan`, so the internal type stays free to evolve. One internal type is deliberately
 **promoted to public**: `DiagnosticSeverity` (`Error`/`Warning`/`Info`), because it *is* the view's
 contract; its members get explicit numeric values so ordering is a documented, stable API.
 `Diagnostic`, `SourceSpan`, and the descriptor stay internal. `LocatedDiagnostics` returns an
@@ -217,8 +221,9 @@ A survey of how compilers format a located diagnostic informs the fallback:
   snippet and caret, one section per diagnostic, sorted by position then code.
 - **Non-interactive output** (piped, `--no-color`, CI) falls back to the greppable one-liner
   `file(line,column): severity CODE: message` — the MSVC/Roslyn shape, consistent with config
-  errors. `LocatedDiagnostic` (code, severity, message, line/column) carries everything both paths
-  need; Errata additionally takes the source text (which the CLI already read).
+  errors. `LocatedDiagnostic` (code, severity, message, line/column, and character offsets) carries
+  everything both paths need: the one-liner uses the line/column, and Errata underlines the exact
+  range from the offsets (a `TextSpan`) over the source text the CLI already read.
 - Errata is a **CLI-only** dependency: the engine stays engine-agnostic and rendering stays
   confined to the CLI (DD7). Its Spectre.Console requirement (`>= 0.55.0`) is satisfied by the
   CLI's `0.57.2`, so there is no version conflict. The fallback one-liner still exists on its own

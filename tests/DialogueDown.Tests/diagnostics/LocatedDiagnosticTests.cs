@@ -27,6 +27,8 @@ public sealed class LocatedDiagnosticTests
         Assert.Equal("Name 'Alice' clashes.", located.Message);
         Assert.Equal(new LinePosition(2, 1), located.Start);
         Assert.Equal(new LinePosition(2, 6), located.End);
+        Assert.Equal(9, located.StartOffset);
+        Assert.Equal(14, located.EndOffset);
     }
 
     [Fact]

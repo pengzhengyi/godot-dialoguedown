@@ -246,8 +246,19 @@ export function createSourceView(
     container.append(sourcePane, divider, preview);
     initSplitDivider(container, divider);
 
-    // Scroll the editor and its preview together (VS Code-style), anchored on headings.
-    initScrollSync(view, preview);
+    // Scroll the editor and its preview together (VS Code-style), anchored on headings — but
+    // only side by side. In the stacked (narrow) layout the vertical axes don't correspond, so
+    // the sync is disabled there and re-enabled if the viewport widens again. Where matchMedia
+    // is unavailable (non-browser hosts), fall back to the side-by-side default.
+    const narrow =
+        typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 800px)") : null;
+    let disposeScrollSync: (() => void) | null = null;
+    const syncScrollWithLayout = (): void => {
+        disposeScrollSync?.();
+        disposeScrollSync = narrow?.matches ? null : initScrollSync(view, preview);
+    };
+    syncScrollWithLayout();
+    narrow?.addEventListener("change", syncScrollWithLayout);
 
     // The preview can be hidden to give the editor the full width. Its toggle lives on the
     // split divider, doubling as the always-present re-open handle; the choice is
@@ -300,9 +311,12 @@ export function initSplitDivider(
     document.addEventListener("mousemove", (event) => {
         if (!dragging) return;
         const bounds = container.getBoundingClientRect();
-        if (bounds.width === 0) return;
-        const ratio = (event.clientX - bounds.left) / bounds.width;
-        const clamped = Math.max(MIN_RATIO, Math.min(MAX_RATIO, ratio));
+        // Resize along the split axis: horizontal side by side, vertical when stacked.
+        const vertical = getComputedStyle(container).flexDirection === "column";
+        const extent = vertical ? bounds.height : bounds.width;
+        if (extent === 0) return;
+        const offset = vertical ? event.clientY - bounds.top : event.clientX - bounds.left;
+        const clamped = Math.max(MIN_RATIO, Math.min(MAX_RATIO, offset / extent));
         container.style.setProperty(splitVar, `${(clamped * 100).toFixed(2)}%`);
     });
 

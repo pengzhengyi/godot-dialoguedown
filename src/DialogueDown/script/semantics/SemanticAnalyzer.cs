@@ -29,7 +29,7 @@ internal sealed class SemanticAnalyzer : ISemanticAnalyzer
 
         var index = DialogueTreeIndex.Build(document);
 
-        var (sceneRoot, anchors) = SceneBuilder.Build(document);
+        var (sceneRoot, anchors) = SceneBuilder.Build(document, context.Diagnostics);
         var configured = _options.ConfiguredSpeakers.Select(ConfiguredSpeakerBuilder.ToDeclaration);
         var speakers = SpeakerBinder.Bind(configured, index.OfType<Speaker>());
 

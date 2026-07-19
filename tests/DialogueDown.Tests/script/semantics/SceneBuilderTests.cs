@@ -1,8 +1,9 @@
+using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Semantics;
-using DialogueDown.Script.Semantics.Errors;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 
 namespace DialogueDown.Tests.Script.Semantics;
 
@@ -85,22 +86,28 @@ public sealed class SceneBuilderTests
     }
 
     [Fact]
-    public void Build_DuplicateAnchor_Throws()
+    public void Build_DuplicateAnchor_Reports()
     {
-        var error = Assert.Throws<DialogueSemanticError>(
-            () => Build(SceneHeading("Play tennis", 1), SceneHeading("Play Tennis", 2)));
+        Build(out var diagnostics, SceneHeading("Play tennis", 1), SceneHeading("Play Tennis", 2));
 
-        Assert.Contains("#play-tennis", error.Message);
+        AssertReported(diagnostics.Diagnostics, "DLG2001");
     }
 
     [Fact]
-    public void Build_HeadingThatSlugsToNothing_Throws()
+    public void Build_HeadingThatSlugsToNothing_Reports()
     {
-        var error = Assert.Throws<DialogueSemanticError>(() => Build(SceneHeading("!!!", 1)));
+        Build(out var diagnostics, SceneHeading("!!!", 1));
 
-        Assert.Contains("letter or number", error.Message);
+        AssertReported(diagnostics.Diagnostics, "DLG2002");
     }
 
     private static (Scene Root, AnchorTable Anchors) Build(params ScriptBlock[] blocks) =>
-        SceneBuilder.Build(new DesugaredScriptDocument(new ScriptDocument(blocks)));
+        Build(out _, blocks);
+
+    private static (Scene Root, AnchorTable Anchors) Build(
+        out DiagnosticBag diagnostics, params ScriptBlock[] blocks)
+    {
+        diagnostics = new DiagnosticBag();
+        return SceneBuilder.Build(new DesugaredScriptDocument(new ScriptDocument(blocks)), diagnostics);
+    }
 }

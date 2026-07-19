@@ -21,6 +21,24 @@ internal static class DiagnosticCatalog
 
     // Semantic — DLG2xxx: a meaning-level conflict found during analysis.
 
+    /// <summary>DLG2001 — two headings slug to the same anchor.</summary>
+    public static readonly DiagnosticDescriptor DuplicateAnchor = new(
+        "DLG2001",
+        "Duplicate scene anchor",
+        "Two scenes resolve to the same anchor '#{0}'. Rename one heading so each jump target is "
+            + "unambiguous.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
+    /// <summary>DLG2002 — a heading has no sluggable text to form an anchor.</summary>
+    public static readonly DiagnosticDescriptor HeadingWithoutAnchor = new(
+        "DLG2002",
+        "Heading without an anchor",
+        "A heading needs at least one letter or number so it can be a jump target; this one has "
+            + "none. Add sluggable text to the heading.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
     /// <summary>DLG2008 — a <c>##reserved</c> tag name is not one DialogueDown knows.</summary>
     public static readonly DiagnosticDescriptor UnknownReservedTag = new(
         "DLG2008",

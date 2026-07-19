@@ -92,7 +92,8 @@ public sealed class JumpResolverTests
 
     private static AnchorTable AnchorsFor(params ScriptBlock[] blocks)
     {
-        var (_, anchors) = SceneBuilder.Build(new DesugaredScriptDocument(new ScriptDocument(blocks)));
+        var (_, anchors) = SceneBuilder.Build(
+            new DesugaredScriptDocument(new ScriptDocument(blocks)), new DiagnosticBag());
         return anchors;
     }
 }

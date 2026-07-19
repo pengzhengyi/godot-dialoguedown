@@ -1,6 +1,5 @@
 using DialogueDown.Common;
 using DialogueDown.Common.Errors;
-using DialogueDown.Diagnostics;
 
 namespace DialogueDown.Diagnostics.Errors;
 

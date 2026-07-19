@@ -18,6 +18,14 @@ internal sealed class SemanticProjection
     private const string SpeechCategory = "speech";
     private const string JumpCategory = "jump";
 
+    /// <summary>
+    /// A placeholder for the Semantic Model stage when the compile halted before analysis, so the
+    /// model was never produced. It carries the stage's title and description with no graph.
+    /// </summary>
+    public static DisplayGraph Unavailable(string reason) =>
+        DisplayGraph.ForUnavailableStage(
+            SceneTreeProjection.StageTitle, SceneTreeProjection.StageDescription, reason);
+
     /// <summary>The scene tree as a graph, enriched with the three semantic tables.</summary>
     public DisplayGraph Project(SemanticModel model, string source)
     {

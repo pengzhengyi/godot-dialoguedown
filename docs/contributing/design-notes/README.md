@@ -124,6 +124,7 @@ flowchart TB
     CFG --> CFGLE["14. Configuration Tab — Live Edit"]
     CFGLE --> CFGAC["15. Configuration Tab — Autocompletion"]
     CFGAC --> CFGCN["16. Configuration Tab — Create New"]
+    CFGCN --> UST["17. Unavailable Stage Tabs"]
 ```
 
 | Order | Note | What it covers | Status |
@@ -144,6 +145,7 @@ flowchart TB
 | 14 | [Configuration Tab — Live Edit](./Configuration%20Tab%20-%20Live%20Edit.md) | Edit the `dialogue.toml` in the report; Save recompiles and refreshes the configured speakers (Stage 2a) | Implemented |
 | 15 | [Configuration Tab — Autocompletion](./Configuration%20Tab%20-%20Autocompletion.md) | Schema autocompletion for the editable `dialogue.toml`: the `[[speakers]]` table, its keys, and the reserved tag names (Stage 2b) | Implemented |
 | 16 | [Configuration Tab — Create New](./Configuration%20Tab%20-%20Create%20New.md) | Create a `dialogue.toml` in place when a project has none, then drop into the editable Config tab (Stage 3) | Implemented |
+| 17 | [Unavailable Stage Tabs](./Unavailable%20Stage%20Tabs.md) | A halted compile renders its unproduced stages as disabled tabs, so a broken script still shows what it did produce | Implemented |
 
 ### Other notes
 

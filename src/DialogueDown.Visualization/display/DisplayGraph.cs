@@ -13,4 +13,20 @@ public sealed record DisplayGraph(
     string Description,
     IReadOnlyList<DisplayNode> Nodes,
     IReadOnlyList<DisplayEdge> Edges,
-    IReadOnlyList<SemanticTable>? Tables = null);
+    IReadOnlyList<SemanticTable>? Tables = null,
+    StageUnavailable? Unavailable = null)
+{
+    /// <summary>
+    /// A placeholder for a stage the compile did not produce (a halted compile): it carries the
+    /// stage's <paramref name="title"/> and <paramref name="description"/> but no graph, plus a
+    /// <paramref name="reason"/> the reader sees on its disabled tab.
+    /// </summary>
+    public static DisplayGraph ForUnavailableStage(string title, string description, string reason) =>
+        new(title, description, [], [], Tables: null, Unavailable: new StageUnavailable(reason));
+}
+
+/// <summary>
+/// Why a stage's tab is disabled — its artifact was not produced. Carried in the report payload
+/// so the client renders a disabled tab whose tooltip shows the <see cref="Reason"/>.
+/// </summary>
+public sealed record StageUnavailable(string Reason);

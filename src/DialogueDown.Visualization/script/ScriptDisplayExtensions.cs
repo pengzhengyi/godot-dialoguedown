@@ -25,4 +25,11 @@ internal static class ScriptDisplayExtensions
     public static DisplayGraph ToDisplayGraph(this DesugaredScriptDocument document, string source) =>
         GraphWalk.Walk<object>(
             document.Document, new DialogueAstProjection(source, DesugaredTitle, DesugaredDescription));
+
+    /// <summary>
+    /// A placeholder for the Desugared AST stage when the compile halted before desugaring, so the
+    /// normalized tree was never produced. It carries the stage's title and description with no graph.
+    /// </summary>
+    public static DisplayGraph DesugaredUnavailable(string reason) =>
+        DisplayGraph.ForUnavailableStage(DesugaredTitle, DesugaredDescription, reason);
 }

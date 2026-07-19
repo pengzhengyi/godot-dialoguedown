@@ -1,4 +1,4 @@
-import type { Report, Stage, ConfigReport } from "./model";
+import type { Report, Stage, StageUnavailable, ConfigReport } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
@@ -231,14 +231,22 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             addStageTab(stage);
         }
         // Open on the tab the reader last had open (remembered across a refresh), else Source
-        // when present (after the Config tab), else the first tab — unless a just-created config
-        // asked the reloaded page to land on the Config tab.
+        // when present (after the Config tab), else the first available tab — unless a
+        // just-created config asked the reloaded page to land on the Config tab. A disabled
+        // (unavailable) stage is never opened: neither the remembered tab nor the fallback.
         if (views.length > 0) {
             const openConfig = configPresent && consumeOpenConfigTab();
             const remembered = titles.indexOf(rememberedActiveTab() ?? "");
-            const fallback = sourcePresent ? (configPresent ? 1 : 0) : 0;
-            activate(openConfig ? 0 : remembered >= 0 ? remembered : fallback);
+            const rememberedOk = remembered >= 0 && !isTabDisabled(remembered);
+            const fallback = sourcePresent ? (configPresent ? 1 : 0) : firstAvailableIndex();
+            activate(openConfig ? 0 : rememberedOk ? remembered : fallback);
         }
+    }
+
+    /** The first tab the reader can open, skipping disabled (unavailable) stages. */
+    function firstAvailableIndex(): number {
+        for (let i = 0; i < tabsEl.children.length; i++) if (!isTabDisabled(i)) return i;
+        return 0;
     }
 
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
@@ -261,6 +269,15 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     function addStageTab(stage: Stage): void {
         const section = document.createElement("section");
         section.className = "stage";
+        if (stage.unavailable) {
+            // The stage's artifact was not produced (a halted compile). Render a disabled tab
+            // the reader cannot enter; its content is intentionally empty — surfacing the
+            // diagnostics is a separate concern.
+            addTab(stage.title, section, null, stage.description, stage.title, undefined, {
+                reason: stage.unavailable.reason,
+            });
+            return;
+        }
         // The Semantic tab has a different shape: a scene-tree graph beside stacked tables.
         // It is still a graph stage, so it reuses the tree view (camera memory, fold, full
         // screen) — only the surrounding layout differs.
@@ -308,6 +325,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         tip: string,
         key: string | null,
         icon?: string,
+        unavailable?: StageUnavailable,
     ): void {
         const index = views.length;
         const tab = document.createElement("button");
@@ -319,10 +337,21 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         } else {
             tab.textContent = title;
         }
-        tab.setAttribute("data-tip", tip);
+        if (unavailable) {
+            // A disabled tab: grayed and non-navigable, its tooltip saying why the stage is
+            // missing. `aria-disabled` (not the `disabled` attribute) keeps the hover tooltip
+            // firing so the reader learns the reason.
+            tab.classList.add("unavailable");
+            tab.setAttribute("aria-disabled", "true");
+            tab.setAttribute("data-tip", unavailable.reason);
+        } else {
+            tab.setAttribute("data-tip", tip);
+        }
         // Switching tabs is navigation: block it while there are unsaved edits so a stale
-        // graph is never shown beside them (the reader saves or discards first).
+        // graph is never shown beside them (the reader saves or discards first). An
+        // unavailable stage cannot be entered at all.
         tab.addEventListener("click", () => {
+            if (unavailable) return;
             if (index !== activeIndex && source?.confirmNavigation && !source.confirmNavigation())
                 return;
             activate(index);
@@ -332,6 +361,11 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         views.push(view);
         keys.push(key);
         titles.push(title);
+    }
+
+    /** Whether the tab at `index` is a disabled (unavailable) stage the reader cannot enter. */
+    function isTabDisabled(index: number): boolean {
+        return tabsEl.children[index]?.getAttribute("aria-disabled") === "true";
     }
 
     function activate(index: number): void {

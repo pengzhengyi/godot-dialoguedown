@@ -142,6 +142,43 @@ test("a refresh returns to the tab that was open, not the default Source tab", a
     await expect(page.locator("section.stage.active g.node")).toHaveCount(nodeCount);
 });
 
+test("a stage the compile could not produce is a disabled, non-navigable tab", async ({ page }) => {
+    const reason = "This stage is unavailable due to compilation errors.";
+    const url = writeReport({
+        source: "# Broken\n",
+        stages: [
+            {
+                title: "Markdown AST",
+                description: "The Markdown syntax tree.",
+                nodes: [{ id: "n0", label: "Document", attributes: [] }],
+                edges: [],
+            },
+            {
+                title: "Desugared AST",
+                description: "The normalized dialogue tree.",
+                nodes: [],
+                edges: [],
+                unavailable: { reason },
+            },
+        ],
+    });
+    await page.goto(url);
+
+    const disabled = page.locator(".tab", { hasText: "Desugared AST" });
+    await expect(disabled).toHaveClass(/unavailable/);
+    await expect(disabled).toHaveAttribute("aria-disabled", "true");
+    await expect(disabled).toHaveAttribute("data-tip", reason);
+
+    // Clicking a disabled tab does nothing — the reader cannot enter the missing stage.
+    await disabled.click({ force: true });
+    await expect(disabled).not.toHaveClass(/active/);
+    await expect(page.locator(".tab.active")).toHaveText("Source");
+
+    // The produced stages stay fully interactive.
+    await page.locator(".tab", { hasText: "Markdown AST" }).click();
+    await expect(page.locator(".tab.active")).toHaveText("Markdown AST");
+});
+
 // --- Markdown AST graph (second tab) ---
 
 test("renders every node with a colored circle and a legend of counts", async ({ page }) => {

@@ -29,6 +29,9 @@ jobs:
       - name: Restore
         run: dotnet restore DialogueDown.sln
 
+      - name: Verify formatting
+        run: dotnet format DialogueDown.sln --verify-no-changes --no-restore
+
       - name: Build
         run: dotnet build DialogueDown.sln --configuration Release --no-restore
 

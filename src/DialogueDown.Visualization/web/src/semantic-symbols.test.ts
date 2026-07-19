@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, it, expect } from "vitest";
 import type { DialogueSymbols } from "./dialogue-symbols";
 import { createSemanticSymbolSource } from "./semantic-symbols";

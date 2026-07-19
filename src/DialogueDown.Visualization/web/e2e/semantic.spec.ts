@@ -123,7 +123,7 @@ const report: Report = {
                                 { text: "Leave", category: "jump" },
                                 { text: "#the-square" },
                                 {
-                                    text: "→ The Square",
+                                    text: "=> The Square",
                                     refKey: "scene:the-square",
                                     category: "structure",
                                 },
@@ -247,11 +247,12 @@ test("hides and reopens the whole tables column from the divider", async ({ page
     await expect(page.locator(".semantic-tables")).toBeVisible();
 });
 
-test("shows a clicked node's details in the sticky node-details panel", async ({ page }) => {
+test("shows a clicked node's details in the node-details panel", async ({ page }) => {
     const panel = page.locator(".node-detail-panel");
-    // The panel is pinned to the top of the tables column and starts on the placeholder.
+    // The panel is a normal in-flow card (not sticky, so it never floats over the panels
+    // below it) and starts on the placeholder.
     await expect(panel).toBeVisible();
-    await expect(panel).toHaveCSS("position", "sticky");
+    await expect(panel).toHaveCSS("position", "static");
     await expect(page.locator(".node-detail-body")).toContainText("Click any node");
 
     // Click the Line block's circle (dispatched, so it fires regardless of the pan/zoom viewport).

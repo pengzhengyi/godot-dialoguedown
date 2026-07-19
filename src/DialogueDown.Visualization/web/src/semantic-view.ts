@@ -92,6 +92,9 @@ function initTablesResizer(
         if (container.classList.contains("tables-collapsed")) return;
         // Pressing the toggle should collapse, not start a drag.
         if ((event.target as HTMLElement).closest(".collapse-toggle")) return;
+        // When the layout stacks (narrow screens), the divider is a horizontal collapse bar
+        // only — a width drag doesn't apply, so ignore it there.
+        if (getComputedStyle(container).flexDirection === "column") return;
         rightEdge = tables.getBoundingClientRect().right || window.innerWidth;
         divider.setPointerCapture(event.pointerId);
         document.body.style.userSelect = "none";

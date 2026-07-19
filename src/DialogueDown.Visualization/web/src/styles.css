@@ -429,6 +429,45 @@ section.stage.error {
     cursor: default;
 }
 
+/* On a phone the scene tree and the tables can't share a row — the tables' 18rem minimum
+   crushes the tree to a sliver — so below this width the Semantic tab stacks like the graph
+   tabs: tree on top, tables below at full width, with the divider a horizontal collapse bar.
+   The tablet side-by-side is kept (like the Config tab), since it reads well with more room. */
+@media (width <= 600px) {
+    .semantic-view {
+        flex-direction: column;
+    }
+
+    .semantic-graph {
+        min-height: 0;
+    }
+
+    .semantic-tables {
+        flex: 0 0 55%;
+        min-height: 0;
+
+        /* Symmetric padding at full width, with extra on top so the first panel clears the
+           collapse toggle centered on the seam. */
+        padding: 1.25rem 0.7rem;
+    }
+
+    .semantic-divider {
+        flex: 0 0 9px;
+        border-left: none;
+        border-top: 1px solid var(--pico-muted-border-color);
+        cursor: row-resize;
+    }
+
+    /* Horizontal divider here, so rotate the collapse glyph to a bottom-panel orientation. */
+    .semantic-divider .collapse-icon {
+        transform: rotate(90deg);
+    }
+
+    .semantic-view.tables-collapsed .semantic-divider {
+        cursor: default;
+    }
+}
+
 /* A collapsible table panel: a header bar (title + row count) over the table body.
    It keeps its natural height (never shrinks) so the tables column scrolls as a whole
    rather than each panel clipping its own rows. */
@@ -440,15 +479,9 @@ section.stage.error {
     overflow: hidden;
 }
 
-/* The node-details panel is pinned to the top of the tables column, so it stays in view while
-   the tables scroll beneath it. Its body is capped and scrolls, so a long source never pushes
-   the tables away. An opaque background keeps scrolled table rows from showing through. */
-.node-detail-panel {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--pico-background-color);
-}
+/* The node-details panel is a normal in-flow table panel — it scrolls with the rest of the
+   tables rather than pinning to the top, which floated it over and hid the panels beneath it.
+   Its body is still capped and scrolls (below), so a long source never dominates the column. */
 
 .node-detail-body {
     max-height: 45vh;
@@ -1357,7 +1390,7 @@ body.maximized #app {
 }
 
 #detail {
-    flex: 0 0 460px;
+    flex: 0 0 var(--detail-size, 460px);
     overflow-y: auto;
     padding: 1rem;
     border-left: 1px solid var(--pico-muted-border-color);
@@ -1731,42 +1764,102 @@ body.maximized #app {
         flex-direction: column;
     }
 
+    /* Stacked: the graph and the node inspector share the column with a fixed 60/40 split.
+       The inspector is bounded and scrolls internally (its base rule sets overflow-y: auto),
+       so it never overflows the app past the footer. A fixed split also keeps the graph area
+       stable, so it fits once on reveal and doesn't need to re-fit when a node is selected. */
     #stages {
-        height: 60vh;
-        flex: none;
+        flex: 3 1 0;
+        min-height: 0;
+    }
+
+    /* Source, Config, and Semantic tabs hide the detail panel (they carry no node inspector),
+       so the stage fills the whole column instead of leaving a strip above the footer. */
+    .no-detail #stages {
+        flex: 1 1 auto;
     }
 
     #resizer {
-        display: none;
+        /* Shown as a horizontal collapse bar (was hidden on narrow screens): it carries the
+           inspector's collapse toggle, matching the Source and Config dividers so the panel
+           can be hidden here too. Non-draggable — the drag is guarded in resizer.ts since the
+           graph doesn't re-fit on resize — so it reads as a plain seam that hosts the handle. */
+        flex: 0 0 6px;
+        cursor: default;
+        border-top: 1px solid var(--pico-muted-border-color);
     }
 
     #detail {
-        flex-basis: auto;
+        flex: 2 1 0;
+        min-height: 0;
         border-left: none;
-        border-top: 1px solid var(--pico-muted-border-color);
+    }
+
+    /* The Source and inspector dividers are horizontal here, so rotate the collapse glyph
+       from a side panel (left/right chevron) to a bottom panel (down = hide, up = show).
+       The Config divider rotates in its own narrower breakpoint below. */
+    .source-divider .collapse-icon,
+    #resizer .collapse-icon {
+        transform: rotate(90deg);
     }
 
     .source-view {
         flex-direction: column;
     }
 
+    /* Stacked (narrow) layout: the editor sits above the preview, each pane owning its own
+       scroll (min-height:0 lets flex shrink them instead of letting content overflow and
+       overlap), and the divider becomes a horizontal drag bar that still carries the
+       collapse toggle. The split ratio is shared with the side-by-side layout. */
     .source-pane {
-        flex-basis: 45%;
+        flex-basis: var(--source-split, 45%);
+        min-height: 0;
+    }
+
+    .source-preview {
+        min-height: 0;
+
+        /* Extra top padding so the preview's first line clears the collapse toggle, which
+           is centered on the seam and whose lower half overlaps the panel top. */
+        padding: 1.5rem 1.25rem 0.75rem;
+
+        /* The stacked layout is separated by the divider, so drop the shared `.preview`
+           card border/radius for a clean full-bleed panel below it. */
+        border: none;
+        border-radius: 0;
     }
 
     .source-divider {
-        display: none;
+        border-left: none;
+        border-top: 1px solid var(--pico-muted-border-color);
+        cursor: row-resize;
     }
 
-    /* Stack the footer: on a phone-width screen the help drops full-width below the
-       status bar rather than shrinking into a cramped column beside it. */
-    .app-footer {
+    .source-divider:hover {
+        border-top-color: var(--pico-primary);
+    }
+
+    .source-view.preview-collapsed .source-divider {
+        cursor: default;
+    }
+
+    /* On a phone-width screen the status line stacks (status bar above the help toggle) and
+       the status bar wraps, so the mode toggle, document paths, and save controls flow onto
+       multiple lines instead of overlapping in one cramped row. */
+    .status-line {
         flex-direction: column;
         align-items: stretch;
+        gap: 0.4rem;
+    }
+
+    .status-bar {
+        flex-wrap: wrap;
+        row-gap: 0.35rem;
     }
 
     .app-footer .help-toggle {
-        margin-left: auto;
+        align-self: flex-start;
+        margin: 0;
     }
 }
 
@@ -2128,6 +2221,43 @@ button.tab.tab-with-icon {
     background: var(--pico-muted-border-color);
 }
 
+/* The Config tab keeps its horizontal editor/table split down to tablet widths (its TOML
+   lines are short), but on a phone the 3-column speakers table gets too narrow and clips
+   its tag chips, so below this width it stacks like the Source tab: editor above, table
+   below at full width. Placed after the base split rules so it wins the cascade. */
+@media (width <= 520px) {
+    .config-view {
+        flex-direction: column;
+    }
+
+    .config-source {
+        flex-basis: var(--config-split, 45%);
+        min-height: 0;
+    }
+
+    .config-side {
+        min-height: 0;
+
+        /* Extra top padding so the "Configured speakers" heading clears the collapse toggle
+           centered on the seam (its lower half overlaps the panel top). */
+        padding: 1.5rem 1rem 0.75rem;
+    }
+
+    .config-divider {
+        cursor: row-resize;
+    }
+
+    /* The Config divider is horizontal at this width, so rotate its collapse glyph to a
+       bottom-panel orientation (down = hide, up = show), matching the Source divider. */
+    .config-divider .collapse-icon {
+        transform: rotate(90deg);
+    }
+
+    .config-view.config-collapsed .config-divider {
+        cursor: default;
+    }
+}
+
 /* The read-only TOML editor fills its pane, blends with the background, and follows
    the theme foreground — the same treatment the Source editor gets. */
 .config-source .cm-editor {
@@ -2188,6 +2318,9 @@ button.tab.tab-with-icon {
     width: 100%;
 }
 
+/* Tags wrap inside an inner flex box, never on the `<td>` itself: a flex `<td>` drops out of
+   table-cell layout, so a tall multi-tag cell would stop sharing the row height and its row
+   border would desync from the sibling Name/Id cells. */
 .config-speakers-table .config-tags {
     display: flex;
     flex-wrap: wrap;

@@ -10,6 +10,9 @@ changes easy to categorize.
 
 ### Added
 
+- **The report reopens on the tab you left it on.** After a refresh, the visualization
+  returns to the last tab you were viewing (Source, an AST stage, or the Semantic model)
+  instead of always resetting to the Source tab.
 - **Documentation link in the visualization and demo** — the report header now carries a link to the documentation site, and the live-demo landing page gains a Documentation button, so readers can get back to the docs from the hosted report.
 - **Compiler pipeline behind one `IScriptCompiler` facade** — compiles a Markdown
   dialogue script through parse → transpile → desugar → semantic analysis: it builds
@@ -73,6 +76,9 @@ changes easy to categorize.
 
 ### Changed
 
+- Development verification now provides faster targeted local loops and
+  parallel, overlapped frontend CI while retaining the full test, analyzer,
+  coverage, accessibility, and generated-bundle gates.
 - `visualize <script>` now opens a **served session** (read-only **View** by default)
   instead of a one-shot static file; write an offline snapshot with `-o`.
 - The `visualize` servers now compress responses (gzip), cutting the report's
@@ -89,6 +95,11 @@ changes easy to categorize.
 
 ### Fixed
 
+- **The report now renders cleanly on small and phone-sized windows.** Every tab
+  adapts below tablet width instead of overlapping, clipping, or running off-screen:
+  the Source, Config, AST, and Semantic views stack their split panes with a handle
+  to collapse the secondary pane, the footer wraps its controls, and the
+  configured-speaker and node-details panels no longer overlap their neighbors.
 - The brand mark now stays visible on dark backgrounds — it inverts to a light
   bubble across the report and launcher, the favicon, and the demo.
 - Escaped inline punctuation (for example `\*`) no longer shifts the source spans of

@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, it, expect } from "vitest";
 import { EditorState, EditorSelection, type StateCommand } from "@codemirror/state";
 import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";

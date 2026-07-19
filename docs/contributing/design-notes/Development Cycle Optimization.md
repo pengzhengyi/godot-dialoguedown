@@ -1,8 +1,9 @@
 # Development Cycle Optimization
 
 > [!NOTE]
-> Status: **implemented on the optimization branch — awaiting merge**.
-> Increments 1 and 3–9 are built and measured. Increment 2 was deliberately
+> Status: **implemented; the measured follow-up changes await review in
+> [PR #113](https://github.com/pengzhengyi/godot-dialoguedown/pull/113)**.
+> Increments 1 and 3–11 are built and measured. Increment 2 was deliberately
 > skipped because Release coverage changed the sequence-point denominator.
 
 DialogueDown's verification remains comprehensive, but avoidable orchestration
@@ -32,6 +33,8 @@ bundle verification, or end-to-end behavior.
   - [7. Add targeted local .NET test commands](#7-add-targeted-local-net-test-commands)
   - [8. Add targeted local frontend test commands](#8-add-targeted-local-frontend-test-commands)
   - [9. Evaluate frontend quality caches independently](#9-evaluate-frontend-quality-caches-independently)
+  - [10. Overlap live E2E preparation](#10-overlap-live-e2e-preparation)
+  - [11. Run DOM-independent Vitest files in Node](#11-run-dom-independent-vitest-files-in-node)
 - [Approval-gated follow-ups](#approval-gated-follow-ups)
 - [Boundary cases and rollback](#boundary-cases-and-rollback)
 - [Testability and measurement](#testability-and-measurement)
@@ -102,6 +105,17 @@ The frontend job controls the overall CI duration.
 | Static Playwright E2E | **19.0 s** | 12% |
 
 The five steps above account for about 84% of frontend wall time.
+
+The follow-up measurements use the split-lane workflow and current 300-test
+inventory. Three recent runs before Increment 10 establish the live baseline.
+The quality baseline for Increment 11 comes from the three successful
+Increment 10 attempts because the live-only change does not alter that lane:
+
+| Follow-up target | Runs | Median |
+| --- | --- | ---: |
+| Frontend live E2E job | 90 s / 85 s / 89 s | **89 s** |
+| Frontend quality job | 39 s / 47 s / 42 s | **42 s** |
+| Quality check step | 23 s / 30 s / 29 s | **29 s** |
 
 | .NET step | Average |
 | --- | ---: |
@@ -183,6 +197,8 @@ run).
 | 7. Targeted .NET tests | **Achieved with change** | Full: 27.70 s. Project: 7.74 s (72.1%, 3.58×). Filter: 6.96 s (74.9%, 3.98×). Watch was slower and omitted | Full solution test remains the gate |
 | 8. Targeted frontend tests | **Achieved** | Vitest file: 14.28 s → 4.16 s (70.9%, 3.43×). Static spec: 29.70 s → 10.74 s (63.8%, 2.77×). Live spec: 48.15 s → 24.95 s (48.2%, 1.93×) | Full frontend lanes remain the gate |
 | 9a–9d. Frontend caches | **Achieved** | Warm TypeScript 57.3% faster; ESLint 55.9%; Stylelint 29.8%; Prettier 83.5%. Every cache invalidation was tested | CI starts cold; caches target the local repeated loop |
+| 10. Overlapped live preparation | **Achieved** | Local `npm run e2e:live` remains unchanged | Live job: 89 s → 72 s; 17 s / 19.1%; 1.24×; three green runs |
+| 11. Node environment for pure Vitest files | **Achieved** | Ten-file target: 23.80 s → 11.46 s; 51.8%; 2.08×. Current full suite: 16.72 s → 14.34 s; 14.2%; 1.17× | Quality job: 42 s → 39 s; 7.1%; quality check: 29 s → 26 s; 10.3%; three green runs |
 
 Increment 1 had one non-reproducing local cold launcher timeout. It then passed
 an isolated retry, one full retry, one clean-output run, three consecutive warm
@@ -313,7 +329,7 @@ npx playwright install --with-deps --only-shell chromium
 
 **Acceptance:**
 
-- all 59 static and 36 live tests launch Chromium successfully;
+- all 60 static and 36 live tests launch Chromium successfully;
 - no test requires headed Chrome;
 - CI browser-provisioning and green-run time are reported.
 
@@ -358,7 +374,7 @@ surviving run and two reruns passed.
   typecheck/lint/format/Vitest, two-page Vite build, committed-bundle
   verification;
 - **Frontend static E2E** — checkout, Node setup, `npm ci`, Chromium
-  provisioning, and 59 static tests;
+  provisioning, and 60 static tests;
 - **Frontend live E2E** — checkout, Node + .NET setup, `npm ci`, one Release CLI
   build, Chromium provisioning, and 36 live tests launched from the built DLL.
 
@@ -378,7 +394,7 @@ green runs.
 - every verification responsibility belongs to exactly one lane; setup steps
   may repeat where lane isolation requires them and count toward runner time;
 - each lane passes three consecutive CI runs;
-- combined test counts remain 293 Vitest + 59 static + 36 live;
+- combined test counts remain 300 Vitest + 60 static + 36 live;
 - frontend wall time improves without increased retries/flakes;
 - total frontend runner time stays at or below 237 seconds unless separately
   approved;
@@ -496,6 +512,68 @@ For each sub-increment:
 | Stylelint | 3.05 s | 2.14 s | 29.8% | 1.43× |
 | Prettier | 16.87 s | 2.78 s | 83.5% | 6.07× |
 
+### 10. Overlap live E2E preparation
+
+**Problem:** the live lane installs npm dependencies and Chromium before
+`npm run e2e:live` builds the Release CLI. These independent preparation tasks
+run serially on the critical path.
+
+**Design:** keep the local `npm run e2e:live` entry point unchanged. In CI,
+run `npm run build:cli` and the dependency/browser provisioning sequence as
+tracked peer process groups. Fail on the first unsuccessful peer, stop and reap
+the other group, and otherwise wait for both before invoking Playwright
+directly. The local signal and exit traps preserve the failing status while
+cleaning up both groups and their descendants.
+
+**Result:** the live-job runs fell from 90/85/89 seconds (median 89 seconds) to
+66/72/73 seconds (median 72 seconds): a 17-second / 19.1% reduction and 1.24×
+speedup. The sequential preparation-plus-live steps fell from a 68-second median
+to 51 seconds. All three optimized attempts passed without retries.
+
+**Acceptance:**
+
+- CLI build, npm installation, and Chromium provisioning all complete before
+  Playwright starts;
+- a failure in either concurrent path fails the job and cleans up the other;
+- local `npm run e2e:live` retains its build-before-test contract;
+- all 36 live tests and every unchanged full gate pass in three CI attempts.
+
+### 11. Run DOM-independent Vitest files in Node
+
+**Problem:** the global Vitest configuration uses jsdom, so pure parsing, state,
+camera, palette, text, and command tests pay DOM-environment setup cost they do
+not need.
+
+**Design:** retain jsdom as the project default and mark only these proven
+DOM-independent files with `// @vitest-environment node`:
+
+- `config-completions.test.ts`
+- `dialogue-symbols.test.ts`
+- `editor-commands.test.ts`
+- `graph-camera.test.ts`
+- `palette.test.ts`
+- `scroll-sync.test.ts`
+- `semantic-symbols.test.ts`
+- `span-splice.test.ts`
+- `text.test.ts`
+- `view-edit.test.ts`
+
+Tests that create elements or depend on browser globals remain under jsdom.
+
+**Result:** the isolated ten-file benchmark fell from 23.80 seconds to
+11.46 seconds (51.8%; 2.08×). On the synchronized branch, the full 300-test
+Vitest median fell from 16.72 seconds to 14.34 seconds (14.2%; 1.17×). Across
+three CI attempts, the quality job median fell from 42 seconds to 39 seconds
+(7.1%; 1.08×), and its combined check-step median fell from 29 seconds to
+26 seconds (10.3%; 1.12×).
+
+**Acceptance:**
+
+- all ten files remain independent of DOM/browser globals;
+- all 300 Vitest tests pass;
+- all 60 static and 36 live Playwright tests remain unchanged and green;
+- the quality lane passes three CI attempts without retries or new warnings.
+
 ## Approval-gated follow-ups
 
 These affect which tests run or materially restructure the test suite. They are
@@ -517,19 +595,20 @@ the live server and account for required-check behavior.
 
 ### Rebalance the browser-test pyramid
 
-The static suite has 59 tests, many loading a large self-contained report to assert one
-control or visual detail. Moving suitable cases to Vitest could materially
-reduce browser time, but it is a larger test refactor. It requires a separate
-coverage matrix identifying:
+The static suite has 60 tests, many loading a large self-contained report to
+assert one control or visual detail. Moving suitable cases to Vitest could
+materially reduce browser time, but it is a larger test refactor. It requires a
+separate coverage matrix identifying:
 
 - critical browser journeys and accessibility checks to retain;
 - component/DOM behavior safe to move to Vitest;
 - assertions that depend on real layout, CodeMirror, D3, or browser APIs;
 - before/after defect-detection equivalence.
 
-Do not switch the whole Vitest suite from jsdom to `happy-dom`; CodeMirror
-compatibility needs a focused experiment. The default Vitest scheduler was
-faster than tested thread/worker overrides.
+Ten pure files use the Node environment; the remaining suite keeps jsdom. Do not
+switch the whole suite to Node or `happy-dom`; CodeMirror compatibility needs a
+focused experiment. The default Vitest scheduler was faster than tested
+thread/worker overrides.
 
 ### Use a Playwright container
 
@@ -553,6 +632,8 @@ approval.
 | Headed browser test added later | Remove `--only-shell` or install the full browser when that test is introduced. |
 | Parallel jobs duplicate setup | Report runner-minutes; retain the split only when wall-time value justifies the cost. |
 | Concurrent tests share files/ports | Preserve current fixture isolation; any collision or flake rejects the change. |
+| Concurrent CI preparation fails on one path | Strict shell handling propagates the failure and stops the surviving peer process group. |
+| A Node-environment test gains a DOM dependency | Move that file back to the default jsdom environment rather than adding browser shims. |
 | Cache returns stale results | Use tool-native content-aware caches and add all cache paths to ignores. |
 | Cancellation crosses PRs/branches | Fix the concurrency key before merging. |
 | Optimization is within timing noise after the extended-run rule | Revert it rather than retain complexity without demonstrated value. |
@@ -582,7 +663,8 @@ For each CI-affecting increment:
 1. use GitHub Actions job/step timestamps, not console-estimated test duration;
 2. collect three successful runs for every CI-affecting increment (job reruns on
    the same commit are acceptable);
-3. compare against the four-run baseline in this note;
+3. compare against the baseline declared for the target path (the original
+   four-run baseline or the three-run follow-up baseline);
 4. report wall time, runner-minutes, retries, and test counts;
 5. treat a flaky or retried pass as a failed optimization result.
 
@@ -594,6 +676,8 @@ For each CI-affecting increment:
 | Browser provisioning | Static and live Playwright | Both frontend E2E lanes |
 | CI concurrency | Two rapid commits in a test PR | Latest run completes all lanes |
 | Frontend split | Each lane independently | Combined inventory and generated diff |
+| Live preparation overlap | Infrastructure contract for build/install/wait ordering | Frontend CI live lane |
+| Selective Vitest environments | Ten DOM-independent files under Node | Existing `npm run check` + both E2E lanes |
 | Analyzer-free .NET build | Fast full-solution build | Existing analyzer-enabled build |
 | Targeted .NET tests | Project/filter/watch commands | Existing full solution test |
 | Targeted frontend tests | Vitest/Playwright scoped commands | Existing `npm run check` + E2E |
@@ -619,6 +703,8 @@ Implemented:
 - headless-shell-only Chromium provisioning;
 - same-PR/ref stale-run cancellation;
 - parallel frontend quality/static/live lanes with a stable aggregate check;
+- overlapped CLI build and dependency/browser provisioning in the live lane;
+- Node environments for ten DOM-independent Vitest files;
 - additive analyzer-free and targeted local tasks; and
 - ignored, content-aware caches for four frontend quality tools.
 

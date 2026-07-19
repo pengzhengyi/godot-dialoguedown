@@ -39,6 +39,51 @@ internal static class DiagnosticCatalog
         DiagnosticCategory.Semantic,
         DiagnosticSeverity.Error);
 
+    /// <summary>DLG2003 — a name and an <c>@id</c> already name different speakers.</summary>
+    public static readonly DiagnosticDescriptor SpeakerNameIdConflict = new(
+        "DLG2003",
+        "Ambiguous speaker binding",
+        "Cannot bind name '{0}' to id '@{1}': both are already in use as separate speakers, so "
+            + "joining them now is ambiguous. If they are the same speaker, declare it "
+            + "(Name @{1}: …) before either is used on its own.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
+    /// <summary>DLG2004 — an <c>@id</c> is already bound to another speaker name.</summary>
+    public static readonly DiagnosticDescriptor IdBoundToAnotherName = new(
+        "DLG2004",
+        "Id bound to two names",
+        "id '@{0}' is already bound to speaker '{1}', so it cannot also be bound to '{2}'. Use a "
+            + "different id for '{2}'.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
+    /// <summary>DLG2005 — a speaker name is already bound to another <c>@id</c>.</summary>
+    public static readonly DiagnosticDescriptor NameBoundToAnotherId = new(
+        "DLG2005",
+        "Name bound to two ids",
+        "Speaker '{0}' is already bound to id '@{1}', so it cannot also be bound to id '@{2}'. "
+            + "Give the speaker a single id.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
+    /// <summary>DLG2006 — more than one speaker is marked <c>##default</c>.</summary>
+    public static readonly DiagnosticDescriptor MultipleDefaultSpeakers = new(
+        "DLG2006",
+        "More than one default speaker",
+        "Two speakers are marked ##default ('{0}' and '{1}'); only one default speaker is allowed.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
+    /// <summary>DLG2007 — a stable <c>@id</c> is used but never given a name.</summary>
+    public static readonly DiagnosticDescriptor UnnamedSpeakerId = new(
+        "DLG2007",
+        "Unnamed speaker id",
+        "Speaker '@{0}' is used but never declared with a name. Declare it with a name "
+            + "(Name @{0}: …) — a stable id must belong to a named speaker.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
     /// <summary>DLG2008 — a <c>##reserved</c> tag name is not one DialogueDown knows.</summary>
     public static readonly DiagnosticDescriptor UnknownReservedTag = new(
         "DLG2008",

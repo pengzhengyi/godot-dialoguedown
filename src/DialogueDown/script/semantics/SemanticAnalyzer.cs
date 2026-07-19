@@ -31,7 +31,7 @@ internal sealed class SemanticAnalyzer : ISemanticAnalyzer
 
         var (sceneRoot, anchors) = SceneBuilder.Build(document, context.Diagnostics);
         var configured = _options.ConfiguredSpeakers.Select(ConfiguredSpeakerBuilder.ToDeclaration);
-        var speakers = SpeakerBinder.Bind(configured, index.OfType<Speaker>());
+        var speakers = SpeakerBinder.Bind(configured, index.OfType<Speaker>(), context.Diagnostics);
 
         var jumps = JumpResolver.Resolve(index.OfType<Jump>(), anchors, context.Diagnostics);
         TagValidator.Validate(index.OfType<ReservedTag>(), context.Diagnostics);

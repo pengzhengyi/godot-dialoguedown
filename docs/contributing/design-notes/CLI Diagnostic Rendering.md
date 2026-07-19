@@ -1,11 +1,11 @@
 # Implementation note: CLI diagnostic rendering
 
-> [!NOTE]
-> Status: **proposed / draft** — Component 5 of the diagnostics subsystem
-> ([#43](https://github.com/pengzhengyi/godot-dialoguedown/issues/43)), awaiting review.
-> Components 1–4 already **collect** located diagnostics and recover; this component makes
-> them **visible** to script authors on the `dialoguedown` CLI, and exposes the compilation
-> mode there ([#110](https://github.com/pengzhengyi/godot-dialoguedown/issues/110)). It builds
+> [!IMPORTANT]
+> Status: **implemented** — Component 5 of the diagnostics subsystem
+> ([#43](https://github.com/pengzhengyi/godot-dialoguedown/issues/43)).
+> Components 1–4 **collect** located diagnostics and recover; this component makes them
+> **visible** to script authors on the `dialoguedown` CLI, and exposes the compilation mode there
+> (the CLI half of [#110](https://github.com/pengzhengyi/godot-dialoguedown/issues/110)). It builds
 > on the [Diagnostics and Validation](Diagnostics%20and%20Validation.md) note (DD6, DD7, DD9).
 
 ## Table of contents
@@ -72,17 +72,17 @@ The work splits into two cleanly bounded passes; 5a has no CLI dependency and 5b
 
 ## Functionality checklist
 
-- [ ] Map any source offset to a one-based `(line, column)`; a span to a start/end position.
-- [ ] Expose a public, immutable located-diagnostic view on `CompilationResult` (code, severity,
+- [x] Map any source offset to a one-based `(line, column)`; a span to a start/end position.
+- [x] Expose a public, immutable located-diagnostic view on `CompilationResult` (code, severity,
       message, location) without leaking internal `Diagnostic`/`SourceSpan`/enums.
-- [ ] Render each diagnostic with **source context** (Errata: the offending line, a caret under
+- [x] Render each diagnostic with **source context** (Errata: the offending line, a caret under
       the span, code and message) when interactive; fall back to a greppable
       `file(line,column): severity CODE: message` one-liner when not — errors red, warnings yellow,
       info cyan, sorted by position then code, with user text safely escaped.
-- [ ] Print a summary line (e.g. `2 errors, 1 warning`); print nothing for a clean compile.
-- [ ] Return `Success` for no errors (warnings/info still succeed), `DataError` when errors exist;
+- [x] Print a summary line (e.g. `2 errors, 1 warning`); print nothing for a clean compile.
+- [x] Return `Success` for no errors (warnings/info still succeed), `DataError` when errors exist;
       align malformed-config errors to `DataError` too.
-- [ ] `compile --mode <stage-boundary|best-effort>` overrides `CompilerOptions.Mode` only when
+- [x] `compile --mode <stage-boundary|best-effort>` overrides `CompilerOptions.Mode` only when
       given (else inherit the resolved mode); an invalid value is a usage error.
 
 ## Interfaces and abstractions

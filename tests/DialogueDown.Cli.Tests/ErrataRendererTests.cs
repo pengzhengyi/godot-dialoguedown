@@ -13,18 +13,20 @@ public sealed class ErrataRendererTests
         {
             Located("DLG2001", DiagnosticSeverity.Error, "duplicate anchor", 3, 1),
             Located("DLG1003", DiagnosticSeverity.Warning, "two jumps", 1, 5),
+            Located("DLG3001", DiagnosticSeverity.Info, "a note", 2, 1),
         };
 
         new ErrataRenderer(console).Render("scene.dialogue.md", "", diagnostics);
 
         var output = console.Output;
         Assert.Contains("scene.dialogue.md(1,5): warning DLG1003: two jumps", output, StringComparison.Ordinal);
+        Assert.Contains("scene.dialogue.md(2,1): info DLG3001: a note", output, StringComparison.Ordinal);
         Assert.Contains("scene.dialogue.md(3,1): error DLG2001: duplicate anchor", output, StringComparison.Ordinal);
         // Sorted by position: the line-1 warning is written before the line-3 error.
         Assert.True(
             output.IndexOf("DLG1003", StringComparison.Ordinal)
             < output.IndexOf("DLG2001", StringComparison.Ordinal));
-        Assert.Contains("1 error, 1 warning", output, StringComparison.Ordinal);
+        Assert.Contains("1 error, 1 warning, 1 info", output, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -68,6 +70,35 @@ public sealed class ErrataRendererTests
         Assert.Contains("not a game call", output, StringComparison.Ordinal);
         // Errata draws the offending source line in its block.
         Assert.Contains("Alice: say", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_Interactive_RendersEverySeverityIncludingAZeroWidthSpan()
+    {
+        var console = InteractiveConsole();
+        const string source = "line one\nline two\n";
+        var diagnostics = new[]
+        {
+            new LocatedDiagnostic(
+                "DLG0001", DiagnosticSeverity.Error, "an error",
+                new LinePosition(1, 1), new LinePosition(1, 5), StartOffset: 0, EndOffset: 4),
+            new LocatedDiagnostic(
+                "DLG0002", DiagnosticSeverity.Warning, "a warning",
+                new LinePosition(2, 1), new LinePosition(2, 5), StartOffset: 9, EndOffset: 13),
+            new LocatedDiagnostic(
+                "DLG0003", DiagnosticSeverity.Info, "a note",
+                new LinePosition(1, 6), new LinePosition(1, 6), StartOffset: 5, EndOffset: 5), // zero-width
+        };
+
+        new ErrataRenderer(console).Render("s.dialogue.md", source, diagnostics);
+
+        var output = console.Output;
+        // A source line proves the rich path ran (the one-liner fallback never prints source text).
+        Assert.Contains("line one", output, StringComparison.Ordinal);
+        Assert.Contains("DLG0001", output, StringComparison.Ordinal);
+        Assert.Contains("DLG0002", output, StringComparison.Ordinal);
+        Assert.Contains("DLG0003", output, StringComparison.Ordinal);
+        Assert.Contains("1 error, 1 warning, 1 info", output, StringComparison.Ordinal);
     }
 
     private static TestConsole PlainConsole()

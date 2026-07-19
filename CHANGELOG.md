@@ -10,6 +10,13 @@ changes easy to categorize.
 
 ### Added
 
+- **Diagnostics on the CLI** — `dialoguedown compile` now shows a script's problems and fails with
+  a data-error exit code when it has errors, instead of silently succeeding. On a terminal each
+  diagnostic is a rich block — the offending source line with a caret under it — and piped output
+  is a greppable `file(line,column): severity CODE: message`. `--mode` chooses how far a compile
+  proceeds after an error. The compiled result also exposes the located diagnostics
+  (`CompilationResult.LocatedDiagnostics`) for other tools to render. See the
+  [CLI Diagnostic Rendering](docs/contributing/design-notes/CLI%20Diagnostic%20Rendering.md) note.
 - **The report reopens on the tab you left it on.** After a refresh, the visualization
   returns to the last tab you were viewing (Source, an AST stage, or the Semantic model)
   instead of always resetting to the Source tab.

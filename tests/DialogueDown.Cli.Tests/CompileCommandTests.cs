@@ -60,7 +60,7 @@ public sealed class CompileCommandTests
 
         Assert.Equal(ExitCodes.Success, result.ExitCode);
         factory.Received(1).Invoke(
-            Arg.Is<CompilerOptions>(o => o.Speakers.Any(s => s.Name == "Narrator")));
+            Arg.Is<CompilerOptions>(o => o != null && o.Speakers.Any(s => s.Name == "Narrator")));
         compiler.Received(1).Compile(Arg.Any<string>());
     }
 
@@ -144,5 +144,59 @@ public sealed class CompileCommandTests
 
         Assert.Equal(ExitCodes.UsageError, result.ExitCode);
         Assert.Contains("not found", result.Output, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Compile_Mode_OverridesTheCompilationMode()
+    {
+        using var script = new TempScript("# Scene");
+        var compiler = Substitute.For<IScriptCompiler>();
+        compiler.Compile(Arg.Any<string>()).Returns(ScriptCompilerFactory.CreateDefault().Compile(""));
+        var factory = Substitute.For<Func<CompilerOptions, IScriptCompiler>>();
+        factory(Arg.Any<CompilerOptions>()).Returns(compiler);
+        var tester = CliTester.Create(compilerFactory: factory);
+
+        tester.Run("compile", script.Path, "--mode", "best-effort");
+
+        factory.Received(1).Invoke(Arg.Is<CompilerOptions>(o => o != null && o.Mode == CompilationMode.BestEffort));
+    }
+
+    [Fact]
+    public void Compile_WithoutMode_InheritsTheResolvedMode()
+    {
+        using var script = new TempScript("# Scene");
+        var compiler = Substitute.For<IScriptCompiler>();
+        compiler.Compile(Arg.Any<string>()).Returns(ScriptCompilerFactory.CreateDefault().Compile(""));
+        var factory = Substitute.For<Func<CompilerOptions, IScriptCompiler>>();
+        factory(Arg.Any<CompilerOptions>()).Returns(compiler);
+        var tester = CliTester.Create(compilerFactory: factory);
+
+        tester.Run("compile", script.Path);
+
+        factory.Received(1).Invoke(Arg.Is<CompilerOptions>(o => o != null && o.Mode == CompilationMode.StageBoundary));
+    }
+
+    [Fact]
+    public void Compile_UnknownMode_FailsWithUsageError()
+    {
+        using var script = new TempScript("# Scene");
+        var tester = CliTester.Create();
+
+        var result = tester.Run("compile", script.Path, "--mode", "turbo");
+
+        Assert.Equal(ExitCodes.UsageError, result.ExitCode);
+        Assert.Contains("--mode", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Compile_FailFastMode_IsRejected()
+    {
+        // Fail-fast throws instead of collecting errata, so it is not offered as a CLI mode.
+        using var script = new TempScript("# Scene");
+        var tester = CliTester.Create();
+
+        var result = tester.Run("compile", script.Path, "--mode", "fail-fast");
+
+        Assert.Equal(ExitCodes.UsageError, result.ExitCode);
     }
 }

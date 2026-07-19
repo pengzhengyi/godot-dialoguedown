@@ -35,6 +35,11 @@ internal sealed class CompileCommand : Command<CompileSettings>
     {
         ArgumentNullException.ThrowIfNull(settings);
         var options = _configuration.Resolve(settings.Config, ScriptDirectory(settings.Script));
+        if (settings.ResolvedMode is { } mode)
+        {
+            options = options with { Mode = mode };
+        }
+
         var compiler = _compilerFactory(options);
         var source = File.ReadAllText(settings.Script);
         var result = compiler.Compile(source);

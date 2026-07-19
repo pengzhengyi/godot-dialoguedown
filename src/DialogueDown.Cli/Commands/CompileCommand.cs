@@ -44,7 +44,7 @@ internal sealed class CompileCommand : Command<CompileSettings>
         var source = File.ReadAllText(settings.Script);
         var result = compiler.Compile(source);
 
-        _errata.Render(settings.Script, result.LocatedDiagnostics);
+        _errata.Render(settings.Script, source, result.LocatedDiagnostics);
 
         // TODO(compiler): emit the compiled output, honoring --output, once the later
         // stages produce a serializable result.

@@ -6,9 +6,11 @@ namespace DialogueDown.Cli;
 internal interface IErrataRenderer
 {
     /// <summary>
-    /// Writes each diagnostic in <paramref name="diagnostics"/>, sorted by position then code, as
-    /// <c>file(line,column): severity CODE: message</c>, followed by a summary. Writes nothing when
-    /// there are no diagnostics.
+    /// Writes each diagnostic in <paramref name="diagnostics"/>, sorted by position then code,
+    /// followed by a summary. On an interactive console it renders rich Errata blocks with a source
+    /// snippet and caret over <paramref name="source"/>; otherwise it writes the greppable
+    /// <c>file(line,column): severity CODE: message</c> one-liner. Writes nothing when there are no
+    /// diagnostics.
     /// </summary>
-    void Render(string file, IReadOnlyList<LocatedDiagnostic> diagnostics);
+    void Render(string file, string source, IReadOnlyList<LocatedDiagnostic> diagnostics);
 }

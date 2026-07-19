@@ -116,6 +116,20 @@ public sealed class ScriptCompilerFactoryTests
         AssertReported(result.Diagnostics, DiagnosticCatalog.NotAGameCall);
     }
 
+    [Fact]
+    public void CreateDefault_LocatedDiagnostics_LocatesAndRendersEachDiagnostic()
+    {
+        // The tags-without-speaker error (DLG1101) sits at the start of the only line.
+        var result = BestEffortCompiler().Compile("#lonely: Hi");
+
+        var located = AssertLocated(
+            result.LocatedDiagnostics,
+            DiagnosticCatalog.TagsWithoutSpeaker,
+            DiagnosticSeverity.Error,
+            new LinePosition(1, 1));
+        Assert.Contains("names no speaker", located.Message);
+    }
+
     private static IScriptCompiler BestEffortCompiler() =>
         ScriptCompilerFactory.CreateDefault(new CompilerOptions { Mode = CompilationMode.BestEffort });
 }

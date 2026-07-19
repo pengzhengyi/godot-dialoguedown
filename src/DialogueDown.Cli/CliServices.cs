@@ -2,6 +2,7 @@ using DialogueDown.Compilation;
 using DialogueDown.Configuration;
 using DialogueDown.Visualization.Live;
 using Microsoft.Extensions.DependencyInjection;
+using Spectre.Console;
 
 namespace DialogueDown.Cli;
 
@@ -15,6 +16,8 @@ internal static class CliServices
         services.AddSingleton<ProjectConfiguration>();
         services.AddSingleton<Func<CompilerOptions, IScriptCompiler>>(
             _ => options => ScriptCompilerFactory.CreateDefault(options));
+        services.AddSingleton<IAnsiConsole>(AnsiConsole.Console);
+        services.AddSingleton<IErrataRenderer, ErrataRenderer>();
         services.AddSingleton<IBrowserLauncher, BrowserLauncher>();
         services.AddSingleton<IVisualizeRunner, VisualizeRunner>();
         services.AddSingleton<ILauncherRunner, LauncherRunner>();

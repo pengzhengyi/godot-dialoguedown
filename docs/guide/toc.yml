@@ -4,3 +4,5 @@
   href: script-language.md
 - name: Project configuration
   href: configuration.md
+- name: Error codes
+  href: error-codes.md

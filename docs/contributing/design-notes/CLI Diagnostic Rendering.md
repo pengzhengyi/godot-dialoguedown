@@ -18,10 +18,12 @@
 - [Key design decisions](#key-design-decisions)
   - [DR1 — A public, located diagnostic view; internals stay internal](#dr1--a-public-located-diagnostic-view-internals-stay-internal)
   - [DR2 — The engine locates and renders text; the CLI owns presentation](#dr2--the-engine-locates-and-renders-text-the-cli-owns-presentation)
-  - [DR3 — One `source(line,column)` location language](#dr3--one-sourcelinecolumn-location-language)
+  - [DR3 — One `file(line,column)` location language, ready for multi-file](#dr3--one-filelinecolumn-location-language-ready-for-multi-file)
   - [DR4 — A `LineMap` value object, built once per compile](#dr4--a-linemap-value-object-built-once-per-compile)
   - [DR5 — Exit codes follow sysexits](#dr5--exit-codes-follow-sysexits)
   - [DR6 — `--mode` selects a collecting compilation mode](#dr6----mode-selects-a-collecting-compilation-mode)
+  - [DR7 — Rich rendering via the Errata library](#dr7--rich-rendering-via-the-errata-library)
+- [Dependencies](#dependencies)
 - [Error and boundary cases](#error-and-boundary-cases)
 - [Integration](#integration)
 - [Testability](#testability)
@@ -53,7 +55,7 @@ planned per-run toggle).
 | Term | Meaning |
 | --- | --- |
 | **Located diagnostic** | one collected `Diagnostic` resolved to a `source(line,column)` position and a final message string — the public unit a consumer renders. |
-| **Errata** | the CLI's rendering of the located diagnostics for one compile: a sorted list plus a summary. Rendering stays confined to the CLI (per the umbrella note's DD7). |
+| **Errata** | the CLI's rendering of the located diagnostics for one compile — rich source-context blocks (via the [Errata](https://github.com/spectreconsole/errata) library) or the one-line fallback, plus a summary. Rendering stays confined to the CLI (per the umbrella note's DD7). |
 | **`LineMap`** | the value object that turns a source **offset** into a one-based **line and column**. |
 | **`source(line,column)`** | the shared location format, already used for configuration errors (`ConfigurationSourceLocation`) — reused here so a script location reads the same as a config location. |
 
@@ -73,8 +75,10 @@ The work splits into two cleanly bounded passes; 5a has no CLI dependency and 5b
 - [ ] Map any source offset to a one-based `(line, column)`; a span to a start/end position.
 - [ ] Expose a public, immutable located-diagnostic view on `CompilationResult` (code, severity,
       message, location) without leaking internal `Diagnostic`/`SourceSpan`/enums.
-- [ ] Render each diagnostic as `source(line,column): severity CODE: message`, errors red,
-      warnings yellow, info cyan, sorted by position then code, with user text safely escaped.
+- [ ] Render each diagnostic with **source context** (Errata: the offending line, a caret under
+      the span, code and message) when interactive; fall back to a greppable
+      `file(line,column): severity CODE: message` one-liner when not — errors red, warnings yellow,
+      info cyan, sorted by position then code, with user text safely escaped.
 - [ ] Print a summary line (e.g. `2 errors, 1 warning`); print nothing for a clean compile.
 - [ ] Return `Success` for no errors (warnings/info still succeed), `DataError` when errors exist;
       align malformed-config errors to `DataError` too.
@@ -85,11 +89,11 @@ The work splits into two cleanly bounded passes; 5a has no CLI dependency and 5b
 
 | Type | Responsibility | Collaborators |
 | --- | --- | --- |
-| `LineMap` (value object, engine) | precompute line starts from source; `Locate(offset) → LinePosition`, `Locate(SourceSpan) → SourceRange` | `SourceSpan`, `LinePosition` |
+| `LineMap` (value object, engine) | precompute line starts from source; `Locate(offset) → LinePosition` (called twice for a span's start and end) | `SourceSpan`, `LinePosition` |
 | `LinePosition` (public readonly struct) | a one-based `(Line, Column)`; `ToString()` → `line,column` | — |
 | `LocatedDiagnostic` (public record) | one located diagnostic: `Code`, `Severity`, `Message`, `Start`, `End` | `LinePosition`, `DiagnosticSeverity` (public) |
 | `CompilationResult.Report` (public) | the located diagnostics for the compile, projected once from the internal bag | `LineMap`, `LocatedDiagnostic` |
-| `ErrataRenderer` (CLI) | write a `Report` to an `IAnsiConsole`: sorted lines + summary | `IAnsiConsole`, `LocatedDiagnostic` |
+| `ErrataRenderer` (CLI) | render a `Report` to an `IAnsiConsole`: Errata blocks with source context when interactive, else the one-line fallback, plus a summary | `IAnsiConsole`, Errata, `LocatedDiagnostic`, the source text |
 | `CompileCommand` (CLI) | compile, render errata, choose the exit code; parse `--mode` | `ErrataRenderer`, `CompilerOptions` |
 
 ```mermaid
@@ -127,12 +131,20 @@ layout, color, sorting, and the summary. This honors the umbrella note's DD7 (er
 confined to the CLI) while keeping the shared substance engine-side, so the LSP and web overlays
 do not each re-implement formatting.
 
-### DR3 — One `source(line,column)` location language
+### DR3 — One `file(line,column)` location language, ready for multi-file
 
-Configuration errors already render as `source(line,column)` through the public
-`ConfigurationSourceLocation`. Script diagnostics reuse that exact shape so a location reads the
-same wherever it appears. `LinePosition.ToString()` yields `line,column`; the CLI prefixes the
-source name to form `source(line,column)`.
+DialogueDown will compile **multiple files** in the future, so a location is fundamentally
+`(file, line, column)`, not just `(line, column)`. Configuration errors already render as
+`source(line,column)` through the public `ConfigurationSourceLocation` — the .NET/Roslyn shape
+(see the survey in [DR7](#dr7--rich-rendering-via-the-errata-library)) — so script diagnostics
+reuse it: `file(line,column): severity CODE: message`.
+
+Today the engine compiles **one** source string and does not know its path, so the **file** is
+supplied by the CLI (it knows the script path) and the engine's `LocatedDiagnostic` carries only
+`line,column`. This is the multi-file **seam**: when multi-source compilation lands, the located
+diagnostic gains a source identifier and the engine fills the file dimension itself — the location
+language and the rendered format do not change. `LinePosition.ToString()` yields `line,column`;
+the CLI forms `file(line,column)`.
 
 ### DR4 — A `LineMap` value object, built once per compile
 
@@ -174,6 +186,46 @@ that is deferred (a tracked follow-up) rather than bolted on here. The two colle
 the CLI's needs: `stage-boundary` (default) stops at the first stage that erred, `best-effort`
 runs every stage. `visualize` is unaffected — it forces best-effort by design.
 
+### DR7 — Rich rendering via the Errata library
+
+Diagnostics read best with **source context** — the offending line shown, a colored caret under
+the exact span, the code and message beside it — the way modern compilers render errors. Rather
+than hand-roll that, the CLI uses **[Errata](https://github.com/spectreconsole/errata)**, a
+Spectre.Console-family library (MIT, net8.0, inspired by Rust's Ariadne) that renders exactly this
+from a source plus labeled character/line ranges. It composes with the existing Spectre.Console
+dependency and the app's `IAnsiConsole`.
+
+A survey of how compilers format a located diagnostic informs the fallback:
+
+| Compiler | One-line format |
+| --- | --- |
+| GCC / Clang | `file:line:column: severity: message` — colon-separated, the Unix/GNU standard |
+| **MSVC / Roslyn (.NET)** | `file(line,column): severity CODE: message` — matches our existing config errors |
+| Rust / Ariadne | a multi-line block: `error[CODE]: message`, `--> file:line:column`, source snippet with `^` underlines and labels |
+| TypeScript | `file(line,column): error TSxxxx: message` |
+
+**Decisions:**
+
+- **Interactive output** renders through Errata — the rich Ariadne-style block with a source
+  snippet and caret, one section per diagnostic, sorted by position then code.
+- **Non-interactive output** (piped, `--no-color`, CI) falls back to the greppable one-liner
+  `file(line,column): severity CODE: message` — the MSVC/Roslyn shape, consistent with config
+  errors. `LocatedDiagnostic` (code, severity, message, line/column) carries everything both paths
+  need; Errata additionally takes the source text (which the CLI already read).
+- Errata is a **CLI-only** dependency: the engine stays engine-agnostic and rendering stays
+  confined to the CLI (DD7). Its Spectre.Console requirement (`>= 0.55.0`) is satisfied by the
+  CLI's `0.57.2`, so there is no version conflict. The fallback one-liner still exists on its own
+  merits (CI/greppable output), so the design does not hard-depend on Errata.
+
+## Dependencies
+
+| Package | Scope | Why | License |
+| --- | --- | --- | --- |
+| [`errata`](https://www.nuget.org/packages/errata) | `DialogueDown.Cli` only | rich, Ariadne-style diagnostic rendering with source snippets and carets | MIT |
+
+No new engine dependencies: 5a is pure BCL. The `errata` reference is added only to the CLI; its
+Spectre.Console requirement (`>= 0.55.0`) is satisfied by the CLI's `0.57.2` (verified).
+
 ## Error and boundary cases
 
 - **Zero-width (synthetic) span:** start equals end; the CLI shows a single `source(line,column)`
@@ -206,9 +258,11 @@ runs every stage. `visualize` is unaffected — it forces best-effort by design.
   `Length`, and span→range.
 - **`LocatedDiagnostic` projection** (unit): the result exposes located reports whose messages are
   the descriptors' formats filled with their arguments (invariant culture), at the right positions.
-- **`ErrataRenderer`** (unit, Spectre `TestConsole`): a fixed report renders sorted lines with the
-  right colors and a correct summary; a message containing `[`/`]` is escaped, not interpreted; an
-  empty report writes nothing.
+- **`ErrataRenderer`** (unit, Spectre `TestConsole`): the fallback one-liner renders sorted
+  `file(line,column): severity CODE: message` lines with the right colors and a correct summary; a
+  message containing `[`/`]` is escaped, not interpreted; an empty report writes nothing. The rich
+  Errata path is smoke-tested (it renders a source snippet without throwing); its exact glyphs are
+  the library's concern, not ours.
 - **`CompileCommand`** (integration, `CommandAppTester`): a clean script → `Success`, no errata; an
   error script → errata plus `DataError`; a warning-only script → errata plus `Success`; `--mode`
   threads to the compile and, when omitted, inherits the resolved mode; an invalid mode → usage
@@ -234,3 +288,10 @@ Resolved while finalizing the design (headless), including the design-review pas
    `SourceSpan`, and the descriptor stay internal.
 6. **Consistent data-error exit** (DR5). Malformed configuration joins script errors under
    `DataError` (65), so every invalid-input outcome shares one exit code.
+7. **Rich rendering via Errata** (DR7). Interactive output uses the Errata library
+   (Ariadne-style source snippets + carets); non-interactive output falls back to the
+   `file(line,column): severity CODE: message` one-liner. Errata is a CLI-only, MIT dependency
+   (v0.16.0), whose Spectre.Console requirement is satisfied by the CLI's `0.57.2`.
+8. **Multi-file-ready location** (DR3). The location language is `file(line,column)`; the engine is
+   single-source today (the CLI supplies the file), and `LocatedDiagnostic` gains a source
+   identifier when multi-source compilation lands — the format is unchanged.

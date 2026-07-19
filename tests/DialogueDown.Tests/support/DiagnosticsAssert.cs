@@ -23,4 +23,29 @@ internal static class DiagnosticsAssert
     /// </summary>
     public static Diagnostic AssertReported(IReadOnlyList<Diagnostic> diagnostics, string code) =>
         Assert.Single(diagnostics, diagnostic => diagnostic.Descriptor.Code == code);
+
+    /// <summary>
+    /// Asserts exactly one located diagnostic matching <paramref name="descriptor"/> is in the
+    /// view, optionally checking its <paramref name="severity"/> and <paramref name="start"/>
+    /// position, and returns it so a test can assert further (e.g. on its message).
+    /// </summary>
+    public static LocatedDiagnostic AssertLocated(
+        IReadOnlyList<LocatedDiagnostic> located,
+        DiagnosticDescriptor descriptor,
+        DiagnosticSeverity? severity = null,
+        LinePosition? start = null)
+    {
+        var diagnostic = Assert.Single(located, item => item.Code == descriptor.Code);
+        if (severity is { } expectedSeverity)
+        {
+            Assert.Equal(expectedSeverity, diagnostic.Severity);
+        }
+
+        if (start is { } expectedStart)
+        {
+            Assert.Equal(expectedStart, diagnostic.Start);
+        }
+
+        return diagnostic;
+    }
 }

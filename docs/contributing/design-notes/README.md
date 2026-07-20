@@ -81,13 +81,14 @@ edge, a satellite that reads a `dialogue.toml` into those options.
 
 **Read when you work on collecting or reporting problems.** A cross-cutting core
 concern that lets the compiler describe every problem it finds — errors and
-warnings — in a structured, located form, so an author can eventually see them
-all at once instead of one throw per run. One note covers the whole effort as a
-sequence of components, with each component's status tracked inside it.
+warnings — in a structured, located form, so an author can see them all at once
+instead of one throw per run. Start with the subsystem note; focused rule notes
+then record decisions that are too specific for the parent design.
 
 | Order | Note | What it covers | Status |
 | --- | --- | --- | --- |
 | 1 | [Diagnostics and Validation](./Diagnostics%20and%20Validation.md) | The whole effort: the diagnostic model (built), the collect-and-continue collection seam, the validator and rules, and the renderer | In progress |
+| 2 | [Choice Nesting Diagnostic](./Choice%20Nesting%20Diagnostic.md) | A style warning for choice branches nested beyond the recommended depth | In progress |
 
 ### Command-line interface
 

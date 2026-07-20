@@ -53,6 +53,24 @@ describe("createConfigView", () => {
         expect(reserved?.textContent).toBe("##default");
     });
 
+    it("shows the configured compilation mode above the speakers", () => {
+        const view = mount({ ...withFile(), mode: "best-effort" });
+
+        expect(view.querySelector(".config-mode-value")?.textContent).toBe("best-effort");
+    });
+
+    it("defaults the mode label to stage-boundary when unset", () => {
+        const view = mount(withFile());
+
+        expect(view.querySelector(".config-mode-value")?.textContent).toBe("stage-boundary");
+    });
+
+    it("shows the mode row even when there is no config file", () => {
+        const view = mount({ speakers: [], mode: "best-effort" });
+
+        expect(view.querySelector(".config-mode-value")?.textContent).toBe("best-effort");
+    });
+
     it("shows a friendly explanation and no editor when there is no config file", () => {
         const view = mount({ speakers: [] });
 
@@ -235,16 +253,20 @@ describe("createConfigView", () => {
             expect(handle.element.querySelector(".config-source")?.textContent).toContain("Zoe");
         });
 
-        it("updateSpeakers re-renders the table from a fresh report", () => {
-            const handle = createConfigView(withFile());
-            handle.updateSpeakers({
+        it("updateConfig re-renders the speakers and the mode from a fresh report", () => {
+            const handle = createConfigView({ ...withFile(), mode: "stage-boundary" });
+            handle.updateConfig({
                 file: { path: "/p/dialogue.toml", source: "" },
+                mode: "best-effort",
                 speakers: [{ name: "Zoe", id: "Z", tags: [] }],
             });
             const table = handle.element.querySelector(".config-speakers-table");
             expect(table?.querySelectorAll("tbody tr")).toHaveLength(1);
             expect(table?.textContent).toContain("Zoe");
             expect(table?.textContent).not.toContain("Alice");
+            expect(handle.element.querySelector(".config-mode-value")?.textContent).toBe(
+                "best-effort",
+            );
         });
 
         it("setStale toggles the unsaved-speakers hint", () => {

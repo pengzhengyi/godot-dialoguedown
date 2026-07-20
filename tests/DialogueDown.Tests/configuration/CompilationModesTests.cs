@@ -22,6 +22,13 @@ public sealed class CompilationModesTests
     public void TryParse_Null_Throws() =>
         Assert.Throws<ArgumentNullException>(() => CompilationModes.TryParse(null!));
 
+    [Theory]
+    [InlineData(CompilationMode.StageBoundary, "stage-boundary")]
+    [InlineData(CompilationMode.BestEffort, "best-effort")]
+    [InlineData(CompilationMode.FailFast, "fail-fast")]
+    public void NameOf_ReturnsTheCanonicalName(CompilationMode mode, string expected) =>
+        Assert.Equal(expected, CompilationModes.NameOf(mode));
+
     [Fact]
     public void SettableNamesDescription_ListsTheSettableModes() =>
         Assert.Equal("'stage-boundary' or 'best-effort'", CompilationModes.SettableNamesDescription);

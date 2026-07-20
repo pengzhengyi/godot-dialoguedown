@@ -62,8 +62,8 @@ export interface ConfigViewHandle {
     setEditable(editable: boolean): void;
     /** Replace the editor's content — used to restore the last saved version on discard. */
     setContent(source: string): void;
-    /** Re-render the configured speakers from a freshly recompiled report. */
-    updateSpeakers(config: ConfigReport): void;
+    /** Re-render the mode row and configured speakers from a freshly recompiled report. */
+    updateConfig(config: ConfigReport): void;
     /** Mark the speakers pane as out of date (unsaved edits) or up to date. */
     setStale(stale: boolean): void;
 }
@@ -128,8 +128,10 @@ export function createConfigView(
 
     let editor: EditorView | null = null;
     let speakers: HTMLElement | null = null;
+    let modeRow: HTMLElement | null = null;
     let noConfig: NoConfigControls | null = null;
     const reservedTags = config.reservedTags ?? [];
+    modeRow = renderModeRow(config.mode);
     if (isConfiguredFromFile(config)) {
         editor = mountEditor(
             pane,
@@ -139,11 +141,11 @@ export function createConfigView(
             options.onChange,
         );
         speakers = renderSpeakers(config.speakers);
-        side.append(staleHint, speakers);
+        side.append(staleHint, modeRow, speakers);
     } else {
         noConfig = renderNoConfig(options.editable ?? false, options.onCreateConfig);
         pane.appendChild(noConfig.element);
-        side.appendChild(renderNoSpeakers());
+        side.append(modeRow, renderNoSpeakers());
     }
 
     container.append(pane, divider, side);
@@ -179,7 +181,12 @@ export function createConfigView(
         },
         setContent: (next) =>
             editor?.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: next } }),
-        updateSpeakers: (next) => {
+        updateConfig: (next) => {
+            if (modeRow) {
+                const freshMode = renderModeRow(next.mode);
+                modeRow.replaceWith(freshMode);
+                modeRow = freshMode;
+            }
             if (!speakers || !isConfiguredFromFile(next)) return;
             const fresh = renderSpeakers(next.speakers);
             speakers.replaceWith(fresh);
@@ -265,6 +272,25 @@ function renderStaleHint(): HTMLElement {
     hint.hidden = true;
     hint.textContent = "Unsaved changes — save to refresh the speakers.";
     return hint;
+}
+
+/**
+ * The project's configured compilation mode, shown above the speakers. Its tooltip explains that
+ * the mode drives the CLI and embedded builds, while the visualization always renders
+ * stage-boundary — so the report never shows a stage rebuilt from post-error material.
+ */
+function renderModeRow(mode: string | undefined): HTMLElement {
+    const row = document.createElement("div");
+    row.className = "config-mode";
+    const value = mode ?? "stage-boundary";
+    row.innerHTML =
+        `<span class="config-mode-label">Mode</span>` +
+        `<span class="config-mode-value">${escapeHtml(value)}</span>`;
+    row.title =
+        "How this project compiles after an error — used by the dialoguedown CLI and embedded " +
+        "builds. The visualization always renders stage-boundary, so every stage it shows is " +
+        "built from reliable input; this setting doesn't change the report.";
+    return row;
 }
 
 /** Copy the text of a clicked cell or tag chip (any element carrying `data-copy`), and confirm it. */

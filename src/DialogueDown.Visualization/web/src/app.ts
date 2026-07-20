@@ -75,8 +75,8 @@ export interface AppController {
     setConfigEditable(editable: boolean): void;
     /** Replace the config editor's content — a discard/restore of the last saved TOML. */
     setConfigContent(source: string): void;
-    /** Re-render the configured speakers after a config recompile. */
-    updateConfigSpeakers(config: ConfigReport): void;
+    /** Re-render the mode row and configured speakers after a config recompile. */
+    updateConfig(config: ConfigReport): void;
     /** Mark the config speakers pane as stale (unsaved edits) or up to date. */
     setConfigStale(stale: boolean): void;
     /** Toggle the Source tab's unsaved (dirty) marker. */
@@ -179,7 +179,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         setContent: (next) => sourceHandle?.setContent(next),
         setConfigEditable: (next) => configHandle?.setEditable(next),
         setConfigContent: (next) => configHandle?.setContent(next),
-        updateConfigSpeakers: (config) => configHandle?.updateSpeakers(config),
+        updateConfig: (config) => configHandle?.updateConfig(config),
         setConfigStale: (stale) => configHandle?.setStale(stale),
         markSourceDirty: (dirty) => sourceTab?.classList.toggle("dirty", dirty),
         markConfigDirty: (dirty) => configTab?.classList.toggle("dirty", dirty),

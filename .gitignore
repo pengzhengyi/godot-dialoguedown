@@ -31,6 +31,9 @@ coverage-report/
 .idea/
 .vs/
 *.DotSettings.user
+# Personal editor config (Peacock colors, local cSpell words); keep it local so it
+# never overrides a contributor's own settings. Shared extensions.json / tasks.json stay tracked.
+.vscode/settings.json
 
 # --- macOS ---
 .DS_Store

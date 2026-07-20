@@ -1,7 +1,7 @@
 # Diagnostics Overlay
 
 > [!NOTE]
-> Status: **proposed / draft** — awaiting review. This is the web-report half of
+> Status: **implemented**. This is the web-report half of
 > [Component 6 — Editor seams](./Diagnostics%20and%20Validation.md) ([#121](https://github.com/pengzhengyi/godot-dialoguedown/issues/121)):
 > it renders the compiler's diagnostics in the `visualize` report's source editor,
 > built on an **LSP-shaped diagnostic projection** so a future language server and
@@ -59,17 +59,17 @@ Code extension.
 
 ## Functionality checklist
 
-- [ ] `.NET` projects each `LocatedDiagnostic` into an **LSP diagnostic** (zero-based
+- [x] `.NET` projects each `LocatedDiagnostic` into an **LSP diagnostic** (zero-based
       range, integer severity, code, message, `source = "dialoguedown"`).
-- [ ] The report **payload carries** the LSP diagnostics, for both a complete and a
+- [x] The report **payload carries** the LSP diagnostics, for both a complete and a
       halted compile.
-- [ ] The source editor renders them as an **overlay**: an inline squiggle per
+- [x] The source editor renders them as an **overlay**: an inline squiggle per
       diagnostic, a **gutter** marker, and a hover **tooltip** with the message.
-- [ ] The tooltip links to the diagnostic's **error-code** entry (`#dlg<code>`).
-- [ ] Severity maps correctly: error, warning, and info are visually distinct.
-- [ ] The overlay **refreshes on recompile** — save and hot-reload — without rebuilding
+- [x] The tooltip links to the diagnostic's **error-code** entry (`#dlg<code>`).
+- [x] Severity maps correctly: error, warning, and info are visually distinct.
+- [x] The overlay **refreshes on recompile** — save and hot-reload — without rebuilding
       the editor, and clears on a clean compile.
-- [ ] Out-of-range or zero-width ranges are handled without throwing.
+- [x] Out-of-range or zero-width ranges are handled without throwing.
 
 ## Interfaces and abstractions
 
@@ -79,10 +79,10 @@ Code extension.
 | `DiagnosticProjection` (`.NET`, new) | Map a `LocatedDiagnostic` to an `LspDiagnostic` (one-based → zero-based, severity → int). The reusable seam. | `LocatedDiagnostic` |
 | `CompilationVisualizer.BuildContent` (`.NET`) | Project `result.LocatedDiagnostics` and include them in the payload. | `DiagnosticProjection`, `DisplayGraphJson` |
 | `DisplayGraphJson.SerializeReport` (`.NET`) | Serialize the diagnostics into the payload's `diagnostics` field. | `LspDiagnostic` |
-| `Diagnostic` (TS `model.ts`, new) | The payload mirror of `LspDiagnostic`. | `Report` |
+| `LspDiagnostic` (TS `model.ts`, new) | The payload mirror of the `.NET` `LspDiagnostic`. | `Report`, `LspRange`, `LspPosition` |
 | `Report.diagnostics` (TS) | The document's LSP diagnostics; absent ⇒ none. | overlay builder |
-| `diagnosticsOverlay` (TS, new) | Build the `@codemirror/lint` extension and convert payload diagnostics to editor diagnostics (range → offset, severity, tooltip with doc link). | `@codemirror/lint`, `source-view.ts` |
-| `source-view.ts` editor builder | Mount the overlay behind a **compartment** so recompiles can push new diagnostics live. | `diagnosticsOverlay`, live-edit |
+| `diagnostics-overlay.ts` (TS, new) | Convert payload diagnostics to `@codemirror/lint` diagnostics (range → offset, severity, tooltip with doc link) and push them with `setEditorDiagnostics`; expose the `lintGutter` extension. | `@codemirror/lint`, `source-view.ts` |
+| `source-view.ts` editor builder | Mount the lint gutter and expose `setDiagnostics` on its handle so recompiles push new diagnostics live. | `diagnostics-overlay.ts`, `app.ts` |
 
 ### Payload shape
 
@@ -91,22 +91,29 @@ Ranges are **zero-based** (LSP); the editor converts them to offsets.
 
 ```ts
 /** An LSP-shaped diagnostic carried in the report payload. */
-export interface Diagnostic {
-    range: { start: Position; end: Position }; // zero-based (LSP)
-    severity: 1 | 2 | 3 | 4; // Error | Warning | Info | Hint
+export interface LspDiagnostic {
+    range: LspRange; // zero-based (LSP)
+    severity: LspSeverity; // 1 Error | 2 Warning | 3 Information | 4 Hint
     code: string; // e.g. "DLG2001"
     message: string;
     source: string; // "dialoguedown"
 }
 
-export interface Position {
+export interface LspRange {
+    start: LspPosition;
+    end: LspPosition;
+}
+
+export interface LspPosition {
     line: number; // zero-based
     character: number; // zero-based
 }
 
+export type LspSeverity = 1 | 2 | 3 | 4;
+
 export interface Report {
     // …existing fields…
-    diagnostics?: Diagnostic[];
+    diagnostics?: LspDiagnostic[];
 }
 ```
 
@@ -125,6 +132,11 @@ today — the report — so it lives in `DialogueDown.Visualization` for now; wh
 language server lands it extracts mechanically to a shared editor-projection library,
 since it depends only on the core diagnostic model.
 
+Severity is a typed `LspSeverity` enum carrying the protocol's own numbers
+(`Error = 1` … `Hint = 4`); a **property-level** `JsonNumberEnumConverter` keeps it an
+integer on the wire, since the report serializer writes enums as strings by default and
+only a property-level converter overrides one in its converter collection.
+
 ### D2 — `@codemirror/lint` for the overlay
 
 [`@codemirror/lint`](https://www.npmjs.com/package/@codemirror/lint) (official, MIT) is
@@ -138,9 +150,10 @@ because they come from the server-side compile, not a client-side linter.
 
 No new transport. The static export and the live server's `/api/save` response and
 `/api/document` both serialize the report through `SerializeReport`; adding a
-`diagnostics` field flows to both. On recompile the overlay is refreshed through a
-CodeMirror **compartment**, so the editor is reconfigured in place — the same pattern the
-graph tabs already use.
+`diagnostics` field flows to both. On recompile the app pushes the fresh diagnostics
+imperatively with `setDiagnostics` — on load, on a View-mode hot-reload, and after each
+Edit-mode save — so the one editor instance is never rebuilt and a clean compile clears
+the overlay.
 
 ### D4 — No TypeScript re-implementation of the compiler
 
@@ -204,18 +217,22 @@ tabs and belongs with user-selectable mode
   `diagnostics` field. Both complete and halted results carry their diagnostics.
 - **TypeScript:** `model.ts` gains `Report.diagnostics`; a new `diagnostics-overlay.ts`
   converts them to `@codemirror/lint` diagnostics (range → offset, severity, tooltip with
-  the doc link) and exposes the extension; `source-view.ts` mounts it behind a
-  compartment; the live-edit save path pushes refreshed diagnostics after each recompile.
+  the doc link) and pushes them with `setEditorDiagnostics`; `source-view.ts` mounts the
+  lint gutter and exposes `setDiagnostics` on its handle; the `app` controller pushes on
+  load, the View-mode reload pushes on hot-reload, and the Edit-mode save's `onSaved`
+  pushes after each recompile.
 - **Live server:** unchanged — `/api/save`, `/api/document`, and the SSE hot-reload
   already serialize the report, so the diagnostics flow through.
 
 ## Testability
 
-- **`.NET` unit** (`DiagnosticProjectionTests`): a `LocatedDiagnostic` maps to the right
-  zero-based range, integer severity, code, message, and source; boundary cases —
-  zero-width, multi-line, first line/column (one-based → zero-based).
+- **`.NET` unit** (`DiagnosticProjectionTests`, `LspSeverityTests`): a `LocatedDiagnostic`
+  maps to the right zero-based range, integer severity, code, message, and source; boundary
+  cases — zero-width, multi-line, first line/column (one-based → zero-based); the severity
+  enum carries the protocol numbers.
 - **`.NET`** (`CompilationVisualizerTests`, `DisplayGraphJsonTests`): a compiled result's
-  diagnostics reach the payload's `diagnostics` field; a clean compile omits it.
+  diagnostics reach the payload's `diagnostics` field with integer severity; a clean compile
+  carries an empty array, so the overlay clears; a null diagnostics argument is omitted.
 - **TS unit** (`diagnostics-overlay.test.ts`): payload diagnostics convert to editor
   diagnostics with correct offsets and severities; the tooltip carries the code's doc
   link.

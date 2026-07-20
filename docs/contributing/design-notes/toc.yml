@@ -28,6 +28,8 @@
   items:
   - name: Diagnostics and Validation
     href: Diagnostics and Validation.md
+  - name: CLI Diagnostic Rendering
+    href: CLI Diagnostic Rendering.md
 - name: Command-line interface
   items:
   - name: Command-Line Interface

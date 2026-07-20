@@ -1,7 +1,7 @@
 # Choice nesting diagnostic
 
 > [!NOTE]
-> Status: **approved — implementation in progress**
+> Status: **implemented**
 > ([issue #132](https://github.com/pengzhengyi/godot-dialoguedown/issues/132)).
 > Add a style warning when a choice branch becomes difficult to scan, while
 > keeping nested choices valid.
@@ -19,6 +19,7 @@
 - [Error and boundary cases](#error-and-boundary-cases)
 - [Integration](#integration)
 - [Testability](#testability)
+- [Implementation crosscheck](#implementation-crosscheck)
 - [Alternatives not chosen](#alternatives-not-chosen)
 - [Open questions](#open-questions)
 
@@ -35,17 +36,17 @@ level, or introduce public/TOML rule configuration.
 
 ## Functionality checklist
 
-- [ ] Add `DLG3002` as a `Style` diagnostic with `Warning` severity.
-- [ ] Treat a top-level `Choices` group as nesting level 1.
-- [ ] Allow levels 1 through 3 without a diagnostic.
-- [ ] Report the first group at level 4 on each over-nested branch.
-- [ ] Avoid duplicate reports for deeper descendants of the same branch.
-- [ ] Apply equally to ordered and unordered choices.
-- [ ] Point at the start of the first over-limit choice group.
-- [ ] Register the rule in every default compiler composition root.
-- [ ] Keep the default threshold behind an internal rule seam for future
+- [x] Add `DLG3002` as a `Style` diagnostic with `Warning` severity.
+- [x] Treat a top-level `Choices` group as nesting level 1.
+- [x] Allow levels 1 through 3 without a diagnostic.
+- [x] Report the first group at level 4 on each over-nested branch.
+- [x] Avoid duplicate reports for deeper descendants of the same branch.
+- [x] Apply equally to ordered and unordered choices.
+- [x] Point at the start of the first over-limit choice group.
+- [x] Register the rule in every default compiler composition root.
+- [x] Keep the default threshold behind an internal rule seam for future
       configuration.
-- [ ] Update the generated error-code reference and writer-facing guidance.
+- [x] Update the generated error-code reference and writer-facing guidance.
 
 ## Ubiquitous language
 
@@ -76,7 +77,7 @@ The first group beyond that recommendation reports `DLG3002`:
             - Level 4
 ```
 
-Proposed descriptor:
+Descriptor:
 
 | Field | Value |
 | --- | --- |
@@ -160,9 +161,9 @@ ancestors.
 | Type | Responsibility |
 | --- | --- |
 | `DiagnosticCatalog` | Own `DLG3002`, its message format, category, and default severity. |
-| `DialogueTreeIndex` | Preserve parent relationships by node identity and expose an ancestor query. |
+| `DialogueTreeIndex` | Preserve parent relationships by node identity and lazily yield nearest-first ancestors. |
 | `ChoiceNestingDepthRule` | Count choice-group ancestors and report the first over-limit group on each branch. |
-| `StructuralValidatorFactory` | Own the default structural-rule registry so the direct factory and DI composition root cannot drift. |
+| `StructuralValidatorFactory` | Create the same built-in structural rule set for the container-free and DI composition roots. |
 
 ## Key design decisions
 
@@ -190,9 +191,12 @@ rule today.
 
 ### D3 — Report once at the first violation
 
-For one branch, report when its depth is exactly `maximum + 1`. Do not report its
-level-5 or level-6 descendants: they are consequences of the same structural
-choice and would repeat the same advice.
+For one branch, count its enclosing `Choices` groups. Report when that zero-based
+count equals the maximum nesting level. The writer-facing level is the enclosing
+count plus 1, so a maximum of 3 reports the first group at level 4.
+
+Do not report level-5 or level-6 descendants: they are consequences of the same
+structural choice and would repeat the same advice.
 
 If two sibling branches independently reach level 4, report both. Each requires
 a separate refactoring decision.
@@ -206,12 +210,15 @@ without underlining the whole nested block.
 ### D5 — Extend the shared index instead of walking twice
 
 `DialogueTreeIndex` already exists so every structural rule shares one traversal.
-Add parent relationships there rather than giving this rule a private recursive
-walk.
+Its static `Build` factory delegates mutable traversal to a scoped private
+builder, which collects nodes and parent relationships before returning the
+immutable query object. This keeps build-only mutation out of the finished
+index.
 
 Nodes are records, so structurally equal nodes may compare equal. The parent map
 must therefore use reference identity. An ancestor query keeps that detail
-inside the index and gives future structural rules a reusable tree-context seam.
+inside the index and gives future structural rules a reusable tree-context seam;
+it lazily yields the nearest parent first.
 
 ### D6 — Keep the wording gentle and actionable
 
@@ -241,10 +248,11 @@ guide: introduce a scene and jump to it.
   catalog projection.
 - Add the rule to the structural validator's default registry. Introduce
   `StructuralValidatorFactory` so `ScriptCompilerFactory` and
-  `AddDialogueDown` share that registry rather than duplicating rule lists.
+  `AddDialogueDown` create validators with the same built-in rule set.
 - Keep the script-language specification's existing guidance that deep nesting
   becomes difficult to scan and jumps are preferable when branches split and
-  rejoin. Update it only as needed to name the new warning.
+  rejoin, without coupling the language reference to a diagnostic code or
+  threshold.
 - Do not add CLI switches, TOML keys, suppressions, automatic fixes, or
   visualization-specific behavior in this component. Existing diagnostic
   renderers consume `DLG3002` automatically.
@@ -266,6 +274,14 @@ guide: introduce a scene and jump to it.
 Use multi-line raw string literals for nested script fixtures so indentation and
 choice depth are visible.
 
+## Implementation crosscheck
+
+| Bucket | Result |
+| --- | --- |
+| **Achieved** | `DLG3002`, the level-4 threshold, first-crossing and sibling behavior, point location, ordered/unordered parity, shared default registration, compiled documentation examples, and writer guidance all match the design. |
+| **Changed** | The final index uses a scoped private builder and a lazy nearest-first ancestor sequence; the rule compares the enclosing-choice count directly with `maximumNestingLevel` and adds 1 only when reporting the human level. |
+| **Not implemented** | Public/TOML threshold, severity, suppression, and automatic-fix configuration remain deliberately out of scope for the later rule-configuration design. |
+
 ## Alternatives not chosen
 
 | Alternative | Why not |
@@ -279,5 +295,4 @@ choice depth are visible.
 
 ## Open questions
 
-None. The review gate may still revise the default threshold, severity, message,
-or configuration scope before implementation.
+None.

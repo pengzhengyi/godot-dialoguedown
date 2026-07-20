@@ -89,7 +89,7 @@ then record decisions that are too specific for the parent design.
 | Order | Note | What it covers | Status |
 | --- | --- | --- | --- |
 | 1 | [Diagnostics and Validation](./Diagnostics%20and%20Validation.md) | The whole effort: the diagnostic model (built), the collect-and-continue collection seam, the validator and rules, and the renderer | In progress |
-| 2 | [Choice Nesting Diagnostic](./Choice%20Nesting%20Diagnostic.md) | A style warning for choice branches nested beyond the recommended depth | In progress |
+| 2 | [Choice Nesting Diagnostic](./Choice%20Nesting%20Diagnostic.md) | A style warning for choice branches nested beyond the recommended depth | Implemented |
 
 ### Command-line interface
 

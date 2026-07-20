@@ -68,6 +68,8 @@ internal sealed class ErrataRenderer(IAnsiConsole console) : IErrataRenderer
             var location = $"{file}({diagnostic.Start.Line},{diagnostic.Start.Column})";
             console.MarkupLineInterpolated(
                 $"[{color}]{location}: {LabelOf(diagnostic.Severity)} {diagnostic.Code}: {diagnostic.Message}[/]");
+            console.MarkupLineInterpolated(
+                $"[grey]  for more information, see {DiagnosticDocumentation.UrlFor(diagnostic.Code)}[/]");
         }
     }
 
@@ -98,7 +100,10 @@ internal sealed class ErrataRenderer(IAnsiConsole console) : IErrataRenderer
         // phrase — "syntax error", "semantic warning" — to keep both visible (the color still
         // conveys severity). The greppable one-liner stays clean; only this rich header carries it.
         var header = $"{diagnostic.Category} {LabelOf(diagnostic.Severity)}".ToLowerInvariant();
-        return errata.WithCode(diagnostic.Code).WithCategory(header);
+        return errata
+            .WithCode(diagnostic.Code)
+            .WithCategory(header)
+            .WithNote($"for more information, see {DiagnosticDocumentation.UrlFor(diagnostic.Code)}");
     }
 
     private static IEnumerable<LocatedDiagnostic> Ordered(IReadOnlyList<LocatedDiagnostic> diagnostics) =>

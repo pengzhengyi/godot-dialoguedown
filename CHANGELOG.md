@@ -13,8 +13,9 @@ changes easy to categorize.
 - **Diagnostics on the CLI** — `dialoguedown compile` now shows a script's problems and fails with
   a data-error exit code when it has errors, instead of silently succeeding. On a terminal each
   diagnostic is a rich block — the offending source line with a caret under it — and piped output
-  is a greppable `file(line,column): severity CODE: message`. `--mode` chooses how far a compile
-  proceeds after an error. The compiled result also exposes the located diagnostics
+  is a greppable `file(line,column): severity CODE: message`. Each diagnostic is followed by a link
+  to its entry on the hosted Error codes page. `--mode` chooses how far a
+  compile proceeds after an error. The compiled result also exposes the located diagnostics
   (`CompilationResult.LocatedDiagnostics`) for other tools to render. See the
   [CLI Diagnostic Rendering](docs/contributing/design-notes/CLI%20Diagnostic%20Rendering.md) note.
 - **Set the compilation mode per project** — a `dialogue.toml` can now choose how far a compile
@@ -75,8 +76,10 @@ changes easy to categorize.
   position memory that keeps each stage's zoom, pan, and collapsed branches across
   tab switches and hot-reloads.
 - **Error-code reference in the docs** — the hosted guide now lists every `DLG####`
-  diagnostic the compiler reports, grouped by category with each message and severity,
-  generated from the diagnostic catalog so it never drifts from the code. See the
+  diagnostic the compiler reports, grouped by category with each message, severity, a
+  plain explanation, and a worked before-and-after example that highlights the offending
+  token and its fix. It is generated from the diagnostic catalog and its examples are
+  compiler-verified, so the page never drifts from the code. See the
   [Error codes](docs/guide/error-codes.md) page.
 - **Broken scripts still visualize what compiled.** When a script fails to compile past
   a stage, the report shows the stages it did produce and disables the ones it could not —

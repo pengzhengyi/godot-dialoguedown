@@ -11,7 +11,9 @@ public sealed class DiagnosticCatalogMarkdownTests
     {
         Assert.StartsWith("# Error codes\n", _rendered);
 
-        var topLevelHeadings = _rendered
+        // Example scripts contain their own "# Scene" heading lines inside <pre> blocks; those are
+        // literal script text, not document headings, so exclude them before counting the H1.
+        var topLevelHeadings = WithoutPreBlocks(_rendered)
             .Split('\n')
             .Count(line => line.StartsWith("# ", StringComparison.Ordinal));
         Assert.Equal(1, topLevelHeadings);
@@ -32,9 +34,20 @@ public sealed class DiagnosticCatalogMarkdownTests
     {
         foreach (var descriptor in DiagnosticCatalogReflection.Descriptors())
         {
-            Assert.Contains($"**{descriptor.Title}** · {descriptor.DefaultSeverity}", _rendered);
+            Assert.Contains($">{descriptor.DefaultSeverity}</span> · {descriptor.Title}", _rendered);
             Assert.Contains(descriptor.MessageFormat, _rendered);
         }
+    }
+
+    [Fact]
+    public void MarksTheChangedTokensInADocumentedExample()
+    {
+        // DLG1101 marks the offending tags in red in the broken script and the added speaker name
+        // in green in the fix, so the change stands out in both examples.
+        Assert.Contains("<mark class=\"dd-mark-bad\">#excited</mark>", _rendered);
+        Assert.Contains("<mark class=\"dd-mark-fix\">Alice </mark>#excited", _rendered);
+        Assert.Contains("<span class=\"dd-eg-fix\">Fix</span>", _rendered);
+        Assert.Contains("<span class=\"dd-eg-bad\">Triggering example</span>", _rendered);
     }
 
     [Fact]
@@ -78,4 +91,8 @@ public sealed class DiagnosticCatalogMarkdownTests
     {
         Assert.Equal(_rendered, DiagnosticCatalogMarkdown.Render());
     }
+
+    private static string WithoutPreBlocks(string markdown) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            markdown, "<pre[^>]*>.*?</pre>", string.Empty, System.Text.RegularExpressions.RegexOptions.Singleline);
 }

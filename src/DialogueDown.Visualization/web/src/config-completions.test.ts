@@ -3,7 +3,12 @@
 import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
 import { CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
-import { tableHeaderCompletions, speakerKeyCompletions } from "./config-completions";
+import {
+    tableHeaderCompletions,
+    speakerKeyCompletions,
+    rootKeyCompletions,
+    modeValueCompletions,
+} from "./config-completions";
 
 function contextAt(doc: string, pos: number, explicit = false): CompletionContext {
     return new CompletionContext(EditorState.create({ doc }), pos, explicit);
@@ -82,5 +87,64 @@ describe("speakerKeyCompletions", () => {
             tags: "dd-tag",
             default: "dd-config-reserved",
         });
+    });
+});
+
+describe("rootKeyCompletions", () => {
+    const source = rootKeyCompletions();
+
+    it("offers the mode key at a root key position", () => {
+        expect(labels(source(contextAt("m", 1)))).toEqual(["mode"]);
+    });
+
+    it("is quiet inside a [[speakers]] table", () => {
+        const doc = "[[speakers]]\nm";
+        expect(labels(source(contextAt(doc, doc.length)))).toEqual([]);
+    });
+
+    it("is quiet in a value position (after =)", () => {
+        const doc = "mode = s";
+        expect(labels(source(contextAt(doc, doc.length)))).toEqual([]);
+    });
+
+    it("is quiet in a comment", () => {
+        const doc = "# m";
+        expect(labels(source(contextAt(doc, doc.length)))).toEqual([]);
+    });
+
+    it("gives the mode key its own icon type", () => {
+        const result = source(contextAt("m", 1));
+        const type = result && "options" in result ? result.options[0]?.type : undefined;
+        expect(type).toBe("dd-config-mode");
+    });
+});
+
+describe("modeValueCompletions", () => {
+    const source = modeValueCompletions();
+
+    it("offers the settable modes inside the value quotes", () => {
+        const doc = 'mode = "';
+        expect(labels(source(contextAt(doc, doc.length)))).toEqual([
+            "stage-boundary",
+            "best-effort",
+        ]);
+    });
+
+    it("offers the settable modes on an unquoted mode line, applying the quoted value", () => {
+        const doc = "mode = ";
+        const result = source(contextAt(doc, doc.length));
+        expect(labels(result)).toEqual(["stage-boundary", "best-effort"]);
+        const apply = result && "options" in result ? result.options[0]?.apply : undefined;
+        expect(apply).toBe('"stage-boundary"');
+    });
+
+    it("is quiet on a non-mode value", () => {
+        const doc = 'name = "';
+        expect(labels(source(contextAt(doc, doc.length)))).toEqual([]);
+    });
+
+    it("is quiet before the = (a key position)", () => {
+        const doc = "mode";
+        expect(labels(source(contextAt(doc, doc.length)))).toEqual([]);
     });
 });

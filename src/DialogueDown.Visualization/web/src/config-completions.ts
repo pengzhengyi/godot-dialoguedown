@@ -25,6 +25,13 @@ const SPEAKER_KEYS: ReadonlyArray<{ label: string; type: string }> = [
     { label: "tags", type: "dd-tag" },
 ];
 
+/** The completion icon type shared by the `mode` key and its values. */
+const MODE = "dd-config-mode";
+
+/** The settable compilation modes, offered as `mode` values — stable and client-side, like the
+ *  speaker structural keys. Fail-fast is intentionally excluded: it throws instead of reporting. */
+const MODE_VALUES: ReadonlyArray<string> = ["stage-boundary", "best-effort"];
+
 /** The name of the nearest TOML table/array-of-tables header at or above `lineNumber`, or null. */
 function nearestTableAbove(state: EditorState, lineNumber: number): string | null {
     for (let n = lineNumber; n >= 1; n--) {
@@ -73,15 +80,73 @@ export function speakerKeyCompletions(reservedTags: readonly string[]): Completi
 }
 
 /**
- * The config (TOML) editor's schema autocompletion: the `[[speakers]]` table header, and the
- * `name` / `id` / `tags` keys plus the reserved tag names at a key position inside a speaker
- * table. Bundles CodeMirror's completion keymap (Edit-only, like the Source editor) and adds
- * Tab as a second accept key.
+ * Complete a top-level key position (outside any table) with the document's root settings —
+ * currently the `mode` key. A root key position is the start of a line, before any `=`, not a
+ * comment, and above the first table header (where TOML's root key/values must live).
+ */
+export function rootKeyCompletions(): CompletionSource {
+    return (context) => {
+        const match = context.matchBefore(/[\w-]*/);
+        if (!match) return null;
+        // Nothing typed yet and not an explicit request: stay quiet rather than pop on every line.
+        if (!context.explicit && match.from === context.pos) return null;
+        const line = context.state.doc.lineAt(match.from);
+        const before = line.text.slice(0, match.from - line.from);
+        if (before.trim() !== "") return null; // not at a key position
+        if (line.text.includes("=")) return null; // already a `key = value`
+        if (line.text.trimStart().startsWith("#")) return null; // a comment
+        if (nearestTableAbove(context.state, line.number) !== null) return null; // inside a table
+        return completionsFrom(context, match.from, [{ label: "mode", type: MODE }], /^[\w-]*$/);
+    };
+}
+
+/**
+ * Complete a `mode` value with the settable modes. It fires inside the value's quotes
+ * (`mode = "…"`, the autoclosed form) offering the bare names, and on an unquoted `mode = …`,
+ * where accepting inserts the quoted value.
+ */
+export function modeValueCompletions(): CompletionSource {
+    return (context) => {
+        const line = context.state.doc.lineAt(context.pos);
+        const before = line.text.slice(0, context.pos - line.from);
+
+        const quoted = /^\s*mode\s*=\s*"([\w-]*)$/.exec(before);
+        if (quoted) {
+            const from = context.pos - quoted[1].length;
+            const options = MODE_VALUES.map((value) => ({ label: value, type: MODE }));
+            return completionsFrom(context, from, options, /^[\w-]*$/);
+        }
+
+        const bare = /^\s*mode\s*=\s*([\w-]*)$/.exec(before);
+        if (bare) {
+            const from = context.pos - bare[1].length;
+            const options = MODE_VALUES.map((value) => ({
+                label: value,
+                apply: `"${value}"`,
+                type: MODE,
+            }));
+            return completionsFrom(context, from, options, /^[\w-]*$/);
+        }
+
+        return null;
+    };
+}
+
+/**
+ * The config (TOML) editor's schema autocompletion: the `[[speakers]]` table header, the
+ * top-level `mode` key and its values, and the `name` / `id` / `tags` keys plus the reserved
+ * tag names at a key position inside a speaker table. Bundles CodeMirror's completion keymap
+ * (Edit-only, like the Source editor) and adds Tab as a second accept key.
  */
 export function configCompletions(reservedTags: readonly string[] = []): Extension {
     return [
         autocompletion({
-            override: [tableHeaderCompletions(), speakerKeyCompletions(reservedTags)],
+            override: [
+                tableHeaderCompletions(),
+                rootKeyCompletions(),
+                modeValueCompletions(),
+                speakerKeyCompletions(reservedTags),
+            ],
         }),
         keymap.of([...completionKeymap, { key: "Tab", run: acceptCompletion }]),
     ];

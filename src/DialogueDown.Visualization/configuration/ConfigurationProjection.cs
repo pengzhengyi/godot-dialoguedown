@@ -17,7 +17,8 @@ internal static class ConfigurationProjection
         // The reserved tag names come from the compiler's own closed vocabulary, so the
         // editor's autocompletion never suggests a reserved key the loader would reject.
         var reservedTags = ReservedTagNames.Known.Order().ToList();
-        return new ConfigurationReport(applied.File, speakers, reservedTags);
+        var mode = CompilationModes.NameOf(applied.Options.Mode);
+        return new ConfigurationReport(applied.File, mode, speakers, reservedTags);
     }
 
     private static ConfiguredSpeakerView ToView(ConfiguredSpeaker speaker)

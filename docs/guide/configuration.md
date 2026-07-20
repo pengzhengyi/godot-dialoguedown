@@ -1,13 +1,15 @@
 # Project configuration
 
 A `dialogue.toml` file configures how DialogueDown compiles the scripts in your
-project — today, the **speakers** your dialogue uses and which one is the
-**default**. It sits at your project root, and the `dialoguedown` CLI finds it
-automatically, so your scripts stay free of project-wide setup.
+project — the **speakers** your dialogue uses (and which one is the **default**)
+and the **compilation mode**. It sits at your project root, and the
+`dialoguedown` CLI finds it automatically, so your scripts stay free of
+project-wide setup.
 
 > [!NOTE]
-> DialogueDown is in early development. Configuration currently covers speakers;
-> more knobs (documented in the design notes) will follow.
+> DialogueDown is in early development. Configuration currently covers speakers
+> and the compilation mode; more knobs (documented in the design notes) will
+> follow.
 
 ## Table of contents
 
@@ -17,6 +19,7 @@ automatically, so your scripts stay free of project-wide setup.
   - [Configuring speakers](#configuring-speakers)
   - [The default speaker](#the-default-speaker)
   - [Tags](#tags)
+  - [Compilation mode](#compilation-mode)
   - [Using it with the CLI](#using-it-with-the-cli)
   - [Autocompletion in the report](#autocompletion-in-the-report)
 
@@ -95,6 +98,27 @@ For a tag whose name itself contains `=`, use an inline table:
 tags = [{ name = "quest=intro", value = "started" }]
 ```
 
+## Compilation mode
+
+A top-level `mode` key chooses **how far a compile proceeds after an error**:
+
+```toml
+# dialogue.toml
+mode = "best-effort"
+```
+
+| Value | Behavior |
+| --- | --- |
+| `stage-boundary` | Recover within a stage and report every error it finds, then stop at the stage boundary. The default when the key is unset. |
+| `best-effort` | Recover through every stage and collect everything, for the fullest picture. |
+
+The CLI's [`--mode`](#using-it-with-the-cli) option overrides the configured mode
+for a single run, so the order of precedence is **`--mode` > `dialogue.toml` >
+the default**. For the rationale — and why the `fail-fast` mode is an embedding
+contract rather than a settable value — see the
+[Compilation Mode Configuration](../contributing/design-notes/Compilation%20Mode%20Configuration.md)
+design note.
+
 ## Using it with the CLI
 
 Both commands pick up the configuration automatically:
@@ -111,10 +135,11 @@ Use `--config` to name a specific file, overriding discovery:
 dialoguedown compile intro.dialogue.md --config config/dialogue.toml
 ```
 
-| Option           | Behavior                                                              |
-| ---------------- | --------------------------------------------------------------------- |
-| *(none)*         | Discover the nearest `dialogue.toml` from the script's folder upward. |
-| `--config <path>`| Use exactly this file; a missing path is a usage error.               |
+| Option            | Behavior                                                              |
+| ----------------- | --------------------------------------------------------------------- |
+| *(none)*          | Discover the nearest `dialogue.toml` from the script's folder upward. |
+| `--config <path>` | Use exactly this file; a missing path is a usage error.               |
+| `--mode <mode>`   | Override the configured mode for this run.                            |
 
 > [!NOTE]
 > For `visualize`, discovery stays within `--root` (the served folder), so a report

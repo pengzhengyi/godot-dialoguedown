@@ -3,9 +3,9 @@
 > [!NOTE]
 > Status: **implemented**.
 > The `dialoguedown` CLI: a Spectre.Console.Cli host with `compile` and
-> `visualize` subcommands. This first pass builds the **skeleton and
-> architecture** only — both commands are stubs behind a compilation seam that
-> later components fill in.
+> `visualize` subcommands. This note records the **skeleton and architecture** —
+> both commands originally shipped as stubs behind a compilation seam that later
+> components filled in with the real compiler and visualizer.
 >
 > **Maturity caveat.** Unlike the core library, this CLI was built quickly
 > ("vibe-coded") with lighter design review. It is well-tested and works, but its

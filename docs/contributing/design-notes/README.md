@@ -83,13 +83,14 @@ edge, a satellite that reads a `dialogue.toml` into those options.
 **Read when you work on collecting or reporting problems.** A cross-cutting core
 concern that lets the compiler describe every problem it finds — errors and
 warnings — in a structured, located form, so an author can see them all at once
-instead of one throw per run. Start with the subsystem note; focused rule notes
-then record decisions that are too specific for the parent design.
+instead of one throw per run. Start with the umbrella note; focused notes then
+cover individual rules and the surfaces that render them.
 
 | Order | Note | What it covers | Status |
 | --- | --- | --- | --- |
 | 1 | [Diagnostics and Validation](./Diagnostics%20and%20Validation.md) | The whole effort: the diagnostic model (built), the collect-and-continue collection seam, the validator and rules, and the renderer | In progress |
 | 2 | [Choice Nesting Diagnostic](./Choice%20Nesting%20Diagnostic.md) | A style warning for choice branches nested beyond the recommended depth | Implemented |
+| 3 | [CLI Diagnostic Rendering](./CLI%20Diagnostic%20Rendering.md) | Renders collected diagnostics on the `dialoguedown` CLI (rich Errata blocks or greppable one-liners), sets the exit code, and exposes `--mode` | Implemented |
 
 ### Command-line interface
 
@@ -136,7 +137,7 @@ flowchart TB
 | 2 | [Compiler Stage Tooltips](./Compiler%20Stage%20Tooltips.md) | Per-stage hover tips on the report tabs | Implemented |
 | 3 | [Dialogue AST Visualization Tab](./Dialogue%20AST%20Visualization%20Tab.md) | The transpiler's Dialogue AST as a second graph tab | Implemented |
 | 4 | [Desugared AST Visualization Tab](./Desugared%20AST%20Visualization%20Tab.md) | The desugarer's normalized AST as a third tab | Implemented |
-| 5 | [Semantic Model Visualization Tab](./Semantic%20Model%20Visualization%20Tab.md) | The semantic model as an analytics tab: scene-tree graph + cross-linked tables | In progress |
+| 5 | [Semantic Model Visualization Tab](./Semantic%20Model%20Visualization%20Tab.md) | The semantic model as an analytics tab: scene-tree graph + cross-linked tables | Implemented |
 | 6 | [Graph Position Preservation](./Graph%20Position%20Preservation.md) | Per-graph zoom/pan/fold memory and a root-centered default | Implemented |
 | 7 | [Source Editor Autocompletion](./Source%20Editor%20Autocompletion.md) | Document-aware editor completions behind a symbol-source seam | Implemented |
 | 8 | [Live Visualization — Hot Reload](./Live%20Visualization%20-%20Hot%20Reload.md) | Watch a script and hot-reload the report from a local server | Implemented |

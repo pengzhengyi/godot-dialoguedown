@@ -36,8 +36,8 @@ human-readable view**, render that view as **errata** on the `dialoguedown compi
 every problem at once, each pointing at `source(line,column)` — set a meaningful process **exit
 code**, and let the author choose the **compilation mode** with `--mode`.
 
-Today `CompilationResult.Diagnostics` is internal and `compile` ignores it: a script with a bad
-jump or a duplicate anchor still exits `0` and prints nothing. This component closes that gap so
+Before this component, `compile` ignored the collected diagnostics: a script with a bad
+jump or a duplicate anchor still exited `0` and printed nothing. This component closes that gap so
 authoring against DialogueDown gives real feedback.
 
 **In scope:** offset→line/column mapping; a public diagnostic view carrying the rendered message

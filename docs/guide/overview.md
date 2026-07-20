@@ -1,78 +1,78 @@
 # DialogueDown overview
 
-DialogueDown is an engine-agnostic C# library for branching game dialogue. It
-keeps dialogue data, graph logic, tags, and game-state integration outside any
-specific engine so Godot projects can use the core library through thin
-presentation adapters.
+DialogueDown is an engine-agnostic C# library that **compiles** branching game
+dialogue written in Markdown. You author a script in a Markdown-inspired syntax;
+DialogueDown lowers it through a pipeline of compiler stages into a validated
+model, reporting precise diagnostics as it goes — with no dependency on any game
+engine.
 
 > [!NOTE]
-> The current codebase contains the early core interfaces and tag registry. The
-> parser, runner, effects, and condition system are still design intent, not
-> implemented behavior.
+> DialogueDown is in early development. The compiler pipeline is implemented; the
+> **runtime** that plays a compiled script — a dialogue runner and thin engine
+> presentation adapters — is planned, not yet built.
 
 ## Table of contents
 
-- [Architecture at a glance](#architecture-at-a-glance)
+- [The compiler pipeline](#the-compiler-pipeline)
 - [Script representations](#script-representations)
-- [Current implementation status](#current-implementation-status)
+- [What is implemented](#what-is-implemented)
 - [Related docs](#related-docs)
 
-## Architecture at a glance
+## The compiler pipeline
+
+DialogueDown lowers a script through distinct, independently testable stages,
+behind one `IScriptCompiler` facade:
 
 ```mermaid
 flowchart LR
-    Script["Markdown-inspired script DSL"] --> Parser["Parser / compiler"]
-    Parser --> Graph["Dialogue graph\nnodes + edges + tags"]
-    Graph --> Runner["Dialogue runner\ncurrent node + choices"]
-    Runner --> Adapter["Game adapter\nIGameSystem"]
-    Adapter --> Game["Consuming game\nGodot UI, input, state"]
+    Src["Markdown<br/>script"] --> MD["Markdown<br/>AST"] --> DA["Dialogue<br/>AST"]
+    DA --> DS["Desugared<br/>AST"] --> SM["Semantic<br/>model"]
+    SM -. planned .-> RT["Runtime"]
 ```
 
-The intended architecture separates five responsibilities:
+- **Markdown front-end** parses the source into a Markdown AST.
+- **Transpiler** turns that into a Dialogue AST — speakers, speech, choices,
+  jumps, tags, and game calls.
+- **Desugar** normalizes the Dialogue AST, assembling jumps and filling the
+  default speaker.
+- **Semantic analysis** resolves speakers, scenes, and jumps into a validated
+  **semantic model** and reports invalid references.
 
-- **Script DSL:** writer-friendly text format for dialogue, choices, tags,
-  jumps, queries, and commands.
-- **Parser / compiler:** converts script files into graph objects and validates
-  references.
-- **Dialogue graph:** stores nodes, edges, speakers, speech, and tags in an
-  engine-neutral model.
-- **Runner:** advances dialogue state, exposes choices, and triggers game
-  interactions.
-- **Game adapter:** bridges dialogue commands and queries to the consuming game
-  through `IGameSystem`.
+Each stage has a design note; read them in pipeline order in the
+[design notes](../contributing/design-notes/README.md).
 
 ## Script representations
 
 Dialogue content moves through three representations:
 
-1. **Script phase** — a Markdown-inspired domain-specific language (DSL) written
-   by authors in text files.
-2. **Compilation phase** — an abstract syntax tree or intermediate model that
-   resolves speakers, tags, choices, jumps, queries, and commands.
-3. **Runtime phase** — a directed graph/state machine that the dialogue runner
-   can traverse.
+1. **Source** — a Markdown-inspired script an author writes in a text file. See
+   the [script language specification](./script-language.md).
+2. **Compiled model** — the ASTs and the validated semantic model the compiler
+   builds along the pipeline above.
+3. **Runtime graph** *(planned)* — a directed graph/state machine a dialogue
+   runner will traverse to play the dialogue.
 
-For the proposed script syntax, see
-[Script language specification](./script-language.md).
+## What is implemented
 
-## Current implementation status
-
-- **Project shape:** `src/DialogueDown` targets `net8.0` and has no Godot
-  dependency.
-- **Graph model:** early internal interfaces exist for `INode`, `IEdge`,
-  `IDialogue`, `ISpeaker`, `ISpeech`, `ITag`, and `ITaggable`.
-- **Tags:** `Tag` provides the initial internal tag value object. Registry and
-  lookup behavior will be added when the compiler needs it.
-- **Game integration:** `IGameSystem` exposes `Query(string)` and
-  `Execute(string)` for game-state reads and side effects.
-- **Tests:** the current test project verifies the assembly anchor type. Broader
-  parser/runner tests still need to be added as features land.
+- **Compiler pipeline:** parse → transpile → desugar → analyze, behind
+  `IScriptCompiler` (wire it up with `AddDialogueDown()` for DI, or
+  `ScriptCompilerFactory.CreateDefault()`).
+- **Diagnostics:** every problem is a located diagnostic with a stable `DLG####`
+  code; the compiler collects them and continues where it safely can. See the
+  [error codes](./error-codes.md).
+- **Configuration:** a project's `dialogue.toml` declares its speakers and the
+  compilation mode. See [project configuration](./configuration.md).
+- **CLI and visualization:** the `dialoguedown` CLI compiles a script and renders
+  every compiler stage as an interactive report.
+- **Planned:** the runtime — a dialogue runner, effects and conditions, and thin
+  engine presentation adapters.
 
 ## Related docs
 
-- [Script language specification](./script-language.md)
-  — proposed writer-facing syntax for dialogue files.
-- [Error codes](./error-codes.md)
-  — the `DLG####` diagnostics the compiler reports, with each message and how to fix it.
-- [Root README](https://github.com/pengzhengyi/godot-dialoguedown/blob/main/README.md)
-  — project purpose, layout, build command, and design intent.
+- [Script language specification](./script-language.md) — the writer-facing
+  dialogue syntax: speakers, speech, choices, jumps, tags, and game calls.
+- [Project configuration](./configuration.md) — the `dialogue.toml` file.
+- [Error codes](./error-codes.md) — the `DLG####` diagnostics the compiler
+  reports, with each message and how to fix it.
+- [Design notes](../contributing/design-notes/README.md) — the goal, key
+  decisions, and tradeoffs behind each compiler stage.

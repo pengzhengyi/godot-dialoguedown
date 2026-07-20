@@ -2,7 +2,6 @@ using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Desugar;
 using DialogueDown.Script.Validation;
-using DialogueDown.Tests.Support;
 using static DialogueDown.Tests.Support.DialogueAstFactory;
 
 namespace DialogueDown.Tests.Script.Validation;
@@ -50,7 +49,7 @@ public sealed class MultipleJumpsOnLineRuleTests
     {
         var line = Line(Jump("#a"), Jump("#b"));
 
-        var diagnostic = Assert.Single(Check(new Choices(false, [Choice(line)], SourceSpanFactory.Span())));
+        var diagnostic = Assert.Single(Check(ChoiceGroup(Choice(line))));
 
         Assert.Equal(line.Span, diagnostic.Span);
     }

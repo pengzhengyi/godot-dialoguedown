@@ -88,7 +88,7 @@ public sealed class DialogueAstRewriterTests
                     CustomTag("aside"),
                 ],
                 SourceSpanFactory.Span()),
-            new Choices(IsOrdered: false, [Choice(Line(Text("choice")))], SourceSpanFactory.Span()),
+            ChoiceGroup(Choice(Line(Text("choice")))),
         ]);
 
     // One line per speaker form, plus a speech tag, so speaker and tag rewriting can be

@@ -30,7 +30,7 @@ public sealed class ScriptNodeExtensionsTests
     public void Children_Choices_YieldsOptions()
     {
         var option = Choice(Line(Text("pick")));
-        var choices = new Choices(false, [option], SourceSpanFactory.Span());
+        var choices = ChoiceGroup(option);
 
         Assert.Equal([option], choices.Children());
     }

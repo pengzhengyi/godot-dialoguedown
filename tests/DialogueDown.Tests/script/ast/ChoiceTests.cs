@@ -23,7 +23,7 @@ public sealed class ChoiceTests
     [Fact]
     public void Constructor_HoldsANestedChoices_ForBranchingOptions()
     {
-        var nested = new Choices(IsOrdered: false, [Choice(Line(Text("Yes")))], SourceSpanFactory.Span());
+        var nested = ChoiceGroup(Choice(Line(Text("Yes"))));
 
         var choice = new Choice([Line(Text("Is it really?")), nested], SourceSpanFactory.Span());
 

@@ -28,6 +28,8 @@
   items:
   - name: Diagnostics and Validation
     href: Diagnostics and Validation.md
+  - name: Choice Nesting Diagnostic
+    href: Choice Nesting Diagnostic.md
   - name: CLI Diagnostic Rendering
     href: CLI Diagnostic Rendering.md
 - name: Command-line interface

@@ -31,7 +31,8 @@ public static class DialogueDownServiceCollectionExtensions
         services.TryAddSingleton<IMarkdownParser>(_ => new MarkdigMarkdownParser());
         services.TryAddSingleton<IScriptTranspiler>(_ => ScriptTranspilerFactory.CreateDefault());
         services.TryAddSingleton<IScriptDesugarer, ScriptDesugarer>();
-        services.TryAddSingleton<IStructuralValidator>(_ => new StructuralValidator([new MultipleJumpsOnLineRule()]));
+        services.TryAddSingleton<IStructuralValidator>(
+            _ => StructuralValidatorFactory.CreateDefault());
         services.TryAddSingleton<ISemanticAnalyzer>(_ => new SemanticAnalyzer(options.ForSemanticAnalyzer()));
         services.TryAddSingleton<IScriptCompiler>(provider => new ScriptCompiler(
             provider.GetRequiredService<IMarkdownParser>(),

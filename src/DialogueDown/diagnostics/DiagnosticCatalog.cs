@@ -128,4 +128,15 @@ internal static class DiagnosticCatalog
             + "point to.",
         DiagnosticCategory.Semantic,
         DiagnosticSeverity.Error);
+
+    // Style — DLG3xxx: a valid script shape that may be difficult to read or maintain.
+
+    /// <summary>DLG3002 — a choice branch exceeds the recommended nesting depth.</summary>
+    public static readonly DiagnosticDescriptor DeeplyNestedChoiceBranch = new(
+        "DLG3002",
+        "Deeply nested choice branch",
+        "This branch reaches choice nesting level {0}; the recommended maximum is {1}. Consider "
+            + "moving this branch into a new scene and jumping to it instead.",
+        DiagnosticCategory.Style,
+        DiagnosticSeverity.Warning);
 }

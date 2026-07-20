@@ -63,8 +63,65 @@ public sealed class DialogueTreeIndexTests
     }
 
     [Fact]
+    public void AncestorsOf_NestedChoiceGroup_ReturnsNearestParentFirst()
+    {
+        var nested = ChoiceGroup(Choice(Line(Text("nested"))));
+        var outerChoice = Choice(nested);
+        var outer = ChoiceGroup(outerChoice);
+        var index = Build(outer);
+
+        var ancestors = index.AncestorsOf(nested);
+
+        Assert.Equal([outerChoice, outer], ancestors);
+    }
+
+    [Fact]
+    public void AncestorsOf_StructurallyEqualNodes_UsesReferenceIdentity()
+    {
+        IReadOnlyList<Choice> sharedOptions = [];
+        var first = new Choices(false, sharedOptions, SourceSpanFactory.Span());
+        var second = new Choices(false, sharedOptions, SourceSpanFactory.Span());
+        var firstParent = Choice(first);
+        var secondParent = Choice(second);
+        var index = Build(ChoiceGroup(firstParent, secondParent));
+        Assert.Equal(first, second);
+        Assert.NotSame(first, second);
+
+        var firstAncestors = index.AncestorsOf(first);
+        var secondAncestors = index.AncestorsOf(second);
+
+        Assert.Same(firstParent, firstAncestors.First());
+        Assert.Same(secondParent, secondAncestors.First());
+    }
+
+    [Fact]
+    public void AncestorsOf_RootBlock_ReturnsEmpty()
+    {
+        var root = ChoiceGroup(Choice(Line(Text("root"))));
+        var index = Build(root);
+
+        var ancestors = index.AncestorsOf(root);
+
+        Assert.Empty(ancestors);
+    }
+
+    [Fact]
+    public void AncestorsOf_NodeOutsideIndex_Throws()
+    {
+        var index = Build(Line(Text("indexed")));
+        var outside = Line(Text("outside"));
+
+        var exception = Assert.Throws<ArgumentException>(() => index.AncestorsOf(outside));
+
+        Assert.Equal("node", exception.ParamName);
+    }
+
+    [Fact]
     public void Build_NullDocument_Throws() =>
         Assert.Throws<ArgumentNullException>(() => DialogueTreeIndex.Build(null!));
+
+    private static DialogueTreeIndex Build(params ScriptBlock[] blocks) =>
+        DialogueTreeIndex.Build(new DesugaredScriptDocument(new ScriptDocument(blocks)));
 
     // ## Scene
     // Alice: hi => [go](#play)
@@ -76,8 +133,7 @@ public sealed class DialogueTreeIndexTests
             SpeakerNameReference("Alice"),
             [Text("hi"), Jump("#play", Text("go"))],
             SourceSpanFactory.Span());
-        var choices = new Choices(
-            false, [Choice(Line(Text("pick")))], SourceSpanFactory.Span());
+        var choices = ChoiceGroup(Choice(Line(Text("pick"))));
         return new DesugaredScriptDocument(new ScriptDocument([heading, spoken, choices]));
     }
 }

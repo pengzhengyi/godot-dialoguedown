@@ -46,9 +46,11 @@ changes easy to categorize.
   recovering from each so later stages keep checking; a configurable compilation mode
   (`CompilerOptions.Mode`) decides how far a compile proceeds after an error — fail fast,
   stop at the stage boundary (the default), or run every stage — and results carry the
-  collected diagnostics and `HasErrors`. The first structural check warns when a line
-  carries more than one jump. See the
-  [Diagnostics and Validation](docs/contributing/design-notes/Diagnostics%20and%20Validation.md) note.
+  collected diagnostics and `HasErrors`. Structural checks warn when a line carries more
+  than one jump or when a choice branch reaches a fourth nesting level. See the
+  [Diagnostics and Validation](docs/contributing/design-notes/Diagnostics%20and%20Validation.md)
+  and [Choice Nesting Diagnostic](docs/contributing/design-notes/Choice%20Nesting%20Diagnostic.md)
+  notes.
 - **Configurable speakers, in code or from a `dialogue.toml`** — supply speakers (and
   mark one the default) through `CompilerOptions`, and the compiler binds them
   alongside a script's own: a configured default covers speaker-less lines when the

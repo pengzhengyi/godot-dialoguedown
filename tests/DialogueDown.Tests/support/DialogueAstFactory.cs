@@ -36,6 +36,15 @@ internal static class DialogueAstFactory
     public static Choice Choice(params ScriptBlock[] body) =>
         new(body, SourceSpanFactory.Span());
 
+    public static Choices ChoiceGroup(params Choice[] options) =>
+        ChoiceGroup(isOrdered: false, options);
+
+    public static Choices ChoiceGroup(int spanStart, params Choice[] options) =>
+        new(false, options, SourceSpanFactory.Span(spanStart));
+
+    public static Choices ChoiceGroup(bool isOrdered, params Choice[] options) =>
+        new(isOrdered, options, SourceSpanFactory.Span());
+
     public static SceneHeading SceneHeading(string title = "Scene", int level = 1) =>
         new([Text(title)], level, SourceSpanFactory.Span());
 

@@ -78,6 +78,34 @@ public sealed class ScriptCompilerFactoryTests
     }
 
     [Fact]
+    public void CreateDefault_FourChoiceLevels_SurfacesTheNestingWarning()
+    {
+        var source =
+            """
+            - Level 1
+                - Level 2
+                    - Level 3
+                        - Level 4
+            """;
+
+        var result = ScriptCompilerFactory.CreateDefault().Compile(source);
+
+        var warning = AssertReported(
+            result.Diagnostics, DiagnosticCatalog.DeeplyNestedChoiceBranch);
+        var located = AssertLocated(
+            result.LocatedDiagnostics,
+            DiagnosticCatalog.DeeplyNestedChoiceBranch,
+            DiagnosticSeverity.Warning,
+            new LinePosition(4, 13));
+        var markerOffset = source.IndexOf("- Level 4", StringComparison.Ordinal);
+
+        Assert.Equal([4, 3], warning.MessageArguments);
+        Assert.Equal(markerOffset, located.StartOffset);
+        Assert.Equal(markerOffset, located.EndOffset);
+        Assert.False(result.HasErrors);
+    }
+
+    [Fact]
     public void CreateDefault_TagsWithoutSpeaker_HaltsAtTheStageBoundary()
     {
         // The tags-without-speaker error is reported during transpile, so a stage-boundary

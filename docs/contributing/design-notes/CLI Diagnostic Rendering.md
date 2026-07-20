@@ -80,9 +80,10 @@ The work splits into two cleanly bounded passes; 5a has no CLI dependency and 5b
       `file(line,column): severity CODE: message` one-liner when not — errors red, warnings yellow,
       info cyan, sorted by position then code, with user text safely escaped.
 - [x] Print a summary line (e.g. `2 errors, 1 warning`); print nothing for a clean compile.
-- [x] After the summary, print an **error reference**: one deep link per distinct code to its entry
-      on the hosted [Error codes](../../guide/error-codes.md) page (`#dlg<code>`), clickable where the
-      terminal supports it and plain, copy-pasteable text otherwise.
+- [x] Follow each diagnostic with a **doc link** to its entry on the hosted
+      [Error codes](../../guide/error-codes.md) page (`#dlg<code>`) — a per-diagnostic note in the
+      Errata block, or an inline line after the one-liner — clickable where the terminal supports it
+      and plain, copy-pasteable text otherwise.
 - [x] Return `Success` for no errors (warnings/info still succeed), `DataError` when errors exist;
       align malformed-config errors to `DataError` too.
 - [x] `compile --mode <stage-boundary|best-effort>` overrides `CompilerOptions.Mode` only when
@@ -96,7 +97,7 @@ The work splits into two cleanly bounded passes; 5a has no CLI dependency and 5b
 | `LinePosition` (public readonly struct) | a one-based `(Line, Column)`; `ToString()` → `line,column` | — |
 | `LocatedDiagnostic` (public record) | one located diagnostic: `Code`, `Severity`, `Category`, `Message`, `Start`, `End` (line/column), and the half-open character range `StartOffset`/`EndOffset` | `LinePosition`, `DiagnosticSeverity`, `DiagnosticCategory` (public) |
 | `CompilationResult.LocatedDiagnostics` (public) | the located diagnostics for the compile, projected once (cached) from the internal bag | `LineMap`, `LocatedDiagnostic` |
-| `ErrataRenderer` (CLI) | render the located diagnostics to an `IAnsiConsole`: Errata blocks with source context when interactive, else the one-line fallback, plus a summary and a doc-link reference | `IAnsiConsole`, Errata, `LocatedDiagnostic`, `DiagnosticDocumentation`, the source text |
+| `ErrataRenderer` (CLI) | render the located diagnostics to an `IAnsiConsole`: Errata blocks with source context when interactive, else the one-line fallback, plus a summary; each diagnostic carries a doc link | `IAnsiConsole`, Errata, `LocatedDiagnostic`, `DiagnosticDocumentation`, the source text |
 | `DiagnosticDocumentation` (CLI) | map a `DLG####` code to its hosted Error codes deep link (`…/error-codes.html#dlg<code>`) | — |
 | `CompileCommand` (CLI) | compile, render errata, choose the exit code; parse `--mode` | `ErrataRenderer`, `CompilerOptions` |
 

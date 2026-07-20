@@ -30,26 +30,6 @@ internal sealed class ErrataRenderer(IAnsiConsole console) : IErrataRenderer
         }
 
         console.MarkupLineInterpolated($"[grey]{Summarize(diagnostics)}[/]");
-        AppendReference(console, ordered);
-    }
-
-    // Points the reader at the hosted Error codes reference: one link per distinct code, sorted, so a
-    // diagnostic's code can be looked up. The link is clickable where the terminal supports it and
-    // otherwise prints as plain, copy-pasteable text. Shown after both the rich and plain paths.
-    private static void AppendReference(IAnsiConsole console, IReadOnlyList<LocatedDiagnostic> diagnostics)
-    {
-        var codes = diagnostics
-            .Select(diagnostic => diagnostic.Code)
-            .Distinct()
-            .OrderBy(code => code, StringComparer.Ordinal)
-            .ToList();
-
-        console.MarkupLine("[grey]For more information, see the error reference:[/]");
-        foreach (var code in codes)
-        {
-            var url = DiagnosticDocumentation.UrlFor(code);
-            console.MarkupLineInterpolated($"[grey]  {code}[/]  [link={url}]{url}[/]");
-        }
     }
 
     // The rich, source-context rendering. Returns false (so the caller falls back to the one-liner)
@@ -88,6 +68,8 @@ internal sealed class ErrataRenderer(IAnsiConsole console) : IErrataRenderer
             var location = $"{file}({diagnostic.Start.Line},{diagnostic.Start.Column})";
             console.MarkupLineInterpolated(
                 $"[{color}]{location}: {LabelOf(diagnostic.Severity)} {diagnostic.Code}: {diagnostic.Message}[/]");
+            console.MarkupLineInterpolated(
+                $"[grey]  for more information, see {DiagnosticDocumentation.UrlFor(diagnostic.Code)}[/]");
         }
     }
 
@@ -118,7 +100,10 @@ internal sealed class ErrataRenderer(IAnsiConsole console) : IErrataRenderer
         // phrase — "syntax error", "semantic warning" — to keep both visible (the color still
         // conveys severity). The greppable one-liner stays clean; only this rich header carries it.
         var header = $"{diagnostic.Category} {LabelOf(diagnostic.Severity)}".ToLowerInvariant();
-        return errata.WithCode(diagnostic.Code).WithCategory(header);
+        return errata
+            .WithCode(diagnostic.Code)
+            .WithCategory(header)
+            .WithNote($"for more information, see {DiagnosticDocumentation.UrlFor(diagnostic.Code)}");
     }
 
     private static IEnumerable<LocatedDiagnostic> Ordered(IReadOnlyList<LocatedDiagnostic> diagnostics) =>

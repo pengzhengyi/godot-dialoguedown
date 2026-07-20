@@ -103,40 +103,53 @@ public sealed class ErrataRendererTests
     }
 
     [Fact]
-    public void Render_LinksEachDistinctCodeToTheErrorReference()
+    public void Render_Plain_FollowsEachDiagnosticWithItsDocLink()
     {
         var console = PlainConsole();
         var diagnostics = new[]
         {
             Located("DLG2001", DiagnosticSeverity.Error, "duplicate anchor", 3, 1),
-            Located("DLG2001", DiagnosticSeverity.Error, "duplicate anchor again", 5, 1),
             Located("DLG1003", DiagnosticSeverity.Warning, "two jumps", 1, 5),
         };
 
         new ErrataRenderer(console).Render("scene.dialogue.md", "", diagnostics);
 
         var output = console.Output;
-        Assert.Contains("For more information, see the error reference:", output, StringComparison.Ordinal);
+        // Each diagnostic is followed, inline, by a doc link to its own code (Clippy/Biome style).
         Assert.Contains(
-            "https://pengzhengyi.github.io/godot-dialoguedown/guide/error-codes.html#dlg1003",
+            "for more information, see "
+            + "https://pengzhengyi.github.io/godot-dialoguedown/guide/error-codes.html#dlg1003",
             output,
             StringComparison.Ordinal);
         Assert.Contains(
-            "https://pengzhengyi.github.io/godot-dialoguedown/guide/error-codes.html#dlg2001",
+            "for more information, see "
+            + "https://pengzhengyi.github.io/godot-dialoguedown/guide/error-codes.html#dlg2001",
             output,
             StringComparison.Ordinal);
-        // Deduplicated: the twice-reported DLG2001 is listed once in the reference.
-        Assert.Equal(1, CountOccurrences(output, "#dlg2001"));
-        // Sorted by code: DLG1003 is listed before DLG2001.
+        // The link sits directly under its diagnostic line, not batched at the end.
         Assert.True(
-            output.LastIndexOf("#dlg1003", StringComparison.Ordinal)
-            < output.LastIndexOf("#dlg2001", StringComparison.Ordinal));
-        // The link markup was parsed, not printed literally.
-        Assert.DoesNotContain("[link=", output, StringComparison.Ordinal);
+            output.IndexOf("#dlg1003", StringComparison.Ordinal)
+            < output.IndexOf("DLG2001", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Render_Interactive_AlsoAppendsTheErrorReference()
+    public void Render_RepeatedCode_LinksEachOccurrenceInline()
+    {
+        var console = PlainConsole();
+        var diagnostics = new[]
+        {
+            Located("DLG2001", DiagnosticSeverity.Error, "duplicate anchor", 3, 1),
+            Located("DLG2001", DiagnosticSeverity.Error, "duplicate anchor again", 5, 1),
+        };
+
+        new ErrataRenderer(console).Render("scene.dialogue.md", "", diagnostics);
+
+        // Inline links are per-occurrence (canonical for this style), so the code's link appears twice.
+        Assert.Equal(2, CountOccurrences(console.Output, "#dlg2001"));
+    }
+
+    [Fact]
+    public void Render_Interactive_AttachesTheDocLinkToEachDiagnosticBlock()
     {
         var console = InteractiveConsole();
 
@@ -145,7 +158,9 @@ public sealed class ErrataRendererTests
             "Alice: say `bad`",
             [Located("DLG1102", DiagnosticSeverity.Error, "not a game call", 1, 12)]);
 
-        Assert.Contains("error-codes.html#dlg1102", console.Output, StringComparison.Ordinal);
+        var output = console.Output;
+        Assert.Contains("for more information, see", output, StringComparison.Ordinal);
+        Assert.Contains("error-codes.html#dlg1102", output, StringComparison.Ordinal);
     }
 
     private static int CountOccurrences(string haystack, string needle)

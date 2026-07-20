@@ -310,6 +310,43 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
+    public void SerializeDocument_ForABrokenScript_CarriesTheLspDiagnostics()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var json = visualizer.SerializeDocument(
+            "scene.dialogue.md",
+            """
+            # Chapter
+            Alice: Hello.
+
+            # Chapter
+            Bob: Goodbye.
+            """,
+            "view");
+
+        Assert.Contains("\"diagnostics\":[", json);
+        Assert.Contains("\"code\":\"DLG2001\"", json);
+        Assert.Contains("\"source\":\"dialoguedown\"", json);
+    }
+
+    [Fact]
+    public void SerializeDocument_ForACleanScript_CarriesAnEmptyDiagnosticsArray()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var json = visualizer.SerializeDocument(
+            "scene.dialogue.md",
+            """
+            # Hello
+            Alice: Hi.
+            """,
+            "view");
+
+        Assert.Contains("\"diagnostics\":[]", json);
+    }
+
+    [Fact]
     public void LocalImageReferences_NullSource_Throws()
     {
         Assert.Throws<ArgumentNullException>(

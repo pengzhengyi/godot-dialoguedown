@@ -1,3 +1,4 @@
+using DialogueDown.Visualization.Diagnostics;
 using static DialogueDown.Visualization.Tests.Support.Display;
 
 namespace DialogueDown.Visualization.Tests.Render;
@@ -222,6 +223,87 @@ public sealed class DisplayGraphJsonTests
         Assert.Contains("\"speakers\":[\"Guide\"]", json);
         Assert.Contains("\"speakerIds\":[\"guide\"]", json);
         Assert.Contains("\"tags\":[\"wise\"]", json);
+    }
+
+    [Fact]
+    public void SerializeReport_OmitsDiagnosticsWhenNull()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport("static", null, "# Hi", [graph]);
+
+        Assert.DoesNotContain("\"diagnostics\":", json);
+    }
+
+    [Fact]
+    public void SerializeReport_IncludesDiagnosticsWithTheLspShape()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+        var diagnostics = new List<LspDiagnostic>
+        {
+            new(
+                new LspRange(new LspPosition(2, 0), new LspPosition(2, 8)),
+                LspSeverity.Error,
+                "DLG2001",
+                "Two scenes resolve to the same anchor '#chapter'.",
+                "dialoguedown"),
+        };
+
+        var json = DisplayGraphJson.SerializeReport(
+            "static", null, "# Hi", [graph], diagnostics: diagnostics);
+
+        Assert.Contains(
+            "\"range\":{\"start\":{\"line\":2,\"character\":0},\"end\":{\"line\":2,\"character\":8}}",
+            json);
+        Assert.Contains("\"code\":\"DLG2001\"", json);
+        Assert.Contains("\"source\":\"dialoguedown\"", json);
+    }
+
+    [Fact]
+    public void SerializeReport_WritesSeverityAsTheLspNumber()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+        var diagnostics = new List<LspDiagnostic>
+        {
+            new(
+                new LspRange(new LspPosition(0, 0), new LspPosition(0, 1)),
+                LspSeverity.Error, "DLG0001", "Boom.", "dialoguedown"),
+        };
+
+        var json = DisplayGraphJson.SerializeReport(
+            "static", null, "# Hi", [graph], diagnostics: diagnostics);
+
+        Assert.Contains("\"severity\":1", json);
+        Assert.DoesNotContain("\"severity\":\"Error\"", json);
+    }
+
+    [Fact]
+    public void SerializeReport_WritesAnEmptyDiagnosticsArray_SoACleanCompileClearsTheOverlay()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport(
+            "static", null, "# Hi", [graph], diagnostics: []);
+
+        Assert.Contains("\"diagnostics\":[]", json);
+    }
+
+    [Fact]
+    public void SerializeDocument_IncludesDiagnostics()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+        var diagnostics = new List<LspDiagnostic>
+        {
+            new(
+                new LspRange(new LspPosition(1, 2), new LspPosition(1, 5)),
+                LspSeverity.Warning, "DLG3001", "Suspect.", "dialoguedown"),
+        };
+
+        var json = DisplayGraphJson.SerializeDocument(
+            "view", "scene.dialogue.md", "# Hi", [graph], diagnostics: diagnostics);
+
+        Assert.Contains("\"code\":\"DLG3001\"", json);
+        Assert.Contains("\"severity\":2", json);
     }
 
     [Fact]

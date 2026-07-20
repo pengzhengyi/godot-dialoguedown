@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DialogueDown.Visualization.Configuration;
+using DialogueDown.Visualization.Diagnostics;
 
 namespace DialogueDown.Visualization;
 
@@ -27,8 +28,10 @@ internal static class DisplayGraphJson
     /// <paramref name="mode"/> (static/watch/live), the document <paramref name="path"/>
     /// when known, the compiled <paramref name="source"/> (shown in the Source tab;
     /// omitted when null), each stage's display graph, the editor's resolved
-    /// <paramref name="symbols"/> (omitted when null), and the applied
-    /// <paramref name="configuration"/> for the Config tab (omitted when null).
+    /// <paramref name="symbols"/> (omitted when null), the applied
+    /// <paramref name="configuration"/> for the Config tab (omitted when null), and the
+    /// LSP-shaped <paramref name="diagnostics"/> the editor overlay renders (omitted when
+    /// null; an empty array clears the overlay after a clean compile).
     /// </summary>
     public static string SerializeReport(
         string mode,
@@ -36,14 +39,15 @@ internal static class DisplayGraphJson
         string? source,
         IEnumerable<DisplayGraph> stages,
         SymbolSet? symbols = null,
-        ConfigurationReport? configuration = null) =>
+        ConfigurationReport? configuration = null,
+        IReadOnlyList<LspDiagnostic>? diagnostics = null) =>
         JsonSerializer.Serialize(
-            new { mode, path, source, stages, symbols, configuration }, _options);
+            new { mode, path, source, stages, symbols, configuration, diagnostics }, _options);
 
     /// <summary>
     /// Serializes the current document payload —
-    /// <c>{ mode, path, source, stages, symbols, configuration }</c> — for the live server's
-    /// document API and its hot-reload push events.
+    /// <c>{ mode, path, source, stages, symbols, configuration, diagnostics }</c> — for the live
+    /// server's document API and its hot-reload push events.
     /// </summary>
     public static string SerializeDocument(
         string mode,
@@ -51,7 +55,8 @@ internal static class DisplayGraphJson
         string? source,
         IEnumerable<DisplayGraph> stages,
         SymbolSet? symbols = null,
-        ConfigurationReport? configuration = null) =>
+        ConfigurationReport? configuration = null,
+        IReadOnlyList<LspDiagnostic>? diagnostics = null) =>
         JsonSerializer.Serialize(
-            new { mode, path, source, stages, symbols, configuration }, _options);
+            new { mode, path, source, stages, symbols, configuration, diagnostics }, _options);
 }

@@ -1,4 +1,5 @@
 using DialogueDown.Visualization.Configuration;
+using DialogueDown.Visualization.Diagnostics;
 
 namespace DialogueDown.Visualization;
 
@@ -24,11 +25,13 @@ internal static class HtmlTemplate
         string mode = VisualizationMode.Static,
         string? path = null,
         SymbolSet? symbols = null,
-        ConfigurationReport? configuration = null)
+        ConfigurationReport? configuration = null,
+        IReadOnlyList<LspDiagnostic>? diagnostics = null)
     {
         return EmbeddedAsset.ReadText("report.html")
             .Replace(
                 ReportSlot,
-                DisplayGraphJson.SerializeReport(mode, path, source, stages, symbols, configuration));
+                DisplayGraphJson.SerializeReport(
+                    mode, path, source, stages, symbols, configuration, diagnostics));
     }
 }

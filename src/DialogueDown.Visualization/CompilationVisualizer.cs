@@ -3,6 +3,7 @@ using DialogueDown.Compilation;
 using DialogueDown.Configuration;
 using DialogueDown.Markdown;
 using DialogueDown.Visualization.Configuration;
+using DialogueDown.Visualization.Diagnostics;
 using DialogueDown.Visualization.Semantics;
 
 namespace DialogueDown.Visualization;
@@ -124,7 +125,7 @@ public sealed class CompilationVisualizer
         var content = BuildContent(source);
         return HtmlTemplate.RenderPage(
             content.Stages, source, VisualizationMode.Static, documentPath, content.Symbols,
-            content.Configuration);
+            content.Configuration, content.Diagnostics);
     }
 
     /// <summary>
@@ -139,7 +140,8 @@ public sealed class CompilationVisualizer
         ArgumentNullException.ThrowIfNull(mode);
         var content = BuildContent(source);
         return HtmlTemplate.RenderPage(
-            content.Stages, source, mode, documentPath, content.Symbols, content.Configuration);
+            content.Stages, source, mode, documentPath, content.Symbols, content.Configuration,
+            content.Diagnostics);
     }
 
     /// <summary>
@@ -153,7 +155,8 @@ public sealed class CompilationVisualizer
         ArgumentNullException.ThrowIfNull(mode);
         var content = BuildContent(source);
         return DisplayGraphJson.SerializeDocument(
-            mode, documentPath, source, content.Stages, content.Symbols, content.Configuration);
+            mode, documentPath, source, content.Stages, content.Symbols, content.Configuration,
+            content.Diagnostics);
     }
 
     private static IDisplayRenderer RendererFor(EmitFormat format) => format switch
@@ -223,10 +226,14 @@ public sealed class CompilationVisualizer
         var configuration = _configuration is null
             ? null
             : ConfigurationProjection.Project(_configuration);
-        return new ReportContent(stages, symbols, configuration);
+        var diagnostics = new DiagnosticProjection().Project(result.LocatedDiagnostics);
+        return new ReportContent(stages, symbols, configuration, diagnostics);
     }
 
     // The compiled report data shared by the HTML report and the live document payload.
     private sealed record ReportContent(
-        IReadOnlyList<DisplayGraph> Stages, SymbolSet Symbols, ConfigurationReport? Configuration);
+        IReadOnlyList<DisplayGraph> Stages,
+        SymbolSet Symbols,
+        ConfigurationReport? Configuration,
+        IReadOnlyList<LspDiagnostic> Diagnostics);
 }

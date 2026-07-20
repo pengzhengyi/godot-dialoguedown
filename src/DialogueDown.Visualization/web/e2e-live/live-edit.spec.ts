@@ -387,3 +387,49 @@ test("navigation locks while a node edit is unsaved", async ({ page }) => {
     await expect(page.locator(".tab.active")).toHaveText("Markdown AST");
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
 });
+
+// The diagnostics overlay is produced by the .NET compiler and pushed into the editor, so a
+// Save that introduces a compile error must surface it, and fixing the error must clear it —
+// proving the whole payload → overlay path end to end against the real server.
+const DIAG_CLEAN = "# Chapter One\n\nAlice: Hello.\n";
+const DIAG_BROKEN = "# Chapter\n\nAlice: Hello.\n\n# Chapter\n\nBob: Goodbye.\n";
+
+/** Replace the whole Source buffer deterministically (select all, then insert literally). */
+async function replaceSource(page: Page, text: string) {
+    await page.locator(".source-pane .cm-content").click();
+    await page.keyboard.press("ControlOrMeta+a");
+    await page.keyboard.insertText(text);
+}
+
+test("a save that introduces an error shows the diagnostics overlay; fixing it clears it", async ({
+    page,
+}) => {
+    writeFileSync(LIVE_EDIT_DOC, DIAG_CLEAN);
+    await page.goto(`${base}/`);
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+
+    const marker = page.locator("section.stage.active .cm-lint-marker-error");
+    await expect(marker).toHaveCount(0); // a clean compile has no overlay
+
+    // Introduce a duplicate-anchor error (DLG2001) and save: the overlay appears.
+    await replaceSource(page, DIAG_BROKEN);
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+    await expect(marker.first()).toBeVisible();
+
+    // Hovering the squiggle shows the message and a docs link for the code.
+    await page.locator("section.stage.active .cm-lintRange-error").first().hover();
+    const tooltip = page.locator(".cm-tooltip-lint");
+    await expect(tooltip).toContainText("anchor");
+    await expect(tooltip.locator("a.diagnostic-tooltip-link")).toHaveAttribute(
+        "href",
+        /error-codes\.html#dlg2001$/,
+    );
+    await page.mouse.move(0, 0); // dismiss the hover tooltip before editing again
+
+    // Fix the error and save: the overlay clears.
+    await replaceSource(page, DIAG_CLEAN);
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+    await expect(marker).toHaveCount(0);
+});

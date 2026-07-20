@@ -73,6 +73,7 @@ export function createModeController(
             }
             ports.app.showBanner(null);
             if (report.source != null) ports.app.setContent(report.source);
+            ports.app.setDiagnostics(report.diagnostics ?? []);
             ports.app.updateStages(report.stages);
         },
         switchTo(next) {

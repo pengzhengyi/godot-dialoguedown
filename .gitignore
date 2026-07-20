@@ -39,6 +39,9 @@ coverage-report/
 # --- Node (frontend quality tooling for the visualization report) ---
 node_modules/
 
+# --- Playwright MCP scratch output (console/page dumps from the MCP server) ---
+.playwright-mcp/
+
 # Generated GitHub Pages demo site (built by .github/workflows/pages.yml)
 /site/
 

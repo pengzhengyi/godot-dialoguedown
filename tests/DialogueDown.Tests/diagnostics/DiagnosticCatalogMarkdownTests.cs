@@ -55,11 +55,14 @@ public sealed class DiagnosticCatalogMarkdownTests
     {
         var syntaxHeading = _rendered.IndexOf("## Syntax (`DLG1xxx`)", StringComparison.Ordinal);
         var semanticHeading = _rendered.IndexOf("## Semantic (`DLG2xxx`)", StringComparison.Ordinal);
+        var styleHeading = _rendered.IndexOf("## Style (`DLG3xxx`)", StringComparison.Ordinal);
 
         Assert.True(syntaxHeading >= 0, "the Syntax section is present");
         Assert.True(semanticHeading > syntaxHeading, "Semantic follows Syntax");
+        Assert.True(styleHeading > semanticHeading, "Style follows Semantic");
         Assert.True(_rendered.IndexOf("### DLG1003", StringComparison.Ordinal) < semanticHeading);
         Assert.True(_rendered.IndexOf("### DLG2001", StringComparison.Ordinal) > semanticHeading);
+        Assert.True(_rendered.IndexOf("### DLG3002", StringComparison.Ordinal) > styleHeading);
     }
 
     [Fact]
@@ -77,13 +80,6 @@ public sealed class DiagnosticCatalogMarkdownTests
 
         Assert.DoesNotContain(-1, positions);
         Assert.Equal(positions.OrderBy(position => position).ToList(), positions);
-    }
-
-    [Fact]
-    public void OmitsACategoryThatHasNoCodesYet()
-    {
-        // Style (DLG3xxx) is a defined range with no descriptors, so it renders no section.
-        Assert.DoesNotContain("## Style (`DLG3xxx`)", _rendered);
     }
 
     [Fact]

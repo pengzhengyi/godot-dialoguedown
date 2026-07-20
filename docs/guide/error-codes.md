@@ -272,3 +272,15 @@ Alice: Onward!
 
 <mark class="dd-mark-fix"># The End</mark>
 Alice: We made it.</code></pre>
+
+## Style (`DLG3xxx`)
+
+A valid script that reads correctly but could read better.
+
+### DLG3002
+
+<span class="dd-sev dd-sev--warning">Warning</span> · Deeply nested choice branch
+
+This branch reaches choice nesting level {0}; the recommended maximum is {1}. Consider moving this branch into a new scene and jumping to it instead.
+
+Nested choices remain valid, but a fourth level becomes difficult to scan and maintain. Consider moving that branch into a new scene and jumping to it instead.

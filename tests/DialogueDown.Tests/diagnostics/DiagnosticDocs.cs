@@ -4,12 +4,15 @@ namespace DialogueDown.Tests.Diagnostics;
 
 internal static class DiagnosticDocs
 {
-    // Codes documented without an example because no compile can produce them yet — the disallowed-
-    // label check still throws instead of reporting (its inline-builder producer has not landed). When
-    // that producer lands, give the code an example and remove it here; DiagnosticDocsTests enforces
-    // that this list stays honest.
+    // Codes documented without an example because no default compile can produce them yet. When
+    // their producer or registration lands, give the code an example and remove it here;
+    // DiagnosticDocsTests enforces that this list stays honest.
     public static IReadOnlySet<string> WithoutExampleYet { get; } =
-        new HashSet<string> { DiagnosticCatalog.DisallowedLabelElement.Code };
+        new HashSet<string>
+        {
+            DiagnosticCatalog.DisallowedLabelElement.Code,
+            DiagnosticCatalog.DeeplyNestedChoiceBranch.Code,
+        };
 
     public static IReadOnlyList<DiagnosticDoc> All { get; } =
     [
@@ -238,6 +241,10 @@ internal static class DiagnosticDocs
                 """,
                 ["#the-end"],
                 ["# The End"])),
+        new(
+            DiagnosticCatalog.DeeplyNestedChoiceBranch,
+            "Nested choices remain valid, but a fourth level becomes difficult to scan and "
+            + "maintain. Consider moving that branch into a new scene and jumping to it instead."),
     ];
 
     public static IReadOnlyDictionary<string, DiagnosticDoc> ByCode { get; } =

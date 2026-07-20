@@ -527,8 +527,8 @@ Alice: The weather is nice today!
 - Bob: Yes, I agree.
 ```
 
-Choices can be nested, but deep nesting becomes hard to scan. Prefer jumps when
-branches split and later merge again.
+Choices can be nested, but deep nesting becomes hard to scan. For a deeply
+nested branch, consider moving it into a new scene and jumping to it instead.
 
 ```markdown
 Alice: The weather is nice today!

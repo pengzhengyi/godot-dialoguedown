@@ -51,3 +51,113 @@
     max-width: 1320px;
   }
 }
+
+/*
+ * Error-code reference (guide/error-codes.md): theme-aware severity indicators
+ * and change highlighting. A single hex cannot meet contrast on both the light
+ * and dark backgrounds (amber especially), so each color is defined per theme.
+ * Color never carries meaning alone — the severity word and the Bad/Fix labels
+ * stay as text for accessibility.
+ */
+.dd-sev {
+  font-weight: 700;
+}
+
+.dd-sev--error {
+  color: #cf222e;
+}
+
+.dd-sev--warning {
+  color: #9a6700;
+}
+
+.dd-sev--info {
+  color: #0969da;
+}
+
+.dd-eg-bad {
+  color: #cf222e;
+  font-weight: 600;
+}
+
+.dd-eg-fix {
+  color: #1a7f37;
+  font-weight: 600;
+}
+
+[data-bs-theme="dark"] .dd-sev--error,
+[data-bs-theme="dark"] .dd-eg-bad {
+  color: #ff7b72;
+}
+
+[data-bs-theme="dark"] .dd-sev--warning {
+  color: #e3b341;
+}
+
+[data-bs-theme="dark"] .dd-sev--info {
+  color: #79c0ff;
+}
+
+[data-bs-theme="dark"] .dd-eg-fix {
+  color: #3fb950;
+}
+
+/*
+ * Error-code example blocks: give the <pre class="dd-example"> the familiar
+ * "code card" look (subtle fill, border, rounded corners) so an example reads as
+ * code, not body text. The block is rendered as raw HTML with class="nohighlight"
+ * so the <mark> change-highlights survive (the highlighter would otherwise wipe
+ * them), which means it does not inherit the theme's .hljs fill — so it is styled
+ * here directly, theme-aware.
+ */
+pre.dd-example {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+}
+
+pre.dd-example > code {
+  background: none;
+  padding: 0;
+  border: 0;
+  font-size: 0.9em;
+}
+
+[data-bs-theme="dark"] pre.dd-example {
+  background: #161b22;
+  border-color: #30363d;
+}
+
+/*
+ * Change highlights inside the example code cards: red tint marks the offending
+ * token in the broken script, green tint marks the correction in the fix. The
+ * <mark> uses class="nohighlight"'s sibling code block, so it is styled here
+ * (theme-aware) rather than relying on the browser's default yellow highlight.
+ */
+mark.dd-mark-bad,
+mark.dd-mark-fix {
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+mark.dd-mark-bad {
+  background-color: #ffebe9;
+  color: #1f2328;
+}
+
+mark.dd-mark-fix {
+  background-color: #dafbe1;
+  color: #1f2328;
+}
+
+[data-bs-theme="dark"] mark.dd-mark-bad {
+  background-color: #6e2a2f;
+  color: #ffdcd7;
+}
+
+[data-bs-theme="dark"] mark.dd-mark-fix {
+  background-color: #1f5129;
+  color: #d3f9d8;
+}

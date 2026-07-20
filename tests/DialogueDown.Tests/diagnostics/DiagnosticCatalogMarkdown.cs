@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using DialogueDown.Diagnostics;
 
@@ -18,9 +19,11 @@ internal static class DiagnosticCatalogMarkdown
         + "DialogueDown reports each problem it finds as a **diagnostic** with a stable `DLG####` "
         + "code, so a message is easy to look up. A code's leading digit names its category — "
         + "`DLG1xxx` syntax, `DLG2xxx` semantic, `DLG3xxx` style — and each diagnostic has a "
-        + "default **severity**: **error** (must be fixed), **warning** (compiles but is suspect), "
-        + "or **info** (a neutral note). Placeholders such as `{0}` are filled with specifics — a "
-        + "name, a count — when the message is shown.\n";
+        + "default severity: "
+        + "<span class=\"dd-sev dd-sev--error\">Error</span> (must be fixed), "
+        + "<span class=\"dd-sev dd-sev--warning\">Warning</span> (compiles but is suspect), or "
+        + "<span class=\"dd-sev dd-sev--info\">Info</span> (a neutral note). Placeholders such as "
+        + "`{0}` are filled with specifics — a name, a count — when the message is shown.\n";
 
     // Categories in reporting order, each with the range its codes occupy and a one-line summary.
     // A category with no descriptors yet (Style) is listed here but only rendered once it has one.
@@ -61,10 +64,81 @@ internal static class DiagnosticCatalogMarkdown
         builder.Append($"\n## {section.Category} (`{section.Range}`)\n\n{section.Summary}\n");
         foreach (var descriptor in descriptors)
         {
-            builder.Append(
-                $"\n### {descriptor.Code}\n\n**{descriptor.Title}** · {descriptor.DefaultSeverity}\n\n"
-                + $"{descriptor.MessageFormat}\n");
+            AppendDiagnostic(builder, descriptor);
         }
+    }
+
+    private static void AppendDiagnostic(StringBuilder builder, DiagnosticDescriptor descriptor)
+    {
+        builder.Append(
+            $"\n### {descriptor.Code}\n\n{SeverityBadge(descriptor.DefaultSeverity)} · "
+            + $"{descriptor.Title}\n\n{descriptor.MessageFormat}\n");
+
+        if (!DiagnosticDocs.ByCode.TryGetValue(descriptor.Code, out var doc))
+        {
+            return;
+        }
+
+        builder.Append($"\n{doc.Explanation}\n");
+        if (doc.Example is { } example)
+        {
+            AppendExample(
+                builder, "dd-eg-bad", "Triggering example", "dd-mark-bad",
+                example.Broken, example.BrokenHighlights);
+            AppendExample(
+                builder, "dd-eg-fix", "Fix", "dd-mark-fix", example.Fixed, example.FixedHighlights);
+        }
+    }
+
+    // Renders one example as an HTML code block so the changed tokens can be <mark>-highlighted; a
+    // fenced block cannot carry inline markup. The label and the marks are themed (red for the broken
+    // script, green for the fix) so the meaning survives in both light and dark themes.
+    private static void AppendExample(
+        StringBuilder builder,
+        string labelClass,
+        string label,
+        string markClass,
+        string example,
+        IReadOnlyList<string> highlights)
+    {
+        builder.Append($"\n<span class=\"{labelClass}\">{label}</span>\n\n");
+        builder.Append(
+            $"<pre class=\"dd-example\"><code class=\"nohighlight\">"
+            + $"{HighlightedHtml(example, highlights, markClass)}</code></pre>\n");
+    }
+
+    // HTML-escapes the example, then wraps the first occurrence of each highlight in a themed <mark>.
+    // Escaping the highlight too keeps the match correct when the source contains HTML-significant
+    // characters.
+    private static string HighlightedHtml(
+        string example, IReadOnlyList<string> highlights, string markClass)
+    {
+        var html = WebUtility.HtmlEncode(example);
+        foreach (var highlight in highlights)
+        {
+            var encoded = WebUtility.HtmlEncode(highlight);
+            var index = html.IndexOf(encoded, StringComparison.Ordinal);
+            if (index >= 0)
+            {
+                html = string.Concat(
+                    html[..index], $"<mark class=\"{markClass}\">", encoded, "</mark>",
+                    html[(index + encoded.Length)..]);
+            }
+        }
+
+        return html;
+    }
+
+    private static string SeverityBadge(DiagnosticSeverity severity)
+    {
+        var modifier = severity switch
+        {
+            DiagnosticSeverity.Error => "error",
+            DiagnosticSeverity.Warning => "warning",
+            _ => "info",
+        };
+
+        return $"<span class=\"dd-sev dd-sev--{modifier}\">{severity}</span>";
     }
 
     private sealed record CategorySection(DiagnosticCategory Category, string Range, string Summary);

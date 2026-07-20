@@ -1,12 +1,11 @@
 # Compilation mode configuration
 
 > [!NOTE]
-> **Status: approved — implementation in progress.** This note completes the
-> remaining scope of [#110](https://github.com/pengzhengyi/godot-dialoguedown/issues/110):
-> making a project's **compilation mode** settable through `dialogue.toml` and
-> shown in the visualization's Config tab. The CLI `--mode` option already ships
-> (see [CLI Configuration](./CLI%20Configuration.md)); this note adds the
-> configuration and visualization halves.
+> **Status: implemented.** This completed the remaining scope of
+> [#110](https://github.com/pengzhengyi/godot-dialoguedown/issues/110): the
+> compilation `mode` is settable in `dialogue.toml` and shown in the
+> visualization's Config tab. The CLI `--mode` option shipped earlier
+> (see [CLI Configuration](./CLI%20Configuration.md)).
 
 ## Table of contents
 
@@ -93,27 +92,27 @@ yields no `CompilationResult` for a surface to display). Anything else — inclu
 
 **Component A — loader:**
 
-- [ ] A top-level `mode = "stage-boundary" | "best-effort"` key sets
+- [x] A top-level `mode = "stage-boundary" | "best-effort"` key sets
       `CompilerOptions.Mode`.
-- [ ] An absent `mode` leaves the built-in default (`stage-boundary`).
-- [ ] An unknown value, `fail-fast`, or a non-string `mode` value is rejected with
+- [x] An absent `mode` leaves the built-in default (`stage-boundary`).
+- [x] An unknown value, `fail-fast`, or a non-string `mode` value is rejected with
       a **located** `DialogueConfigurationException`.
-- [ ] Unrelated or misspelled root keys (including a dotted `mode.x`) are ignored,
+- [x] Unrelated or misspelled root keys (including a dotted `mode.x`) are ignored,
       not misread as `mode`, so the format stays forward-compatible.
-- [ ] `mode` and `[[speakers]]` coexist in one file.
+- [x] `mode` and `[[speakers]]` coexist in one file.
 
 **Component B — Config tab:**
 
-- [ ] The tab **displays** the project's configured compilation mode (the value
+- [x] The tab **displays** the project's configured compilation mode (the value
       the CLI and embedders honor), above the speakers table, with a defaulting
       label when unset.
-- [ ] A tooltip states that `mode` governs the project's compilation, while the
+- [x] A tooltip states that `mode` governs the project's compilation, while the
       visualization always renders `stage-boundary`.
-- [ ] Editing `mode` in the TOML editor and saving rewrites `dialogue.toml` and
+- [x] Editing `mode` in the TOML editor and saving rewrites `dialogue.toml` and
       recompiles, exactly like editing speakers.
-- [ ] **Autocompletion** suggests the `mode` key at the document's top level and
+- [x] **Autocompletion** suggests the `mode` key at the document's top level and
       its two values after `mode =`.
-- [ ] The created-config starter scaffolds a commented `mode` example that
+- [x] The created-config starter scaffolds a commented `mode` example that
       explains the same visualization caveat.
 
 ## Component A — the `dialogue.toml` loader

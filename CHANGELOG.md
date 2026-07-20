@@ -17,6 +17,11 @@ changes easy to categorize.
   proceeds after an error. The compiled result also exposes the located diagnostics
   (`CompilationResult.LocatedDiagnostics`) for other tools to render. See the
   [CLI Diagnostic Rendering](docs/contributing/design-notes/CLI%20Diagnostic%20Rendering.md) note.
+- **Set the compilation mode per project** — a `dialogue.toml` can now choose how far a compile
+  proceeds after an error (`mode = "stage-boundary"` or `"best-effort"`), and the visualization's
+  Config tab shows, edits, and autocompletes it. The CLI `--mode` still overrides the project
+  setting. See the
+  [Compilation Mode Configuration](docs/contributing/design-notes/Compilation%20Mode%20Configuration.md) note.
 - **The report reopens on the tab you left it on.** After a refresh, the visualization
   returns to the last tab you were viewing (Source, an AST stage, or the Semantic model)
   instead of always resetting to the Source tab.

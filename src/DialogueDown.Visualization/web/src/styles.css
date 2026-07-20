@@ -2153,6 +2153,7 @@ body.maximized #app {
 .cm-completionIcon-dd-tag,
 .cm-completionIcon-dd-jump,
 .cm-completionIcon-dd-config-table,
+.cm-completionIcon-dd-config-mode,
 .cm-completionIcon-dd-config-reserved {
     opacity: 1;
 }
@@ -2162,6 +2163,7 @@ body.maximized #app {
 .cm-completionIcon-dd-tag::after,
 .cm-completionIcon-dd-jump::after,
 .cm-completionIcon-dd-config-table::after,
+.cm-completionIcon-dd-config-mode::after,
 .cm-completionIcon-dd-config-reserved::after {
     content: "";
     display: inline-block;
@@ -2196,6 +2198,11 @@ body.maximized #app {
 
 .cm-completionIcon-dd-config-reserved::after {
     --dd-completion-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%272.2%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M12%202.5l2.9%205.9%206.5.95-4.7%204.6%201.1%206.45L12%2017.9%206.2%2020.9l1.1-6.45-4.7-4.6%206.5-.95z%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* The compilation `mode` key and its values: a sliders glyph (Feather Icons, MIT). */
+.cm-completionIcon-dd-config-mode::after {
+    --dd-completion-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%272.2%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cline%20x1%3D%274%27%20y1%3D%2721%27%20x2%3D%274%27%20y2%3D%2714%27%2F%3E%3Cline%20x1%3D%274%27%20y1%3D%2710%27%20x2%3D%274%27%20y2%3D%273%27%2F%3E%3Cline%20x1%3D%2712%27%20y1%3D%2721%27%20x2%3D%2712%27%20y2%3D%2712%27%2F%3E%3Cline%20x1%3D%2712%27%20y1%3D%278%27%20x2%3D%2712%27%20y2%3D%273%27%2F%3E%3Cline%20x1%3D%2720%27%20y1%3D%2721%27%20x2%3D%2720%27%20y2%3D%2716%27%2F%3E%3Cline%20x1%3D%2720%27%20y1%3D%2712%27%20x2%3D%2720%27%20y2%3D%273%27%2F%3E%3Cline%20x1%3D%271%27%20y1%3D%2714%27%20x2%3D%277%27%20y2%3D%2714%27%2F%3E%3Cline%20x1%3D%279%27%20y1%3D%278%27%20x2%3D%2715%27%20y2%3D%278%27%2F%3E%3Cline%20x1%3D%2717%27%20y1%3D%2716%27%20x2%3D%2723%27%20y2%3D%2716%27%2F%3E%3C%2Fsvg%3E");
 }
 
 /* ---- Configuration tab ------------------------------------------------------ */
@@ -2439,6 +2446,32 @@ button.tab.tab-with-icon {
 
 [data-theme="dark"] .config-stale-hint {
     color: #fbbf24;
+}
+
+/* The configured compilation mode, shown above the speakers: a quiet label + value pill. */
+.config-mode {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0 0 0.7rem;
+    font-size: 0.78rem;
+}
+
+.config-mode-label {
+    color: var(--md-muted, #6b7280);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.68rem;
+}
+
+.config-mode-value {
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--pico-border-radius);
+    background: rgb(59 130 246 / 12%);
+    color: var(--md-link, #2563eb);
+    font-family: var(--pico-font-family-monospace, monospace);
+    cursor: help;
 }
 
 /* The no-config left pane: a plain-language explanation, not an empty code block. */

@@ -25,6 +25,11 @@ changes easy to categorize.
   built on a reusable, LSP-shaped diagnostic projection, laying the groundwork for a future language
   server and editor extension. See the
   [Diagnostics Overlay](docs/contributing/design-notes/Diagnostics%20Overlay.md) note.
+- **Set the compilation mode per project** — a `dialogue.toml` can now choose how far a compile
+  proceeds after an error (`mode = "stage-boundary"` or `"best-effort"`), and the visualization's
+  Config tab shows, edits, and autocompletes it. The CLI `--mode` still overrides the project
+  setting. See the
+  [Compilation Mode Configuration](docs/contributing/design-notes/Compilation%20Mode%20Configuration.md) note.
 - **The report reopens on the tab you left it on.** After a refresh, the visualization
   returns to the last tab you were viewing (Source, an AST stage, or the Semantic model)
   instead of always resetting to the Source tab.

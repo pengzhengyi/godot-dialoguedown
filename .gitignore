@@ -31,6 +31,9 @@ coverage-report/
 .idea/
 .vs/
 *.DotSettings.user
+# Personal editor config (Peacock colors, local cSpell words); keep it local so it
+# never overrides a contributor's own settings. Shared extensions.json / tasks.json stay tracked.
+.vscode/settings.json
 
 # --- macOS ---
 .DS_Store
@@ -38,6 +41,9 @@ coverage-report/
 
 # --- Node (frontend quality tooling for the visualization report) ---
 node_modules/
+
+# --- Playwright MCP scratch output (console/page dumps from the MCP server) ---
+.playwright-mcp/
 
 # Generated GitHub Pages demo site (built by .github/workflows/pages.yml)
 /site/

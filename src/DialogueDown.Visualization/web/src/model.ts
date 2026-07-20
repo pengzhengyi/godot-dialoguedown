@@ -179,6 +179,12 @@ export interface ConfiguredSpeakerView {
  */
 export interface ConfigReport {
     file?: { path: string; source: string };
+    /**
+     * The project's configured compilation mode (its author-facing name, e.g. `stage-boundary`
+     * or `best-effort`), shown in the tab. The mode governs the CLI and embedded builds; the
+     * visualization itself always renders stage-boundary.
+     */
+    mode?: string;
     speakers: ConfiguredSpeakerView[];
     /** The reserved tag names the compiler recognizes (for the editor's autocompletion). */
     reservedTags?: string[];

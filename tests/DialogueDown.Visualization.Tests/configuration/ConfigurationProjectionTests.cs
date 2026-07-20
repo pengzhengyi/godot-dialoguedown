@@ -16,6 +16,26 @@ public sealed class ConfigurationProjectionTests
     }
 
     [Fact]
+    public void Project_CarriesTheConfiguredModeName()
+    {
+        var applied = AppliedConfiguration.WithoutFile(
+            CompilerOptions.Default with { Mode = CompilationMode.BestEffort });
+
+        var report = ConfigurationProjection.Project(applied);
+
+        Assert.Equal("best-effort", report.Mode);
+    }
+
+    [Fact]
+    public void Project_DefaultOptions_CarriesTheStageBoundaryModeName()
+    {
+        var report = ConfigurationProjection.Project(
+            AppliedConfiguration.WithoutFile(CompilerOptions.Default));
+
+        Assert.Equal("stage-boundary", report.Mode);
+    }
+
+    [Fact]
     public void Project_NoFile_YieldsNullFileAndNoSpeakers()
     {
         var report = ConfigurationProjection.Project(

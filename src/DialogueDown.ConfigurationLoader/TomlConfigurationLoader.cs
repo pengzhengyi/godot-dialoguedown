@@ -6,8 +6,9 @@ namespace DialogueDown.ConfigurationLoader;
 /// <summary>
 /// Reads a DialogueDown project's <c>dialogue.toml</c> into a <see cref="CompilerOptions"/> so the
 /// engine-agnostic core never takes a TOML dependency. It is a thin composition root: it parses
-/// the text with <see cref="TomlDocumentParser"/> and maps the speakers with
-/// <see cref="ConfiguredSpeakerReader"/>. A config with no <c>[[speakers]]</c> yields
+/// the text with <see cref="TomlDocumentParser"/>, maps the speakers with
+/// <see cref="ConfiguredSpeakerReader"/>, and reads the compilation mode with
+/// <see cref="ConfiguredModeReader"/>. A config that sets neither yields
 /// <see cref="CompilerOptions.Default"/>.
 /// </summary>
 public static class TomlConfigurationLoader
@@ -34,6 +35,19 @@ public static class TomlConfigurationLoader
 
         DocumentSyntax document = new TomlDocumentParser(sourceName).Parse(toml);
         IReadOnlyList<ConfiguredSpeaker> speakers = new ConfiguredSpeakerReader().Read(document);
-        return speakers.Count == 0 ? CompilerOptions.Default : new CompilerOptions { Speakers = speakers };
+        CompilationMode? mode = new ConfiguredModeReader().Read(document);
+
+        var options = CompilerOptions.Default;
+        if (speakers.Count > 0)
+        {
+            options = options with { Speakers = speakers };
+        }
+
+        if (mode is { } resolvedMode)
+        {
+            options = options with { Mode = resolvedMode };
+        }
+
+        return options;
     }
 }

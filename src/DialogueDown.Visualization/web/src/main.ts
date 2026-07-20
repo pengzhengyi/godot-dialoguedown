@@ -105,7 +105,7 @@ if (report.mode === "view" || report.mode === "edit") {
                   },
                   setContent: (source) => app.setConfigContent(source),
                   onSaved: (saved) => {
-                      if (saved.configuration) app.updateConfigSpeakers(saved.configuration);
+                      if (saved.configuration) app.updateConfig(saved.configuration);
                       // Editing the config changes the resolved speakers/ids, so refresh the
                       // Source editor's completion symbols too (the reported bug: a new id
                       // did not appear in `@` completion until a reload).

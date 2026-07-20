@@ -22,6 +22,8 @@
     href: Configuration Loader.md
   - name: CLI Configuration
     href: CLI Configuration.md
+  - name: Compilation Mode Configuration
+    href: Compilation Mode Configuration.md
 - name: Diagnostics
   items:
   - name: Diagnostics and Validation

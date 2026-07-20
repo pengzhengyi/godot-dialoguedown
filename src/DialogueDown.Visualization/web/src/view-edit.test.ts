@@ -22,7 +22,7 @@ function fakePorts(overrides: Partial<ModeControllerPorts> = {}) {
         setContent: vi.fn(),
         setConfigEditable: vi.fn(),
         setConfigContent: vi.fn(),
-        updateConfigSpeakers: vi.fn(),
+        updateConfig: vi.fn(),
         setConfigStale: vi.fn(),
         markSourceDirty: vi.fn(),
         markConfigDirty: vi.fn(),

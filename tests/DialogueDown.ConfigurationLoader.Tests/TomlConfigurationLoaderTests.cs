@@ -43,6 +43,59 @@ public sealed class TomlConfigurationLoaderTests
     }
 
     [Fact]
+    public void Parse_WithMode_SetsIt()
+    {
+        var toml = """
+            mode = "best-effort"
+            """;
+
+        CompilerOptions options = TomlConfigurationLoader.Parse(toml, SourceName);
+
+        Assert.Equal(CompilationMode.BestEffort, options.Mode);
+    }
+
+    [Fact]
+    public void Parse_NoMode_KeepsTheDefaultMode()
+    {
+        var toml = """
+            [[speakers]]
+            name = "Alice"
+            """;
+
+        CompilerOptions options = TomlConfigurationLoader.Parse(toml, SourceName);
+
+        Assert.Equal(CompilationMode.StageBoundary, options.Mode);
+    }
+
+    [Fact]
+    public void Parse_WithModeAndSpeakers_AppliesBoth()
+    {
+        var toml = """
+            mode = "best-effort"
+
+            [[speakers]]
+            name = "Alice"
+            """;
+
+        CompilerOptions options = TomlConfigurationLoader.Parse(toml, SourceName);
+
+        Assert.Equal(CompilationMode.BestEffort, options.Mode);
+        ConfiguredSpeaker speaker = Assert.Single(options.Speakers);
+        Assert.Equal("Alice", speaker.Name);
+    }
+
+    [Fact]
+    public void Parse_InvalidMode_Throws()
+    {
+        var toml = """
+            mode = "turbo"
+            """;
+
+        Assert.Throws<DialogueConfigurationException>(
+            () => TomlConfigurationLoader.Parse(toml, SourceName));
+    }
+
+    [Fact]
     public void Load_NullPath_Throws()
     {
         Assert.Throws<ArgumentNullException>(() => TomlConfigurationLoader.Load(null!));

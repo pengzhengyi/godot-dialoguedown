@@ -1,11 +1,10 @@
 using DialogueDown.Configuration;
+using Tomlyn.Syntax;
 
 namespace DialogueDown.ConfigurationLoader.Tests;
 
 public sealed class ConfiguredSpeakerReaderTests
 {
-    private const string SourceName = "dialogue.toml";
-
     [Fact]
     public void Read_EmptyDocument_ReturnsEmpty()
     {
@@ -207,7 +206,7 @@ public sealed class ConfiguredSpeakerReaderTests
             id = "A"
             """);
 
-        Assert.Equal(new ConfigurationSourceLocation(SourceName, 1, 1), exception.Location);
+        Assert.Equal(new ConfigurationSourceLocation(TomlConfigReading.SourceName, 1, 1), exception.Location);
     }
 
     [Fact]
@@ -344,12 +343,12 @@ public sealed class ConfiguredSpeakerReaderTests
             """));
     }
 
-    private static IReadOnlyList<ConfiguredSpeaker> Read(string toml)
-    {
-        var document = new TomlDocumentParser(SourceName).Parse(toml);
-        return new ConfiguredSpeakerReader().Read(document);
-    }
+    private static IReadOnlyList<ConfiguredSpeaker> Read(string toml) =>
+        TomlConfigReading.Read(toml, ReadSpeakers);
 
     private static DialogueConfigurationException Reject(string toml) =>
-        Assert.Throws<DialogueConfigurationException>(() => Read(toml));
+        TomlConfigReading.Reject(toml, ReadSpeakers);
+
+    private static IReadOnlyList<ConfiguredSpeaker> ReadSpeakers(DocumentSyntax document) =>
+        new ConfiguredSpeakerReader().Read(document);
 }

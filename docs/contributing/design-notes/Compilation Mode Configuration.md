@@ -96,8 +96,10 @@ yields no `CompilationResult` for a surface to display). Anything else — inclu
 - [ ] A top-level `mode = "stage-boundary" | "best-effort"` key sets
       `CompilerOptions.Mode`.
 - [ ] An absent `mode` leaves the built-in default (`stage-boundary`).
-- [ ] An unknown value, `fail-fast`, a non-string, or a dotted `mode` key is
-      rejected with a **located** `DialogueConfigurationException`.
+- [ ] An unknown value, `fail-fast`, or a non-string `mode` value is rejected with
+      a **located** `DialogueConfigurationException`.
+- [ ] Unrelated or misspelled root keys (including a dotted `mode.x`) are ignored,
+      not misread as `mode`, so the format stays forward-compatible.
 - [ ] `mode` and `[[speakers]]` coexist in one file.
 
 **Component B — Config tab:**
@@ -259,7 +261,7 @@ flowchart TD
 | `mode = "turbo"` (unknown) | Located error naming the two valid values. |
 | `mode = 42` (non-string) | Located error: must be a string. |
 | Duplicate `mode` keys | Tomlyn reports a syntax error; surfaced located. |
-| Dotted `mode.x` key | Rejected, not read as `mode` (same as speakers). |
+| Dotted or misspelled root key (`mode.x`, `modes`) | Ignored — not read as `mode`; unrelated root keys stay lenient for forward-compatibility. |
 | `mode` + `[[speakers]]` | Both applied. |
 
 ## Testability

@@ -41,7 +41,7 @@ internal sealed class ConfiguredSpeakerReader
     private static IEnumerable<TableArraySyntax> SpeakerEntries(DocumentSyntax document) =>
         document.Tables
             .OfType<TableArraySyntax>()
-            .Where(entry => KeyName(entry.Name) == SpeakersTableName);
+            .Where(entry => TomlKeys.Name(entry.Name) == SpeakersTableName);
 
     private static ConfiguredSpeaker ReadSpeaker(TableArraySyntax entry)
     {
@@ -52,7 +52,7 @@ internal sealed class ConfiguredSpeakerReader
 
         foreach (var item in entry.Items)
         {
-            switch (KeyName(item.Key))
+            switch (TomlKeys.Name(item.Key))
             {
                 case NameKey:
                     name = RequireNonEmptyString(item);
@@ -107,7 +107,7 @@ internal sealed class ConfiguredSpeakerReader
         foreach (var field in inline.Items)
         {
             var pair = field.KeyValue!;
-            switch (KeyName(pair.Key))
+            switch (TomlKeys.Name(pair.Key))
             {
                 case NameKey:
                     name = RequireString(pair);
@@ -118,7 +118,7 @@ internal sealed class ConfiguredSpeakerReader
                 default:
                     throw Error(
                         $"An inline-table tag has only 'name' and 'value'; "
-                        + $"'{KeyName(pair.Key)}' is not allowed.", pair.Value!);
+                        + $"'{TomlKeys.Name(pair.Key)}' is not allowed.", pair.Value!);
             }
         }
 
@@ -132,7 +132,7 @@ internal sealed class ConfiguredSpeakerReader
 
     private static void AddReservedTag(KeyValueSyntax item, List<ConfiguredTag> into)
     {
-        var name = KeyName(item.Key);
+        var name = TomlKeys.Name(item.Key);
         if (!ReservedTagNames.Known.Contains(name))
         {
             throw Error(
@@ -179,31 +179,14 @@ internal sealed class ConfiguredSpeakerReader
         var value = RequireString(item);
         return value.Length > 0
             ? value
-            : throw Error($"'{KeyName(item.Key)}' must not be empty.", item.Value!);
+            : throw Error($"'{TomlKeys.Name(item.Key)}' must not be empty.", item.Value!);
     }
 
     private static string RequireString(KeyValueSyntax item) => item.Value is StringValueSyntax text
         ? text.Value!
-        : throw Error($"'{KeyName(item.Key)}' must be a string.", item.Value!);
+        : throw Error($"'{TomlKeys.Name(item.Key)}' must be a string.", item.Value!);
 
     private static DialogueConfigurationException Error(string message, SyntaxNode node) =>
         new(message, TomlLocation.From(node.Span));
 
-    private static string KeyName(KeySyntax? key)
-    {
-        var resolved = key!;
-
-        // A dotted key (a.b) has no single flat name; keep its full text so it never matches a
-        // structural key and is rejected, rather than being read as only its first segment.
-        if (resolved.DotKeys is { ChildrenCount: > 0 })
-        {
-            return resolved.ToString()!.Trim();
-        }
-
-        // Resolve the key's semantic name so a quoted key equals its bare form, per TOML: "name"
-        // and name are the same key.
-        return resolved.Key is BareKeySyntax bare
-            ? bare.Key!.Text!
-            : ((StringValueSyntax)resolved.Key!).Value!;
-    }
 }

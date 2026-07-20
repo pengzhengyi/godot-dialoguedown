@@ -20,6 +20,7 @@ function fakePorts(overrides: Partial<ModeControllerPorts> = {}) {
         updateStages: vi.fn(),
         setEditable: vi.fn(),
         setContent: vi.fn(),
+        setDiagnostics: vi.fn(),
         setConfigEditable: vi.fn(),
         setConfigContent: vi.fn(),
         updateConfig: vi.fn(),
@@ -68,10 +69,31 @@ describe("createModeController", () => {
         const { ports, app } = fakePorts();
         const c = createModeController("view", ports);
 
-        c.onReload({ source: "# fresh", stages: [] });
+        c.onReload({
+            source: "# fresh",
+            stages: [],
+            diagnostics: [
+                {
+                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                    severity: 1,
+                    code: "DLG2001",
+                    message: "Boom.",
+                    source: "dialoguedown",
+                },
+            ],
+        });
 
         expect(app.setContent).toHaveBeenCalledWith("# fresh");
         expect(app.updateStages).toHaveBeenCalledWith([]);
+        expect(app.setDiagnostics).toHaveBeenCalledWith([
+            {
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                severity: 1,
+                code: "DLG2001",
+                message: "Boom.",
+                source: "dialoguedown",
+            },
+        ]);
         expect(app.showBanner).toHaveBeenCalledWith(null);
         expect(ports.dialogueLive.onDiskChange).not.toHaveBeenCalled();
     });

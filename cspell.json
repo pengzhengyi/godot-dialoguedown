@@ -1,0 +1,20 @@
+{
+    "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+    "version": "0.2",
+    "language": "en",
+    "words": [
+        "Huangpu",
+        "inlines",
+        "Markdig",
+        "sluggable"
+    ],
+    "ignorePaths": [
+        "**/node_modules/**",
+        "**/bin/**",
+        "**/obj/**",
+        "**/dist/**",
+        "coverage-report/**",
+        "docs/_site/**",
+        "docs/api/**"
+    ]
+}

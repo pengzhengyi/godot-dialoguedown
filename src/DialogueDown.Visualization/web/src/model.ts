@@ -113,6 +113,43 @@ export interface Report {
      * configuration context (a CLI or served report); absent for a bare library render.
      */
     configuration?: ConfigReport;
+    /**
+     * The compiler's diagnostics in Language Server Protocol shape, rendered as the Source
+     * editor's overlay (squiggles, gutter markers, tooltips). Present for a served or CLI
+     * report; an empty array after a clean compile clears the overlay. Absent for a bare
+     * library render that carried no diagnostics.
+     */
+    diagnostics?: LspDiagnostic[];
+}
+
+/** A zero-based position in the source (LSP shape): a line and a UTF-16 character offset. */
+export interface LspPosition {
+    line: number;
+    character: number;
+}
+
+/** A half-open source range as LSP defines it — `start` up to (but not including) `end`. */
+export interface LspRange {
+    start: LspPosition;
+    end: LspPosition;
+}
+
+/** LSP diagnostic severity: 1 error, 2 warning, 3 information, 4 hint. */
+export type LspSeverity = 1 | 2 | 3 | 4;
+
+/**
+ * One diagnostic in Language Server Protocol shape, as the compiler projects it into the
+ * report payload: a zero-based {@link LspRange}, an integer {@link LspSeverity}, the error
+ * {@link LspDiagnostic.code}, the rendered {@link LspDiagnostic.message}, and the producing
+ * {@link LspDiagnostic.source} (`"dialoguedown"`). A future language server publishes the
+ * identical structure, so the editor overlay consumes it unchanged.
+ */
+export interface LspDiagnostic {
+    range: LspRange;
+    severity: LspSeverity;
+    code: string;
+    message: string;
+    source: string;
 }
 
 /** The mode a report is shown in (mirrors the .NET `VisualizationMode`). */

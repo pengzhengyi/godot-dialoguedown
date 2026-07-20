@@ -74,6 +74,8 @@
     href: Configuration Tab - Create New.md
   - name: Unavailable Stage Tabs
     href: Unavailable Stage Tabs.md
+  - name: Diagnostics Overlay
+    href: Diagnostics Overlay.md
 - name: Other notes
   items:
   - name: BBCode Rendering

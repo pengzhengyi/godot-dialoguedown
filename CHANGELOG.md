@@ -18,6 +18,13 @@ changes easy to categorize.
   compile proceeds after an error. The compiled result also exposes the located diagnostics
   (`CompilationResult.LocatedDiagnostics`) for other tools to render. See the
   [CLI Diagnostic Rendering](docs/contributing/design-notes/CLI%20Diagnostic%20Rendering.md) note.
+- **Diagnostics overlay in the visualization editor** — the report's source editor now marks each
+  of a script's problems in place: a squiggle under the offending text, a gutter marker, and a
+  hover tooltip that explains it and links to its entry on the hosted Error codes page. The overlay
+  refreshes on every recompile — save and hot-reload — and clears once the script is clean. It is
+  built on a reusable, LSP-shaped diagnostic projection, laying the groundwork for a future language
+  server and editor extension. See the
+  [Diagnostics Overlay](docs/contributing/design-notes/Diagnostics%20Overlay.md) note.
 - **Set the compilation mode per project** — a `dialogue.toml` can now choose how far a compile
   proceeds after an error (`mode = "stage-boundary"` or `"best-effort"`), and the visualization's
   Config tab shows, edits, and autocompletes it. The CLI `--mode` still overrides the project

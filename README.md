@@ -4,11 +4,13 @@
 
 # DialogueDown
 
-Engine-agnostic, C#-first branching **dialogue library**. Kept free of any Godot
-dependency so the core (dialogue graph, runner, effects, conditions) is
-**reusable across projects** and **unit-testable** in isolation. Engine-specific
-presentation (panels, typewriter, input) lives in each consuming game as a thin
-adapter over this library's interfaces.
+Engine-agnostic, C#-first **dialogue compiler** library. It lowers a
+Markdown-first dialogue script through distinct compiler stages into a validated
+**semantic model**, reporting precise diagnostics as it goes, and keeps the core
+free of any Godot dependency so it stays **reusable** and **unit-testable**. The
+`dialoguedown` CLI compiles scripts and renders every stage as an interactive
+report. The runtime that *plays* a compiled script — a dialogue runner and thin
+engine presentation adapters — is **planned**, not yet built.
 
 > [!NOTE]
 > DialogueDown is a work-in-progress open-source project. The public API,
@@ -18,11 +20,11 @@ adapter over this library's interfaces.
 ## Table of contents
 
 - [Status](#status)
+- [How it works](#how-it-works)
 - [Layout](#layout)
 - [Build and test](#build-and-test)
 - [Documentation](#documentation)
 - [Compilation visualization](#compilation-visualization)
-- [Design intent](#design-intent)
 - [Similar projects](#similar-projects)
 - [Contributing](#contributing)
 - [Security](#security)
@@ -34,6 +36,40 @@ adapter over this library's interfaces.
 - **Target framework:** .NET 8 (`net8.0`).
 - **Engine dependency:** none in the core library.
 - **Primary consumer:** Godot/C# game projects through `ProjectReference`.
+- **Built today:** the compiler pipeline (Markdown → semantic model), collected
+  diagnostics, the `dialoguedown` CLI (`compile`, `visualize`), and `dialogue.toml`
+  configuration.
+- **Planned:** the runtime — a dialogue runner, effects and conditions, and thin
+  engine presentation adapters.
+
+## How it works
+
+DialogueDown compiles a Markdown-first dialogue script through a pipeline of
+small, independently testable stages, behind one `IScriptCompiler` facade (wire
+it up with `AddDialogueDown()` for DI, or `ScriptCompilerFactory.CreateDefault()`):
+
+```mermaid
+flowchart LR
+    Src["Markdown<br/>script"] --> MD["Markdown<br/>AST"] --> DA["Dialogue<br/>AST"]
+    DA --> DS["Desugared<br/>AST"] --> SM["Semantic<br/>model"]
+```
+
+- **Stages.** Parse → transpile → desugar → analyze, each a documented stage.
+  Read them in pipeline order in the [design notes](docs/contributing/design-notes/README.md).
+- **Diagnostics.** Every problem is a located diagnostic with a stable `DLG####`
+  code and a severity; the compiler collects them and continues where it safely
+  can, rather than stopping at the first. See the [error codes](docs/guide/error-codes.md).
+- **Configuration.** A project's `dialogue.toml` declares its speakers and the
+  compilation mode, and the CLI finds it automatically. See
+  [project configuration](docs/guide/configuration.md).
+- **Planned runtime.** Playing a compiled script — a runner, effects and
+  conditions, and thin engine adapters — is design intent, not yet implemented.
+
+Compile a script and see its diagnostics from the command line:
+
+```bash
+dotnet run --project src/DialogueDown.Cli -- compile scene.dialogue.md
+```
 
 ## Layout
 
@@ -87,11 +123,11 @@ C# API reference, published from `docs/` on every merge to `main`.
 
 In the repository:
 
-- [Overview](docs/guide/overview.md), architecture, representations, and current
-  implementation status.
-- [Script language specification](docs/guide/script-language.md)
-  for proposed writer-facing dialogue syntax.
-- [Design notes](docs/contributing/design-notes/README.md) — the goal, key
+- **[Writer guide](docs/guide/index.md)** — author dialogue with DialogueDown: the
+  [script language](docs/guide/script-language.md), [project
+  configuration](docs/guide/configuration.md) (`dialogue.toml`), and the
+  [error codes](docs/guide/error-codes.md) the compiler reports.
+- **[Design notes](docs/contributing/design-notes/README.md)** — the goal, key
   decisions, and tradeoffs behind each compiler stage and component.
 
 ## Compilation visualization
@@ -105,36 +141,19 @@ In the repository:
 > interactive, read-only report for a sample script, served from GitHub Pages and
 > rebuilt on every merge to `main`.
 
-DialogueDown aims to be **transparent end to end**: you can *see* what the
-compiler produced at each stage. The optional
+DialogueDown is **transparent end to end**: you can *see* what the compiler
+produced at each stage. The optional
 [`DialogueDown.Visualization`](src/DialogueDown.Visualization/) project renders the
-compiler's stages as an interactive HTML report — a **Source** tab (the whole
-document beside a live preview, with working anchor links), then a graph tab for
-each stage: **Markdown AST**, **Dialogue AST**, and the desugarer's **Desugared
-AST**, each with pan and zoom and click-to-collapse; and a **Semantic Model** tab
-that pairs the resolved scene tree — each scene expandable to the script blocks it
-contains — with cross-linked speaker, anchor, and jump-resolution tables in a
-resizable, collapsible side column, so hovering a scene, speaker, or jump highlights
-it everywhere it appears, and clicking any node shows its source and preview in a
-pinned node-details panel. Graphs remember where you
-left them — an adjusted graph keeps its own view while an untouched one inherits
-the current one — and open on a readable, root-centered default; the zoom toolbar
-takes a typed percentage or a one-click revert. Any tab can go **full screen** — a
-maximize button (or the <kbd>f</kbd> key) fills the window with the active graph or
-source split and hides the header, tabs, and status bar; <kbd>f</kbd> or <kbd>Esc</kbd>
-restores it. A served report toggles
-between **View** (read-only, auto-updating) and **Edit** (an in-browser editor that
-saves back to the file, with **document-aware autocomplete** for jump targets,
-speakers, `@id`s, and `#tag`s). Click a node to inspect **the source it was produced
-from**, with a rendered Markdown preview, in a resizable side panel — which,
-like the Source tab's preview, can be **collapsed** to give the graph or editor
-the full width. Nodes are
-**color-coded by a cross-stage category** (a code span and the game call it
-becomes share a color), with a legend and arrow-key navigation. The report is a
-**single self-contained HTML file** — D3, CodeMirror, Pico.css, marked, and
-Tippy.js are all bundled in, so it needs no server and works fully offline. It
-reads the compiler through the same seams the tests use and never touches the
-shipped core package, so the core stays dependency-light.
+compiler's stages as a **single, self-contained HTML report** — a **Source** tab
+with a live preview and working anchor links, a graph tab per stage (**Markdown
+AST**, **Dialogue AST**, **Desugared AST**) with pan, zoom, and click-to-collapse,
+and a **Semantic Model** tab that pairs the resolved scene tree with cross-linked
+speaker, anchor, and jump-resolution tables. A served report toggles between
+read-only **View** and an in-browser **Edit** mode — with document-aware
+autocomplete for jump targets, speakers, `@id`s, and `#tag`s — that saves back to
+the file. It bundles all its assets (D3, CodeMirror, Pico.css, marked, Tippy.js)
+so it works fully offline, and reads the compiler through the same seams the tests
+use, never touching the shipped core package.
 
 Render a script from the command line with the `dialoguedown visualize` command:
 
@@ -163,21 +182,6 @@ dotnet run --project src/DialogueDown.Cli -- visualize scene.dialogue.md --emit 
 See the
 [Compilation Visualization note](docs/contributing/design-notes/Compilation%20Visualization.md).
 
-## Design intent
-
-- **Data:** dialogue graph as nodes + choices (id-referenced edges).
-- **Logic:** an `IDialogueRunner` humble-object drives current-node / choices /
-  effects and is fully unit-testable.
-- **Effects & conditions:** Command / predicate objects, so new outcomes are new
-  types, not edits to the runner (Open/Closed).
-- **Presentation:** lives in the consuming engine, behind the library's
-  interfaces. Swap roll-your-own today for Ink/Dialogue Manager later without
-  touching game code.
-
-## Consumers
-
-Referenced by games via `ProjectReference`, for example `survival-game-learner`.
-
 ## Similar projects
 
 DialogueDown is intentionally small, engine-agnostic, and C#-first. These
@@ -186,7 +190,7 @@ projects are useful references if you need a different tradeoff:
 | Project | What it does | How DialogueDown differs |
 | --- | --- | --- |
 | [Ink](https://github.com/inkle/ink) | Mature interactive-fiction scripting language and runtime with strong authoring tools. | DialogueDown keeps Markdown-like source close to game writing notes and focuses on a lightweight C# library that Godot projects can reference directly. |
-| [Yarn Spinner](https://github.com/YarnSpinnerTool/YarnSpinner) | Full-featured Yarn dialogue compiler/runtime with a writer-friendly scripting language and broad engine integrations. | DialogueDown is narrower and dependency-light: it prioritizes pure C# graph/runtime seams and explicit visualization over a larger cross-engine toolchain. |
+| [Yarn Spinner](https://github.com/YarnSpinnerTool/YarnSpinner) | Full-featured Yarn dialogue compiler/runtime with a writer-friendly scripting language and broad engine integrations. | DialogueDown is narrower and dependency-light: it prioritizes a Markdown-first C# compiler with explicit stage visualization over a larger cross-engine toolchain. |
 | [Dialogic](https://github.com/coppolaemilio/dialogic) | Feature-rich Godot dialogue plugin with visual editing, portraits, timelines, variables, and localization. | DialogueDown deliberately avoids Godot dependencies in the core so dialogue logic stays reusable, unit-testable, and portable across consuming games. |
 | [Godot Dialogue Manager](https://github.com/nathanhoad/godot_dialogue_manager) | Godot-native dialogue manager and scripting workflow for branching conversations. | DialogueDown targets engine-agnostic C# packages first, leaving Godot presentation and input as thin adapters in each game. |
 | [Godot Ink](https://github.com/paulloz/godot-ink) | Godot integration for Ink stories. | DialogueDown is not an Ink bridge; it explores a smaller Markdown-to-dialogue pipeline with compiler-stage visualization for debugging and teaching. |

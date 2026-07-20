@@ -102,6 +102,65 @@ public sealed class ErrataRendererTests
         Assert.Contains("1 error, 1 warning, 1 info", output, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Render_LinksEachDistinctCodeToTheErrorReference()
+    {
+        var console = PlainConsole();
+        var diagnostics = new[]
+        {
+            Located("DLG2001", DiagnosticSeverity.Error, "duplicate anchor", 3, 1),
+            Located("DLG2001", DiagnosticSeverity.Error, "duplicate anchor again", 5, 1),
+            Located("DLG1003", DiagnosticSeverity.Warning, "two jumps", 1, 5),
+        };
+
+        new ErrataRenderer(console).Render("scene.dialogue.md", "", diagnostics);
+
+        var output = console.Output;
+        Assert.Contains("For more information, see the error reference:", output, StringComparison.Ordinal);
+        Assert.Contains(
+            "https://pengzhengyi.github.io/godot-dialoguedown/guide/error-codes.html#dlg1003",
+            output,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "https://pengzhengyi.github.io/godot-dialoguedown/guide/error-codes.html#dlg2001",
+            output,
+            StringComparison.Ordinal);
+        // Deduplicated: the twice-reported DLG2001 is listed once in the reference.
+        Assert.Equal(1, CountOccurrences(output, "#dlg2001"));
+        // Sorted by code: DLG1003 is listed before DLG2001.
+        Assert.True(
+            output.LastIndexOf("#dlg1003", StringComparison.Ordinal)
+            < output.LastIndexOf("#dlg2001", StringComparison.Ordinal));
+        // The link markup was parsed, not printed literally.
+        Assert.DoesNotContain("[link=", output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_Interactive_AlsoAppendsTheErrorReference()
+    {
+        var console = InteractiveConsole();
+
+        new ErrataRenderer(console).Render(
+            "s.dialogue.md",
+            "Alice: say `bad`",
+            [Located("DLG1102", DiagnosticSeverity.Error, "not a game call", 1, 12)]);
+
+        Assert.Contains("error-codes.html#dlg1102", console.Output, StringComparison.Ordinal);
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        var count = 0;
+        for (var index = haystack.IndexOf(needle, StringComparison.Ordinal);
+            index >= 0;
+            index = haystack.IndexOf(needle, index + needle.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
     private static TestConsole PlainConsole()
     {
         var console = new TestConsole();

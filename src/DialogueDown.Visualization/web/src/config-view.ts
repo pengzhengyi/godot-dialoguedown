@@ -22,6 +22,7 @@ import {
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { tags } from "@lezer/highlight";
+import { delegate } from "tippy.js";
 import type { ConfigReport, ConfiguredSpeakerView } from "./model";
 import { isConfiguredFromFile } from "./model";
 import { initSplitDivider } from "./source-view";
@@ -151,6 +152,18 @@ export function createConfigView(
     container.append(pane, divider, side);
     initSplitDivider(container, divider, "--config-split", "config-collapsed");
 
+    // A portable Tippy tooltip on the mode value, delegated on the stable side panel so it keeps
+    // working after the row is replaced on save. It anchors to the small value pill (not the
+    // full-width row, whose center sits far right of the text) and replaces a native `title`,
+    // which triggered unreliably and looks different on each platform.
+    delegate(side, {
+        target: ".config-mode-value",
+        content: MODE_TOOLTIP,
+        placement: "top-start",
+        maxWidth: 320,
+        delay: [120, 0],
+    });
+
     // The right (speakers) panel can be hidden to give the config source the full width,
     // the same way the Source tab hides its preview. The toggle lives on the divider and
     // doubles as the always-present re-open handle; the choice is remembered across reloads.
@@ -275,9 +288,20 @@ function renderStaleHint(): HTMLElement {
 }
 
 /**
- * The project's configured compilation mode, shown above the speakers. Its tooltip explains that
- * the mode drives the CLI and embedded builds, while the visualization always renders
- * stage-boundary — so the report never shows a stage rebuilt from post-error material.
+ * The mode row's tooltip: why the setting exists and how it relates to the report. Rendered by a
+ * portable Tippy tooltip (delegated below) rather than a native `title`, which hovered
+ * unreliably and varies across platforms.
+ */
+const MODE_TOOLTIP =
+    "How this project compiles after an error — used by the dialoguedown CLI and embedded " +
+    "builds. The visualization always renders stage-boundary, so every stage it shows is " +
+    "built from reliable input; this setting doesn't change the report.";
+
+/**
+ * The project's configured compilation mode, shown above the speakers. A delegated Tippy tooltip
+ * (see {@link MODE_TOOLTIP}) explains that the mode drives the CLI and embedded builds, while the
+ * visualization always renders stage-boundary — so the report never shows a stage rebuilt from
+ * post-error material.
  */
 function renderModeRow(mode: string | undefined): HTMLElement {
     const row = document.createElement("div");
@@ -286,10 +310,6 @@ function renderModeRow(mode: string | undefined): HTMLElement {
     row.innerHTML =
         `<span class="config-mode-label">Mode</span>` +
         `<span class="config-mode-value">${escapeHtml(value)}</span>`;
-    row.title =
-        "How this project compiles after an error — used by the dialoguedown CLI and embedded " +
-        "builds. The visualization always renders stage-boundary, so every stage it shows is " +
-        "built from reliable input; this setting doesn't change the report.";
     return row;
 }
 

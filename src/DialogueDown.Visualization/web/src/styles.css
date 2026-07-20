@@ -729,6 +729,35 @@ g.node.entity-highlight text.label {
     background: rgb(120 160 255 / 25%);
 }
 
+/* The diagnostics overlay. The squiggles and gutter markers use CodeMirror's built-in lint
+   theme (severity-colored); this themes the hover tooltip to match the report card and styles
+   the "more information" docs link inside it. CodeMirror renders the lint content in a
+   .cm-tooltip-lint section inside a light-by-default .cm-tooltip container, so the container
+   (matched via :has) carries the card background. */
+:is(.source-pane, .config-source) .cm-tooltip:has(.cm-tooltip-lint) {
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+    color: var(--pico-color);
+}
+
+.diagnostic-tooltip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.1rem 0.15rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.diagnostic-tooltip-link {
+    width: fit-content;
+    color: var(--md-link);
+    font-size: 0.72rem;
+    text-decoration: underline;
+}
+
 /* The compact find/replace panel floats over the top-right of the editor, VS Code-style, rather
    than sitting in a full-width bar. The panels container is made transparent and absolute so the
    card styling lives on `.dd-search` itself. */

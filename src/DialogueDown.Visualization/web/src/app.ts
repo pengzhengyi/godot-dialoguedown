@@ -1,4 +1,4 @@
-import type { Report, Stage, StageUnavailable, ConfigReport } from "./model";
+import type { Report, Stage, StageUnavailable, ConfigReport, LspDiagnostic } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
@@ -71,6 +71,8 @@ export interface AppController {
     setEditable(editable: boolean): void;
     /** Replace the Source buffer (a View-mode hot-reload), keeping the one editor instance. */
     setContent(source: string): void;
+    /** Replace the Source editor's diagnostics overlay after a recompile (hot-reload or save). */
+    setDiagnostics(diagnostics: readonly LspDiagnostic[]): void;
     /** Switch the config (TOML) editor between editable (Edit) and read-only (View) in place. */
     setConfigEditable(editable: boolean): void;
     /** Replace the config editor's content — a discard/restore of the last saved TOML. */
@@ -177,6 +179,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
             panel.setEditable(next);
         },
         setContent: (next) => sourceHandle?.setContent(next),
+        setDiagnostics: (diagnostics) => sourceHandle?.setDiagnostics(diagnostics),
         setConfigEditable: (next) => configHandle?.setEditable(next),
         setConfigContent: (next) => configHandle?.setContent(next),
         updateConfigSpeakers: (config) => configHandle?.updateSpeakers(config),
@@ -223,6 +226,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 ...(source ? { editable: source.editable, onChange: source.onChange } : {}),
                 ...(source?.symbols ? { symbols: source.symbols } : {}),
             });
+            sourceHandle.setDiagnostics(report.diagnostics ?? []);
             section.appendChild(sourceHandle.element);
             addTab("Source", section, null, SOURCE_TIP, null);
             sourceTab = tabsEl.lastElementChild;

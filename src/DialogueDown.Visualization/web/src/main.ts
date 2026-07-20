@@ -89,6 +89,7 @@ if (report.mode === "view" || report.mode === "edit") {
             // completion source's holder or the editor keeps offering the old speakers/ids.
             onSaved: (saved) => {
                 currentSymbols = saved.symbols;
+                app.setDiagnostics(saved.diagnostics ?? []);
             },
         }),
         report.source ?? "",
@@ -109,6 +110,9 @@ if (report.mode === "view" || report.mode === "edit") {
                       // Source editor's completion symbols too (the reported bug: a new id
                       // did not appear in `@` completion until a reload).
                       currentSymbols = saved.symbols;
+                      // A config change can also change the dialogue's diagnostics (an unknown
+                      // speaker becomes known), so refresh the overlay from the same recompile.
+                      app.setDiagnostics(saved.diagnostics ?? []);
                   },
               }),
               report.configuration.file.source,

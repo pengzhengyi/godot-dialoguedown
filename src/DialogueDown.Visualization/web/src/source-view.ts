@@ -29,6 +29,8 @@ import { createMaximizeButton } from "./maximize-button";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { dialogueAutocompletion } from "./editor-completions";
 import { type DialogueSymbolSource, scanDialogueSymbols } from "./dialogue-symbols";
+import { diagnosticsOverlay, setEditorDiagnostics } from "./diagnostics-overlay";
+import type { LspDiagnostic } from "./model";
 import { initScrollSync } from "./scroll-sync";
 import { renderDocument } from "./text";
 
@@ -125,6 +127,11 @@ export interface SourceViewHandle {
     setContent(source: string): void;
     /** The editor's current text. */
     getContent(): string;
+    /**
+     * Replace the compiler's diagnostics shown as the editor overlay (squiggles, gutter
+     * markers, tooltips). An empty list clears the overlay — called on a hot-reload or save.
+     */
+    setDiagnostics(diagnostics: readonly LspDiagnostic[]): void;
 }
 
 const editability = new Compartment();
@@ -216,6 +223,7 @@ export function createSourceView(
                 lineNumbers(),
                 highlightActiveLineGutter(),
                 foldGutter(),
+                diagnosticsOverlay(),
                 foldHeadings,
                 codeFolding(),
                 drawSelection(),
@@ -287,6 +295,7 @@ export function createSourceView(
         setContent: (next) =>
             view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }),
         getContent: () => view.state.doc.toString(),
+        setDiagnostics: (diagnostics) => setEditorDiagnostics(view, diagnostics),
     };
 }
 

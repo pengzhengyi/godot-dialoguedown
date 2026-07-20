@@ -1,15 +1,12 @@
-using System.Text.Json.Serialization;
-
 namespace DialogueDown.Visualization.Diagnostics;
 
 /// <summary>
 /// How serious an <see cref="LspDiagnostic"/> is, using the Language Server Protocol's own numbers
 /// so the serialized payload matches LSP exactly. <see cref="Hint"/> has no core counterpart
 /// (<see cref="DialogueDown.Diagnostics.DiagnosticSeverity"/> stops at <c>Error</c>); it exists only
-/// for a future language server. The <see cref="JsonNumberEnumConverter{TEnum}"/> keeps the value a
-/// number on the wire, overriding the report serializer's default of writing enums as strings.
+/// for a future language server. <see cref="LspDiagnostic.Severity"/> forces numeric serialization,
+/// so these members reach the payload as their integer values, not their names.
 /// </summary>
-[JsonConverter(typeof(JsonNumberEnumConverter<LspSeverity>))]
 internal enum LspSeverity
 {
     /// <summary>An error: the script is invalid and must be fixed.</summary>

@@ -35,9 +35,9 @@
 ## Goal & scope
 
 The report shows the Markdown, Dialogue, and Desugared ASTs — each a single graph in
-its own tab. The **semantic analyzer** now runs after desugar and exposes a
-[`SemanticModel`](./Semantic%20Analyzer.md) on the compilation result, but the report
-does not show it.
+its own tab. The **semantic analyzer** runs after desugar and exposes a
+[`SemanticModel`](./Semantic%20Analyzer.md) on the compilation result; this tab shows
+it.
 
 The semantic model is **not one graph**. It is a **scene tree** (the nested scenes)
 plus three lookup tables the analysis resolved — **speakers**, **anchors**, and **jump

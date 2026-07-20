@@ -118,7 +118,7 @@ One concept, one name — used here, in code, and in tests.
       self-contained HTML page.
 - [x] **Mermaid** and **DOT** renderers (fast-follow extras) emit graph text from
       the same display graph.
-- [ ] A **Dialogue AST** projection seam (planned; lands with the transpiler).
+- [x] A **Dialogue AST** projection seam (landed with the transpiler).
 - [x] Handles empty input, deep nesting, cycles, and special characters safely
       (escaping).
 

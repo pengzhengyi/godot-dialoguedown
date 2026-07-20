@@ -8,6 +8,7 @@ using DialogueDown.Tests.Support;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using static DialogueDown.Tests.Support.ConfigurationFactory;
+using static DialogueDown.Tests.Support.DiagnosticsAssert;
 
 namespace DialogueDown.Tests.Compilation;
 
@@ -33,6 +34,23 @@ public sealed class DialogueDownServiceCollectionExtensionsTests
 
         var speaker = result.Semantics.Speakers.Resolve(new DefaultSpeaker(SourceSpanFactory.Span()));
         Assert.Equal("Narrator", speaker.Name);
+    }
+
+    [Fact]
+    public void AddDialogueDown_DefaultCompilerIncludesTheChoiceNestingRule()
+    {
+        var source =
+            """
+            - Level 1
+                - Level 2
+                    - Level 3
+                        - Level 4
+            """;
+        using var provider = new ServiceCollection().AddDialogueDown().BuildServiceProvider();
+
+        var result = provider.GetRequiredService<IScriptCompiler>().Compile(source);
+
+        AssertReported(result.Diagnostics, DiagnosticCatalog.DeeplyNestedChoiceBranch);
     }
 
     [Fact]

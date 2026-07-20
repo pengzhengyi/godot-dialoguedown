@@ -27,7 +27,7 @@ public static class ScriptCompilerFactory
             new MarkdigMarkdownParser(),
             ScriptTranspilerFactory.CreateDefault(),
             new ScriptDesugarer(),
-            new StructuralValidator([new MultipleJumpsOnLineRule()]),
+            StructuralValidatorFactory.CreateDefault(),
             new SemanticAnalyzer(options.ForSemanticAnalyzer()),
             options.Mode);
     }

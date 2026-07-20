@@ -78,6 +78,25 @@ public sealed class ScriptCompilerFactoryTests
     }
 
     [Fact]
+    public void CreateDefault_FourChoiceLevels_SurfacesTheNestingWarning()
+    {
+        var source =
+            """
+            - Level 1
+                - Level 2
+                    - Level 3
+                        - Level 4
+            """;
+
+        var result = ScriptCompilerFactory.CreateDefault().Compile(source);
+
+        var warning = AssertReported(
+            result.Diagnostics, DiagnosticCatalog.DeeplyNestedChoiceBranch);
+        Assert.Equal([4, 3], warning.MessageArguments);
+        Assert.False(result.HasErrors);
+    }
+
+    [Fact]
     public void CreateDefault_TagsWithoutSpeaker_HaltsAtTheStageBoundary()
     {
         // The tags-without-speaker error is reported during transpile, so a stage-boundary

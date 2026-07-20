@@ -284,3 +284,27 @@ A valid script that reads correctly but could read better.
 This branch reaches choice nesting level {0}; the recommended maximum is {1}. Consider moving this branch into a new scene and jumping to it instead.
 
 Nested choices remain valid, but a fourth level becomes difficult to scan and maintain. Consider moving that branch into a new scene and jumping to it instead.
+
+<span class="dd-eg-bad">Triggering example</span>
+
+<pre class="dd-example"><code class="nohighlight"># Conversation
+
+- Level 1
+    - Level 2
+        - Level 3
+            <mark class="dd-mark-bad">- Level 4</mark>
+                Alice: This branch is difficult to scan.</code></pre>
+
+<span class="dd-eg-fix">Fix</span>
+
+<pre class="dd-example"><code class="nohighlight"># Conversation
+
+- Level 1
+    - Level 2
+        <mark class="dd-mark-fix">=&gt; [Continue](#deeper-branch)</mark>
+
+<mark class="dd-mark-fix"># Deeper branch</mark>
+
+- Level 3
+    - Level 4
+        Alice: This branch is easier to scan.</code></pre>

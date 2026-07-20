@@ -11,7 +11,6 @@ internal static class DiagnosticDocs
         new HashSet<string>
         {
             DiagnosticCatalog.DisallowedLabelElement.Code,
-            DiagnosticCatalog.DeeplyNestedChoiceBranch.Code,
         };
 
     public static IReadOnlyList<DiagnosticDoc> All { get; } =
@@ -244,7 +243,32 @@ internal static class DiagnosticDocs
         new(
             DiagnosticCatalog.DeeplyNestedChoiceBranch,
             "Nested choices remain valid, but a fourth level becomes difficult to scan and "
-            + "maintain. Consider moving that branch into a new scene and jumping to it instead."),
+            + "maintain. Consider moving that branch into a new scene and jumping to it instead.",
+            new(
+                """
+                # Conversation
+
+                - Level 1
+                    - Level 2
+                        - Level 3
+                            - Level 4
+                                Alice: This branch is difficult to scan.
+                """,
+                """
+                # Conversation
+
+                - Level 1
+                    - Level 2
+                        => [Continue](#deeper-branch)
+
+                # Deeper branch
+
+                - Level 3
+                    - Level 4
+                        Alice: This branch is easier to scan.
+                """,
+                ["- Level 4"],
+                ["=> [Continue](#deeper-branch)", "# Deeper branch"])),
     ];
 
     public static IReadOnlyDictionary<string, DiagnosticDoc> ByCode { get; } =

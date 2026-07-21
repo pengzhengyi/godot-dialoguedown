@@ -319,7 +319,9 @@ function createStatusReadout(): {
             readout.dataset.status = status;
             // Announce the detail alongside the label in the aria-live region itself — a title
             // tooltip is not read out — so a screen reader hears "Saved — invalid TOML: <error>".
-            readout.textContent = message ? `${STATUS_LABEL[status]}: ${message}` : STATUS_LABEL[status];
+            readout.textContent = message
+                ? `${STATUS_LABEL[status]}: ${message}`
+                : STATUS_LABEL[status];
             if (message) readout.title = message;
             else readout.removeAttribute("title");
         },

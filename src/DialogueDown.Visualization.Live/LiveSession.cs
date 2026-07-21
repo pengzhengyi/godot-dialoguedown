@@ -487,10 +487,6 @@ internal sealed class LiveSession
         return WithConfigSource(SerializeCurrent(), committed.Source, "saved-invalid", committed.Error);
     }
 
-    // A parsed configuration candidate staged for commit: its source, the parsed options (when
-    // valid), the parse error (when invalid), and whether it parsed. Published only post-commit.
-    private sealed record ConfigCommit(string Source, CompilerOptions? Options, string Error, bool Valid);
-
     private string ReloadDocument()
     {
         if (!File.Exists(DocumentPath))
@@ -545,4 +541,8 @@ internal sealed class LiveSession
             return false;
         }
     }
+
+    // A parsed configuration candidate staged for commit: its source, the parsed options (when
+    // valid), the parse error (when invalid), and whether it parsed. Published only post-commit.
+    private sealed record ConfigCommit(string Source, CompilerOptions? Options, string Error, bool Valid);
 }

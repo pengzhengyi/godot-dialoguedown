@@ -794,7 +794,12 @@ describe("createLiveEdit — status detail", () => {
         live.onEdit("bogus = true");
 
         const saving = live.save();
-        await h.resolveSave({ kind: "saved-invalid", report: reportFor("bogus = true"), source: "bogus = true", message: "Unknown key bogus." });
+        await h.resolveSave({
+            kind: "saved-invalid",
+            report: reportFor("bogus = true"),
+            source: "bogus = true",
+            message: "Unknown key bogus.",
+        });
         await saving;
 
         expect(live.status).toBe("saved-invalid");
@@ -817,7 +822,12 @@ describe("createLiveEdit — status detail", () => {
         const ports = harness("config").ports;
         const live = createLiveEdit(
             ports,
-            { documentType: "config", mode: "manual", initialValid: false, initialMessage: "Persisted parse error." },
+            {
+                documentType: "config",
+                mode: "manual",
+                initialValid: false,
+                initialMessage: "Persisted parse error.",
+            },
             "broken = ",
         );
 

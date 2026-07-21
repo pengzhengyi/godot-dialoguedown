@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
     CONFIG_ADOPT_PORT,
     CONFIG_ADOPT_TREE,

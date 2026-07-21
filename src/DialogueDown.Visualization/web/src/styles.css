@@ -9,6 +9,15 @@
     --md-muted: #6e7781;
     --cm-selection: rgb(20 100 210 / 22%);
 
+    /* Dialogue token highlighting: the compiler-projected semantic tokens, layered over the
+       Markdown colors above. Kept off blue so they stay distinct from headings and links; a
+       tag overrides the coarse speaker color where the two overlap (the tag span nests inside).
+       GitHub Primer light-syntax hues; dark overrides below. */
+    --tok-speaker: #8250df;
+    --tok-custom-tag: #bf3989;
+    --tok-reserved-tag: #953800;
+    --tok-jump: #1b7c83;
+
     /* Cross-link highlight: hovering a scene or speaker in the Semantic tab lights up
        every place it appears (graph node, table rows/cells). An amber "highlighter"
        tint reads on both themes and stays clear of the category colors. */
@@ -43,6 +52,10 @@
         --dd-ink: #0f172a;
         --entity-highlight: rgb(250 204 21 / 30%);
         --entity-highlight-edge: #eab308;
+        --tok-speaker: #d2a8ff;
+        --tok-custom-tag: #f778ba;
+        --tok-reserved-tag: #ffa657;
+        --tok-jump: #39c5cf;
     }
 }
 
@@ -58,6 +71,10 @@
     --dd-ink: #0f172a;
     --entity-highlight: rgb(250 204 21 / 30%);
     --entity-highlight-edge: #eab308;
+    --tok-speaker: #d2a8ff;
+    --tok-custom-tag: #f778ba;
+    --tok-reserved-tag: #ffa657;
+    --tok-jump: #39c5cf;
 }
 
 /* Edit mode: switch the accent from blue to green (matching the Save button). */
@@ -727,6 +744,28 @@ g.node.entity-highlight text.label {
 
 :is(.source-pane, .config-source) .cm-selectionMatch {
     background: rgb(120 160 255 / 25%);
+}
+
+/* Dialogue semantic-token highlighting: the compiler-projected tokens, painted over the
+   Markdown syntax colors. A coarse speaker token spans its whole prefix and each of its tag
+   tokens nests inside it, so a tag's color (on the inner span) naturally wins over the
+   speaker's where they overlap. No lexer runs in the browser — these classes decorate the
+   ranges the compiler projected into the report payload. */
+.source-pane .cm-content .dd-tok-speaker {
+    color: var(--tok-speaker);
+}
+
+.source-pane .cm-content .dd-tok-custom-tag {
+    color: var(--tok-custom-tag);
+}
+
+.source-pane .cm-content .dd-tok-reserved-tag {
+    color: var(--tok-reserved-tag);
+}
+
+.source-pane .cm-content .dd-tok-jump {
+    color: var(--tok-jump);
+    font-weight: 600;
 }
 
 /* The diagnostics overlay. The squiggles and gutter markers use CodeMirror's built-in lint

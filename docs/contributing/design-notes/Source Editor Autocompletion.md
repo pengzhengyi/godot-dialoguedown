@@ -1,6 +1,12 @@
 # Source Editor Autocompletion
 
 > [!NOTE]
+> **Superseded by [Compiler-Projected Editor Semantics](./Compiler-Projected%20Editor%20Semantics.md).**
+> The symbol-source seam and the client-side document scan described below have been retired:
+> completions now draw **solely** from the compiler's resolved symbols carried in the report
+> payload. The completion surfaces (jump targets, speakers, `@id`s, `#tag`s) and their triggers
+> are unchanged; only where the symbols come from has changed. The original design follows.
+>
 > Status: **implemented** (an enhancement to
 > [Compilation Visualization](./Compilation%20Visualization.md)). As you type in
 > the Source tab's editor, offer **document-aware completions** for the four names

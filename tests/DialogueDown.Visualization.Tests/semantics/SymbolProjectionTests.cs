@@ -1,5 +1,6 @@
 using DialogueDown.Configuration;
 using DialogueDown.Visualization.Semantics;
+using DialogueDown.Visualization.Tests.Support;
 
 namespace DialogueDown.Visualization.Tests.Semantics;
 
@@ -95,11 +96,11 @@ public sealed class SymbolProjectionTests
             Speakers = [new ConfiguredSpeaker("Narrator", null, [], [])],
         };
 
-        var symbols = new SymbolProjection().Project(Analyzed.Model("The room is quiet.", options));
+        var symbols = new SymbolProjection().Project(Pipeline.Model("The room is quiet.", options));
 
         Assert.Contains("Narrator", symbols.Speakers);
     }
 
     private static SymbolSet Project(string source) =>
-        new SymbolProjection().Project(Analyzed.Model(source));
+        new SymbolProjection().Project(Pipeline.Model(source));
 }

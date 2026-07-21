@@ -2,13 +2,14 @@ using DialogueDown.Common;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Semantics;
 using DialogueDown.Visualization.Semantics;
+using DialogueDown.Visualization.Tests.Support;
 
 namespace DialogueDown.Visualization.Tests.Semantics;
 
 public sealed class SceneTreeProjectionTests
 {
     // The scene-description tests never touch the model, so any valid one will do.
-    private readonly SceneTreeProjection _projection = new(Analyzed.Model("Hi."), "Hi.");
+    private readonly SceneTreeProjection _projection = new(Pipeline.Model("Hi."), "Hi.");
 
     [Fact]
     public void Title_IsSemanticModel() => Assert.Equal("Semantic Model", _projection.Title);
@@ -56,7 +57,7 @@ public sealed class SceneTreeProjectionTests
 
             Alice: Fresh apples!
             """;
-        var model = Analyzed.Model(source);
+        var model = Pipeline.Model(source);
         var projection = new SceneTreeProjection(model, source);
         var scene = model.SceneRoot.Children[0];
 
@@ -72,7 +73,7 @@ public sealed class SceneTreeProjectionTests
 
             Alice: Hello there.
             """;
-        var model = Analyzed.Model(source);
+        var model = Pipeline.Model(source);
         var projection = new SceneTreeProjection(model, source);
         var line = model.SceneRoot.Children[0].Blocks[0];
 
@@ -92,7 +93,7 @@ public sealed class SceneTreeProjectionTests
 
             Bob: Hi.
             """;
-        var model = Analyzed.Model(source);
+        var model = Pipeline.Model(source);
         var projection = new SceneTreeProjection(model, source);
         var scene = model.SceneRoot.Children[0];
 

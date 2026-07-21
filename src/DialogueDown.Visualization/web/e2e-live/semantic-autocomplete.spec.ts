@@ -8,9 +8,10 @@ import {
 
 // Semantic autocompletion end-to-end against the real .NET --edit server. The analyzer
 // resolves the document's speakers, scenes, and jumps and carries them in the report
-// payload; the Source editor's completion draws on those resolved symbols merged with a
-// live scan. The fixture "# Scene / Alice: …" resolves to a `scene` jump target, which we
-// prove still feeds completion after the heading — the scan's only source for it — is gone.
+// payload; the Source editor's completion draws solely on those resolved symbols (no
+// browser-side scan). The fixture "# Scene / Alice: …" resolves to a `scene` jump target,
+// which we prove still feeds completion even after the heading it came from is deleted —
+// the list comes from the last compile's payload, not from scanning the current buffer.
 const base = `http://127.0.0.1:${SEMANTIC_AUTOCOMPLETE_PORT}`;
 const tooltip = ".cm-tooltip-autocomplete";
 
@@ -29,8 +30,8 @@ test("completes a jump target from the analyzer's resolved symbols", async ({ pa
     );
     expect(symbols).toMatchObject({ jumpTargets: [{ slug: "scene", heading: "Scene" }] });
 
-    // Replace the buffer with a heading-less document: a scan of what is typed no longer
-    // yields the `scene` target, so a completion offering it can only come from the payload.
+    // Replace the buffer with a heading-less document: the current buffer no longer contains
+    // the `scene` heading, so a completion offering it can only come from the payload symbols.
     await page.locator(".cm-content").click();
     await page.keyboard.press("ControlOrMeta+A");
     await page.keyboard.type("Alice: Go [x](#s");

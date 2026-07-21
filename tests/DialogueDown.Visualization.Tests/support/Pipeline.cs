@@ -1,0 +1,25 @@
+using DialogueDown.Compilation;
+using DialogueDown.Configuration;
+using DialogueDown.Script.Ast;
+using DialogueDown.Script.Semantics;
+
+namespace DialogueDown.Visualization.Tests.Support;
+
+/// <summary>
+/// Compiles script text through the default compiler and exposes the stage artifacts a projection
+/// test reads — the transpiled Dialogue AST (<see cref="Document"/>) and the semantic model
+/// (<see cref="Model"/>) — so a test reads the same real stages the report shows instead of a
+/// hand-built tree.
+/// </summary>
+internal static class Pipeline
+{
+    public static ScriptDocument Document(string source) => Compile(source, CompilerOptions.Default).Script;
+
+    public static SemanticModel Model(string source) => Model(source, CompilerOptions.Default);
+
+    public static SemanticModel Model(string source, CompilerOptions options) =>
+        Compile(source, options).Semantics;
+
+    private static CompilationResult Compile(string source, CompilerOptions options) =>
+        ScriptCompilerFactory.CreateDefault(options).Compile(source);
+}

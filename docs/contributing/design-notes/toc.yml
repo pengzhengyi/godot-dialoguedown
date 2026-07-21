@@ -78,6 +78,8 @@
     href: Unavailable Stage Tabs.md
   - name: Diagnostics Overlay
     href: Diagnostics Overlay.md
+  - name: Compiler-Projected Editor Semantics
+    href: Compiler-Projected Editor Semantics.md
 - name: Other notes
   items:
   - name: BBCode Rendering

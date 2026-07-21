@@ -168,6 +168,19 @@ small semantic commits. Touch only the surfaces the construct affects, such as
 compiler projections, report data, source-editor assistance, rendering, help,
 or diagnostics.
 
+**Extend the compiler-projected editor surfaces for the new construct.** Syntax
+highlighting and autocompletion are projected from the compiler, not re-derived in
+the browser (see the *Compiler-Projected Editor Semantics* design note). So a
+construct that introduces new syntax or new completable names must be taught to
+those projections, or it will show up unhighlighted and uncompletable:
+
+- **Highlighting** — if the construct adds a distinct token (a new sigil, keyword,
+  or delimiter), add a `TokenKind` and emit it from the semantic-token projection,
+  then give it a themed color in the editor styles.
+- **Completion** — if the construct introduces names a writer would complete (a new
+  kind of speaker, tag, label, or reference), surface them through the semantic
+  symbol projection so completion offers them.
+
 Keep the test pyramid: prefer pure and component tests, then add only the static
 and live browser coverage needed to prove real integration. Rebuild committed
 generated artifacts when required by current repository instructions.

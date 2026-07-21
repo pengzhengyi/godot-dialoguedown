@@ -8,7 +8,7 @@ import {
     startCompletion,
     type CompletionResult,
 } from "@codemirror/autocomplete";
-import { scanDialogueSymbols } from "./dialogue-symbols";
+import type { DialogueSymbolProvider, DialogueSymbols } from "./model";
 import {
     jumpTargetCompletions,
     speakerIdCompletions,
@@ -16,6 +16,11 @@ import {
     speakerCompletions,
     dialogueAutocompletion,
 } from "./editor-completions";
+
+/** A symbol provider carrying just the parts a test needs; the rest default to empty. */
+function provide(partial: Partial<DialogueSymbols>): DialogueSymbolProvider {
+    return () => ({ jumpTargets: [], speakers: [], speakerIds: [], tags: [], ...partial });
+}
 
 /** Build a completion context with the cursor at `|` in `docWithCursor`. */
 function contextAtCursor(docWithCursor: string, explicit = false): CompletionContext {
@@ -42,21 +47,22 @@ function resultAt(
 }
 
 describe("jumpTargetCompletions", () => {
-    const source = jumpTargetCompletions(scanDialogueSymbols);
+    const source = jumpTargetCompletions(
+        provide({
+            jumpTargets: [
+                { slug: "the-market", heading: "The Market" },
+                { slug: "the-old-mill", heading: "The Old Mill" },
+            ],
+        }),
+    );
 
-    it("offers heading slugs inside a jump destination", () => {
-        const doc = `# The Market
-
-## The Old Mill
-
-Alice: Go [east](#|)`;
+    it("offers the payload's heading slugs inside a jump destination", () => {
+        const doc = `Alice: Go [east](#|)`;
         expect(labelsAt(source, doc)).toEqual(["the-market", "the-old-mill"]);
     });
 
     it("filters against the partial slug via the completion's from", () => {
-        const doc = `# The Market
-
-Alice: Go [east](#the-m|)`;
+        const doc = `Alice: Go [east](#the-m|)`;
         const result = resultAt(source, doc)!;
         // `from` points just after `#`, so the whole partial slug is the filter prefix.
         const state = EditorState.create({ doc: doc.replace("|", "") });
@@ -64,127 +70,87 @@ Alice: Go [east](#the-m|)`;
     });
 
     it("shows the heading text as the option detail", () => {
-        const doc = `# The Market
-
-Alice: [x](#|)`;
-        const result = resultAt(source, doc)!;
+        const result = resultAt(source, `Alice: [x](#|)`)!;
         expect(result.options[0]).toMatchObject({ label: "the-market", detail: "The Market" });
     });
 
     it("types each option as dd-jump (selects the arrow icon)", () => {
-        const doc = `# The Market
-
-Alice: [x](#|)`;
-        const result = resultAt(source, doc)!;
+        const result = resultAt(source, `Alice: [x](#|)`)!;
         expect(result.options.every((o) => o.type === "dd-jump")).toBe(true);
     });
 
     it("does not fire outside a jump destination", () => {
-        expect(labelsAt(source, `# The Market\n\nAlice: plain text |`)).toBeNull();
+        expect(labelsAt(source, `Alice: plain text |`)).toBeNull();
     });
 
-    it("does not fire when the document has no headings", () => {
-        expect(labelsAt(source, `Alice: Go [east](#|)`)).toBeNull();
+    it("offers nothing when the payload has no jump targets", () => {
+        const empty = jumpTargetCompletions(provide({}));
+        expect(labelsAt(empty, `Alice: Go [east](#|)`)).toBeNull();
     });
 });
 
 describe("speakerIdCompletions", () => {
-    const source = speakerIdCompletions(scanDialogueSymbols);
+    const source = speakerIdCompletions(provide({ speakerIds: ["guide", "merchant"] }));
 
-    it("offers declared ids after an @", () => {
-        const doc = `Guide @guide: Hi.
-
-Merchant @merchant: Wares!
-
-@|`;
-        expect(labelsAt(source, doc)).toEqual(["guide", "merchant"]);
+    it("offers the payload's ids after an @", () => {
+        expect(labelsAt(source, `@|`)).toEqual(["guide", "merchant"]);
     });
 
     it("does not fire without an @ before the cursor", () => {
-        expect(labelsAt(source, `Guide @guide: Hi.\n\nAlice: plain|`)).toBeNull();
+        expect(labelsAt(source, `Alice: plain|`)).toBeNull();
     });
 
-    it("excludes the half-typed id from its own suggestions", () => {
-        const doc = `Guide @guide: Hi.
-
-@gu|`;
-        // The in-progress `@gu` is scanned as an id too; it must not suggest itself.
-        expect(labelsAt(source, doc)).toEqual(["guide"]);
+    it("excludes the fully-typed id from its own suggestions", () => {
+        // Typing a whole known id back is noise; the exact match is dropped.
+        expect(labelsAt(source, `@guide|`)).toEqual(["merchant"]);
     });
 
     it("types each option as dd-speaker-id (selects the @ icon)", () => {
-        const doc = `Guide @guide: Hi.
-
-@|`;
-        const result = resultAt(source, doc)!;
+        const result = resultAt(source, `@|`)!;
         expect(result.options.every((o) => o.type === "dd-speaker-id")).toBe(true);
     });
 });
 
 describe("tagCompletions", () => {
-    const source = tagCompletions(scanDialogueSymbols);
+    const source = tagCompletions(provide({ tags: ["wise", "happy"] }));
 
-    it("offers tags after a mid-line #", () => {
-        const doc = `Guide #wise: Hi.
-
-Alice #happy: Yo.
-
-Bob #|`;
-        expect(labelsAt(source, doc)).toEqual(["wise", "happy"]);
+    it("offers the payload's tags after a mid-line #", () => {
+        expect(labelsAt(source, `Bob #|`)).toEqual(["wise", "happy"]);
     });
 
     it("does not fire on a line-start # (a Markdown heading)", () => {
-        const doc = `Guide #wise: Hi.
-
-#|`;
-        expect(labelsAt(source, doc)).toBeNull();
+        expect(labelsAt(source, `#|`)).toBeNull();
     });
 
     it("does not fire inside a jump destination", () => {
-        const doc = `Guide #wise: Hi.
-
-Alice: [x](#|)`;
-        expect(labelsAt(source, doc)).toBeNull();
+        expect(labelsAt(source, `Alice: [x](#|)`)).toBeNull();
     });
 
     it("types each option as dd-tag (selects the # icon)", () => {
-        const doc = `Guide #wise: Hi.
-
-Bob #|`;
-        const result = resultAt(source, doc)!;
+        const result = resultAt(source, `Bob #|`)!;
         expect(result.options.every((o) => o.type === "dd-tag")).toBe(true);
     });
 });
 
 describe("speakerCompletions", () => {
-    const source = speakerCompletions(scanDialogueSymbols);
+    const source = speakerCompletions(provide({ speakers: ["Alice", "Guide"] }));
 
-    it("offers known speakers at the start of a line", () => {
-        const doc = `Alice: Hi.
-
-Guide @g: Hello.
-
-A|`;
+    it("offers the payload's speakers at the start of a line", () => {
         // Returns every known speaker; CodeMirror filters by the typed prefix.
-        expect(labelsAt(source, doc)).toEqual(["Alice", "Guide"]);
+        expect(labelsAt(source, `A|`)).toEqual(["Alice", "Guide"]);
     });
 
     it("does not fire mid-line, after the speaker name", () => {
-        const doc = `Alice: Hi.
-
-Alice: some text |`;
-        expect(labelsAt(source, doc)).toBeNull();
+        expect(labelsAt(source, `Alice: some text |`)).toBeNull();
     });
 
-    it("does not fire when the document has no speakers", () => {
-        expect(labelsAt(source, `# Heading\n\nA|`)).toBeNull();
+    it("offers nothing when the payload has no speakers", () => {
+        const empty = speakerCompletions(provide({}));
+        expect(labelsAt(empty, `A|`)).toBeNull();
     });
 
     it("types each option as dd-speaker (selects the person icon)", () => {
-        const doc = `Alice: Hi.
-
-A|`;
-        const result = resultAt(source, doc)!;
+        const result = resultAt(source, `A|`)!;
         expect(result.options.every((o) => o.type === "dd-speaker")).toBe(true);
     });
 });
@@ -199,7 +165,7 @@ describe("dialogueAutocompletion keymap", () => {
             state: EditorState.create({
                 doc,
                 selection: { anchor: doc.length },
-                extensions: [dialogueAutocompletion()],
+                extensions: [dialogueAutocompletion(provide({ speakers: ["Alice"] }))],
             }),
         });
     }

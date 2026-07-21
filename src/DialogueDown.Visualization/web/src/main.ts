@@ -9,7 +9,8 @@ import { initLiveEditUi, type DocumentBinding } from "./live-edit-ui";
 import { createSaveModeStore } from "./save-mode";
 import { createModeToggle } from "./mode-toggle";
 import { createModeController } from "./view-edit";
-import { browserConfigCreatePorts, createConfig } from "./config-create";
+import { createConfig, browserConfigCreatePorts } from "./config-create";
+import { resolveDocumentForNavigation } from "./navigation";
 import { initModeBadge } from "./mode-badge";
 import { initPathDisplay, initConfigPath } from "./path-display";
 import { initBackToLauncher } from "./back-link";
@@ -60,38 +61,34 @@ if (report.mode === "view" || report.mode === "edit") {
     let controllersReady = false;
 
     // The active document's controller: the config when the Config tab is active, else the
-    // dialogue (node-inspector edits share the Source controller).
-    const activeLive = (): LiveEditController =>
-        configLive && app.isConfigTabActive() ? configLive : dialogueLive;
+    // dialogue (node-inspector edits share the Source controller). A Config tab with no config
+    // file has no controller, so there is no active save controller (shared controls disable).
+    const activeLive = (): LiveEditController | null =>
+        app.isConfigTabActive() ? configLive : dialogueLive;
 
-    // Resolve one document before navigation: Auto flushes and awaits; Manual prompts
-    // save-or-discard. A paused conflict/uncertain/waiting/error stays in place, so navigation is
-    // never an implicit retry.
-    async function resolveDocument(live: LiveEditController): Promise<boolean> {
-        const paused =
-            live.status === "conflict" ||
-            live.status === "uncertain" ||
-            live.status === "waiting" ||
-            live.status === "error";
-        if (paused) return false;
-        if (!live.dirty) return true;
-        if (live.mode === "auto") {
-            const outcome = await live.flush();
-            return outcome === "saved" || outcome === "saved-invalid" || outcome === "noop";
-        }
-        const discard = window.confirm(
-            "You have unsaved changes. Discard them to continue? " +
-                "Click Cancel to keep editing, then Save.",
+    // Resolve one document before navigation: Auto flushes and awaits the latest generation;
+    // Manual awaits the current save, then prompts save-or-discard. A paused
+    // conflict/uncertain/waiting/error stays in place, so navigation is never an implicit retry.
+    function resolveDocument(live: LiveEditController): Promise<boolean> {
+        return resolveDocumentForNavigation(live, () =>
+            window.confirm(
+                "You have unsaved changes. Discard them to continue? " +
+                    "Click Cancel to keep editing, then Save.",
+            ),
         );
-        if (discard) live.discardChanges();
-        return discard;
     }
 
     // The async navigation boundary for tabs and node selection: resolve the active document,
-    // then run `proceed` — but only when a newer navigation has not superseded this one.
+    // then run `proceed` — but only when a newer navigation has not superseded this one. A Config
+    // tab with no controller has nothing to resolve, so navigation proceeds.
     function beginNavigation(proceed: () => void): void {
         const token = ++navToken;
-        void resolveDocument(activeLive()).then((ok) => {
+        const live = activeLive();
+        if (live === null) {
+            proceed();
+            return;
+        }
+        void resolveDocument(live).then((ok) => {
             if (ok && token === navToken) proceed();
         });
     }
@@ -140,6 +137,9 @@ if (report.mode === "view" || report.mode === "edit") {
         setContent: (source) => app.setConfigContent(source),
         applyReport: (applied) => {
             if (applied.configuration) app.updateConfig(applied.configuration);
+            // A config recompile changes the graph too, so refresh the stages exactly once, like
+            // the Source binding does.
+            app.updateStages(applied.stages);
             // Editing the config changes the resolved speakers/ids, so refresh the Source
             // editor's completion symbols and diagnostics from the same recompile.
             currentSymbols = applied.symbols;
@@ -181,6 +181,10 @@ if (report.mode === "view" || report.mode === "edit") {
         onReload: (next) => {
             currentSymbols = next.symbols;
             controller.onReload(next);
+        },
+        onReloadConfig: (next) => {
+            currentSymbols = next.symbols;
+            controller.onReloadConfig(next);
         },
         onProblem: (message) => app.showBanner(message),
     });

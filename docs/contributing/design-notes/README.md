@@ -13,6 +13,7 @@ that every component shares — starting with the error model.
 
 - [Reading guide](#reading-guide)
   - [Core: the compiler pipeline](#core-the-compiler-pipeline)
+  - [Language constructs](#language-constructs)
   - [Configuration](#configuration)
   - [Diagnostics](#diagnostics)
   - [Command-line interface](#command-line-interface)
@@ -64,6 +65,17 @@ flowchart LR
 
 The [Error model](#error-model) below is a cross-cutting core convention every
 stage adopts — read it alongside these.
+
+### Language constructs
+
+**Read when you add or change a script-language construct.** Each note designs
+one writer-facing syntax — its grammar, semantics, Markdown interaction, and
+diagnostics — layered on the pipeline above. Read the relevant Core stage notes
+first, since a construct threads through them.
+
+| Note | What it covers | Status |
+| --- | --- | --- |
+| [Random Choice](./Random%20Choice.md) | A choice list with per-option `` `%` `` weights that the engine resolves to one option at random | Proposed |
 
 ### Configuration
 

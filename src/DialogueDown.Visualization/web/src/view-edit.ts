@@ -113,10 +113,15 @@ export function createModeController(
             ports.app.setDiagnostics(report.diagnostics ?? []);
             ports.app.updateStages(report.stages);
             // Adopt the external config as the config controller's clean baseline; an invalid
-            // reload keeps the last valid report but adopts the (invalid) text as saved-invalid.
+            // reload keeps the last valid report but adopts the (invalid) text as saved-invalid,
+            // carrying its parse detail so a later Discard restores it.
             if (source != null) {
-                const valid = (report as { outcome?: string }).outcome !== "invalid";
-                ports.configLive?.adoptDisk(source, valid);
+                const invalid = (report as { outcome?: string }).outcome === "invalid";
+                ports.configLive?.adoptDisk(
+                    source,
+                    !invalid,
+                    invalid ? report.configMessage : undefined,
+                );
             }
         },
         switchTo(next) {

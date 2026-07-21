@@ -486,6 +486,94 @@ describe("createLiveEdit — Config validation", () => {
     });
 });
 
+describe("createLiveEdit — saved-invalid baseline message", () => {
+    it("restores the exact saved-invalid message after an edit and Discard", async () => {
+        const h = harness("config", "name = 1");
+        const live = h.make("manual");
+
+        live.onEdit("bogus");
+        const done = live.save();
+        await h.resolveSave({
+            kind: "saved-invalid",
+            report: reportFor("bogus"),
+            source: "bogus",
+            message: "line 1: bad key",
+        });
+        await expect(done).resolves.toBe("saved-invalid");
+        expect(live.statusMessage).toBe("line 1: bad key");
+
+        // Editing then discarding must land back on the saved-invalid baseline with its message,
+        // not a saved-invalid status stripped of the detail the reader needs.
+        live.onEdit("bogus2");
+        expect(live.status).toBe("dirty");
+        live.discardChanges();
+
+        expect(live.status).toBe("saved-invalid");
+        expect(live.statusMessage).toBe("line 1: bad key");
+    });
+
+    it("restores the saved-invalid message captured by a reload after an edit and Discard", async () => {
+        const h = harness("config", "name = 1");
+        const live = h.make("manual");
+
+        // Fall into Conflict, then Reload from disk finds invalid content carrying a parse message.
+        live.onEdit("bogus");
+        void live.save();
+        await h.resolveSave({ kind: "conflict", message: "changed" });
+        expect(live.status).toBe("conflict");
+
+        h.setDiskLoad({
+            kind: "invalid",
+            source: "disk-bogus",
+            report: reportFor("disk-bogus"),
+            message: "disk: bad toml",
+        });
+        await expect(live.reload()).resolves.toBe("saved-invalid");
+        expect(live.statusMessage).toBe("disk: bad toml");
+
+        // The reload's message becomes the baseline message, so a later edit and Discard restores it.
+        live.onEdit("disk-bogus2");
+        live.discardChanges();
+        expect(live.status).toBe("saved-invalid");
+        expect(live.statusMessage).toBe("disk: bad toml");
+    });
+
+    it("adopts an invalid disk config as saved-invalid with its message and restores it on Discard", () => {
+        const h = harness("config", "name = 1");
+        const live = h.make("manual");
+
+        // A View hot reload adopts external invalid content as the clean saved-invalid baseline.
+        live.adoptDisk("ext-bogus", false, "view: bad toml");
+        expect(live.status).toBe("saved-invalid");
+        expect(live.statusMessage).toBe("view: bad toml");
+
+        live.onEdit("ext-bogus2");
+        live.discardChanges();
+        expect(live.status).toBe("saved-invalid");
+        expect(live.statusMessage).toBe("view: bad toml");
+    });
+
+    it("restores the initial persisted-invalid message after an edit and Discard", () => {
+        const h = harness("config", "bogus");
+        const live = createLiveEdit(
+            h.ports,
+            {
+                documentType: "config",
+                mode: "manual",
+                initialValid: false,
+                initialMessage: "seeded: bad toml",
+            },
+            "bogus",
+        );
+
+        expect(live.statusMessage).toBe("seeded: bad toml");
+        live.onEdit("bogus2");
+        live.discardChanges();
+        expect(live.status).toBe("saved-invalid");
+        expect(live.statusMessage).toBe("seeded: bad toml");
+    });
+});
+
 describe("createLiveEdit — onDiskChange invalidation", () => {
     it("keeps Conflict when an in-flight save resolves after an external disk change", async () => {
         const h = harness();

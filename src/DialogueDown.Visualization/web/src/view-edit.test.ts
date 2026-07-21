@@ -117,7 +117,7 @@ describe("createModeController", () => {
         expect(app.updateConfig).toHaveBeenCalledOnce();
         expect(app.setConfigContent).toHaveBeenCalledWith('mode = "best-effort"');
         expect(app.updateStages).toHaveBeenCalledWith([]);
-        expect(configLive.adoptDisk).toHaveBeenCalledWith('mode = "best-effort"', true);
+        expect(configLive.adoptDisk).toHaveBeenCalledWith('mode = "best-effort"', true, undefined);
         expect(configLive.onDiskChange).not.toHaveBeenCalled();
     });
 
@@ -146,9 +146,12 @@ describe("createModeController", () => {
             stages: [],
             configuration: { file: { path: "dialogue.toml", source: "bogus" } },
             outcome: "invalid",
+            configMessage: "line 1: bad toml",
         } as unknown as Parameters<typeof c.onReloadConfig>[0]);
 
-        expect(configLive.adoptDisk).toHaveBeenCalledWith("bogus", false);
+        // The invalid external content is adopted as saved-invalid, carrying its parse detail so a
+        // later Discard restores the exact message.
+        expect(configLive.adoptDisk).toHaveBeenCalledWith("bogus", false, "line 1: bad toml");
     });
 
     it("enters Conflict (never reloads) on an external disk change in Edit", () => {

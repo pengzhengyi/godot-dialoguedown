@@ -107,7 +107,7 @@ export interface LiveEditController {
     /** Reload from disk — replace the buffer with the external content and adopt it as the baseline. */
     reload(): Promise<SaveResolution>;
     /** Adopt a clean external reload (View hot reload): set the baseline/buffer without marking dirty. */
-    adoptDisk(source: string, valid?: boolean): void;
+    adoptDisk(source: string, valid?: boolean, message?: string): void;
     /** Resolve once no save is in flight or queued, so a caller can act on a settled state. */
     whenIdle(): Promise<void>;
     /** Leaving Edit — drop any unsaved-dirty and paused state without saving. */
@@ -185,6 +185,10 @@ export function createLiveEdit(
     // The detail message paired with the current status, exposed so the shared chrome can render
     // it accessibly for whichever document is active. Seeded for an initially saved-invalid config.
     let statusMessage: string | undefined = baselineValid ? undefined : options.initialMessage;
+    // The detail message of the saved baseline when it is saved-invalid, tracked apart from the
+    // transient status message so discard/restore/adopt/reload can restore the exact parse detail
+    // instead of dropping to a saved-invalid status with no message.
+    let baselineMessage: string | undefined = baselineValid ? undefined : options.initialMessage;
     let restoring = false;
     let inFlight: PendingSave | null = null;
     let queued: PendingSave | null = null;
@@ -412,7 +416,7 @@ export function createLiveEdit(
     ): SaveResolution {
         // The invalid Config was persisted, so the baseline advances and dirty clears, but the
         // last valid report stays visibly stale until the config becomes valid again.
-        advanceBaseline(request.source, false);
+        advanceBaseline(request.source, false, outcome.message);
         if (latest) {
             setStatus("saved-invalid", outcome.message);
         } else {
@@ -462,9 +466,10 @@ export function createLiveEdit(
         return "uncertain";
     }
 
-    function advanceBaseline(source: string, valid: boolean): void {
+    function advanceBaseline(source: string, valid: boolean, message?: string): void {
         savedBaseline = source;
         baselineValid = valid;
+        baselineMessage = valid ? undefined : message;
     }
 
     function promoteQueue(): void {
@@ -521,7 +526,7 @@ export function createLiveEdit(
         buffer = source;
         generation += 1;
         baselineValid = valid;
-        setStatus(valid ? "saved" : "saved-invalid");
+        setStatus(valid ? "saved" : "saved-invalid", valid ? undefined : baselineMessage);
         refreshChrome();
     }
 
@@ -604,26 +609,30 @@ export function createLiveEdit(
             savedBaseline = source;
             if (load.kind === "invalid") {
                 baselineValid = false;
+                baselineMessage = load.message;
                 setStatus("saved-invalid", load.message);
                 refreshChrome();
                 return "saved-invalid";
             }
             baselineValid = true;
+            baselineMessage = undefined;
             ports.applyReport(load.report);
             setStatus("saved");
             refreshChrome();
             return "saved";
         },
-        adoptDisk(source, valid = true) {
+        adoptDisk(source, valid = true, message) {
             // A View hot reload already updated the editor and graphs; adopt the external content
-            // as the clean baseline so a later Edit session starts from it, not stale text.
+            // as the clean baseline so a later Edit session starts from it, not stale text. An
+            // invalid adoption keeps its parse message so a later Discard restores it.
             clearIdle();
             clearQueue();
             buffer = source;
             savedBaseline = source;
             generation += 1;
             baselineValid = valid;
-            setStatus(valid ? "saved" : "saved-invalid");
+            baselineMessage = valid ? undefined : message;
+            setStatus(valid ? "saved" : "saved-invalid", valid ? undefined : message);
             refreshChrome();
         },
         whenIdle() {
@@ -636,7 +645,10 @@ export function createLiveEdit(
             clearQueue();
             buffer = savedBaseline;
             generation += 1;
-            setStatus(baselineValid ? "saved" : "saved-invalid");
+            setStatus(
+                baselineValid ? "saved" : "saved-invalid",
+                baselineValid ? undefined : baselineMessage,
+            );
             refreshChrome();
         },
         discardChanges() {

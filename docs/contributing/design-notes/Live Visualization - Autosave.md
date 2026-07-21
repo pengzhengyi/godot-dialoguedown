@@ -360,12 +360,15 @@ hammer a dead local server or permission-denied path with background retries.
 | Config explicit Save is invalid TOML | Write, advance the baseline, clear disk-dirty state, keep the last valid report visibly stale, and surface the load failure. |
 | Config explicit invalid Save completes after a newer edit | Advance the baseline to the written snapshot, keep the newer buffer dirty, and retain the stale-report cue. |
 | Edit while save is in flight | Keep dirty; discard stale report; Auto coalesces one follow-up. |
+| External change while a save or reload is in flight | A disk-change epoch marks the in-flight response stale: it leaves Conflict in place and installs no baseline or report. |
 | Save request matches the in-flight snapshot and server policy | Reuse the same promise, regardless of Auto/navigation urgency. |
 | Explicit Config save matches an in-flight automatic snapshot | Treat it as a different write policy and queue the explicit request. |
+| Explicit Config save queued behind an in-flight invalid-auto | Once the invalid-auto settles into Waiting, promote and run the queued allow-invalid explicit save (persisting the invalid TOML), so `whenIdle` and navigation never hang. |
 | Save request has newer content | Replace the single queued save with the latest generation; never overlap writes. |
 | Discard while save is in flight | Disabled until the write outcome identifies the new saved baseline. |
 | External change before idle timer | Cancel timer, enter Conflict, write nothing. |
-| External change races with request | Expected-baseline check returns Conflict, write nothing. |
+| External change races with request | The baseline check and the write share one exclusive file handle (an atomic compare-and-write with a brief retry), so a race returns Conflict and writes nothing rather than losing the external change. |
+| External change restores earlier self-written content (A→B→A) | Self-write suppression is one-shot: the token covers a single watcher event, so a later external change back to that content still reloads. |
 | Confirmed overwrite | Explicit request bypasses the baseline check once. |
 | Reload after conflict | Replace the buffer from disk, establish it as the new baseline, clear conflict/dirty state, and refresh the report. |
 | Reload external invalid Config | Establish the external text as the baseline, clear dirty/conflict, enter Saved — invalid TOML, and retain the last valid report. |
@@ -377,6 +380,7 @@ hammer a dead local server or permission-denied path with background retries.
 | Navigate while Manual is saving | Await it; if newer edits remain, run the Manual Save-or-Discard decision. |
 | Navigate while Auto is waiting/error/conflict/uncertain | Stay in place; do not use navigation as an implicit retry. |
 | Navigate while Config is Saved — invalid TOML | Allow navigation; no work is unsaved, but the last valid report remains marked stale. |
+| Reload the page while Config is Saved — invalid TOML | The served payload (initial HTML and document API) carries the invalid source and a `saved-invalid` marker, so the reloaded controller restores the stale state instead of reverting to the last valid text. |
 | Navigate while Manual is dirty | Preserve the existing Save-or-Discard prompt. |
 | Switch active Source/Config document | Capsule and status reflect that document's controller. |
 | Close while dirty/saving | Existing browser confirmation remains the last-resort guard. |
@@ -389,7 +393,7 @@ hammer a dead local server or permission-denied path with background retries.
 | Mode changes while navigation is pending | Clear the pending navigation; the writer must request it again under the new mode. |
 | Save response is lost | Enter Uncertain; retrying the same snapshot can return idempotent success after reconciliation. |
 | Create Config when no file exists | Create only when the expected state is absence; the starter template becomes the saved baseline. |
-| Create Config response is lost | The create UI reports Uncertain without constructing a controller. Retry adopts the file when it equals the starter template; differing content is a conflict, and failure leaves the no-config state unchanged. |
+| Create Config response is lost | The create UI reports Uncertain without constructing a controller. Retry adopts the file when it equals the starter template; differing content is a conflict, and failure leaves the no-config state unchanged. Even once the session has adopted the config, a retry for that same path stays idempotent while the file is the starter template and becomes a conflict once it diverges. |
 
 ## Integration
 
@@ -402,8 +406,9 @@ hammer a dead local server or permission-denied path with background retries.
 - **Navigation:** replace the synchronous `confirmNavigation` contract in
   `app.ts`, tree selection, and `view-edit.ts` with an asynchronous guard.
 - **Server:** extend `/api/save` and `LiveSession` with the expected baseline,
-  validation policy, conflict policy, and typed outcomes. Auto/explicit/navigation
-  trigger remains client-side scheduling metadata.
+  validation policy, conflict policy, and typed outcomes; the baseline check and the
+  write share one exclusive `AtomicFile` handle so they are one atomic step.
+  Auto/explicit/navigation trigger remains client-side scheduling metadata.
 - **Existing refresh paths:** an accepted save response updates stages,
   diagnostics, symbols, and configuration exactly once.
 - **Hot reload:** both the dialogue document and its `dialogue.toml` are watched. An
@@ -411,7 +416,8 @@ hammer a dead local server or permission-denied path with background retries.
   owns its buffer; in View the report re-syncs and the controller adopts the external
   content as its clean baseline, so a later Edit starts from disk rather than stale text.
   The config watcher is armed whenever a configuration applies and re-armed when one is
-  created at runtime, and a save suppresses its own watcher event.
+  created at runtime, and a save suppresses its own watcher event once (a one-shot
+  token, so a later external change back to that content still reloads).
 
 ## Testability
 
@@ -487,6 +493,31 @@ async navigation, browser coverage and docs, and this crosscheck).
   with an `outcome` discriminator (200 for every negotiated outcome; 400 only for a true
   write error), rather than distinct HTTP status codes — a single client parse path owns the
   state machine.
+
+### Correctness refinements
+
+Follow-up fixes hardened the shipped state machine against races and reload:
+
+- **Atomic baseline check.** `LiveSession` writes the dialogue document and
+  `dialogue.toml` through `AtomicFile.Transact` — one exclusive read/compare/write
+  handle (with a brief retry) so an external change cannot slip between the baseline
+  check and the commit. Config validation runs inside the same window.
+- **One-shot self-write suppression.** The watcher-suppression token for a save is
+  consumed on the first event it covers, so an external change that later restores
+  the same content (A→B→A) still reloads.
+- **Disk-change epoch.** Each save and reload captures a disk-change epoch;
+  `onDiskChange` bumps it, so a response that returns after an external change is
+  treated as superseded and cannot clear Conflict or install a stale baseline/report.
+- **Queued explicit after invalid-auto.** A queued allow-invalid explicit save is
+  promoted and run once an in-flight invalid-auto settles into Waiting, so `whenIdle`
+  and navigation never hang behind a paused state.
+- **Lost create-config retry after adopt.** A retry that targets the config a session
+  already adopted is idempotent while the file is the starter template and a conflict
+  once it diverges, rather than throwing.
+- **Invalid config survives reload.** `LiveSession` tracks the current config source
+  and validity apart from the last valid visualizer; a `ConfigStatusOverlay` threads a
+  `saved-invalid` marker and the invalid source into the served payload so a page
+  reload restores the saved-invalid (report stale) state.
 
 ### Not implemented
 

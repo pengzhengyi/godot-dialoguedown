@@ -1,4 +1,5 @@
 using DialogueDown.Diagnostics;
+using DialogueDown.Visualization.Lsp;
 
 namespace DialogueDown.Visualization.Diagnostics;
 
@@ -27,15 +28,13 @@ internal sealed class DiagnosticProjection
 
     private static LspDiagnostic Project(LocatedDiagnostic diagnostic) =>
         new(
-            new LspRange(ToPosition(diagnostic.Start), ToPosition(diagnostic.End)),
+            new LspRange(
+                LspPosition.FromOneBased(diagnostic.Start),
+                LspPosition.FromOneBased(diagnostic.End)),
             ToSeverity(diagnostic.Severity),
             diagnostic.Code,
             diagnostic.Message,
             SourceName);
-
-    // Core positions are one-based (line, column); LSP positions are zero-based (line, character).
-    private static LspPosition ToPosition(LinePosition position) =>
-        new(position.Line - 1, position.Column - 1);
 
     private static LspSeverity ToSeverity(DiagnosticSeverity severity) => severity switch
     {

@@ -4,6 +4,7 @@ using DialogueDown.Configuration;
 using DialogueDown.Markdown;
 using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Diagnostics;
+using DialogueDown.Visualization.Editor;
 using DialogueDown.Visualization.Semantics;
 
 namespace DialogueDown.Visualization;
@@ -125,7 +126,7 @@ public sealed class CompilationVisualizer
         var content = BuildContent(source);
         return HtmlTemplate.RenderPage(
             content.Stages, source, VisualizationMode.Static, documentPath, content.Symbols,
-            content.Configuration, content.Diagnostics);
+            content.Configuration, content.Diagnostics, content.SemanticTokens);
     }
 
     /// <summary>
@@ -142,7 +143,7 @@ public sealed class CompilationVisualizer
         var content = BuildContent(source);
         return HtmlTemplate.RenderPage(
             content.Stages, source, mode, documentPath, content.Symbols, content.Configuration,
-            content.Diagnostics, configOverlay);
+            content.Diagnostics, content.SemanticTokens, configOverlay);
     }
 
     /// <summary>
@@ -158,7 +159,7 @@ public sealed class CompilationVisualizer
         var content = BuildContent(source);
         return DisplayGraphJson.SerializeDocument(
             mode, documentPath, source, content.Stages, content.Symbols, content.Configuration,
-            content.Diagnostics, configOverlay);
+            content.Diagnostics, content.SemanticTokens, configOverlay);
     }
 
     private static IDisplayRenderer RendererFor(EmitFormat format) => format switch
@@ -229,7 +230,9 @@ public sealed class CompilationVisualizer
             ? null
             : ConfigurationProjection.Project(_configuration);
         var diagnostics = new DiagnosticProjection().Project(result.LocatedDiagnostics);
-        return new ReportContent(stages, symbols, configuration, diagnostics);
+        IReadOnlyList<SemanticToken> semanticTokens =
+            [.. new SemanticTokenProjection().Project(result.Script, source)];
+        return new ReportContent(stages, symbols, configuration, diagnostics, semanticTokens);
     }
 
     // The compiled report data shared by the HTML report and the live document payload.
@@ -237,5 +240,6 @@ public sealed class CompilationVisualizer
         IReadOnlyList<DisplayGraph> Stages,
         SymbolSet Symbols,
         ConfigurationReport? Configuration,
-        IReadOnlyList<LspDiagnostic> Diagnostics);
+        IReadOnlyList<LspDiagnostic> Diagnostics,
+        IReadOnlyList<SemanticToken> SemanticTokens);
 }

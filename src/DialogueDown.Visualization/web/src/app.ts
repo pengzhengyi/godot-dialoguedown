@@ -1,4 +1,12 @@
-import type { Report, Stage, StageUnavailable, ConfigReport, LspDiagnostic } from "./model";
+import type {
+    Report,
+    Stage,
+    StageUnavailable,
+    ConfigReport,
+    LspDiagnostic,
+    SemanticToken,
+    DialogueSymbolProvider,
+} from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView, type NodeSelectOptions } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
@@ -7,7 +15,6 @@ import { createSourceView, type SourceViewHandle } from "./source-view";
 import { createConfigView, type ConfigViewHandle, type ConfigViewOptions } from "./config-view";
 import { consumeOpenConfigTab } from "./config-create";
 import { rememberActiveTab, rememberedActiveTab } from "./active-tab";
-import type { DialogueSymbolSource } from "./dialogue-symbols";
 import { createSemanticView } from "./semantic-view";
 import { initResizer } from "./resizer";
 import { initFullscreen } from "./fullscreen";
@@ -51,11 +58,10 @@ export interface SourceOptions {
      */
     onCreateConfig?(): Promise<void>;
     /**
-     * Where the Source editor's autocompletion draws its symbols. Defaults to a document
-     * scan; a served session supplies the semantic analyzer's resolved symbols merged
-     * with the scan.
+     * Where the Source editor's autocompletion draws its symbols — the compiler's resolved
+     * symbols from the report payload. Absent for the static export (no completions).
      */
-    symbols?: DialogueSymbolSource;
+    symbols?: DialogueSymbolProvider;
     /**
      * An asynchronous boundary guarding navigation (switching tabs or selecting another node): it
      * runs `proceed` once the active document's Auto save has flushed, or the reader chose to
@@ -77,6 +83,8 @@ export interface AppController {
     setContent(source: string): void;
     /** Replace the Source editor's diagnostics overlay after a recompile (hot-reload or save). */
     setDiagnostics(diagnostics: readonly LspDiagnostic[]): void;
+    /** Replace the Source editor's semantic-token highlighting after a recompile. */
+    setSemanticTokens(tokens: readonly SemanticToken[]): void;
     /** Switch the config (TOML) editor between editable (Edit) and read-only (View) in place. */
     setConfigEditable(editable: boolean): void;
     /** Replace the config editor's content — a discard/restore of the last saved TOML. */
@@ -184,6 +192,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         },
         setContent: (next) => sourceHandle?.setContent(next),
         setDiagnostics: (diagnostics) => sourceHandle?.setDiagnostics(diagnostics),
+        setSemanticTokens: (tokens) => sourceHandle?.setSemanticTokens(tokens),
         setConfigEditable: (next) => configHandle?.setEditable(next),
         setConfigContent: (next) => configHandle?.setContent(next),
         updateConfig: (config) => configHandle?.updateConfig(config),
@@ -231,6 +240,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 ...(source?.symbols ? { symbols: source.symbols } : {}),
             });
             sourceHandle.setDiagnostics(report.diagnostics ?? []);
+            sourceHandle.setSemanticTokens(report.semanticTokens ?? []);
             section.appendChild(sourceHandle.element);
             addTab("Source", section, null, SOURCE_TIP, null);
             sourceTab = tabsEl.lastElementChild;

@@ -30,6 +30,7 @@ function fakePorts(overrides: Partial<ModeControllerPorts> = {}) {
         setEditable: vi.fn(),
         setContent: vi.fn(),
         setDiagnostics: vi.fn(),
+        setSemanticTokens: vi.fn(),
         setConfigEditable: vi.fn(),
         setConfigContent: vi.fn(),
         updateConfig: vi.fn(),
@@ -93,10 +94,31 @@ describe("createModeController", () => {
                     source: "dialoguedown",
                 },
             ],
+            semanticTokens: [
+                {
+                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                    kind: "ReservedTag",
+                },
+            ],
         });
 
         expect(app.setContent).toHaveBeenCalledWith("# fresh");
         expect(app.updateStages).toHaveBeenCalledWith([]);
+        expect(app.setDiagnostics).toHaveBeenCalledWith([
+            {
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                severity: 1,
+                code: "DLG2001",
+                message: "Boom.",
+                source: "dialoguedown",
+            },
+        ]);
+        expect(app.setSemanticTokens).toHaveBeenCalledWith([
+            {
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                kind: "ReservedTag",
+            },
+        ]);
         expect(app.showBanner).toHaveBeenCalledWith(null);
         expect(ports.dialogueLive.onDiskChange).not.toHaveBeenCalled();
         // The dialogue controller adopts the external content as its clean baseline.

@@ -1,7 +1,5 @@
 /** The display model produced by the .NET walk and serialized into the report. */
 
-import type { DialogueSymbols } from "./dialogue-symbols";
-
 export interface DisplayAttribute {
     name: string;
     value: string;
@@ -130,6 +128,13 @@ export interface Report {
     configStatus?: "saved-invalid";
     /** The configuration parse error shown when {@link Report.configStatus} is `saved-invalid`. */
     configMessage?: string;
+    /**
+     * The compiler's semantic tokens, rendered as the Source editor's dialogue highlighting
+     * (speakers, tags, jump indicators) layered over the Markdown colors. Present for a
+     * served or CLI report; an empty array for a document with no dialogue constructs. Absent
+     * for a bare library render that carried none.
+     */
+    semanticTokens?: SemanticToken[];
 }
 
 /** A zero-based position in the source (LSP shape): a line and a UTF-16 character offset. */
@@ -161,6 +166,58 @@ export interface LspDiagnostic {
     message: string;
     source: string;
 }
+
+/** The legend of dialogue-specific token kinds the compiler projects for highlighting. */
+export type TokenKind = "Speaker" | "CustomTag" | "ReservedTag" | "JumpIndicator";
+
+/**
+ * One positioned dialogue token the compiler projects from the parse: a zero-based
+ * {@link LspRange} and its {@link TokenKind}. The Source editor renders it as a decoration
+ * layered over the Markdown highlighting. A future language server publishes the identical
+ * structure as its `semanticTokens`, so the editor consumes it unchanged.
+ */
+export interface SemanticToken {
+    range: LspRange;
+    kind: TokenKind;
+}
+
+/** One completable jump destination: a scene heading's anchor and its display text. */
+export interface JumpTarget {
+    /** The GitHub-style slug inserted after `#` — the same anchor the preview links to. */
+    slug: string;
+    /** The heading text, shown as the completion's detail. */
+    heading: string;
+}
+
+/**
+ * The names a document contains, grouped by the DSL concept each completes — the semantic
+ * analyzer's resolved symbols (canonical speaker ids, merged tags, validated jump targets)
+ * carried in the report payload and read by the Source editor's autocompletion.
+ */
+export interface DialogueSymbols {
+    /** Scene-heading anchors, for completing a jump destination `](#…)`. */
+    jumpTargets: JumpTarget[];
+    /** Speaker display names, for completing a line's leading speaker. */
+    speakers: string[];
+    /** Speaker stable ids (without the `@`), for completing `@id`. */
+    speakerIds: string[];
+    /** Speaker/line tags (without the `#`), for completing `#tag`. */
+    tags: string[];
+}
+
+/** The empty symbol set — no completions, used when a report carried no resolved symbols. */
+export const EMPTY_SYMBOLS: DialogueSymbols = {
+    jumpTargets: [],
+    speakers: [],
+    speakerIds: [],
+    tags: [],
+};
+
+/**
+ * Where the Source editor's autocompletion reads its symbols. Read on every completion so a
+ * hot-reload or save refreshes the list by swapping the holder the provider closes over.
+ */
+export type DialogueSymbolProvider = () => DialogueSymbols;
 
 /** The mode a report is shown in (mirrors the .NET `VisualizationMode`). */
 export type VisualizationMode = "static" | "view" | "edit";

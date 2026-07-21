@@ -1,9 +1,8 @@
-import type { DisplayNode } from "./model";
+import type { DialogueSymbolProvider, DisplayNode } from "./model";
 import { colorOf } from "./palette";
 import { escapeHtml, renderMarkdown } from "./text";
 import { createSourceView, type SourceViewHandle } from "./source-view";
 import { spanSplice } from "./span-splice";
-import type { DialogueSymbolSource } from "./dialogue-symbols";
 
 /** How the inspector participates in editing; absent for a static, read-only report. */
 export interface DetailEditOptions {
@@ -14,7 +13,7 @@ export interface DetailEditOptions {
     /** Apply a node edit: the whole document after splicing the node's new text in. */
     onNodeEdit(nextDocument: string): void;
     /** Symbols for the node editor's autocompletion (parity with the Source tab). */
-    symbols?: DialogueSymbolSource;
+    symbols?: DialogueSymbolProvider;
 }
 
 export interface DetailPanelOptions {

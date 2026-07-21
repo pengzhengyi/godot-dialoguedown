@@ -347,6 +347,35 @@ public sealed class CompilationVisualizerTests
     }
 
     [Fact]
+    public void SerializeDocument_CarriesTheSemanticTokensForHighlighting()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var json = visualizer.SerializeDocument(
+            "scene.dialogue.md",
+            """
+            # Hello
+            Alice #happy: Hi. => #next
+            """,
+            "view");
+
+        Assert.Contains("\"semanticTokens\":[", json);
+        Assert.Contains("\"kind\":\"Speaker\"", json);
+        Assert.Contains("\"kind\":\"CustomTag\"", json);
+        Assert.Contains("\"kind\":\"JumpIndicator\"", json);
+    }
+
+    [Fact]
+    public void RenderHtmlReport_ForADocumentWithNoDialogue_CarriesAnEmptySemanticTokensArray()
+    {
+        var visualizer = new CompilationVisualizer();
+
+        var html = visualizer.RenderHtmlReport("# Just a heading");
+
+        Assert.Contains("\"semanticTokens\":[]", html);
+    }
+
+    [Fact]
     public void LocalImageReferences_NullSource_Throws()
     {
         Assert.Throws<ArgumentNullException>(

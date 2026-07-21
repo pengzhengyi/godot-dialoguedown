@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Diagnostics;
+using DialogueDown.Visualization.Editor;
 
 namespace DialogueDown.Visualization;
 
@@ -30,9 +31,11 @@ internal static class DisplayGraphJson
     /// when known, the compiled <paramref name="source"/> (shown in the Source tab;
     /// omitted when null), each stage's display graph, the editor's resolved
     /// <paramref name="symbols"/> (omitted when null), the applied
-    /// <paramref name="configuration"/> for the Config tab (omitted when null), and the
+    /// <paramref name="configuration"/> for the Config tab (omitted when null), the
     /// LSP-shaped <paramref name="diagnostics"/> the editor overlay renders (omitted when
-    /// null; an empty array clears the overlay after a clean compile).
+    /// null; an empty array clears the overlay after a clean compile), and the
+    /// <paramref name="semanticTokens"/> the editor highlights (omitted when null; an empty
+    /// array for a document with no dialogue constructs).
     /// </summary>
     public static string SerializeReport(
         string mode,
@@ -42,17 +45,19 @@ internal static class DisplayGraphJson
         SymbolSet? symbols = null,
         ConfigurationReport? configuration = null,
         IReadOnlyList<LspDiagnostic>? diagnostics = null,
+        IReadOnlyList<SemanticToken>? semanticTokens = null,
         ConfigStatusOverlay? configOverlay = null)
     {
         var json = JsonSerializer.Serialize(
-            new { mode, path, source, stages, symbols, configuration, diagnostics }, _options);
+            new { mode, path, source, stages, symbols, configuration, diagnostics, semanticTokens },
+            _options);
         return configOverlay is null ? json : ApplyConfigOverlay(json, configOverlay);
     }
 
     /// <summary>
     /// Serializes the current document payload —
-    /// <c>{ mode, path, source, stages, symbols, configuration, diagnostics }</c> — for the live
-    /// server's document API and its hot-reload push events.
+    /// <c>{ mode, path, source, stages, symbols, configuration, diagnostics, semanticTokens }</c>
+    /// — for the live server's document API and its hot-reload push events.
     /// </summary>
     public static string SerializeDocument(
         string mode,
@@ -62,10 +67,12 @@ internal static class DisplayGraphJson
         SymbolSet? symbols = null,
         ConfigurationReport? configuration = null,
         IReadOnlyList<LspDiagnostic>? diagnostics = null,
+        IReadOnlyList<SemanticToken>? semanticTokens = null,
         ConfigStatusOverlay? configOverlay = null)
     {
         var json = JsonSerializer.Serialize(
-            new { mode, path, source, stages, symbols, configuration, diagnostics }, _options);
+            new { mode, path, source, stages, symbols, configuration, diagnostics, semanticTokens },
+            _options);
         return configOverlay is null ? json : ApplyConfigOverlay(json, configOverlay);
     }
 

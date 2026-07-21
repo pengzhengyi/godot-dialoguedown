@@ -16,10 +16,8 @@ import { initPathDisplay, initConfigPath } from "./path-display";
 import { initBackToLauncher } from "./back-link";
 import { initTheme } from "./theme";
 import { initHelpToggle } from "./help";
-import { createSemanticSymbolSource } from "./semantic-symbols";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
-import type { DialogueSymbols } from "./dialogue-symbols";
-import type { Report, ServedMode } from "./model";
+import { type DialogueSymbols, EMPTY_SYMBOLS, type Report, type ServedMode } from "./model";
 
 /**
  * The .NET library replaces the `"__REPORT__"` slot in report.html with the
@@ -50,7 +48,7 @@ if (report.mode === "view" || report.mode === "edit") {
     const toggle = createModeToggle(initialMode, (mode) => controller.switchTo(mode));
     // The semantic analyzer's resolved symbols, refreshed on each hot-reload. The editor's
     // completion source reads this holder every call, so a reload updates completions in place.
-    let currentSymbols: DialogueSymbols | undefined = report.symbols;
+    let currentSymbols: DialogueSymbols = report.symbols ?? EMPTY_SYMBOLS;
     const sourceStore = createSaveModeStore("source");
     const configStore = createSaveModeStore("config");
     // Only the latest navigation intent runs; a later navigation or a mode change bumps the token
@@ -112,7 +110,7 @@ if (report.mode === "view" || report.mode === "edit") {
         onActiveTabChange: () => {
             if (controllersReady) ui.reflectActiveDocument();
         },
-        symbols: createSemanticSymbolSource(() => currentSymbols),
+        symbols: () => currentSymbols,
     });
     const ui = initLiveEditUi(app, { active: () => activeLive() });
     const dialogueBinding: DocumentBinding = {
@@ -123,8 +121,9 @@ if (report.mode === "view" || report.mode === "edit") {
             app.updateStages(applied.stages);
             // A save recompiles, so the analyzer's symbols change — refresh the completion
             // holder or the editor keeps offering the old speakers/ids.
-            currentSymbols = applied.symbols;
+            currentSymbols = applied.symbols ?? EMPTY_SYMBOLS;
             app.setDiagnostics(applied.diagnostics ?? []);
+            app.setSemanticTokens(applied.semanticTokens ?? []);
         },
         diskSource: (applied) => applied.source ?? "",
     };
@@ -152,8 +151,11 @@ if (report.mode === "view" || report.mode === "edit") {
             app.updateStages(applied.stages);
             // Editing the config changes the resolved speakers/ids, so refresh the Source
             // editor's completion symbols and diagnostics from the same recompile.
-            currentSymbols = applied.symbols;
+            currentSymbols = applied.symbols ?? EMPTY_SYMBOLS;
             app.setDiagnostics(applied.diagnostics ?? []);
+            // A config recompile also changes the dialogue's highlighting (a newly known
+            // speaker), so refresh the semantic tokens from the same report.
+            app.setSemanticTokens(applied.semanticTokens ?? []);
         },
         diskSource: (applied) => applied.configuration?.file?.source ?? "",
         // The speakers pane is stale whenever the buffer's config is not the compiled report.
@@ -195,11 +197,11 @@ if (report.mode === "view" || report.mode === "edit") {
     document.getElementById("mode-badge")?.replaceWith(toggle.element);
     watchServerEvents({
         onReload: (next) => {
-            currentSymbols = next.symbols;
+            currentSymbols = next.symbols ?? EMPTY_SYMBOLS;
             controller.onReload(next);
         },
         onReloadConfig: (next) => {
-            currentSymbols = next.symbols;
+            currentSymbols = next.symbols ?? EMPTY_SYMBOLS;
             controller.onReloadConfig(next);
         },
         onProblem: (message, target) => controller.onProblem(message, target),

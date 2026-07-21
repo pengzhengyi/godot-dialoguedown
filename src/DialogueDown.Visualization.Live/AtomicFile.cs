@@ -2,6 +2,19 @@ using System.Text;
 
 namespace DialogueDown.Visualization.Live;
 
+/// <summary>How a staged write is published on commit.</summary>
+internal enum WriteMode
+{
+    /// <summary>Nothing was staged; commit touches nothing.</summary>
+    None,
+
+    /// <summary>A compare-and-swap against the snapshot; an external write in the window is a conflict.</summary>
+    Validated,
+
+    /// <summary>An unconditional overwrite of whatever is on disk (a confirmed overwrite).</summary>
+    Forced,
+}
+
 /// <summary>
 /// A read → decide → write window over one file that never destroys data. A caller reads the
 /// file's current content (a snapshot taken by an atomic open, so a missing file is reported as
@@ -16,10 +29,13 @@ namespace DialogueDown.Visualization.Live;
 /// concurrent in-process saves from the same baseline settle as one write and one conflict rather
 /// than a lost update. Against a <em>separate</em> process (an external editor) this is
 /// <em>optimistic</em> concurrency, not a held OS lock: the snapshot read and the atomic replace
-/// are distinct steps, which keeps the replace a portable, cross-volume-safe rename. That narrow
-/// window is covered by the caller's expected-baseline check plus the on-disk watcher (an external
-/// change is reported as a conflict), and the atomic move guarantees a reader ever sees only the
-/// whole old file or the whole new file — never a partial write.
+/// are distinct steps, which keeps the replace a portable, cross-volume-safe rename. A validated
+/// <see cref="Transaction.Write"/> closes that window as a compare-and-swap — the atomic replace
+/// captures the target's immediately previous content into a backup and, if it differs from the
+/// snapshot the caller decided on, rolls the external content back and reports a conflict — so an
+/// edit that lands between the snapshot and the replace is never silently overwritten. The atomic
+/// move also guarantees a reader ever sees only the whole old file or the whole new file — never a
+/// partial write.
 /// </remarks>
 internal static class AtomicFile
 {
@@ -42,10 +58,19 @@ internal static class AtomicFile
     /// with a <see cref="Transaction"/> exposing that content and a <see cref="Transaction.Write"/>
     /// that stages a full replacement. A file that does not exist is reported as <c>null</c>
     /// content; a no-write outcome touches nothing on disk, so a file that was never present stays
-    /// absent and an externally created one is left untouched. A staged write is committed by an
-    /// atomic same-directory move after <paramref name="body"/> returns, so the original is never
-    /// truncated in place and a failed write preserves it.
+    /// absent and an externally created one is left untouched. A staged <see cref="Transaction.Write"/>
+    /// is a compare-and-swap: after the atomic replace it validates the content it displaced against
+    /// the snapshot the body decided on, and if an external process wrote the target in the
+    /// meantime it rolls the external content back into place and throws
+    /// <see cref="WriteConflictException"/> rather than silently overwriting that edit. A staged
+    /// <see cref="Transaction.WriteForced"/> replaces whatever is on disk unconditionally (a
+    /// confirmed overwrite). Either way the original is never truncated in place and a failed write
+    /// preserves it.
     /// </summary>
+    /// <exception cref="WriteConflictException">
+    /// A validated <see cref="Transaction.Write"/> found the target changed by another process
+    /// between the snapshot and the replace; the external content is left on disk.
+    /// </exception>
     public static T Transact<T>(string path, Func<Transaction, T> body)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -57,9 +82,14 @@ internal static class AtomicFile
             var transaction = new Transaction(disk);
             var result = body(transaction);
 
-            if (transaction.Wrote)
+            switch (transaction.Mode)
             {
-                Commit(path, transaction.PendingContent);
+                case WriteMode.Validated:
+                    Commit(path, transaction.PendingContent, expected: disk, validate: true);
+                    break;
+                case WriteMode.Forced:
+                    Commit(path, transaction.PendingContent, expected: null, validate: false);
+                    break;
             }
 
             return result;
@@ -138,10 +168,14 @@ internal static class AtomicFile
     }
 
     // Stages the complete replacement bytes in a same-directory temporary file, flushes them to
-    // disk, then moves the temp over the target in one atomic step. The original is untouched until
-    // that move, so any failure while staging leaves it intact; an incomplete temp is always
-    // removed. Guaranteeing a same-volume sibling keeps the move a rename, not a copy.
-    private static void Commit(string path, string content)
+    // disk, then publishes them over the target. A forced commit moves the temp over whatever is
+    // there. A validated commit is a compare-and-swap: a create (expected null) uses a no-overwrite
+    // move so an external create wins the race; a replace captures the target's immediately previous
+    // content into a backup and, if that content is neither the expected snapshot nor the bytes just
+    // written, an external process wrote in the window — the backup is restored and a conflict is
+    // reported. The original is untouched until the publish, so any staging failure leaves it
+    // intact, and the temp/backup are always cleaned.
+    private static void Commit(string path, string content, string? expected, bool validate)
     {
         var fullPath = Path.GetFullPath(path);
         var directory = Path.GetDirectoryName(fullPath)!;
@@ -149,25 +183,102 @@ internal static class AtomicFile
 
         try
         {
-            using (var stream = new FileStream(
-                temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            StageTemp(temp, content);
+
+            if (!validate)
             {
-                using (var writer = new StreamWriter(stream, _utf8NoBom, leaveOpen: true))
-                {
-                    writer.Write(content);
-                    writer.Flush();
-                }
-
-                stream.Flush(flushToDisk: true);
+                Replace(temp, fullPath);
             }
-
-            Replace(temp, fullPath);
+            else if (expected is null)
+            {
+                CreateNoOverwrite(temp, fullPath);
+            }
+            else
+            {
+                ReplaceValidated(temp, fullPath, expected, content);
+            }
         }
         catch
         {
             TryDelete(temp);
             throw;
         }
+    }
+
+    // Writes the full replacement bytes to a same-directory temp file and flushes them to disk, so a
+    // later move is a whole-file publish and a same-volume rename rather than a cross-device copy.
+    private static void StageTemp(string temp, string content)
+    {
+        using var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        using (var writer = new StreamWriter(stream, _utf8NoBom, leaveOpen: true))
+        {
+            writer.Write(content);
+            writer.Flush();
+        }
+
+        stream.Flush(flushToDisk: true);
+    }
+
+    // A create's publish: the snapshot reported the file absent, so a no-overwrite move keeps an
+    // external process that created it first from being clobbered — that race is a conflict.
+    private static void CreateNoOverwrite(string temp, string target)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temp, target, overwrite: false);
+                return;
+            }
+            catch (IOException) when (File.Exists(target))
+            {
+                TryDelete(temp);
+                throw new WriteConflictException();
+            }
+            catch (IOException) when (attempt < MaxAttempts)
+            {
+                Thread.Sleep(_retryDelay);
+            }
+        }
+    }
+
+    // A validated replace's publish: atomically swap the temp over the target while capturing the
+    // target's immediately previous content into a backup. If that captured content is neither the
+    // expected snapshot nor the bytes just written, an external process wrote in the window: restore
+    // the external content and report a conflict rather than lose it. A clean swap removes the backup.
+    private static void ReplaceValidated(string temp, string target, string expected, string content)
+    {
+        var backup = target + $".{Guid.NewGuid():N}.bak";
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Replace(temp, target, backup, ignoreMetadataErrors: true);
+                break;
+            }
+            catch (FileNotFoundException)
+            {
+                // The target was deleted out from under the replace: an external change, not a swap.
+                TryDelete(temp);
+                TryDelete(backup);
+                throw new WriteConflictException();
+            }
+            catch (IOException) when (attempt < MaxAttempts)
+            {
+                Thread.Sleep(_retryDelay);
+            }
+        }
+
+        var displaced = ReadSnapshot(backup);
+        if (displaced == expected || displaced == content)
+        {
+            TryDelete(backup);
+            return;
+        }
+
+        // An external edit landed in the window; roll it back into place so it is never lost.
+        Replace(backup, target);
+        throw new WriteConflictException();
     }
 
     // Atomically moves the staged temp over the target, retrying briefly so a transient handle held
@@ -206,9 +317,9 @@ internal static class AtomicFile
     }
 
     /// <summary>
-    /// One read → decide → write transaction: the <see cref="Disk"/> content snapshot, and a
-    /// <see cref="Write"/> that stages a full replacement committed atomically after the body
-    /// returns.
+    /// One read → decide → write transaction: the <see cref="Disk"/> content snapshot, a
+    /// <see cref="Write"/> that stages a full replacement committed as a compare-and-swap after the
+    /// body returns, and a <see cref="WriteForced"/> that stages an unconditional overwrite.
     /// </summary>
     internal sealed class Transaction
     {
@@ -217,18 +328,48 @@ internal static class AtomicFile
         /// <summary>The file's content when the transaction began, or <c>null</c> if it did not exist.</summary>
         public string? Disk { get; }
 
-        /// <summary>Whether <see cref="Write"/> staged content in this transaction.</summary>
-        internal bool Wrote { get; private set; }
+        /// <summary>How this transaction's staged content (if any) is published on commit.</summary>
+        internal WriteMode Mode { get; private set; } = WriteMode.None;
 
-        /// <summary>The staged replacement content, valid only when <see cref="Wrote"/> is <c>true</c>.</summary>
+        /// <summary>The staged replacement content, valid only when <see cref="Mode"/> is not <see cref="WriteMode.None"/>.</summary>
         internal string PendingContent { get; private set; } = string.Empty;
 
-        /// <summary>Stages <paramref name="content"/> as the file's full replacement, committed atomically on return.</summary>
+        /// <summary>
+        /// Stages <paramref name="content"/> as the file's full replacement, committed on return as
+        /// a compare-and-swap against <see cref="Disk"/>: an external write that lands in the
+        /// replace window is detected and reported as a <see cref="WriteConflictException"/> instead
+        /// of being overwritten.
+        /// </summary>
         public void Write(string content)
         {
             ArgumentNullException.ThrowIfNull(content);
             PendingContent = content;
-            Wrote = true;
+            Mode = WriteMode.Validated;
+        }
+
+        /// <summary>
+        /// Stages <paramref name="content"/> as an unconditional overwrite — a confirmed overwrite
+        /// that intentionally replaces whatever is on disk, still atomically and non-destructively.
+        /// </summary>
+        public void WriteForced(string content)
+        {
+            ArgumentNullException.ThrowIfNull(content);
+            PendingContent = content;
+            Mode = WriteMode.Forced;
+        }
+    }
+
+    /// <summary>
+    /// Signals that a validated <see cref="Transaction.Write"/> found the target changed by another
+    /// process between the snapshot and the atomic replace. The external content is left on disk
+    /// (rolled back into place if the swap already happened), and the caller reports a conflict
+    /// rather than overwriting the edit.
+    /// </summary>
+    internal sealed class WriteConflictException : Exception
+    {
+        public WriteConflictException()
+            : base("The file changed on disk during the write.")
+        {
         }
     }
 }

@@ -323,27 +323,40 @@ internal sealed class LiveSession
     private string SaveDocument(SaveInput input)
     {
         var source = input.Source ?? string.Empty;
-        return AtomicFile.Transact(DocumentPath, transaction =>
+        try
         {
-            var disk = transaction.Disk;
-            if (!input.Overwrite)
+            return AtomicFile.Transact(DocumentPath, transaction =>
             {
-                if (disk == source)
+                var disk = transaction.Disk;
+                if (!input.Overwrite)
                 {
-                    _lastSaved = source; // idempotent: the disk already equals the requested source
-                    return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                    if (disk == source)
+                    {
+                        _lastSaved = source; // idempotent: the disk already equals the requested source
+                        return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                    }
+
+                    if (disk != input.ExpectedBaseline)
+                    {
+                        return OutcomeJson("conflict", "The document changed on disk.");
+                    }
+
+                    _lastSaved = source;
+                    transaction.Write(source); // compare-and-swap: an external write in the window conflicts
+                }
+                else
+                {
+                    _lastSaved = source;
+                    transaction.WriteForced(source); // confirmed overwrite
                 }
 
-                if (disk != input.ExpectedBaseline)
-                {
-                    return OutcomeJson("conflict", "The document changed on disk.");
-                }
-            }
-
-            _lastSaved = source;
-            transaction.Write(source);
-            return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
-        });
+                return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+            });
+        }
+        catch (AtomicFile.WriteConflictException)
+        {
+            return OutcomeJson("conflict", "The document changed on disk.");
+        }
     }
 
     private string SaveConfig(SaveInput input)
@@ -354,43 +367,57 @@ internal sealed class LiveSession
         }
 
         var source = input.Source ?? string.Empty;
-        return AtomicFile.Transact(_configPath, transaction =>
+        try
         {
-            var disk = transaction.Disk;
-            if (!input.Overwrite)
+            return AtomicFile.Transact(_configPath, transaction =>
             {
-                if (disk == source)
+                var disk = transaction.Disk;
+                if (!input.Overwrite)
                 {
-                    return RecompileConfig(source, transaction, write: false); // idempotent recovery
+                    if (disk == source)
+                    {
+                        return RecompileConfig(source, transaction, write: false, force: false); // idempotent recovery
+                    }
+
+                    if (disk != input.ExpectedBaseline)
+                    {
+                        return OutcomeJson("conflict", "The configuration changed on disk.");
+                    }
                 }
 
-                if (disk != input.ExpectedBaseline)
+                if (input.RequireValid && !TryParseConfig(source, out _, out var validationError))
                 {
-                    return OutcomeJson("conflict", "The configuration changed on disk.");
+                    // Auto/navigation never writes invalid TOML; the exclusive handle is released unwritten.
+                    return OutcomeJson("invalid-auto", validationError);
                 }
-            }
 
-            if (input.RequireValid && !TryParseConfig(source, out _, out var validationError))
-            {
-                // Auto/navigation never writes invalid TOML; the exclusive handle is released unwritten.
-                return OutcomeJson("invalid-auto", validationError);
-            }
-
-            return RecompileConfig(source, transaction, write: true);
-        });
+                return RecompileConfig(source, transaction, write: true, force: input.Overwrite);
+            });
+        }
+        catch (AtomicFile.WriteConflictException)
+        {
+            return OutcomeJson("conflict", "The configuration changed on disk.");
+        }
     }
 
     // Writes source through the held transaction (unless it already equals disk), then compiles:
     // valid TOML is adopted and returned as `saved`; invalid TOML keeps the last valid report and
     // returns `saved-invalid` carrying the persisted (invalid) source so the editor can show it.
-    private string RecompileConfig(string source, AtomicFile.Transaction transaction, bool write)
+    private string RecompileConfig(string source, AtomicFile.Transaction transaction, bool write, bool force)
     {
         // After this call the disk equals `source`, so record it as the last self-write to
         // suppress the config watcher's own event (see RefreshConfig).
         _lastSavedConfig = source;
         if (write)
         {
-            transaction.Write(source);
+            if (force)
+            {
+                transaction.WriteForced(source); // confirmed overwrite
+            }
+            else
+            {
+                transaction.Write(source); // compare-and-swap against the snapshot
+            }
         }
 
         if (TryParseConfig(source, out var options, out var error))

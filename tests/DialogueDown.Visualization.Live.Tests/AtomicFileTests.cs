@@ -138,6 +138,102 @@ public sealed class AtomicFileTests
     }
 
     [Fact]
+    public void Transact_ValidatedWrite_ExternalEditInTheReplaceWindow_ThrowsConflictAndKeepsTheExternalContent()
+    {
+        // The cross-process race: the snapshot is read, the caller stages a full replacement, but an
+        // external editor writes the target before the atomic replace lands. The staged write must
+        // not silently clobber that external edit — the commit captures the immediately previous
+        // target into a backup, sees it differs from the expected baseline, rolls back, and reports
+        // a conflict. Writing to the path inside the body reproduces the window because the commit
+        // runs after the body returns.
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        Assert.Throws<AtomicFile.WriteConflictException>(() => AtomicFile.Transact(path, transaction =>
+        {
+            transaction.Write("my staged replacement");
+            File.WriteAllText(path, "external edit"); // lands in the pre-replace window
+            return 0;
+        }));
+
+        Assert.Equal("external edit", File.ReadAllText(path)); // rolled back to the external content
+        Assert.Single(Directory.GetFiles(tree.Root)); // no leftover temp or backup
+    }
+
+    [Fact]
+    public void Transact_ValidatedCreate_ExternalCreateInTheWindow_ThrowsConflictAndKeepsTheExternalFile()
+    {
+        // A create (the snapshot reports the file absent) must use a no-overwrite move, so an
+        // external process that creates the file first wins the race and is never clobbered.
+        using var tree = new Support.TempTree();
+        var path = Path.Combine(tree.Root, "new.txt");
+
+        Assert.Throws<AtomicFile.WriteConflictException>(() => AtomicFile.Transact(path, transaction =>
+        {
+            transaction.Write("my staged create");
+            File.WriteAllText(path, "external create"); // appears before the no-overwrite move
+            return 0;
+        }));
+
+        Assert.Equal("external create", File.ReadAllText(path));
+        Assert.Single(Directory.GetFiles(tree.Root));
+    }
+
+    [Fact]
+    public void Transact_ForcedWrite_OverwritesAnExternalEditInTheWindow()
+    {
+        // A confirmed overwrite is force: it intentionally replaces whatever is on disk, so it
+        // commits over an external edit rather than reporting a conflict.
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        AtomicFile.Transact(path, transaction =>
+        {
+            transaction.WriteForced("forced replacement");
+            File.WriteAllText(path, "external edit");
+            return 0;
+        });
+
+        Assert.Equal("forced replacement", File.ReadAllText(path));
+        Assert.Single(Directory.GetFiles(tree.Root));
+    }
+
+    [Fact]
+    public void Transact_ValidatedWrite_NoExternalChange_CommitsAndLeavesNoBackup()
+    {
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        AtomicFile.Transact(path, transaction =>
+        {
+            transaction.Write("committed");
+            return 0;
+        });
+
+        Assert.Equal("committed", File.ReadAllText(path));
+        Assert.Single(Directory.GetFiles(tree.Root)); // the backup is removed after a clean commit
+    }
+
+    [Fact]
+    public void Transact_ValidatedWrite_ExternalEditToTheSameContent_IsNotAConflict()
+    {
+        // The external write in the window produced the very bytes this save is committing: no data
+        // is lost, so it settles as a normal commit rather than a spurious conflict.
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        AtomicFile.Transact(path, transaction =>
+        {
+            transaction.Write("agreed content");
+            File.WriteAllText(path, "agreed content");
+            return 0;
+        });
+
+        Assert.Equal("agreed content", File.ReadAllText(path));
+        Assert.Single(Directory.GetFiles(tree.Root));
+    }
+
+    [Fact]
     public void Transact_WriteThatFailsToStage_PreservesTheOriginalUnchanged()
     {
         if (OperatingSystem.IsWindows())

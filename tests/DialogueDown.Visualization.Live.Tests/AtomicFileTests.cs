@@ -234,6 +234,25 @@ public sealed class AtomicFileTests
     }
 
     [Fact]
+    public void Transact_ValidatedWrite_ExternalDeleteInTheReplaceWindow_ThrowsConflict()
+    {
+        // The target is deleted out from under the atomic replace (an external change, not a swap):
+        // the write must report a conflict rather than recreate the file the deleter intended gone.
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        Assert.Throws<AtomicFile.WriteConflictException>(() => AtomicFile.Transact(path, transaction =>
+        {
+            transaction.Write("my staged replacement");
+            File.Delete(path); // vanishes before the replace lands
+            return 0;
+        }));
+
+        Assert.False(File.Exists(path)); // the external deletion stands
+        Assert.Empty(Directory.GetFiles(tree.Root)); // no leftover temp or backup
+    }
+
+    [Fact]
     public void Transact_WriteThatFailsToStage_PreservesTheOriginalUnchanged()
     {
         if (OperatingSystem.IsWindows())

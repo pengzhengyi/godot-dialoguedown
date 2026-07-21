@@ -1,4 +1,5 @@
 using DialogueDown.Visualization.Semantics;
+using DialogueDown.Visualization.Tests.Support;
 
 namespace DialogueDown.Visualization.Tests.Semantics;
 
@@ -11,7 +12,7 @@ public sealed class SemanticProjectionTests
     [Fact]
     public void Project_NullSource_Throws() =>
         Assert.Throws<ArgumentNullException>(
-            () => new SemanticProjection().Project(Analyzed.Model("Hi."), null!));
+            () => new SemanticProjection().Project(Pipeline.Model("Hi."), null!));
 
     [Fact]
     public void Project_TitlesTheStageSemanticModel()
@@ -220,7 +221,7 @@ public sealed class SemanticProjectionTests
     }
 
     private static DisplayGraph Project(string source) =>
-        new SemanticProjection().Project(Analyzed.Model(source), source);
+        new SemanticProjection().Project(Pipeline.Model(source), source);
 
     private static SemanticTable Table(DisplayGraph graph, string title) =>
         graph.Tables!.Single(table => table.Title == title);

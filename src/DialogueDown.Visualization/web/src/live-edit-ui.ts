@@ -139,7 +139,9 @@ export function initLiveEditUi(app: AppController, actions: LiveEditActions): Li
         status.render(current);
         saveButton.setEnabled(canSave(controller));
         discardButton.setEnabled(controller.canDiscard && canDiscardNow(current, controller.dirty));
-        reloadButton.setVisible(current === "conflict" || current === "uncertain");
+        const showReload = current === "conflict" || current === "uncertain";
+        reloadButton.setVisible(showReload);
+        reloadButton.setEnabled(showReload);
     }
 
     return {

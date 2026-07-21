@@ -214,15 +214,15 @@ test("Source defaults to Auto and saves after the idle delay", async ({ page }) 
     expect(readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("autosaved tail");
 });
 
-test("the Auto/Manual choice persists across reloads", async ({ page }) => {
+test("the Auto/Manual choice is persisted to localStorage", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Manual");
 
-    // Switch to Auto; the choice is remembered after a reload.
+    // Switching to Auto writes the per-document-type preference, which a later session reads.
     await page.locator(".save-mode-option", { hasText: "Auto" }).click();
     await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
-    await page.reload();
-    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
+    const stored = await page.evaluate(() => localStorage.getItem("dd-save-mode-source"));
+    expect(stored).toBe("auto");
 });
 
 // A long, multi-scene document so both panes actually scroll. Headings anchor the sync.

@@ -16,10 +16,18 @@ const base = `http://127.0.0.1:${CONFIG_EDIT_PORT}`;
 
 const BOB = '\n[[speakers]]\nname = "Bob"\nid = "B"\n';
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
     mkdirSync(CONFIG_EDIT_TREE, { recursive: true });
     writeFileSync(CONFIG_EDIT_DOC, CONFIG_EDIT_SOURCE);
     writeFileSync(CONFIG_EDIT_TOML, CONFIG_EDIT_CONFIG);
+    // The live server is shared across this file, so a prior test may have left a different
+    // config adopted in memory. Re-adopt the reset file so each test starts from a baseline
+    // that matches disk (otherwise the optimistic save reports a conflict).
+    await fetch(`${base}/api/reload`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ target: "config" }),
+    }).catch(() => {});
 });
 
 /** Open the Config tab and append `text` at the end of the TOML editor. */

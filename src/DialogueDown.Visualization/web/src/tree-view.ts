@@ -55,6 +55,13 @@ export interface TreeView {
     handleKey(event: KeyboardEvent): void;
     clearSelection(): void;
     /**
+     * Select the node with the given stable {@link DisplayNode.id}, applying the same operation the
+     * gesture would (an optional fold toggle and recenter), or return `false` when no node in this
+     * view has that id. Used to resolve a deferred selection against the freshly installed view
+     * after a save-triggered rebuild.
+     */
+    selectById(id: string, options?: NodeSelectOptions): boolean;
+    /**
      * Show the given camera and fold. A `null` camera uses the default (root-centered)
      * framing. Call after the tab becomes visible so the framing uses real dimensions.
      */
@@ -83,12 +90,24 @@ export interface TreeViewOptions {
     /** Toggle the whole-window maximize mode (the zoom cluster's trailing button). */
     onToggleFullscreen?(): void;
     /**
-     * An asynchronous boundary guarding a move of the selection to a different node: it runs
-     * `proceed` once navigation is permitted (an Auto flush succeeded, or the reader chose to
-     * discard), and does nothing when the session stays put. Absent means selection is always
-     * allowed. Only the latest navigation intent runs, so rapid clicks never replay stale moves.
+     * Route a move of the selection to a different node through the app's navigation boundary. The
+     * app resolves navigation (an Auto flush, or a discard prompt) and then re-applies the
+     * operation to the node resolved by its stable {@link DisplayNode.id} against the freshly
+     * installed view — which a save-triggered rebuild may have replaced — cancelling safely if the
+     * id no longer exists, so a deferred selection never lands on a stale, detached node (or its
+     * stale source spans). `selectHere` applies it immediately in this view and is used only when
+     * there is no boundary (a static export). Absent means selection is always immediate. Only the
+     * latest navigation intent runs, so rapid clicks never replay stale moves.
      */
-    beginNavigation?(proceed: () => void): void;
+    onNodeSelect?(id: string, options: NodeSelectOptions, selectHere: () => void): void;
+}
+
+/** The operation a node gesture carries alongside selection: an optional fold toggle and recenter. */
+export interface NodeSelectOptions {
+    /** Toggle the node's fold (collapse/expand) as a click on its circle does. */
+    toggle?: boolean;
+    /** Recenter the camera on the node, as keyboard navigation does. */
+    center?: boolean;
 }
 
 const NAVIGATION_KEYS = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " "];
@@ -114,7 +133,7 @@ export function createTreeView(
         onFoldChange,
         onRevert,
         onToggleFullscreen = () => {},
-        beginNavigation,
+        onNodeSelect,
     } = options;
     const referenceEdges = stage.edges.filter((edge) => edge.kind === "Reference");
     const root = buildHierarchy(stage);
@@ -198,6 +217,7 @@ export function createTreeView(
             selected = null;
             applySelection();
         },
+        selectById,
         applyView,
     };
 
@@ -221,15 +241,50 @@ export function createTreeView(
         onSelect(node.data);
     }
 
+    // Apply a node's full click/keyboard operation: an optional fold toggle, the selection, and an
+    // optional recenter — so a deferred selection reproduces exactly what the original gesture
+    // would have done, on whichever view is current.
+    function applyNodeSelection(node: TreeNode, options: NodeSelectOptions): void {
+        if (options.toggle) toggle(node);
+        select(node);
+        if (options.center) centerOn(node);
+    }
+
+    // Resolve a node by its stable id against this view's current hierarchy (including collapsed
+    // subtrees) and apply the operation, or report failure so a deferred selection cancels safely.
+    // This is how a selection deferred across a save-triggered rebuild lands on the freshly
+    // installed node — with its current source spans — rather than the stale node the click
+    // captured.
+    function selectById(id: string, options: NodeSelectOptions = {}): boolean {
+        const node = findNodeById(id);
+        if (node === null) return false;
+        applyNodeSelection(node, options);
+        return true;
+    }
+
+    function findNodeById(id: string): TreeNode | null {
+        const stack: TreeNode[] = [root];
+        while (stack.length > 0) {
+            const node = stack.pop()!;
+            if (node.data.id === id) return node;
+            const children = (node.children ?? node._children) as TreeNode[] | undefined;
+            if (children) stack.push(...children);
+        }
+        return null;
+    }
+
     // Selecting a different node is navigation: route it through the async boundary so an Auto
-    // flush or a Manual prompt resolves first. Re-selecting the same node is a no-op, so it runs
-    // immediately. `proceed` performs the actual selection once navigation is permitted.
-    function guardSelect(node: TreeNode, proceed: () => void): void {
-        if (node === selected || !beginNavigation) {
-            proceed();
+    // flush or a Manual prompt resolves first, then the app re-applies the operation to the node
+    // resolved by its stable id against the freshly installed view (a save-triggered rebuild may
+    // have replaced this one). Re-selecting the same node runs immediately in place, as does the
+    // case with no navigation boundary (a static export).
+    function guardSelect(node: TreeNode, options: NodeSelectOptions): void {
+        const selectHere = (): void => applyNodeSelection(node, options);
+        if (node === selected || !onNodeSelect) {
+            selectHere();
             return;
         }
-        beginNavigation(proceed);
+        onNodeSelect(node.data.id, options, selectHere);
     }
 
     function applySelection(): void {
@@ -318,10 +373,7 @@ export function createTreeView(
         }
         const next = nextNode(event.key, selected);
         if (next) {
-            guardSelect(next, () => {
-                select(next);
-                centerOn(next);
-            });
+            guardSelect(next, { center: true });
         }
     }
 
@@ -416,10 +468,7 @@ export function createTreeView(
             .attr("r", (d) => (isSceneNode(d.data) ? SCENE_NODE_RADIUS : CONTENT_NODE_RADIUS))
             .style("fill", (d) => colorOf(d.data.category))
             .on("click", (_event, d) => {
-                guardSelect(d, () => {
-                    toggle(d);
-                    select(d);
-                });
+                guardSelect(d, { toggle: true });
             });
 
         group
@@ -456,7 +505,7 @@ export function createTreeView(
             rect.setAttribute("width", String(12 + longest * 6.5 + 10));
             rect.setAttribute("height", String(20 + d.data.attributes.length * 12));
             rect.addEventListener("click", () => {
-                guardSelect(d, () => select(d));
+                guardSelect(d, {});
             });
             this.insertBefore(rect, this.firstChild);
         });

@@ -14,8 +14,8 @@ internal static class AtomicFile
     // release its exclusive handle instead of failing the save outright.
     private const int MaxAttempts = 100;
 
-    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(5);
+    private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+    private static readonly TimeSpan _retryDelay = TimeSpan.FromMilliseconds(5);
 
     /// <summary>
     /// Opens <paramref name="path"/> exclusively, reads its current content, and invokes
@@ -42,7 +42,7 @@ internal static class AtomicFile
             }
             catch (IOException) when (attempt < MaxAttempts)
             {
-                Thread.Sleep(RetryDelay);
+                Thread.Sleep(_retryDelay);
                 continue;
             }
 
@@ -99,7 +99,7 @@ internal static class AtomicFile
             ArgumentNullException.ThrowIfNull(content);
             _stream.Position = 0;
             _stream.SetLength(0);
-            using var writer = new StreamWriter(_stream, Utf8NoBom, leaveOpen: true);
+            using var writer = new StreamWriter(_stream, _utf8NoBom, leaveOpen: true);
             writer.Write(content);
             writer.Flush();
             Wrote = true;

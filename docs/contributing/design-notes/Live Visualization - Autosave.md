@@ -406,8 +406,12 @@ hammer a dead local server or permission-denied path with background retries.
   trigger remains client-side scheduling metadata.
 - **Existing refresh paths:** an accepted save response updates stages,
   diagnostics, symbols, and configuration exactly once.
-- **Hot reload:** external disk events enter conflict while Edit owns a buffer;
-  View mode remains read-only and auto-updating.
+- **Hot reload:** both the dialogue document and its `dialogue.toml` are watched. An
+  external change to either enters Conflict on that document's controller while Edit
+  owns its buffer; in View the report re-syncs and the controller adopts the external
+  content as its clean baseline, so a later Edit starts from disk rather than stale text.
+  The config watcher is armed whenever a configuration applies and re-armed when one is
+  created at runtime, and a save suppresses its own watcher event.
 
 ## Testability
 
@@ -455,12 +459,20 @@ async navigation, browser coverage and docs, and this crosscheck).
 - Server (`LiveSession` + both live servers): expected-baseline conflict checks,
   current-equals-requested idempotent recovery, confirmed explicit overwrite, Config Auto
   validate-before-write versus explicit allow-invalid (`saved-invalid`), a `/api/reload`
-  route (loaded/invalid/missing), and create-config expected-absence/idempotent-template
-  recovery.
-- Conflict Reload from disk; Discard unavailable in Conflict/Uncertain and disabled while
+  route (loaded/invalid/missing), create-config via an exclusive `FileMode.CreateNew`
+  (expected-absence create, idempotent starter-template adoption, differing-content conflict,
+  and a failed create that leaves the no-config state for a retry), and a config watcher
+  (alongside the dialogue watcher) that routes external `dialogue.toml` edits to a
+  `reload-config` event with self-write suppression.
+- Conflict Reload from disk (single-flight and generation-guarded, so a delayed reload never
+  overwrites a newer edit); Discard unavailable in Conflict/Uncertain and disabled while
   saving; Discard from Waiting/Error restores the baseline and its state.
-- Async navigation for tabs, tree-node selection, and Edit→View: Auto flushes and awaits,
-  Manual prompts, paused states block, and the latest navigation wins.
+- Async navigation for tabs, tree-node selection, and Edit→View: Auto flushes and awaits the
+  latest generation (looping until the buffer is clean), Manual awaits the current save before
+  prompting, a Config tab with no controller yields no active save controller, paused states
+  block, and the latest navigation wins.
+- A queued follow-up save rebases onto the baseline its predecessor confirmed on disk, and a
+  View hot reload adopts the external content as the controller's clean baseline.
 - Preserved `beforeunload` guard while dirty or saving; no unload save; no background
   retry loop; the help text, changelog, and rebuilt `report.html`/`launcher.html` bundles.
 

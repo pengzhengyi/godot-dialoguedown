@@ -543,3 +543,134 @@ describe("createLiveEdit — navigation flush", () => {
         await expect(done).resolves.toBe("conflict");
     });
 });
+
+describe("createLiveEdit — queued baseline rebasing", () => {
+    it("rebases a queued save onto the confirmed baseline of its predecessor", async () => {
+        const h = harness();
+        const live = h.make("auto");
+
+        // First edit + explicit save starts an in-flight write expecting the initial baseline.
+        live.onEdit("# One");
+        void live.save();
+        expect(h.saves[0]!.request.expectedBaseline).toBe("# Saved");
+
+        // A newer edit while the first save is in flight queues a follow-up. Its expectedBaseline
+        // was captured as the still-old baseline at enqueue time.
+        live.onEdit("# Two");
+        void live.save();
+
+        // The first save confirms and advances the baseline to "# One".
+        await h.resolveSave(savedOutcome("# One"));
+
+        // The queued save now runs — rebased onto the predecessor's confirmed baseline, not the
+        // stale one captured when it was queued.
+        expect(h.saves[0]!.request.source).toBe("# Two");
+        expect(h.saves[0]!.request.expectedBaseline).toBe("# One");
+    });
+});
+
+describe("createLiveEdit — whenIdle", () => {
+    it("resolves immediately when no save is in flight", async () => {
+        const h = harness();
+        const live = h.make("auto");
+
+        await expect(live.whenIdle()).resolves.toBeUndefined();
+    });
+
+    it("resolves only after the in-flight and queued saves settle", async () => {
+        const h = harness();
+        const live = h.make("manual");
+
+        live.onEdit("# One");
+        void live.save();
+        live.onEdit("# Two");
+        void live.save(); // queued
+
+        let settled = false;
+        const idle = live.whenIdle().then(() => {
+            settled = true;
+        });
+
+        await h.resolveSave(savedOutcome("# One")); // first done, queued promoted
+        expect(settled).toBe(false); // the queued save is still in flight
+        await h.resolveSave(savedOutcome("# Two"));
+        await idle;
+        expect(settled).toBe(true);
+    });
+});
+
+describe("createLiveEdit — adoptDisk (View hot reload)", () => {
+    it("adopts an external reload as the clean baseline without marking dirty", () => {
+        const h = harness();
+        const live = h.make("auto");
+
+        live.adoptDisk("# External");
+
+        expect(live.dirty).toBe(false);
+        expect(live.status).toBe("saved");
+        // A later edit back to the adopted content is not dirty; an edit away from it is.
+        live.onEdit("# External");
+        expect(live.dirty).toBe(false);
+        live.onEdit("# Different");
+        expect(live.dirty).toBe(true);
+    });
+
+    it("adopts an invalid external config as a saved-invalid baseline", () => {
+        const h = harness("config", "name = 1");
+        const live = h.make("manual");
+
+        live.adoptDisk("bogus", false);
+
+        expect(live.dirty).toBe(false);
+        expect(live.status).toBe("saved-invalid");
+    });
+});
+
+describe("createLiveEdit — reload single-flight and staleness", () => {
+    it("a stale reload response does not overwrite a buffer edited during the reload", async () => {
+        const h = harness();
+        const live = h.make("auto");
+        live.onEdit("# New");
+        await h.resolveSave({ kind: "conflict", message: "changed" }); // enter Conflict
+        h.setDiskLoad({ kind: "loaded", source: "# Disk", report: reportFor("# Disk") });
+
+        const reloading = live.reload();
+        // The writer keeps typing while the reload response is in flight.
+        live.onEdit("# Newer");
+        const resolution = await reloading;
+
+        expect(resolution).toBe("superseded");
+        // The stale reload never replaced the newer buffer nor its content.
+        expect(h.calls.content).not.toContain("# Disk");
+        live.onEdit("# Newer");
+        expect(live.dirty).toBe(true); // still the writer's newer edit, still paused
+    });
+
+    it("a second reload supersedes an in-flight one", async () => {
+        const h = harness();
+        const live = h.make("auto");
+        live.onEdit("# New");
+        await h.resolveSave({ kind: "conflict", message: "changed" });
+
+        let resolveFirst: (load: DiskLoad) => void = () => {};
+        let call = 0;
+        h.ports.loadFromDisk = () => {
+            call += 1;
+            if (call === 1) return new Promise<DiskLoad>((r) => (resolveFirst = r));
+            return Promise.resolve({
+                kind: "loaded",
+                source: "# Second",
+                report: reportFor("# Second"),
+            });
+        };
+
+        const first = live.reload();
+        const second = live.reload();
+        resolveFirst({ kind: "loaded", source: "# First", report: reportFor("# First") });
+
+        expect(await first).toBe("superseded");
+        expect(await second).toBe("saved");
+        expect(h.calls.content).toContain("# Second");
+        expect(h.calls.content).not.toContain("# First");
+    });
+});

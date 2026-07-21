@@ -104,6 +104,10 @@ export interface LiveEditController {
     onDiskChange(report?: Report): void;
     /** Reload from disk — replace the buffer with the external content and adopt it as the baseline. */
     reload(): Promise<SaveResolution>;
+    /** Adopt a clean external reload (View hot reload): set the baseline/buffer without marking dirty. */
+    adoptDisk(source: string, valid?: boolean): void;
+    /** Resolve once no save is in flight or queued, so a caller can act on a settled state. */
+    whenIdle(): Promise<void>;
     /** Leaving Edit — drop any unsaved-dirty and paused state without saving. */
     discard(): void;
     /** Discard button — restore the editor to the last saved baseline and clear dirty. */
@@ -163,6 +167,10 @@ export function createLiveEdit(
     let inFlight: PendingSave | null = null;
     let queued: PendingSave | null = null;
     let cancelIdle: (() => void) | null = null;
+    // Resolved once no save is in flight or queued; navigation awaits a settled state through it.
+    let idleWaiters: Array<() => void> = [];
+    // A monotonic token so only the latest reload response may replace the buffer (single-flight).
+    let reloadToken = 0;
 
     const isDirty = (): boolean => buffer !== savedBaseline;
     const isPaused = (): boolean => PAUSED.has(status);
@@ -422,6 +430,9 @@ export function createLiveEdit(
         if (queued !== null && !isPaused()) {
             const next = queued;
             queued = null;
+            // Rebase onto the baseline the predecessor confirmed on disk: the request was queued
+            // with the older baseline, but the file it now replaces is the predecessor's write.
+            next.request = { ...next.request, expectedBaseline: savedBaseline };
             void run(next.request, next.waiters);
             return;
         }
@@ -429,6 +440,14 @@ export function createLiveEdit(
         if (!isPaused() && isDirty() && mode === "auto" && cancelIdle === null) {
             armIdle();
         }
+        notifyIdle();
+    }
+
+    function notifyIdle(): void {
+        if (inFlight !== null || queued !== null) return;
+        const waiters = idleWaiters;
+        idleWaiters = [];
+        for (const waiter of waiters) waiter();
     }
 
     function noteEdit(next: string): void {
@@ -488,7 +507,14 @@ export function createLiveEdit(
             refreshChrome();
         },
         async reload() {
+            // Single-flight: a newer reload (or an edit that advances the buffer) supersedes this
+            // one, so a delayed response never overwrites a newer generation.
+            const token = ++reloadToken;
+            const startGeneration = generation;
             const load = await ports.loadFromDisk();
+            if (token !== reloadToken || generation !== startGeneration) {
+                return "superseded";
+            }
             if (load.kind === "missing") {
                 setStatus("conflict", "The file was deleted on disk.");
                 refreshChrome();
@@ -517,6 +543,23 @@ export function createLiveEdit(
             setStatus("saved");
             refreshChrome();
             return "saved";
+        },
+        adoptDisk(source, valid = true) {
+            // A View hot reload already updated the editor and graphs; adopt the external content
+            // as the clean baseline so a later Edit session starts from it, not stale text.
+            clearIdle();
+            clearQueue();
+            buffer = source;
+            savedBaseline = source;
+            generation += 1;
+            baselineValid = valid;
+            setStatus(valid ? "saved" : "saved-invalid");
+            refreshChrome();
+        },
+        whenIdle() {
+            return inFlight === null && queued === null
+                ? Promise.resolve()
+                : new Promise<void>((resolve) => idleWaiters.push(resolve));
         },
         discard() {
             clearIdle();

@@ -144,7 +144,7 @@ flowchart TB
 | 9 | [Live Visualization — File Launcher](./Live%20Visualization%20-%20File%20Launcher.md) | Browse and open a script in the launcher (the uniform `visualize` entry point) | Implemented |
 | 10 | [Live Visualization — Live Edit](./Live%20Visualization%20-%20Live%20Edit.md) | Edit the source in the report; compile-as-you-type and save to disk | Implemented |
 | 11 | [Live Visualization — View and Edit Modes](./Live%20Visualization%20-%20View%20and%20Edit%20Modes.md) | The current unified model: a served session with a runtime View⇄Edit toggle; static becomes an export | Implemented |
-| 12 | [Live Visualization — Autosave](./Live%20Visualization%20-%20Autosave.md) | Persisted Auto/Manual save modes with idle saves, conflict safety, and save-before-navigation | In progress |
+| 12 | [Live Visualization — Autosave](./Live%20Visualization%20-%20Autosave.md) | Persisted Auto/Manual save modes with idle saves, conflict safety, and save-before-navigation | Implemented |
 | 13 | [Live Visualization — Node Editing](./Live%20Visualization%20-%20Node%20Editing.md) | Edit the source behind a graph node in the inspector; splice it back and recompile | Implemented |
 | 14 | [Configuration Tab](./Configuration%20Tab.md) | The applied `dialogue.toml` as a first tab: TOML source beside its configured speakers (Stage 1, read-only) | Implemented |
 | 15 | [Configuration Tab — Live Edit](./Configuration%20Tab%20-%20Live%20Edit.md) | Edit the `dialogue.toml` in the report; Save recompiles and refreshes the configured speakers (Stage 2a) | Implemented |

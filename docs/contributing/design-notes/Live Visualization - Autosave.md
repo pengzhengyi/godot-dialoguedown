@@ -1,10 +1,11 @@
 # Live visualization — autosave
 
 > [!NOTE]
-> Status: **approved — implementation in progress**
+> Status: **implemented**
 > ([issue #140](https://github.com/pengzhengyi/godot-dialoguedown/issues/140)).
-> Add reliable idle autosave to the live report while preserving explicit Save,
-> discard, external-change protection, and document-specific defaults.
+> Reliable idle autosave in the live report, alongside explicit Save, discard,
+> external-change protection, and document-specific defaults. See
+> [Implementation status](#implementation-status) for what shipped.
 
 ## Table of contents
 
@@ -19,7 +20,7 @@
 - [Error and boundary cases](#error-and-boundary-cases)
 - [Integration](#integration)
 - [Testability](#testability)
-- [Implementation increments](#implementation-increments)
+- [Implementation status](#implementation-status)
 - [Deferred and out of scope](#deferred-and-out-of-scope)
 - [Open questions](#open-questions)
 
@@ -51,26 +52,26 @@ because transient TOML is often invalid while being typed.
 
 ## Functionality checklist
 
-- [ ] Add the `Auto | Manual` capsule beside the separate Save button in Edit
+- [x] Add the `Auto | Manual` capsule beside the separate Save button in Edit
       mode.
-- [ ] Keep Save and <kbd>⌘/Ctrl-S</kbd> available in both modes.
-- [ ] Persist one save-mode preference per document type in `localStorage`.
-- [ ] Default Source to Auto and Config to Manual.
-- [ ] Autosave after a fixed 1,000 ms trailing-edge idle delay.
-- [ ] Serialize writes and coalesce edits during an in-flight save.
-- [ ] Never clear dirty state or apply a report when a newer edit exists.
-- [ ] Advance the saved baseline for every successful disk write, even when a
+- [x] Keep Save and <kbd>⌘/Ctrl-S</kbd> available in both modes.
+- [x] Persist one save-mode preference per document type in `localStorage`.
+- [x] Default Source to Auto and Config to Manual.
+- [x] Autosave after a fixed 1,000 ms trailing-edge idle delay.
+- [x] Serialize writes and coalesce edits during an in-flight save.
+- [x] Never clear dirty state or apply a report when a newer edit exists.
+- [x] Advance the saved baseline for every successful disk write, even when a
       newer edit already exists.
-- [ ] Parse Config before an automatic write; invalid TOML remains unsaved.
-- [ ] Compare the expected saved baseline before an automatic write.
-- [ ] Pause Auto on an external-change conflict; require confirmation before an
+- [x] Parse Config before an automatic write; invalid TOML remains unsaved.
+- [x] Compare the expected saved baseline before an automatic write.
+- [x] Pause Auto on an external-change conflict; require confirmation before an
       explicit overwrite.
-- [ ] In Auto mode, save and await success before continuing tab, node, or View
+- [x] In Auto mode, save and await success before continuing tab, node, or View
       navigation.
-- [ ] Preserve Manual mode's current Save-or-Discard navigation behavior.
-- [ ] Show accessible save status: Unsaved, Saving…, Saved, Conflict, waiting
+- [x] Preserve Manual mode's current Save-or-Discard navigation behavior.
+- [x] Show accessible save status: Unsaved, Saving…, Saved, Conflict, waiting
       for valid TOML, Saved — invalid TOML, uncertain, or failure.
-- [ ] Keep the existing `beforeunload` guard while dirty or saving.
+- [x] Keep the existing `beforeunload` guard while dirty or saving.
 
 ## Ubiquitous language
 
@@ -429,15 +430,57 @@ hammer a dead local server or permission-denied path with background retries.
   persisted toggles, explicit Save in Auto, in-flight typing, status feedback,
   external conflict, diagnostics/graph refresh, and beforeunload protection.
 
-## Implementation increments
+## Implementation status
 
-1. Make manual saving generation-safe and single-flight without changing UI.
-2. Add the save-mode preference model, timer, and controller autosave behavior.
-3. Add server baseline conflict checks and Config Auto validation.
-4. Add the capsule/status UI and active-document reflection.
-5. Make navigation and Edit→View transitions await Auto flushes.
-6. Add browser coverage, help text, changelog, and rebuilt report bundles.
-7. Crosscheck this note against the finished behavior.
+Delivered across the seven planned increments (generation-safe single-flight core,
+preference model and timer, server baseline/validation outcomes, capsule/status UI,
+async navigation, browser coverage and docs, and this crosscheck).
+
+### Achieved
+
+- The **Auto | Manual** capsule sits beside a separate Save button and a Discard
+  button in Edit, reflecting the active document (Config tab → config, else source,
+  including node-inspector edits).
+- Per-document-type `localStorage` preferences (`dd-save-mode-source`,
+  `dd-save-mode-config`) with Source defaulting to Auto and Config to Manual.
+- A fixed 1,000 ms trailing idle debounce; explicit Save and <kbd>⌘/Ctrl-S</kbd> flush
+  immediately; navigation flushes without waiting for idle.
+- A generation-safe, single-flight controller (`live-edit.ts`): request identity shares
+  the in-flight promise; a single queued slot follows the newer-generation and
+  stronger-policy precedence rules; superseded callers settle `superseded`; the saved
+  baseline advances for every confirmed write and stale reports never apply to a newer
+  buffer.
+- Typed outcomes — `saved`, `saved-invalid`, `invalid-auto`, `conflict`, `failure`, and
+  `Uncertain` from a transport exception — surfaced as accessible `aria-live` status.
+- Server (`LiveSession` + both live servers): expected-baseline conflict checks,
+  current-equals-requested idempotent recovery, confirmed explicit overwrite, Config Auto
+  validate-before-write versus explicit allow-invalid (`saved-invalid`), a `/api/reload`
+  route (loaded/invalid/missing), and create-config expected-absence/idempotent-template
+  recovery.
+- Conflict Reload from disk; Discard unavailable in Conflict/Uncertain and disabled while
+  saving; Discard from Waiting/Error restores the baseline and its state.
+- Async navigation for tabs, tree-node selection, and Edit→View: Auto flushes and awaits,
+  Manual prompts, paused states block, and the latest navigation wins.
+- Preserved `beforeunload` guard while dirty or saving; no unload save; no background
+  retry loop; the help text, changelog, and rebuilt `report.html`/`launcher.html` bundles.
+
+### Changed from the original sketch
+
+- The passive "file changed on disk — refresh to sync" chip from Live Edit is **replaced**
+  by the explicit **Conflict** status plus a **Reload** action, because autosave must pause
+  rather than silently ignore an external change. The dialogue Save is therefore no longer a
+  blind force-overwrite: it is baseline-checked, with a confirmed overwrite as the escape
+  hatch.
+- The client `save` port returns a typed `SaveOutcome` and the server returns the payload
+  with an `outcome` discriminator (200 for every negotiated outcome; 400 only for a true
+  write error), rather than distinct HTTP status codes — a single client parse path owns the
+  state machine.
+
+### Not implemented
+
+- Everything under [Deferred and out of scope](#deferred-and-out-of-scope) — configurable
+  delay, focus/window modes, a compare/diff resolver, Save As, background retry/backoff,
+  multi-file or collaborative editing, and a client-side TOML parser.
 
 ## Deferred and out of scope
 

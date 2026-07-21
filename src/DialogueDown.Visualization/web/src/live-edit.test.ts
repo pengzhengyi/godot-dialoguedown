@@ -761,4 +761,28 @@ describe("createLiveEdit — reload single-flight and staleness", () => {
         expect(h.calls.content).toContain("# Second");
         expect(h.calls.content).not.toContain("# First");
     });
+
+    it("a reload cannot overwrite the baseline a newer successful save confirmed", async () => {
+        const h = harness();
+        const live = h.make("auto");
+        live.onEdit("# New");
+        await h.resolveSave({ kind: "conflict", message: "changed" }); // enter Conflict
+
+        // The reload's disk fetch is slow (it reads the pre-save content).
+        let resolveLoad: (load: DiskLoad) => void = () => {};
+        h.ports.loadFromDisk = () => new Promise<DiskLoad>((r) => (resolveLoad = r));
+        const reloading = live.reload();
+
+        // While the reload is still fetching, an explicit overwrite save writes and succeeds.
+        const saving = live.save({ overwrite: true });
+        await h.resolveSave(savedOutcome("# New"));
+        expect(await saving).toBe("saved");
+        expect(live.status).toBe("saved");
+
+        // The reload now returns the stale pre-save content; it must be discarded, not installed.
+        resolveLoad({ kind: "loaded", source: "# Old", report: reportFor("# Old") });
+        expect(await reloading).toBe("superseded");
+        expect(h.calls.content).not.toContain("# Old");
+        expect(live.status).toBe("saved"); // the newer save's state stands
+    });
 });

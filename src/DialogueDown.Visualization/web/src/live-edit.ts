@@ -183,6 +183,9 @@ export function createLiveEdit(
     // Bumped on every external disk change, so a save/reload response captured before the change is
     // recognized as stale and cannot clear the Conflict or install a baseline/report.
     let diskEpoch = 0;
+    // Bumped whenever a save begins, so a reload whose disk fetch started earlier is recognized as
+    // stale and can never overwrite the baseline a newer save just confirmed.
+    let saveEpoch = 0;
 
     const isDirty = (): boolean => buffer !== savedBaseline;
     const isPaused = (): boolean => PAUSED.has(status);
@@ -323,6 +326,9 @@ export function createLiveEdit(
     ): Promise<SaveResolution> {
         const pending: PendingSave = { request, waiters, epoch: diskEpoch };
         inFlight = pending;
+        // A started save invalidates any reload whose disk fetch is already in flight: its content
+        // predates this write, so it must never overwrite the baseline this save will confirm.
+        saveEpoch += 1;
         setStatus("saving");
         refreshChrome();
         return Promise.resolve(ports.save(request)).then(
@@ -545,15 +551,18 @@ export function createLiveEdit(
         async reload() {
             // Single-flight: a newer reload (or an edit that advances the buffer) supersedes this
             // one, so a delayed response never overwrites a newer generation. A disk change during
-            // the load also invalidates it — the fetched content is already stale.
+            // the load also invalidates it — the fetched content is already stale — and so does a
+            // save that began after the fetch, whose write is newer than the content just read.
             const token = ++reloadToken;
             const startGeneration = generation;
             const startEpoch = diskEpoch;
+            const startSaveEpoch = saveEpoch;
             const load = await ports.loadFromDisk();
             if (
                 token !== reloadToken ||
                 generation !== startGeneration ||
-                diskEpoch !== startEpoch
+                diskEpoch !== startEpoch ||
+                saveEpoch !== startSaveEpoch
             ) {
                 return "superseded";
             }

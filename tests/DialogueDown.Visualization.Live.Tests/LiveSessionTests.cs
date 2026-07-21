@@ -294,6 +294,43 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void SaveConfig_WriteFailure_LeavesTheSessionStateDiskConsistent()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return; // directory permission bits do not block file creation the same way on Windows
+        }
+
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+
+        // Make the config directory read-only so staging the replacement temp file fails after the
+        // candidate config has been parsed. The published visualizer/config state must not advance
+        // to a candidate that never reached disk — a page reload would otherwise render a config the
+        // file does not hold.
+        var mode = File.GetUnixFileMode(tree.Root);
+        File.SetUnixFileMode(tree.Root, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            Assert.ThrowsAny<Exception>(() =>
+                session.Save(new SaveInput(Speaker("Bob", "B"), "config", valid, "require-valid")));
+        }
+        finally
+        {
+            File.SetUnixFileMode(tree.Root, mode);
+        }
+
+        var json = session.CurrentDocumentJson();
+        Assert.Contains("\"name\":\"Alice\"", json); // still the last committed config, not the candidate
+        Assert.DoesNotContain("\"name\":\"Bob\"", json);
+        Assert.DoesNotContain("\"configStatus\"", json); // state stayed valid, consistent with disk
+        Assert.Equal(valid, File.ReadAllText(configPath)); // disk is unchanged
+    }
+
+    [Fact]
     public void SaveConfig_WithoutAConfigFile_Throws()
     {
         using var doc = new TempDocument("# Scene");

@@ -367,16 +367,19 @@ internal sealed class LiveSession
         }
 
         var source = input.Source ?? string.Empty;
+        ConfigCommit? committed = null;
+        string? immediate;
         try
         {
-            return AtomicFile.Transact(_configPath, transaction =>
+            immediate = AtomicFile.Transact(_configPath, transaction =>
             {
                 var disk = transaction.Disk;
                 if (!input.Overwrite)
                 {
                     if (disk == source)
                     {
-                        return RecompileConfig(source, transaction, write: false, force: false); // idempotent recovery
+                        committed = StageConfig(source, transaction, write: false, force: false); // idempotent recovery
+                        return null;
                     }
 
                     if (disk != input.ExpectedBaseline)
@@ -391,23 +394,26 @@ internal sealed class LiveSession
                     return OutcomeJson("invalid-auto", validationError);
                 }
 
-                return RecompileConfig(source, transaction, write: true, force: input.Overwrite);
+                committed = StageConfig(source, transaction, write: true, force: input.Overwrite);
+                return null;
             });
         }
         catch (AtomicFile.WriteConflictException)
         {
             return OutcomeJson("conflict", "The configuration changed on disk.");
         }
+
+        // Publish the recompiled visualizer and config source/validity only now that AtomicFile has
+        // confirmed the write committed (or that there was nothing to write): a staging failure or a
+        // conflict throws above, so the session's rendered state never advances past disk.
+        return immediate ?? PublishConfig(committed!);
     }
 
-    // Writes source through the held transaction (unless it already equals disk), then compiles:
-    // valid TOML is adopted and returned as `saved`; invalid TOML keeps the last valid report and
-    // returns `saved-invalid` carrying the persisted (invalid) source so the editor can show it.
-    private string RecompileConfig(string source, AtomicFile.Transaction transaction, bool write, bool force)
+    // Parses source into a candidate compile and stages the write through the held transaction (a
+    // compare-and-swap, or a confirmed overwrite), without publishing any session state. The
+    // candidate is published by PublishConfig only after AtomicFile confirms the commit.
+    private ConfigCommit StageConfig(string source, AtomicFile.Transaction transaction, bool write, bool force)
     {
-        // After this call the disk equals `source`, so record it as the last self-write to
-        // suppress the config watcher's own event (see RefreshConfig).
-        _lastSavedConfig = source;
         if (write)
         {
             if (force)
@@ -420,15 +426,30 @@ internal sealed class LiveSession
             }
         }
 
-        if (TryParseConfig(source, out var options, out var error))
+        var valid = TryParseConfig(source, out var options, out var error);
+        return new ConfigCommit(source, options, error, valid);
+    }
+
+    // Publishes a committed config candidate: valid TOML is adopted into the visualizer and returned
+    // as `saved`; invalid TOML keeps the last valid report and returns `saved-invalid` carrying the
+    // persisted (invalid) source so the editor can show it. The source is now on disk, so it is
+    // recorded as the last self-write to suppress the config watcher's own event (see RefreshConfig).
+    private string PublishConfig(ConfigCommit committed)
+    {
+        _lastSavedConfig = committed.Source;
+        if (committed.Valid)
         {
-            AdoptValidConfig(source, options!);
+            AdoptValidConfig(committed.Source, committed.Options!);
             return WithOutcome(SerializeCurrent(), "saved");
         }
 
-        RecordInvalidConfig(source, error);
-        return WithConfigSource(SerializeCurrent(), source, "saved-invalid", error);
+        RecordInvalidConfig(committed.Source, committed.Error);
+        return WithConfigSource(SerializeCurrent(), committed.Source, "saved-invalid", committed.Error);
     }
+
+    // A parsed configuration candidate staged for commit: its source, the parsed options (when
+    // valid), the parse error (when invalid), and whether it parsed. Published only post-commit.
+    private sealed record ConfigCommit(string Source, CompilerOptions? Options, string Error, bool Valid);
 
     private string ReloadDocument()
     {

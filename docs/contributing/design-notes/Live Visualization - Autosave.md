@@ -387,6 +387,7 @@ hammer a dead local server or permission-denied path with background retries.
 | Reload after external deletion | Keep Conflict; explicit confirmed overwrite may recreate the file. A push-side deletion or read failure carries its target (document or config) and routes through that controller's disk-change/conflict path (bumping the epoch to invalidate an in-flight save), not a banner alone, so an autosave cannot silently rewrite the deleted file. |
 | Save fails | Stay dirty, show failure, do not retry until an edit or explicit Save. |
 | Transport fails after dispatch | Enter Uncertain, clear queued work/navigation, and require Reload or confirmed overwrite. |
+| Write cannot establish a safe disk state | The atomic replace found the target changed or deleted again between the swap and the rollback, or a post-commit verification found the published bytes gone: the newer external data and the captured backup are preserved on disk and the server returns an explicit `uncertain` outcome, which enters Uncertain (like a lost transport) rather than a no-write failure. |
 | Navigate while Auto is dirty | Flush latest generation, then continue on success. The loop rechecks the mode and a cancellation signal before every follow-up flush, so an Auto→Manual switch (or a newer superseding navigation) stops the follow-up saving and cancels this navigation rather than driving stale Auto flushes. |
 | Navigate while Auto is saving | Await the current save and any required latest-generation flush, then continue. |
 | Navigate while Manual is saving | Await it; if newer edits remain, run the Manual Save-or-Discard decision. |
@@ -401,7 +402,7 @@ hammer a dead local server or permission-denied path with background retries.
 | Switch Auto/Manual while waiting/error/conflict/uncertain | Update and persist the preference, but keep the state paused until the normal recovery event. |
 | Edit while in Conflict or Uncertain | Update the buffer and dirty generation, but remain paused until Reload or confirmed overwrite. |
 | Discard while Conflict | Unavailable; use Reload from disk or confirmed overwrite. |
-| Discard while waiting/error | Restore the saved baseline and its state (`Saved` or `Saved — invalid TOML`), then clear dirty plus the paused status. |
+| Discard while waiting/error | Restore the saved baseline and its state (`Saved` or `Saved — invalid TOML`, with the saved-invalid baseline's parse detail), then clear dirty plus the paused status. |
 | Mode changes while navigation is pending | Clear the pending navigation; the writer must request it again under the new mode. |
 | Save response is lost | Enter Uncertain; retrying the same snapshot can return idempotent success after reconciliation. |
 | Create Config when no file exists | Create only when the expected state is absence; the starter template becomes the saved baseline. |
@@ -576,9 +577,11 @@ A final review pass closed the remaining races and dead ends before publication:
   blind atomic overwrite. The replace captures the target's immediately previous content
   into a backup and checks it against the snapshot the caller decided on (or the bytes just
   written); an external editor that wrote in the replace window is rolled back into place
-  and reported as Conflict rather than silently clobbered. A create uses a no-overwrite move
-  so an external create wins, a confirmed overwrite stays an intentional force, and temps
-  and backups are cleaned on every path.
+  and reported as Conflict rather than silently clobbered — but only when the target still
+  holds the bytes this write just published (see
+  [Uncertain writes preserve newer external data](#post-publication-defect-fixes)). A create
+  uses a no-overwrite move so an external create wins, a confirmed overwrite stays an
+  intentional force, and temps and backups are cleaned on every settled path.
 - **Config state published only after commit.** `SaveConfig` parses the candidate and stages
   the write inside the transaction but adopts the visualizer and config source/validity only
   after `AtomicFile` confirms the commit, so a staging failure or a conflict never leaves the
@@ -602,6 +605,38 @@ A final review pass closed the remaining races and dead ends before publication:
   saved-invalid), assigns the config path, starts the config watcher, and returns a typed
   adopt outcome, so the session recovers into the existing configuration instead of staying
   permanently config-less.
+
+### Post-publication defect fixes
+
+A follow-up pass closed three defects the publication review left open:
+
+- **Uncertain writes preserve newer external data.** `AtomicFile`'s conflict rollback could
+  overwrite an even newer external write: after the atomic replace captured the displaced
+  backup, it restored that backup unconditionally. It now rolls the external content back
+  only when the target still holds the bytes this write just published, and a post-commit
+  read verifies a clean swap actually stuck. If the target changed or was deleted again in
+  that window, or the verification finds the published bytes gone, the newer external data
+  and the captured backup are left on disk and a new `WriteUncertainException` is thrown
+  instead of a lost update. `LiveSession` maps that to an explicit `uncertain` save outcome
+  (document and config) rather than an ordinary no-write failure, and the client routes it
+  into the paused Uncertain state with the server's detail message. Deterministic tests cover
+  the target-changed-again, target-deleted-again, and post-commit-verification races through a
+  threaded replace hook.
+- **Invalid `dialogue.toml` adoption is editable.** Adopting a pre-existing but invalid
+  `dialogue.toml` from a config-less session produced a report with no `configuration.file`,
+  so the client never built a Config controller and the writer dead-ended. The saved-invalid
+  overlay now carries the config path, the serializer synthesizes a `configuration` section
+  and `file` (path plus the invalid source) when the last valid compile had no configuration,
+  and `LiveSession` routes every invalid-config payload (adopt, save-invalid, reload) through
+  that overlay serialization. A C# test asserts the adoption payload and the re-served page
+  both carry `configuration.file`; a live browser spec adopts an invalid file as saved-invalid
+  and recovers it by editing.
+- **The saved-invalid baseline message survives restore.** The controller tracked the saved
+  baseline's validity but not its detail message, so discard, restore, a View hot-reload
+  adoption, or an invalid disk reload dropped to a saved-invalid status with no message. The
+  baseline now carries its message alongside its validity and every restore path replays the
+  exact detail; `adoptDisk` takes the message and the View config-reload threads
+  `report.configMessage` through.
 
 ### Not implemented
 

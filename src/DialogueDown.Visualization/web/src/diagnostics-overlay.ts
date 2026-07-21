@@ -1,7 +1,8 @@
 import { lintGutter, setDiagnostics, type Diagnostic as EditorDiagnostic } from "@codemirror/lint";
 import type { EditorState, Extension } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import type { LspDiagnostic, LspPosition, LspSeverity } from "./model";
+import { positionToOffset } from "./lsp-position";
+import type { LspDiagnostic, LspSeverity } from "./model";
 
 /** The docs page whose per-code anchors the tooltip links to (mirrors the CLI's doc links). */
 const ERROR_CODES_PAGE = "https://pengzhengyi.github.io/godot-dialoguedown/guide/error-codes.html";
@@ -48,8 +49,8 @@ export function toEditorDiagnostic(
     state: EditorState,
     diagnostic: LspDiagnostic,
 ): EditorDiagnostic {
-    const from = toOffset(state, diagnostic.range.start);
-    const to = Math.max(from, toOffset(state, diagnostic.range.end));
+    const from = positionToOffset(state, diagnostic.range.start);
+    const to = Math.max(from, positionToOffset(state, diagnostic.range.end));
     return {
         from,
         to,
@@ -83,15 +84,4 @@ export function renderDiagnosticTooltip(diagnostic: LspDiagnostic): HTMLElement 
     container.append(link);
 
     return container;
-}
-
-/** Resolve a zero-based LSP position to a document offset, clamped inside the buffer. */
-function toOffset(state: EditorState, position: LspPosition): number {
-    const { doc } = state;
-    // A line past the last one is a stale range (the buffer shrank since the compile); clamp
-    // it to the very end so the marker still shows rather than jumping to the wrong line.
-    if (position.line + 1 > doc.lines) return doc.length;
-    const line = doc.line(Math.max(position.line + 1, 1));
-    const character = Math.min(Math.max(position.character, 0), line.length);
-    return line.from + character;
 }

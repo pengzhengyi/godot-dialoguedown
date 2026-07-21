@@ -379,7 +379,7 @@ hammer a dead local server or permission-denied path with background retries.
 | Save request has newer content | Replace the single queued save with the latest generation; never overlap writes. |
 | Discard while save is in flight | Disabled until the write outcome identifies the new saved baseline. |
 | External change before idle timer | Cancel timer, enter Conflict, write nothing. |
-| External change races with request | Writes stage the full bytes in a same-directory temp file and move it atomically over the target. A per-path in-process lock serializes this process's own concurrent saves (one wins, the other conflicts); against an external process the baseline check plus the watcher report a race as Conflict, and the atomic replace guarantees the original is never truncated or partially overwritten. |
+| External change races with request | Writes stage the full bytes in a same-directory temp file and publish them with an atomic replace that captures the target's immediately previous content into a backup. That backup is a compare-and-swap check: if it differs from the snapshot the caller decided on (an external editor wrote in the replace window), the external content is rolled back into place and the write is reported as Conflict rather than silently overwritten. A per-path in-process lock serializes this process's own concurrent saves, a create uses a no-overwrite move so an external create wins, and a confirmed overwrite stays an intentional force. The original is never truncated or partially overwritten. |
 | External change restores earlier self-written content (A→B→A) | Self-write suppression is one-shot: the token covers a single watcher event, so a later external change back to that content still reloads. |
 | Confirmed overwrite | Explicit request bypasses the baseline check once. |
 | Reload after conflict | Replace the buffer from disk, establish it as the new baseline, clear conflict/dirty state, and refresh the report. |
@@ -405,7 +405,8 @@ hammer a dead local server or permission-denied path with background retries.
 | Mode changes while navigation is pending | Clear the pending navigation; the writer must request it again under the new mode. |
 | Save response is lost | Enter Uncertain; retrying the same snapshot can return idempotent success after reconciliation. |
 | Create Config when no file exists | Create only when the expected state is absence; the starter template becomes the saved baseline. |
-| Create Config response is lost | The create UI reports Uncertain without constructing a controller. Retry adopts the file when it equals the starter template; differing content is a conflict, and failure leaves the no-config state unchanged. Even once the session has adopted the config, a retry for that same path stays idempotent while the file is the starter template and becomes a conflict once it diverges. |
+| Create Config response is lost | The create UI reports Uncertain without constructing a controller. Retry adopts the file when it equals the starter template; failure leaves the no-config state unchanged. Even once the session has adopted the config, a retry for that same path stays idempotent while the file is the starter template and becomes a conflict once it diverges. |
+| Create Config when a different file already exists | A config-less session adopts the pre-existing `dialogue.toml` without overwriting it — valid TOML into the visualizer, invalid TOML as saved-invalid — assigns the config path, starts the config watcher, and returns a typed adopt outcome, so the frontend reloads and opens the existing Config instead of dead-ending config-less. |
 
 ## Integration
 
@@ -566,6 +567,41 @@ Follow-up fixes hardened the shipped state machine against races and reload:
   and validity apart from the last valid visualizer; a `ConfigStatusOverlay` threads a
   `saved-invalid` marker and the invalid source into the served payload so a page
   reload restores the saved-invalid (report stale) state.
+
+### Publication hardening
+
+A final review pass closed the remaining races and dead ends before publication:
+
+- **Cross-process write compare-and-swap.** `AtomicFile`'s validated write is no longer a
+  blind atomic overwrite. The replace captures the target's immediately previous content
+  into a backup and checks it against the snapshot the caller decided on (or the bytes just
+  written); an external editor that wrote in the replace window is rolled back into place
+  and reported as Conflict rather than silently clobbered. A create uses a no-overwrite move
+  so an external create wins, a confirmed overwrite stays an intentional force, and temps
+  and backups are cleaned on every path.
+- **Config state published only after commit.** `SaveConfig` parses the candidate and stages
+  the write inside the transaction but adopts the visualizer and config source/validity only
+  after `AtomicFile` confirms the commit, so a staging failure or a conflict never leaves the
+  served state ahead of disk.
+- **Watcher refresh survives read failures.** `Refresh` and `RefreshConfig` catch
+  `UnauthorizedAccessException` alongside `IOException`, so an unreadable file (permission
+  denied, or a path that became a directory) broadcasts a targeted problem instead of
+  escaping the debounced timer callback.
+- **Debouncer disposal is race-safe.** A `_disposed` flag guarded by the gate — with the
+  timer armed only while holding it — keeps a watcher event, a coalesced follow-up rearm, or
+  a late callback from ever calling `Change` on a disposed timer.
+- **Edit→View transition is cancellable.** The View⇄Edit controller carries a transition
+  token rechecked after every await and before the final apply, so reasserting Edit (or a
+  newer switch) during the leave-Edit flush cancels a stale drop into View.
+- **Status detail is preserved and announced.** The controller exposes its current status
+  message; the shared chrome reflects it and renders it inside the `aria-live` readout, and a
+  page that loaded with a persisted-but-invalid config seeds the saved-invalid detail from
+  `report.configMessage`.
+- **No-config create adopts an existing file.** A create-config request that finds a
+  *different* `dialogue.toml` at the serve root adopts it without overwriting (valid, or
+  saved-invalid), assigns the config path, starts the config watcher, and returns a typed
+  adopt outcome, so the session recovers into the existing configuration instead of staying
+  permanently config-less.
 
 ### Not implemented
 

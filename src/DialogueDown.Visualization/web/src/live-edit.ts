@@ -101,7 +101,7 @@ export interface LiveEditController {
     /** Flush the latest generation and await it before navigation continues (navigation urgency). */
     flush(): Promise<SaveResolution>;
     /** The file changed on disk under an active buffer — pause in Conflict; never clobber the buffer. */
-    onDiskChange(report?: Report): void;
+    onDiskChange(message?: string): void;
     /** Reload from disk — replace the buffer with the external content and adopt it as the baseline. */
     reload(): Promise<SaveResolution>;
     /** Adopt a clean external reload (View hot reload): set the baseline/buffer without marking dirty. */
@@ -541,11 +541,11 @@ export function createLiveEdit(
         flush() {
             return requestSave("navigation");
         },
-        onDiskChange() {
+        onDiskChange(message) {
             diskEpoch += 1;
             clearIdle();
             clearQueue();
-            setStatus("conflict", "The file changed on disk.");
+            setStatus("conflict", message ?? "The file changed on disk.");
             refreshChrome();
         },
         async reload() {

@@ -172,7 +172,7 @@ internal sealed class LiveSession
             var message = ex is FileNotFoundException or DirectoryNotFoundException
                 ? $"Document not found: {DocumentPath}"
                 : ex.Message;
-            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message)));
+            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message, "document")));
         }
     }
 
@@ -211,7 +211,7 @@ internal sealed class LiveSession
             var message = ex is FileNotFoundException or DirectoryNotFoundException
                 ? $"Configuration not found: {_configPath}"
                 : ex.Message;
-            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message)));
+            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message, "config")));
         }
     }
 
@@ -241,8 +241,11 @@ internal sealed class LiveSession
     private static string OutcomeJson(string outcome, string message) =>
         JsonSerializer.Serialize(new { outcome, message });
 
-    private static string ProblemJson(string message) =>
-        JsonSerializer.Serialize(new { message });
+    // A missing-file/read-failure problem carries which document it is about (the served
+    // document or its configuration) so the client can route it through that controller's
+    // disk-change/conflict path instead of only flashing a banner.
+    private static string ProblemJson(string message, string target) =>
+        JsonSerializer.Serialize(new { message, target });
 
     // Two paths name the same file — compared as normalized full paths so a session recognizes a
     // create retry for the very config it already adopted.

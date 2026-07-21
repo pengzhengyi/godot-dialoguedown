@@ -45,8 +45,22 @@ describe("watchServerEvents", () => {
 
         source.emit("problem", JSON.stringify({ message: "compile error at line 3" }));
 
-        expect(handlers.onProblem).toHaveBeenCalledWith("compile error at line 3");
+        expect(handlers.onProblem).toHaveBeenCalledWith("compile error at line 3", undefined);
         expect(handlers.onReload).not.toHaveBeenCalled();
+    });
+
+    it("forwards a disk problem's target so it can route to the matching controller", () => {
+        const { handlers, source } = setup();
+
+        source.emit(
+            "problem",
+            JSON.stringify({ message: "Configuration not found: dialogue.toml", target: "config" }),
+        );
+
+        expect(handlers.onProblem).toHaveBeenCalledWith(
+            "Configuration not found: dialogue.toml",
+            "config",
+        );
     });
 
     it("returns the event source it connected to", () => {

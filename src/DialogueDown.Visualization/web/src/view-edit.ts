@@ -34,9 +34,18 @@ export interface ModeController {
     onReload(report: Report): void;
     /** Route a pushed config report (external `dialogue.toml` change): View re-syncs, Edit chips. */
     onReloadConfig(report: Report): void;
+    /**
+     * Route a pushed problem (a missing or unreadable document/config on disk). In Edit it enters
+     * the target controller's Conflict/epoch path so an in-flight save cannot silently overwrite
+     * the file; in View it surfaces the message as a banner.
+     */
+    onProblem(message: string, target?: ProblemTarget): void;
     /** Request a mode switch (from the toggle). */
     switchTo(mode: ServedMode): void;
 }
+
+/** Which document a disk problem event is about, so it routes to the matching controller. */
+export type ProblemTarget = "document" | "config";
 
 /**
  * The View ⇄ Edit controller for a served session. View is read-only and auto-updating
@@ -74,7 +83,7 @@ export function createModeController(
         },
         onReload(report) {
             if (mode === "edit") {
-                ports.dialogueLive.onDiskChange(report); // external change → Conflict; never clobber
+                ports.dialogueLive.onDiskChange(); // external change → Conflict; never clobber
                 return;
             }
             ports.app.showBanner(null);
@@ -90,7 +99,7 @@ export function createModeController(
         onReloadConfig(report) {
             if (mode === "edit") {
                 // External config change → Conflict on the config controller; never clobber it.
-                ports.configLive?.onDiskChange(report);
+                ports.configLive?.onDiskChange();
                 return;
             }
             ports.app.showBanner(null);
@@ -113,6 +122,17 @@ export function createModeController(
                 return;
             }
             apply(next);
+        },
+        onProblem(message, target) {
+            const live = target === "config" ? ports.configLive : ports.dialogueLive;
+            if (mode === "edit" && live) {
+                // A deletion/read failure under an active buffer is a disk change: route it through
+                // the controller so an in-flight save is invalidated (epoch) and the writer is
+                // paused in Conflict, rather than only flashing a banner that a save could ignore.
+                live.onDiskChange(message);
+                return;
+            }
+            ports.app.showBanner(message);
         },
     };
 

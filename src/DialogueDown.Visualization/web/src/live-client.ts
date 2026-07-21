@@ -3,14 +3,20 @@ import type { Report } from "./model";
 /** Where the served session pushes hot-reload and problem events. */
 const EVENTS_URL = "/api/events";
 
+/** Which document a problem event is about, so the client can route it to the right controller. */
+export type ProblemTarget = "document" | "config";
+
 /** Handlers for the served session's event stream. */
 export interface ServerEventHandlers {
     /** A recompiled report was pushed (the document changed on disk). */
     onReload(report: Report): void;
     /** A recompiled report was pushed for an external configuration change. */
     onReloadConfig(report: Report): void;
-    /** A compile error or a missing document — a message to surface. */
-    onProblem(message: string): void;
+    /**
+     * A compile error or a missing/unreadable document — a message to surface. A disk-level
+     * problem carries {@link ProblemTarget} so it can be routed to the matching controller.
+     */
+    onProblem(message: string, target?: ProblemTarget): void;
 }
 
 /**
@@ -35,8 +41,11 @@ export function watchServerEvents(
     });
 
     events.addEventListener("problem", (event) => {
-        const { message } = JSON.parse((event as MessageEvent).data) as { message: string };
-        handlers.onProblem(message);
+        const { message, target } = JSON.parse((event as MessageEvent).data) as {
+            message: string;
+            target?: ProblemTarget;
+        };
+        handlers.onProblem(message, target);
     });
 
     return events;

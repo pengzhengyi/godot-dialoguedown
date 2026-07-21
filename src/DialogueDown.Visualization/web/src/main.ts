@@ -199,7 +199,7 @@ if (report.mode === "view" || report.mode === "edit") {
             currentSymbols = next.symbols;
             controller.onReloadConfig(next);
         },
-        onProblem: (message) => app.showBanner(message),
+        onProblem: (message, target) => controller.onProblem(message, target),
     });
     if (header) initBackToLauncher(header, window.location.pathname);
 } else {

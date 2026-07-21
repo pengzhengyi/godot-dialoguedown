@@ -160,6 +160,51 @@ describe("createModeController", () => {
         expect(app.setContent).not.toHaveBeenCalled();
     });
 
+    it("routes a document disk problem through the dialogue controller in Edit", () => {
+        const { ports, app } = fakePorts();
+        const c = createModeController("edit", ports);
+
+        c.onProblem("Document not found: scene.dialogue.md", "document");
+
+        expect(ports.dialogueLive.onDiskChange).toHaveBeenCalledWith(
+            "Document not found: scene.dialogue.md",
+        );
+        expect(app.showBanner).not.toHaveBeenCalled(); // not banner-only
+    });
+
+    it("routes a config disk problem through the config controller in Edit", () => {
+        const configLive = fakeLive();
+        const { ports, app } = fakePorts({ configLive });
+        const c = createModeController("edit", ports);
+
+        c.onProblem("Configuration not found: dialogue.toml", "config");
+
+        expect(configLive.onDiskChange).toHaveBeenCalledWith(
+            "Configuration not found: dialogue.toml",
+        );
+        expect(ports.dialogueLive.onDiskChange).not.toHaveBeenCalled();
+        expect(app.showBanner).not.toHaveBeenCalled();
+    });
+
+    it("banners a disk problem in View without touching a controller", () => {
+        const { ports, app } = fakePorts();
+        const c = createModeController("view", ports);
+
+        c.onProblem("Document not found: scene.dialogue.md", "document");
+
+        expect(app.showBanner).toHaveBeenCalledWith("Document not found: scene.dialogue.md");
+        expect(ports.dialogueLive.onDiskChange).not.toHaveBeenCalled();
+    });
+
+    it("banners a config problem in Edit when the session has no config controller", () => {
+        const { ports, app } = fakePorts({ configLive: null });
+        const c = createModeController("edit", ports);
+
+        c.onProblem("Configuration not found: dialogue.toml", "config");
+
+        expect(app.showBanner).toHaveBeenCalledWith("Configuration not found: dialogue.toml");
+    });
+
     it("switches View → Edit, making the editor editable", () => {
         const { ports, app } = fakePorts();
         const c = createModeController("view", ports);

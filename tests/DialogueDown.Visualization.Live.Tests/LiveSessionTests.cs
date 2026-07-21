@@ -68,6 +68,7 @@ public sealed class LiveSessionTests
         Assert.True(reader.TryRead(out var received));
         Assert.Equal("problem", received!.Event);
         Assert.Contains("not found", received.Data, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"target\":\"document\"", received.Data); // routes through the document controller
     }
 
     [Fact]
@@ -579,6 +580,24 @@ public sealed class LiveSessionTests
         session.RefreshConfig();
         Assert.True(reader.TryRead(out var backToBob));
         Assert.Contains("Bob", backToBob!.Data);
+    }
+
+    [Fact]
+    public void RefreshConfig_DeletedConfiguration_BroadcastsAProblemTargetingConfig()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var configPath = tree.File("dialogue.toml", Speaker("Alice", "A"));
+        var session = ConfiguredSession(docPath, configPath);
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+        File.Delete(configPath);
+
+        session.RefreshConfig();
+
+        Assert.True(reader.TryRead(out var received));
+        Assert.Equal("problem", received!.Event);
+        Assert.Contains("not found", received.Data, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"target\":\"config\"", received.Data); // routes through the config controller
     }
 
     [Fact]

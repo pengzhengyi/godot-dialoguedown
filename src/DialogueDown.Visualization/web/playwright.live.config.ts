@@ -7,6 +7,7 @@ import {
     CONFIG_EDIT_PORT,
     CONFIG_CREATE_PORT,
     CONFIG_ADOPT_PORT,
+    CONFIG_ADOPT_INVALID_PORT,
     SEMANTIC_AUTOCOMPLETE_PORT,
 } from "./e2e-live/fixture.mjs";
 
@@ -65,6 +66,12 @@ export default defineConfig({
         {
             command: "node ./e2e-live/serve-config-adopt.mjs",
             url: `http://127.0.0.1:${CONFIG_ADOPT_PORT}`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 180_000,
+        },
+        {
+            command: "node ./e2e-live/serve-config-adopt-invalid.mjs",
+            url: `http://127.0.0.1:${CONFIG_ADOPT_INVALID_PORT}`,
             reuseExistingServer: !process.env.CI,
             timeout: 180_000,
         },

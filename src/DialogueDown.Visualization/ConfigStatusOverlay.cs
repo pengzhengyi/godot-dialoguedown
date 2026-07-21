@@ -7,6 +7,8 @@ namespace DialogueDown.Visualization;
 /// must announce that its compiled configuration is stale, so a page reload restores the
 /// saved-invalid state rather than silently reverting to the last valid text.
 /// </summary>
+/// <param name="Path">The path of the invalid <c>dialogue.toml</c>, so the report always carries a
+/// configuration file for the Config tab even when no valid configuration was ever applied.</param>
 /// <param name="Source">The current, invalid configuration TOML persisted on disk.</param>
 /// <param name="Message">The parse error explaining why the configuration is invalid.</param>
-public sealed record ConfigStatusOverlay(string Source, string Message);
+public sealed record ConfigStatusOverlay(string Path, string Source, string Message);

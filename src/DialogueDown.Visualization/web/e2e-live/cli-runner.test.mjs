@@ -23,7 +23,7 @@ test("every live E2E server uses the shared CLI runner", () => {
         (name) => name.startsWith("serve") && name.endsWith(".mjs"),
     );
 
-    assert.equal(serverScripts.length, 8);
+    assert.equal(serverScripts.length, 9);
     for (const name of serverScripts) {
         const source = readFileSync(join(here, name), "utf8");
         assert.match(source, /spawnCli/);

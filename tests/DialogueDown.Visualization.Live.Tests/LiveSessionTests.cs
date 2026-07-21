@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DialogueDown.ConfigurationLoader;
 using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Live.Tests.Support;
@@ -517,6 +518,36 @@ public sealed class LiveSessionTests
 
         // The saved-invalid state persists so a page reload restores it (the overlay marks it).
         Assert.Contains("\"configStatus\":\"saved-invalid\"", session.CurrentDocumentJson());
+    }
+
+    [Fact]
+    public void CreateConfig_ExistingInvalidContent_ReportCarriesConfigurationFileForRecovery()
+    {
+        // Adopting an invalid pre-existing dialogue.toml from a config-less session must still let
+        // the frontend build a Config controller: the report needs a configuration.file with the
+        // path and the (invalid) source, plus a saved-invalid status and message, both in the
+        // adoption response and in the re-served page so a reload can edit and recover it.
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene");
+        var invalid = "[[speakers]]\nbogus = true\n";
+        var configPath = tree.File("dialogue.toml", invalid);
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+
+        var result = session.CreateConfig(configPath);
+
+        using var payload = JsonDocument.Parse(result.Payload);
+        var file = payload.RootElement.GetProperty("configuration").GetProperty("file");
+        Assert.Equal(configPath, file.GetProperty("path").GetString());
+        Assert.Equal(invalid, file.GetProperty("source").GetString());
+        Assert.Equal("saved-invalid", payload.RootElement.GetProperty("configStatus").GetString());
+        Assert.False(
+            string.IsNullOrEmpty(payload.RootElement.GetProperty("configMessage").GetString()));
+
+        using var served = JsonDocument.Parse(session.CurrentDocumentJson());
+        var servedFile = served.RootElement.GetProperty("configuration").GetProperty("file");
+        Assert.Equal(configPath, servedFile.GetProperty("path").GetString());
+        Assert.Equal(invalid, servedFile.GetProperty("source").GetString());
+        Assert.Equal("saved-invalid", served.RootElement.GetProperty("configStatus").GetString());
     }
 
     [Fact]

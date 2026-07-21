@@ -71,16 +71,33 @@ internal static class DisplayGraphJson
 
     // A saved-invalid Config overlay: the graphs and speakers stay the last valid compile, but the
     // Config tab must show the current invalid source and the payload must announce it is stale, so
-    // a reload of the page restores the saved-invalid state instead of the last valid text.
+    // a reload of the page restores the saved-invalid state instead of the last valid text. When the
+    // last valid compile had no configuration at all (an invalid file adopted from the no-config
+    // state), the configuration section and its file are synthesized from the overlay so the client
+    // can still open the Config tab to edit and recover the invalid file.
     private static string ApplyConfigOverlay(string json, ConfigStatusOverlay overlay)
     {
         var node = JsonNode.Parse(json)!.AsObject();
         node["configStatus"] = "saved-invalid";
         node["configMessage"] = overlay.Message;
-        if (node["configuration"] is JsonObject configuration
-            && configuration["file"] is JsonObject file)
+
+        if (node["configuration"] is not JsonObject configuration)
+        {
+            configuration = new JsonObject { ["speakers"] = new JsonArray() };
+            node["configuration"] = configuration;
+        }
+
+        if (configuration["file"] is JsonObject file)
         {
             file["source"] = overlay.Source;
+        }
+        else
+        {
+            configuration["file"] = new JsonObject
+            {
+                ["path"] = overlay.Path,
+                ["source"] = overlay.Source,
+            };
         }
 
         return node.ToJsonString();

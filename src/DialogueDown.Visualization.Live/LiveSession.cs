@@ -240,21 +240,7 @@ internal sealed class LiveSession
     }
 
     // A saved-invalid/invalid Config payload keeps the last valid report but must carry the
-    // external (invalid) TOML so the editor can show it — inject it into configuration.file.source.
-    private static string WithConfigSource(string payloadJson, string configSource, string outcome, string message)
-    {
-        var node = JsonNode.Parse(payloadJson)!.AsObject();
-        node["outcome"] = outcome;
-        node["message"] = message;
-        if (node["configuration"] is JsonObject configuration
-            && configuration["file"] is JsonObject file)
-        {
-            file["source"] = configSource;
-        }
-
-        return node.ToJsonString();
-    }
-
+    // external (invalid) TOML and a configuration file the Config tab can open. Serializing with a
     private static string OutcomeJson(string outcome, string message) =>
         JsonSerializer.Serialize(new { outcome, message });
 
@@ -268,6 +254,22 @@ internal sealed class LiveSession
     // create retry for the very config it already adopted.
     private static bool PathsEqual(string left, string right) =>
         string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.Ordinal);
+
+    // A saved-invalid/invalid Config payload keeps the last valid report but must carry the
+    // external (invalid) TOML and a configuration file the Config tab can open. Serializing with a
+    // ConfigStatusOverlay guarantees a configuration.file (path and invalid source) plus the
+    // saved-invalid status/message even when no valid configuration was ever applied; the outcome
+    // and message are then layered on for the save/reload state machine.
+    private string InvalidConfigPayload(string source, string error, string outcome)
+    {
+        var overlay = new ConfigStatusOverlay(_configPath!, source, error);
+        var json = _visualizer.SerializeDocument(
+            DocumentPath, File.ReadAllText(DocumentPath), Mode, overlay);
+        var node = JsonNode.Parse(json)!.AsObject();
+        node["outcome"] = outcome;
+        node["message"] = error;
+        return node.ToJsonString();
+    }
 
     // A create retry for the config this session already adopted lost the race to the existing file:
     // adopt it idempotently when it is still the starter template, otherwise report a conflict (the
@@ -327,7 +329,7 @@ internal sealed class LiveSession
         }
 
         RecordInvalidConfig(source, error);
-        return WithConfigSource(SerializeCurrent(), source, "adopted-invalid", error);
+        return InvalidConfigPayload(source, error, "adopted-invalid");
     }
 
     // Builds the payload for an external config change: a valid config is adopted into the
@@ -342,7 +344,7 @@ internal sealed class LiveSession
         }
 
         RecordInvalidConfig(source, error);
-        return WithConfigSource(SerializeCurrent(), source, "invalid", error);
+        return InvalidConfigPayload(source, error, "invalid");
     }
 
     // Adopts a valid config into the visualizer and records it as the current, valid on-disk
@@ -369,7 +371,8 @@ internal sealed class LiveSession
     private ConfigStatusOverlay? CurrentConfigOverlay() =>
         _currentConfigValid
             ? null
-            : new ConfigStatusOverlay(_currentConfigSource ?? string.Empty, _currentConfigError);
+            : new ConfigStatusOverlay(
+                _configPath ?? string.Empty, _currentConfigSource ?? string.Empty, _currentConfigError);
 
     private string SaveDocument(SaveInput input, Action? afterReplace)
     {
@@ -510,7 +513,7 @@ internal sealed class LiveSession
         }
 
         RecordInvalidConfig(committed.Source, committed.Error);
-        return WithConfigSource(SerializeCurrent(), committed.Source, "saved-invalid", committed.Error);
+        return InvalidConfigPayload(committed.Source, committed.Error, "saved-invalid");
     }
 
     private string ReloadDocument()
@@ -546,7 +549,7 @@ internal sealed class LiveSession
         }
 
         RecordInvalidConfig(source, error);
-        return WithConfigSource(SerializeCurrent(), source, "invalid", error);
+        return InvalidConfigPayload(source, error, "invalid");
     }
 
     private string SerializeCurrent() =>

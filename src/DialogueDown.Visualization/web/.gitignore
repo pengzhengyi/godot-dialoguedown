@@ -30,3 +30,6 @@ e2e-live/.config-create-tree/
 
 # Config-adopt e2e temp tree
 e2e-live/.config-adopt-tree/
+
+# Config-adopt-invalid e2e temp tree
+e2e-live/.config-adopt-invalid-tree/

@@ -72,6 +72,27 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void Refresh_UnreadableDocument_BroadcastsAProblemInsteadOfThrowing()
+    {
+        // The watcher fires Refresh from a timer callback; an unreadable file (permission denied,
+        // or the path became a directory) throws UnauthorizedAccessException, not IOException. It
+        // must be caught and broadcast as a targeted problem rather than escaping the callback.
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene");
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+        File.Delete(docPath);
+        Directory.CreateDirectory(docPath); // reading a directory throws UnauthorizedAccessException
+
+        var problem = Record.Exception(() => session.Refresh());
+
+        Assert.Null(problem); // the callback never escapes
+        Assert.True(reader.TryRead(out var received));
+        Assert.Equal("problem", received!.Event);
+        Assert.Contains("\"target\":\"document\"", received.Data);
+    }
+
+    [Fact]
     public void Save_MatchingBaseline_WritesTheBufferAndReturnsSaved()
     {
         using var doc = new TempDocument("# Old");
@@ -635,6 +656,25 @@ public sealed class LiveSessionTests
         Assert.Equal("problem", received!.Event);
         Assert.Contains("not found", received.Data, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("\"target\":\"config\"", received.Data); // routes through the config controller
+    }
+
+    [Fact]
+    public void RefreshConfig_UnreadableConfiguration_BroadcastsAProblemInsteadOfThrowing()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var configPath = tree.File("dialogue.toml", Speaker("Alice", "A"));
+        var session = ConfiguredSession(docPath, configPath);
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+        File.Delete(configPath);
+        Directory.CreateDirectory(configPath); // reading a directory throws UnauthorizedAccessException
+
+        var problem = Record.Exception(() => session.RefreshConfig());
+
+        Assert.Null(problem); // the timer callback never escapes
+        Assert.True(reader.TryRead(out var received));
+        Assert.Equal("problem", received!.Event);
+        Assert.Contains("\"target\":\"config\"", received.Data);
     }
 
     [Fact]

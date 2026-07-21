@@ -167,7 +167,7 @@ internal sealed class LiveSession
             Broadcaster.Broadcast(
                 new LiveEvent("reload", _visualizer.SerializeDocument(DocumentPath, current, Mode)));
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             var message = ex is FileNotFoundException or DirectoryNotFoundException
                 ? $"Document not found: {DocumentPath}"
@@ -206,7 +206,7 @@ internal sealed class LiveSession
 
             Broadcaster.Broadcast(new LiveEvent("reload-config", ConfigReloadPayload(current)));
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             var message = ex is FileNotFoundException or DirectoryNotFoundException
                 ? $"Configuration not found: {_configPath}"

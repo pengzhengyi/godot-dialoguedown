@@ -10,6 +10,18 @@ changes easy to categorize.
 
 ### Added
 
+- **Autosave in the live visualization editor** — each editable document now has a persisted
+  **Auto | Manual** save mode beside the Save button. Source defaults to Auto (saving 1s after you
+  stop typing) and Config defaults to Manual, and explicit Save / <kbd>⌘/Ctrl-S</kbd> stay immediate
+  in either mode. Saves are single-flight and generation-safe, so overlapping writes, stale
+  recompiles, and cleared-but-unsaved edits can't happen. An accessible status reads
+  Unsaved / Saving… / Saved, plus Conflict, Waiting for valid TOML, Saved — invalid TOML, and
+  uncertain. External changes pause Auto in a conflict you resolve with Reload from disk or a
+  confirmed overwrite; Config Auto validates the TOML before writing, while an explicit Config Save
+  may persist invalid TOML. Navigation (tabs, node selection, Edit→View) flushes an Auto save and
+  awaits it, or runs the Manual save-or-discard prompt. See the
+  [Live Visualization — Autosave](docs/contributing/design-notes/Live%20Visualization%20-%20Autosave.md) note.
+
 - **Diagnostics on the CLI** — `dialoguedown compile` now shows a script's problems and fails with
   a data-error exit code when it has errors, instead of silently succeeding. On a terminal each
   diagnostic is a rich block — the offending source line with a caret under it — and piped output

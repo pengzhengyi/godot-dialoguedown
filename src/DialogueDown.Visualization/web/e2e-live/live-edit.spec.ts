@@ -4,12 +4,15 @@ import { LIVE_EDIT_PORT, LIVE_EDIT_DOC, LIVE_EDIT_SOURCE } from "./fixture.mjs";
 
 // Live Edit end-to-end against the real .NET --live server: the Source tab is an
 // editable CodeMirror buffer, edits update the preview as you type, the Save button and
-// the Ctrl/⌘+S shortcut write the file from any tab, and an external change surfaces a
-// passive chip without a reload.
+// the Ctrl/⌘+S shortcut write the file from any tab, and an external change pauses in a
+// conflict without clobbering the buffer.
 const base = `http://127.0.0.1:${LIVE_EDIT_PORT}`;
 
-test.beforeEach(() => {
+test.beforeEach(async ({ page }) => {
     writeFileSync(LIVE_EDIT_DOC, LIVE_EDIT_SOURCE);
+    // Pin Source to Manual so the explicit-save assertions below are not raced by an idle
+    // autosave; the dedicated Auto tests opt back in per test.
+    await page.addInitScript(() => localStorage.setItem("dd-save-mode-source", "manual"));
 });
 
 async function edit(page: Page, text: string) {
@@ -177,9 +180,7 @@ test("formatting shortcuts and emphasis auto-surround wrap the selection", async
     await expect(content).toContainText("_hero_");
 });
 
-test("an external change surfaces the passive chip without discarding local edits", async ({
-    page,
-}) => {
+test("an external change pauses in Conflict without discarding local edits", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
 
@@ -188,9 +189,40 @@ test("an external change surfaces the passive chip without discarding local edit
     await page.keyboard.type("X");
     writeFileSync(LIVE_EDIT_DOC, "# Rewritten from disk\n");
 
-    // The chip appears; the live editor is not reloaded, so the local buffer survives.
-    await expect(page.locator(".disk-chip")).toBeVisible();
+    // The status enters Conflict and offers Reload; the editor keeps the local buffer.
+    await expect(page.locator(".save-status[data-status='conflict']")).toBeVisible();
+    await expect(page.locator(".reload-button")).toBeVisible();
     await expect(page.locator(".source-pane .cm-content")).toContainText("Alice");
+
+    // Reload adopts the disk content as the new baseline and clears the conflict.
+    await page.locator(".reload-button").click();
+    await expect(page.locator(".source-pane .cm-content")).toContainText("Rewritten from disk");
+    await expect(page.locator(".save-status[data-status='saved']")).toBeVisible();
+});
+
+test("Source defaults to Auto and saves after the idle delay", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("dd-save-mode-source", "auto"));
+    await page.goto(`${base}/`);
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
+
+    await edit(page, " and an autosaved tail");
+
+    // Without touching Save, the idle debounce writes the file and clears dirty.
+    await expect(page.locator(".tab.dirty")).toHaveCount(0, { timeout: 4000 });
+    await expect(page.locator(".save-status[data-status='saved']")).toBeVisible();
+    expect(readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("autosaved tail");
+});
+
+test("the Auto/Manual choice persists across reloads", async ({ page }) => {
+    await page.goto(`${base}/`);
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Manual");
+
+    // Switch to Auto; the choice is remembered after a reload.
+    await page.locator(".save-mode-option", { hasText: "Auto" }).click();
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
+    await page.reload();
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
 });
 
 // A long, multi-scene document so both panes actually scroll. Headings anchor the sync.

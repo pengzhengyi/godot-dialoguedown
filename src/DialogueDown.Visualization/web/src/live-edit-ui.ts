@@ -79,12 +79,12 @@ export function initLiveEditUi(app: AppController, actions: LiveEditActions): Li
     });
     const status = createStatusReadout();
     const reloadButton = createAction(
-        "live-reload-button",
+        "reload-button",
         "Reload",
         () => void actions.active()?.reload(),
     );
-    const discardButton = createAction("live-discard-button", "Discard", onDiscard);
-    const saveButton = createAction("live-save-button", "Save", onSave);
+    const discardButton = createAction("discard-button", "Discard", onDiscard);
+    const saveButton = createAction("save-button", "Save", onSave);
     installSaveShortcut(onSave);
 
     function onSave(): void {

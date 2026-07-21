@@ -142,7 +142,7 @@ test("a persisted invalid config survives a page reload as saved-invalid", async
 
     // Persist invalid TOML with an explicit save (Config defaults to Manual, so Save is
     // allow-invalid): the config becomes saved-invalid with a stale speakers pane.
-    await appendToConfig(page, '\n[[speakers]]\nbogus = true\n');
+    await appendToConfig(page, "\n[[speakers]]\nbogus = true\n");
     await page.locator(".save-button").click();
     await expect(page.locator(".save-status[data-status='saved-invalid']")).toBeVisible();
     await expect(page.locator(".config-stale-hint")).toBeVisible();

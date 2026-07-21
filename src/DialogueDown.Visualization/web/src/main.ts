@@ -14,10 +14,8 @@ import { initPathDisplay, initConfigPath } from "./path-display";
 import { initBackToLauncher } from "./back-link";
 import { initTheme } from "./theme";
 import { initHelpToggle } from "./help";
-import { createSemanticSymbolSource } from "./semantic-symbols";
 import { DEV_SOURCE, DEV_STAGES } from "./dev-stages";
-import type { DialogueSymbols } from "./dialogue-symbols";
-import type { Report, ServedMode } from "./model";
+import { type DialogueSymbols, EMPTY_SYMBOLS, type Report, type ServedMode } from "./model";
 
 /**
  * The .NET library replaces the `"__REPORT__"` slot in report.html with the
@@ -48,7 +46,7 @@ if (report.mode === "view" || report.mode === "edit") {
     const toggle = createModeToggle(initialMode, (mode) => controller.switchTo(mode));
     // The semantic analyzer's resolved symbols, refreshed on each hot-reload. The editor's
     // completion source reads this holder every call, so a reload updates completions in place.
-    let currentSymbols: DialogueSymbols | undefined = report.symbols;
+    let currentSymbols: DialogueSymbols = report.symbols ?? EMPTY_SYMBOLS;
     // Navigation (switching tabs or selecting another node) is locked while a document has
     // unsaved edits, so a stale graph is never shown beside them. At most one document is dirty
     // at a time (the nav-lock guarantees it); resolve it here: discard to continue, or cancel to
@@ -69,7 +67,7 @@ if (report.mode === "view" || report.mode === "edit") {
         configOnChange: (buffer) => controller.onConfigEditorChange(buffer),
         onCreateConfig: () => createConfig(browserConfigCreatePorts()),
         confirmNavigation: guardNavigation,
-        symbols: createSemanticSymbolSource(() => currentSymbols),
+        symbols: () => currentSymbols,
     });
     // Save (⌘S or the button) acts on the active document: the config when the Config tab is
     // active, else the dialogue. Since only one document can be dirty at a time, this always
@@ -88,8 +86,9 @@ if (report.mode === "view" || report.mode === "edit") {
             // A save recompiles, so the analyzer's symbols change too — refresh the
             // completion source's holder or the editor keeps offering the old speakers/ids.
             onSaved: (saved) => {
-                currentSymbols = saved.symbols;
+                currentSymbols = saved.symbols ?? EMPTY_SYMBOLS;
                 app.setDiagnostics(saved.diagnostics ?? []);
+                app.setSemanticTokens(saved.semanticTokens ?? []);
             },
         }),
         report.source ?? "",
@@ -109,10 +108,12 @@ if (report.mode === "view" || report.mode === "edit") {
                       // Editing the config changes the resolved speakers/ids, so refresh the
                       // Source editor's completion symbols too (the reported bug: a new id
                       // did not appear in `@` completion until a reload).
-                      currentSymbols = saved.symbols;
+                      currentSymbols = saved.symbols ?? EMPTY_SYMBOLS;
                       // A config change can also change the dialogue's diagnostics (an unknown
-                      // speaker becomes known), so refresh the overlay from the same recompile.
+                      // speaker becomes known) and its highlighting, so refresh both from the
+                      // same recompile.
                       app.setDiagnostics(saved.diagnostics ?? []);
+                      app.setSemanticTokens(saved.semanticTokens ?? []);
                   },
               }),
               report.configuration.file.source,
@@ -134,7 +135,7 @@ if (report.mode === "view" || report.mode === "edit") {
     document.getElementById("mode-badge")?.replaceWith(toggle.element);
     watchServerEvents({
         onReload: (next) => {
-            currentSymbols = next.symbols;
+            currentSymbols = next.symbols ?? EMPTY_SYMBOLS;
             controller.onReload(next);
         },
         onProblem: (message) => app.showBanner(message),

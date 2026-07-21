@@ -28,9 +28,17 @@ import { toggleWrap, insertLink, headingFoldEndLine } from "./editor-commands";
 import { createMaximizeButton } from "./maximize-button";
 import { initCollapsiblePanel } from "./collapse-toggle";
 import { dialogueAutocompletion } from "./editor-completions";
-import { type DialogueSymbolSource, scanDialogueSymbols } from "./dialogue-symbols";
 import { diagnosticsOverlay, setEditorDiagnostics } from "./diagnostics-overlay";
-import type { LspDiagnostic } from "./model";
+import {
+    semanticTokens as semanticTokensExtension,
+    setEditorSemanticTokens,
+} from "./semantic-tokens";
+import {
+    type DialogueSymbolProvider,
+    EMPTY_SYMBOLS,
+    type LspDiagnostic,
+    type SemanticToken,
+} from "./model";
 import { initScrollSync } from "./scroll-sync";
 import { renderDocument } from "./text";
 
@@ -104,11 +112,11 @@ export interface SourceViewOptions {
     /** Toggle the whole-window maximize mode; when set, a maximize button is shown. */
     onToggleFullscreen?: () => void;
     /**
-     * Where the editor's autocompletion draws its symbols. Defaults to a document scan
-     * ({@link scanDialogueSymbols}); a later source can supply the semantic analyzer's
-     * resolved symbols without changing the editor.
+     * Where the editor's autocompletion draws its symbols — the compiler's resolved symbols
+     * from the report payload. Defaults to {@link EMPTY_SYMBOLS} (a bare render offers no
+     * completions); a served session supplies a provider over its latest compile.
      */
-    symbols?: DialogueSymbolSource;
+    symbols?: DialogueSymbolProvider;
     /**
      * The `localStorage` key remembering whether the preview is collapsed. Defaults to the
      * Source tab's key; a second source view (the node inspector) passes its own so the two
@@ -132,6 +140,11 @@ export interface SourceViewHandle {
      * markers, tooltips). An empty list clears the overlay — called on a hot-reload or save.
      */
     setDiagnostics(diagnostics: readonly LspDiagnostic[]): void;
+    /**
+     * Replace the compiler's semantic tokens shown as dialogue highlighting. An empty list
+     * clears the highlighting — called on load, a hot-reload, or a save.
+     */
+    setSemanticTokens(tokens: readonly SemanticToken[]): void;
 }
 
 const editability = new Compartment();
@@ -179,7 +192,7 @@ export function createSourceView(
         editable = false,
         onChange,
         onToggleFullscreen,
-        symbols = scanDialogueSymbols,
+        symbols = () => EMPTY_SYMBOLS,
         previewStorageKey = "dd-preview-collapsed",
     } = options;
 
@@ -224,6 +237,7 @@ export function createSourceView(
                 highlightActiveLineGutter(),
                 foldGutter(),
                 diagnosticsOverlay(),
+                semanticTokensExtension(),
                 foldHeadings,
                 codeFolding(),
                 drawSelection(),
@@ -296,6 +310,7 @@ export function createSourceView(
             view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }),
         getContent: () => view.state.doc.toString(),
         setDiagnostics: (diagnostics) => setEditorDiagnostics(view, diagnostics),
+        setSemanticTokens: (tokens) => setEditorSemanticTokens(view, tokens),
     };
 }
 

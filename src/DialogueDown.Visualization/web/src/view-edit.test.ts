@@ -21,6 +21,7 @@ function fakePorts(overrides: Partial<ModeControllerPorts> = {}) {
         setEditable: vi.fn(),
         setContent: vi.fn(),
         setDiagnostics: vi.fn(),
+        setSemanticTokens: vi.fn(),
         setConfigEditable: vi.fn(),
         setConfigContent: vi.fn(),
         updateConfig: vi.fn(),
@@ -81,6 +82,12 @@ describe("createModeController", () => {
                     source: "dialoguedown",
                 },
             ],
+            semanticTokens: [
+                {
+                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                    kind: "ReservedTag",
+                },
+            ],
         });
 
         expect(app.setContent).toHaveBeenCalledWith("# fresh");
@@ -92,6 +99,12 @@ describe("createModeController", () => {
                 code: "DLG2001",
                 message: "Boom.",
                 source: "dialoguedown",
+            },
+        ]);
+        expect(app.setSemanticTokens).toHaveBeenCalledWith([
+            {
+                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+                kind: "ReservedTag",
             },
         ]);
         expect(app.showBanner).toHaveBeenCalledWith(null);

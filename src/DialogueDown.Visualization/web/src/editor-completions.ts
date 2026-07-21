@@ -9,7 +9,7 @@ import {
 } from "@codemirror/autocomplete";
 import { keymap } from "@codemirror/view";
 import type { Extension } from "@codemirror/state";
-import { scanDialogueSymbols, type DialogueSymbolSource } from "./dialogue-symbols";
+import { type DialogueSymbolProvider, EMPTY_SYMBOLS } from "./model";
 
 // A completion's `type` selects its tooltip icon. These are custom, dialogue-specific types
 // (not CodeMirror's built-in `variable`/`property`/…), styled with line icons in styles.css:
@@ -36,29 +36,29 @@ export function completionsFrom(
 }
 
 /** Complete a jump destination `](#…)` with the slug of any scene heading. */
-export function jumpTargetCompletions(source: DialogueSymbolSource): CompletionSource {
+export function jumpTargetCompletions(symbols: DialogueSymbolProvider): CompletionSource {
     return (context) => {
         const match = context.matchBefore(/\]\(#[\w-]*/);
         if (!match) return null;
-        const { jumpTargets } = source(context.state.doc.toString());
+        const { jumpTargets } = symbols();
         const options = jumpTargets.map((t) => ({ label: t.slug, detail: t.heading, type: JUMP }));
         return completionsFrom(context, match.from + 3, options, /^[\w-]*$/); // after `](#`
     };
 }
 
 /** Complete `@id` with the speaker ids declared or referenced in the document. */
-export function speakerIdCompletions(source: DialogueSymbolSource): CompletionSource {
+export function speakerIdCompletions(symbols: DialogueSymbolProvider): CompletionSource {
     return (context) => {
         const match = context.matchBefore(/@[\w-]*/);
         if (!match) return null;
-        const { speakerIds } = source(context.state.doc.toString());
+        const { speakerIds } = symbols();
         const options = speakerIds.map((id) => ({ label: id, type: SPEAKER_ID }));
         return completionsFrom(context, match.from + 1, options, /^[\w-]*$/); // after `@`
     };
 }
 
 /** Complete a mid-line `#tag` with the tags used in the document. */
-export function tagCompletions(source: DialogueSymbolSource): CompletionSource {
+export function tagCompletions(symbols: DialogueSymbolProvider): CompletionSource {
     return (context) => {
         const match = context.matchBefore(/#[\w-]*/);
         if (!match) return null;
@@ -68,7 +68,7 @@ export function tagCompletions(source: DialogueSymbolSource): CompletionSource {
         // is a tag, so leave those to the jump-target source (or nothing).
         const beforeHash = line.text.slice(0, column);
         if (beforeHash.trim() === "" || line.text[column - 1] === "(") return null;
-        const { tags } = source(context.state.doc.toString());
+        const { tags } = symbols();
         const options = tags.map((t) => ({ label: t, type: TAG }));
         return completionsFrom(context, match.from + 1, options, /^[\w-]*$/); // after `#`
     };
@@ -79,11 +79,11 @@ export function tagCompletions(source: DialogueSymbolSource): CompletionSource {
  * by the typed prefix), so it stays quiet on prose lines: a leading word that prefixes no
  * known speaker shows nothing.
  */
-export function speakerCompletions(source: DialogueSymbolSource): CompletionSource {
+export function speakerCompletions(symbols: DialogueSymbolProvider): CompletionSource {
     return (context) => {
         const match = context.matchBefore(/^[ \t]*[A-Za-z][\w'’-]*/);
         if (!match) return null;
-        const { speakers } = source(context.state.doc.toString());
+        const { speakers } = symbols();
         const indent = /^[ \t]*/.exec(match.text)![0].length;
         const options = speakers.map((s) => ({ label: s, type: SPEAKER }));
         return completionsFrom(context, match.from + indent, options, /^[\w'’-]*$/);
@@ -91,23 +91,24 @@ export function speakerCompletions(source: DialogueSymbolSource): CompletionSour
 }
 
 /**
- * The Source editor's document-aware autocompletion: jump targets, speaker ids, tags, and
- * speaker names, drawn from a {@link DialogueSymbolSource} (the document scan by default).
- * Bundles CodeMirror's completion keymap so accept/dismiss keys work only where this
- * extension is active (the editor's Edit-only compartment). Adds Tab as a second accept
+ * The Source editor's completion: jump targets, speaker ids, tags, and speaker names, drawn
+ * from the compiler's resolved {@link DialogueSymbolProvider} (the report payload's symbols).
+ * Because the list is compiler-correct, a completion can never suggest a name the compiler
+ * would reject. Bundles CodeMirror's completion keymap so accept/dismiss keys work only where
+ * this extension is active (the editor's Edit-only compartment). Adds Tab as a second accept
  * key alongside Enter (the VS Code habit); with no completion open it falls through, so Tab
  * still moves focus out of the editor.
  */
 export function dialogueAutocompletion(
-    source: DialogueSymbolSource = scanDialogueSymbols,
+    symbols: DialogueSymbolProvider = () => EMPTY_SYMBOLS,
 ): Extension {
     return [
         autocompletion({
             override: [
-                jumpTargetCompletions(source),
-                speakerIdCompletions(source),
-                tagCompletions(source),
-                speakerCompletions(source),
+                jumpTargetCompletions(symbols),
+                speakerIdCompletions(symbols),
+                tagCompletions(symbols),
+                speakerCompletions(symbols),
             ],
         }),
         keymap.of([...completionKeymap, { key: "Tab", run: acceptCompletion }]),

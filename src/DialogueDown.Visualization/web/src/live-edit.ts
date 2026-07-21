@@ -433,20 +433,35 @@ export function createLiveEdit(
 
     function promoteQueue(): void {
         if (inFlight !== null) return;
-        if (queued !== null && !isPaused()) {
-            const next = queued;
-            queued = null;
-            // Rebase onto the baseline the predecessor confirmed on disk: the request was queued
-            // with the older baseline, but the file it now replaces is the predecessor's write.
-            next.request = { ...next.request, expectedBaseline: savedBaseline };
-            void run(next.request, next.waiters);
-            return;
+        if (queued !== null) {
+            if (canRunQueued()) {
+                const next = queued;
+                queued = null;
+                // Rebase onto the baseline the predecessor confirmed on disk: the request was
+                // queued with the older baseline, but the file it now replaces is the
+                // predecessor's write.
+                next.request = { ...next.request, expectedBaseline: savedBaseline };
+                void run(next.request, next.waiters);
+                return;
+            }
+            // Paused and the queued request cannot make progress from here (for example a
+            // require-valid save behind an invalid-auto): drop it so whenIdle and navigation never
+            // hang waiting on a request that will never run.
+            clearQueue();
         }
         // A successful save that left newer edits behind schedules one idle follow-up in Auto.
         if (!isPaused() && isDirty() && mode === "auto" && cancelIdle === null) {
             armIdle();
         }
         notifyIdle();
+    }
+
+    // Whether the queued request may run now. Normally it waits until no paused state, but a
+    // queued allow-invalid explicit/force save can still make progress from Waiting (invalid
+    // Config) by persisting the invalid TOML — the exact recovery that unblocks whenIdle.
+    function canRunQueued(): boolean {
+        if (!isPaused()) return true;
+        return status === "waiting" && queued!.request.validation === "allow-invalid";
     }
 
     function notifyIdle(): void {

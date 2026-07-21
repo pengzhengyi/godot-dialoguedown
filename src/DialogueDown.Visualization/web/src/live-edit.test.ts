@@ -419,6 +419,35 @@ describe("createLiveEdit — Config validation", () => {
         await expect(done).resolves.toBe("saved-invalid");
     });
 
+    it("promotes a queued explicit allow-invalid Config save after an in-flight invalid-auto", async () => {
+        const h = harness("config", "name = 1");
+        const live = h.make("auto");
+
+        // An Auto idle save is in flight and will settle invalid-auto (require-valid).
+        live.onEdit("bogus");
+        h.fireIdle();
+        expect(h.saves[0]!.request.validation).toBe("require-valid");
+
+        // The writer clicks Save while it is in flight, queuing an explicit allow-invalid write.
+        const explicit = live.save();
+        const idle = live.whenIdle();
+
+        // The invalid-auto settles into Waiting; the queued explicit must still be promoted and run
+        // (persisting the invalid TOML) instead of stranding whenIdle behind a paused state.
+        await h.resolveSave({ kind: "invalid-auto", message: "bad TOML" });
+        expect(h.saves[0]!.request.validation).toBe("allow-invalid");
+        await h.resolveSave({
+            kind: "saved-invalid",
+            report: reportFor("bogus"),
+            source: "bogus",
+            message: "bad",
+        });
+
+        await expect(explicit).resolves.toBe("saved-invalid");
+        await expect(idle).resolves.toBeUndefined();
+        expect(live.status).toBe("saved-invalid");
+    });
+
     it("initializes saved-invalid (report stale) when the initial Config is persisted invalid", () => {
         const h = harness("config", "bogus");
         const live = createLiveEdit(

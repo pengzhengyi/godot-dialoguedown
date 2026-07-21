@@ -128,6 +128,12 @@ export interface LiveEditController {
 export interface LiveEditOptions {
     documentType: DocumentType;
     mode: SaveMode;
+    /**
+     * Whether the initial buffer is a valid, accepted document. Defaults to `true`; pass `false`
+     * to initialize into the saved-invalid (report stale) state — used when a served page loads
+     * with a persisted-but-invalid Config, so a reload restores that state.
+     */
+    initialValid?: boolean;
     /** Called after {@link LiveEditController.setMode} so the caller can persist the choice. */
     onModeChange?(mode: SaveMode): void;
 }
@@ -160,9 +166,9 @@ export function createLiveEdit(
     let mode: SaveMode = options.mode;
     let buffer = initialBuffer;
     let savedBaseline = initialBuffer;
-    let baselineValid = true;
+    let baselineValid = options.initialValid ?? true;
     let generation = 0;
-    let status: SaveStatus = "saved";
+    let status: SaveStatus = baselineValid ? "saved" : "saved-invalid";
     let restoring = false;
     let inFlight: PendingSave | null = null;
     let queued: PendingSave | null = null;

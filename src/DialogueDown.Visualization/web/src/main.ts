@@ -149,12 +149,14 @@ if (report.mode === "view" || report.mode === "edit") {
         // The speakers pane is stale whenever the buffer's config is not the compiled report.
         onStatus: (status) => app.setConfigStale(status !== "saved"),
     };
+    const configInitiallyInvalid = report.configStatus === "saved-invalid";
     const configLive: LiveEditController | null = report.configuration?.file
         ? createLiveEdit(
               ui.portsFor(configBinding),
               {
                   documentType: "config",
                   mode: configStore.get(),
+                  initialValid: !configInitiallyInvalid,
                   onModeChange: (m) => {
                       configStore.set(m);
                       navToken += 1;
@@ -163,6 +165,9 @@ if (report.mode === "view" || report.mode === "edit") {
               report.configuration.file.source,
           )
         : null;
+    // A page that loaded with a persisted-but-invalid Config starts with a stale report: the
+    // speakers pane reflects the last valid compile, not the invalid buffer now in the editor.
+    if (configInitiallyInvalid) app.setConfigStale(true);
     controllersReady = true;
     const controller = createModeController(initialMode, {
         app,

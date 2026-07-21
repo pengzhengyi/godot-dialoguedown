@@ -24,6 +24,13 @@ internal sealed class LiveSession
     private volatile string? _lastSaved;
     private volatile string? _lastSavedConfig;
 
+    // The configuration currently persisted on disk, tracked apart from the last valid visualizer:
+    // a saved-invalid Config keeps the last valid report but persists invalid TOML, so a page
+    // reload must restore that saved-invalid state rather than the last valid text.
+    private string? _currentConfigSource;
+    private bool _currentConfigValid = true;
+    private string _currentConfigError = string.Empty;
+
     /// <summary>Creates a session for <paramref name="documentPath"/> in the given <paramref name="mode"/>.</summary>
     public LiveSession(
         string documentPath,
@@ -58,11 +65,13 @@ internal sealed class LiveSession
 
     /// <summary>Renders the initial live report HTML for the current file.</summary>
     public string RenderInitialHtml() =>
-        _visualizer.RenderLiveReport(DocumentPath, File.ReadAllText(DocumentPath), Mode);
+        _visualizer.RenderLiveReport(
+            DocumentPath, File.ReadAllText(DocumentPath), Mode, CurrentConfigOverlay());
 
     /// <summary>Serializes the current document payload (<c>{ mode, path, source, stages }</c>).</summary>
     public string CurrentDocumentJson() =>
-        _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
+        _visualizer.SerializeDocument(
+            DocumentPath, File.ReadAllText(DocumentPath), Mode, CurrentConfigOverlay());
 
     /// <summary>
     /// Applies one save request and returns a payload carrying a typed <c>outcome</c>:
@@ -264,9 +273,8 @@ internal sealed class LiveSession
     private string AdoptConfig(string configPath, string source)
     {
         var options = TomlConfigurationLoader.Parse(source, configPath);
-        _visualizer = new CompilationVisualizer(
-            AppliedConfiguration.FromFile(configPath, source, options));
         _configPath = configPath;
+        AdoptValidConfig(source, options);
         _lastSavedConfig = source;
         return WithOutcome(SerializeCurrent(), "saved");
     }
@@ -278,13 +286,39 @@ internal sealed class LiveSession
     {
         if (TryParseConfig(source, out var options, out var error))
         {
-            _visualizer = new CompilationVisualizer(
-                AppliedConfiguration.FromFile(_configPath!, source, options!));
+            AdoptValidConfig(source, options!);
             return WithOutcome(SerializeCurrent(), "loaded");
         }
 
+        RecordInvalidConfig(source, error);
         return WithConfigSource(SerializeCurrent(), source, "invalid", error);
     }
+
+    // Adopts a valid config into the visualizer and records it as the current, valid on-disk
+    // configuration so a page reload renders it without a stale overlay.
+    private void AdoptValidConfig(string source, CompilerOptions options)
+    {
+        _visualizer = new CompilationVisualizer(
+            AppliedConfiguration.FromFile(_configPath!, source, options));
+        _currentConfigSource = source;
+        _currentConfigValid = true;
+        _currentConfigError = string.Empty;
+    }
+
+    // Records the current on-disk config as persisted-but-invalid so a page reload restores the
+    // saved-invalid state (the invalid source and a stale report) instead of the last valid text.
+    private void RecordInvalidConfig(string source, string error)
+    {
+        _currentConfigSource = source;
+        _currentConfigValid = false;
+        _currentConfigError = error;
+    }
+
+    // The overlay a served page needs when the persisted config is invalid: none while it is valid.
+    private ConfigStatusOverlay? CurrentConfigOverlay() =>
+        _currentConfigValid
+            ? null
+            : new ConfigStatusOverlay(_currentConfigSource ?? string.Empty, _currentConfigError);
 
     private string SaveDocument(SaveInput input)
     {
@@ -361,11 +395,11 @@ internal sealed class LiveSession
 
         if (TryParseConfig(source, out var options, out var error))
         {
-            _visualizer = new CompilationVisualizer(
-                AppliedConfiguration.FromFile(_configPath!, source, options!));
+            AdoptValidConfig(source, options!);
             return WithOutcome(SerializeCurrent(), "saved");
         }
 
+        RecordInvalidConfig(source, error);
         return WithConfigSource(SerializeCurrent(), source, "saved-invalid", error);
     }
 
@@ -397,11 +431,11 @@ internal sealed class LiveSession
         _lastSavedConfig = source;
         if (TryParseConfig(source, out var options, out var error))
         {
-            _visualizer = new CompilationVisualizer(
-                AppliedConfiguration.FromFile(_configPath, source, options!));
+            AdoptValidConfig(source, options!);
             return WithOutcome(SerializeCurrent(), "loaded");
         }
 
+        RecordInvalidConfig(source, error);
         return WithConfigSource(SerializeCurrent(), source, "invalid", error);
     }
 

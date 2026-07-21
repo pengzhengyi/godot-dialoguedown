@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using DialogueDown.Visualization.Configuration;
 using DialogueDown.Visualization.Diagnostics;
@@ -40,9 +41,13 @@ internal static class DisplayGraphJson
         IEnumerable<DisplayGraph> stages,
         SymbolSet? symbols = null,
         ConfigurationReport? configuration = null,
-        IReadOnlyList<LspDiagnostic>? diagnostics = null) =>
-        JsonSerializer.Serialize(
+        IReadOnlyList<LspDiagnostic>? diagnostics = null,
+        ConfigStatusOverlay? configOverlay = null)
+    {
+        var json = JsonSerializer.Serialize(
             new { mode, path, source, stages, symbols, configuration, diagnostics }, _options);
+        return configOverlay is null ? json : ApplyConfigOverlay(json, configOverlay);
+    }
 
     /// <summary>
     /// Serializes the current document payload —
@@ -56,7 +61,28 @@ internal static class DisplayGraphJson
         IEnumerable<DisplayGraph> stages,
         SymbolSet? symbols = null,
         ConfigurationReport? configuration = null,
-        IReadOnlyList<LspDiagnostic>? diagnostics = null) =>
-        JsonSerializer.Serialize(
+        IReadOnlyList<LspDiagnostic>? diagnostics = null,
+        ConfigStatusOverlay? configOverlay = null)
+    {
+        var json = JsonSerializer.Serialize(
             new { mode, path, source, stages, symbols, configuration, diagnostics }, _options);
+        return configOverlay is null ? json : ApplyConfigOverlay(json, configOverlay);
+    }
+
+    // A saved-invalid Config overlay: the graphs and speakers stay the last valid compile, but the
+    // Config tab must show the current invalid source and the payload must announce it is stale, so
+    // a reload of the page restores the saved-invalid state instead of the last valid text.
+    private static string ApplyConfigOverlay(string json, ConfigStatusOverlay overlay)
+    {
+        var node = JsonNode.Parse(json)!.AsObject();
+        node["configStatus"] = "saved-invalid";
+        node["configMessage"] = overlay.Message;
+        if (node["configuration"] is JsonObject configuration
+            && configuration["file"] is JsonObject file)
+        {
+            file["source"] = overlay.Source;
+        }
+
+        return node.ToJsonString();
+    }
 }

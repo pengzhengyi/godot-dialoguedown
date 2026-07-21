@@ -415,6 +415,61 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void CurrentDocumentJson_AfterSavedInvalidConfig_CarriesTheInvalidSourceAndStatus()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+        var broken = "[[speakers]]\nbogus = true\n";
+
+        session.Save(new SaveInput(broken, "config", valid, "allow-invalid"));
+        var json = session.CurrentDocumentJson();
+
+        // A page reload re-serializes the current document: it must restore the saved-invalid state
+        // (the invalid source and a stale report), not silently revert to the last valid text.
+        Assert.Contains("\"configStatus\":\"saved-invalid\"", json);
+        Assert.Contains("bogus", json); // the persisted invalid TOML
+        Assert.Contains("\"name\":\"Alice\"", json); // the last valid speakers remain (stale)
+    }
+
+    [Fact]
+    public void RenderInitialHtml_AfterSavedInvalidConfig_CarriesTheInvalidSourceAndStatus()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+        var broken = "[[speakers]]\nbogus = true\n";
+
+        session.Save(new SaveInput(broken, "config", valid, "allow-invalid"));
+        var html = session.RenderInitialHtml();
+
+        Assert.Contains("\"configStatus\":\"saved-invalid\"", html);
+        Assert.Contains("bogus", html);
+    }
+
+    [Fact]
+    public void CurrentDocumentJson_AfterConfigBecomesValidAgain_DropsTheStaleOverlay()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+        var broken = "[[speakers]]\nbogus = true\n";
+
+        session.Save(new SaveInput(broken, "config", valid, "allow-invalid"));
+        session.Save(new SaveInput(Speaker("Bob", "B"), "config", broken, "require-valid"));
+        var json = session.CurrentDocumentJson();
+
+        Assert.DoesNotContain("\"configStatus\"", json);
+        Assert.Contains("\"name\":\"Bob\"", json);
+    }
+
+    [Fact]
     public void CreateConfig_RetryAfterAdopt_IsIdempotentWhileTheFileIsStillTheTemplate()
     {
         using var tree = new TempTree();

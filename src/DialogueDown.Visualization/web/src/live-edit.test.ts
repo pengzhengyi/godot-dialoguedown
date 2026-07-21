@@ -418,6 +418,26 @@ describe("createLiveEdit — Config validation", () => {
         });
         await expect(done).resolves.toBe("saved-invalid");
     });
+
+    it("initializes saved-invalid (report stale) when the initial Config is persisted invalid", () => {
+        const h = harness("config", "bogus");
+        const live = createLiveEdit(
+            h.ports,
+            { documentType: "config", mode: "manual", initialValid: false },
+            "bogus",
+        );
+
+        // A page that reloaded with a persisted-but-invalid Config starts stale, not clean.
+        expect(live.status).toBe("saved-invalid");
+        expect(live.dirty).toBe(false);
+
+        // An edit then Discard returns to the saved-invalid baseline, not a phantom valid state.
+        live.onEdit("bogus2");
+        expect(live.dirty).toBe(true);
+        live.discardChanges();
+        expect(live.status).toBe("saved-invalid");
+        expect(live.dirty).toBe(false);
+    });
 });
 
 describe("createLiveEdit — discard", () => {

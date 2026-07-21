@@ -26,12 +26,13 @@ internal static class HtmlTemplate
         string? path = null,
         SymbolSet? symbols = null,
         ConfigurationReport? configuration = null,
-        IReadOnlyList<LspDiagnostic>? diagnostics = null)
+        IReadOnlyList<LspDiagnostic>? diagnostics = null,
+        ConfigStatusOverlay? configOverlay = null)
     {
         return EmbeddedAsset.ReadText("report.html")
             .Replace(
                 ReportSlot,
                 DisplayGraphJson.SerializeReport(
-                    mode, path, source, stages, symbols, configuration, diagnostics));
+                    mode, path, source, stages, symbols, configuration, diagnostics, configOverlay));
     }
 }

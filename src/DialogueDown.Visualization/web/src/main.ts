@@ -55,6 +55,9 @@ if (report.mode === "view" || report.mode === "edit") {
     // Only the latest navigation intent runs; a later navigation or a mode change bumps the token
     // so a superseded flush never replays a stale transition.
     let navToken = 0;
+    // runApp activates a tab during construction (before `ui` and the controllers exist), so the
+    // active-document reflection is armed only once everything below is wired.
+    let controllersReady = false;
 
     // The active document's controller: the config when the Config tab is active, else the
     // dialogue (node-inspector edits share the Source controller).
@@ -99,7 +102,9 @@ if (report.mode === "view" || report.mode === "edit") {
         configOnChange: (buffer) => controller.onConfigEditorChange(buffer),
         onCreateConfig: () => createConfig(browserConfigCreatePorts()),
         beginNavigation,
-        onActiveTabChange: () => ui.reflectActiveDocument(),
+        onActiveTabChange: () => {
+            if (controllersReady) ui.reflectActiveDocument();
+        },
         symbols: createSemanticSymbolSource(() => currentSymbols),
     });
     const ui = initLiveEditUi(app, { active: () => activeLive() });
@@ -158,6 +163,7 @@ if (report.mode === "view" || report.mode === "edit") {
               report.configuration.file.source,
           )
         : null;
+    controllersReady = true;
     const controller = createModeController(initialMode, {
         app,
         dialogueLive,

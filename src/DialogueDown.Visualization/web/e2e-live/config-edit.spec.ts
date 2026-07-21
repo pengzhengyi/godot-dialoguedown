@@ -136,3 +136,22 @@ test("an external dialogue.toml change pauses the config in Conflict, and Reload
     await expect(page.locator(".save-status[data-status='saved']")).toBeVisible();
     await expect(page.locator(".config-speakers-table")).toContainText("Bob");
 });
+
+test("a persisted invalid config survives a page reload as saved-invalid", async ({ page }) => {
+    await page.goto(base);
+
+    // Persist invalid TOML with an explicit save (Config defaults to Manual, so Save is
+    // allow-invalid): the config becomes saved-invalid with a stale speakers pane.
+    await appendToConfig(page, '\n[[speakers]]\nbogus = true\n');
+    await page.locator(".save-button").click();
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toBeVisible();
+    await expect(page.locator(".config-stale-hint")).toBeVisible();
+
+    // Reloading the page must restore that saved-invalid state from the served payload rather
+    // than reverting the Config tab to the last valid text with a clean report.
+    await page.reload();
+    await page.locator(".tab", { hasText: "Config" }).click();
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toBeVisible();
+    await expect(page.locator(".config-stale-hint")).toBeVisible();
+    await expect(page.locator(".config-source .cm-content")).toContainText("bogus");
+});

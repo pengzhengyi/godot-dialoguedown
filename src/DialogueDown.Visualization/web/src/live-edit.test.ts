@@ -469,6 +469,45 @@ describe("createLiveEdit — Config validation", () => {
     });
 });
 
+describe("createLiveEdit — onDiskChange invalidation", () => {
+    it("keeps Conflict when an in-flight save resolves after an external disk change", async () => {
+        const h = harness();
+        const live = h.make("auto");
+
+        live.onEdit("# New");
+        h.fireIdle(); // an idle save is now in flight
+        expect(h.saves.length).toBe(1);
+
+        // An external change lands while the save is in flight.
+        live.onDiskChange();
+        expect(live.status).toBe("conflict");
+
+        // The stale save response must not clear the Conflict or install its report.
+        await h.resolveSave(savedOutcome("# New"));
+
+        expect(live.status).toBe("conflict");
+        expect(h.calls.applied).toEqual([]);
+    });
+
+    it("does not install a stale baseline when a reload resolves after an external disk change", async () => {
+        const h = harness();
+        const live = h.make("auto");
+        h.setDiskLoad({ kind: "loaded", source: "# Disk", report: reportFor("# Disk") });
+
+        live.onEdit("# New");
+        live.onDiskChange(); // conflict, epoch bumped
+        expect(live.status).toBe("conflict");
+
+        // Start a reload, then let another external change land before its response is applied.
+        const done = live.reload();
+        live.onDiskChange();
+
+        await expect(done).resolves.toBe("superseded");
+        expect(live.status).toBe("conflict");
+        expect(h.calls.applied).toEqual([]); // the stale disk report was not installed
+    });
+});
+
 describe("createLiveEdit — discard", () => {
     it("discardChanges restores the last saved baseline and clears dirty", () => {
         const h = harness();

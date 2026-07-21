@@ -141,6 +141,9 @@ export interface LiveEditOptions {
 interface PendingSave {
     request: SaveRequest;
     waiters: Array<(resolution: SaveResolution) => void>;
+    // The disk-change epoch when this save began; a later external change bumps the epoch so the
+    // response is recognized as stale and cannot clear a Conflict or install a baseline/report.
+    epoch: number;
 }
 
 const PAUSED: ReadonlySet<SaveStatus> = new Set<SaveStatus>([
@@ -177,6 +180,9 @@ export function createLiveEdit(
     let idleWaiters: Array<() => void> = [];
     // A monotonic token so only the latest reload response may replace the buffer (single-flight).
     let reloadToken = 0;
+    // Bumped on every external disk change, so a save/reload response captured before the change is
+    // recognized as stale and cannot clear the Conflict or install a baseline/report.
+    let diskEpoch = 0;
 
     const isDirty = (): boolean => buffer !== savedBaseline;
     const isPaused = (): boolean => PAUSED.has(status);
@@ -285,13 +291,13 @@ export function createLiveEdit(
     function enqueue(request: SaveRequest): Promise<SaveResolution> {
         return new Promise<SaveResolution>((resolve) => {
             if (queued === null) {
-                queued = { request, waiters: [resolve] };
+                queued = { request, waiters: [resolve], epoch: diskEpoch };
                 return;
             }
             const current = queued;
             if (request.generation > current.request.generation) {
                 settle(current.waiters, "superseded");
-                queued = { request, waiters: [resolve] };
+                queued = { request, waiters: [resolve], epoch: diskEpoch };
                 return;
             }
             if (request.generation < current.request.generation) {
@@ -304,7 +310,7 @@ export function createLiveEdit(
             }
             if (rank(request) > rank(current.request)) {
                 settle(current.waiters, "superseded");
-                queued = { request, waiters: [resolve] };
+                queued = { request, waiters: [resolve], epoch: diskEpoch };
                 return;
             }
             resolve("superseded");
@@ -315,7 +321,7 @@ export function createLiveEdit(
         request: SaveRequest,
         waiters: Array<(r: SaveResolution) => void>,
     ): Promise<SaveResolution> {
-        const pending: PendingSave = { request, waiters };
+        const pending: PendingSave = { request, waiters, epoch: diskEpoch };
         inFlight = pending;
         setStatus("saving");
         refreshChrome();
@@ -330,6 +336,14 @@ export function createLiveEdit(
         outcome: SaveOutcome | { kind: "__throw__" },
     ): SaveResolution {
         inFlight = null;
+        // An external disk change landed while this save was in flight: its response is stale and
+        // must not clear the Conflict or install a baseline/report. The caller re-reads the (now
+        // paused) state.
+        if (pending.epoch !== diskEpoch) {
+            settle(pending.waiters, "superseded");
+            promoteQueue();
+            return "superseded";
+        }
         const { request } = pending;
         const latest = request.generation === generation;
         let resolution: SaveResolution;
@@ -522,6 +536,7 @@ export function createLiveEdit(
             return requestSave("navigation");
         },
         onDiskChange() {
+            diskEpoch += 1;
             clearIdle();
             clearQueue();
             setStatus("conflict", "The file changed on disk.");
@@ -529,11 +544,17 @@ export function createLiveEdit(
         },
         async reload() {
             // Single-flight: a newer reload (or an edit that advances the buffer) supersedes this
-            // one, so a delayed response never overwrites a newer generation.
+            // one, so a delayed response never overwrites a newer generation. A disk change during
+            // the load also invalidates it — the fetched content is already stale.
             const token = ++reloadToken;
             const startGeneration = generation;
+            const startEpoch = diskEpoch;
             const load = await ports.loadFromDisk();
-            if (token !== reloadToken || generation !== startGeneration) {
+            if (
+                token !== reloadToken ||
+                generation !== startGeneration ||
+                diskEpoch !== startEpoch
+            ) {
                 return "superseded";
             }
             if (load.kind === "missing") {

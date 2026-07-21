@@ -304,6 +304,18 @@ The alternative is **Reload from disk**, which replaces the buffer and establish
 the external content as the new saved baseline. Ordinary Discard never restores a
 stale pre-conflict baseline. A compare/diff editor is deferred.
 
+This concurrency is genuinely *optimistic* and honest about what is portable. A
+per-path in-process lock serializes this process's own writes, so two concurrent
+in-process saves from the same baseline settle as one write and one conflict — no
+lost update. Against a *separate* process (an external editor) the baseline read
+and the commit are distinct steps rather than one held OS lock, which keeps the
+commit a portable, cross-volume-safe atomic rename. That narrow window is covered
+by the baseline check plus the on-disk watcher (an external change is reported as a
+conflict), and every write is staged to a same-directory temp file and moved
+atomically over the target, so a reader ever sees only the whole old file or the
+whole new file and a failed write leaves the original intact — never a partial or
+truncated document.
+
 Reload recompiles the external text. Valid text enters Saved; invalid Config
 enters Saved — invalid TOML with a stale report; a missing file remains Conflict
 and offers confirmed recreation through explicit overwrite.
@@ -360,22 +372,22 @@ hammer a dead local server or permission-denied path with background retries.
 | Config explicit Save is invalid TOML | Write, advance the baseline, clear disk-dirty state, keep the last valid report visibly stale, and surface the load failure. |
 | Config explicit invalid Save completes after a newer edit | Advance the baseline to the written snapshot, keep the newer buffer dirty, and retain the stale-report cue. |
 | Edit while save is in flight | Keep dirty; discard stale report; Auto coalesces one follow-up. |
-| External change while a save or reload is in flight | A disk-change epoch marks the in-flight response stale: it leaves Conflict in place and installs no baseline or report. |
+| External change while a save or reload is in flight | A disk-change epoch marks the in-flight response stale: it leaves Conflict in place and installs no baseline or report. A newer save also invalidates an in-flight reload (a save epoch), so an older reload can never overwrite the baseline a newer save just confirmed. |
 | Save request matches the in-flight snapshot and server policy | Reuse the same promise, regardless of Auto/navigation urgency. |
 | Explicit Config save matches an in-flight automatic snapshot | Treat it as a different write policy and queue the explicit request. |
 | Explicit Config save queued behind an in-flight invalid-auto | Once the invalid-auto settles into Waiting, promote and run the queued allow-invalid explicit save (persisting the invalid TOML), so `whenIdle` and navigation never hang. |
 | Save request has newer content | Replace the single queued save with the latest generation; never overlap writes. |
 | Discard while save is in flight | Disabled until the write outcome identifies the new saved baseline. |
 | External change before idle timer | Cancel timer, enter Conflict, write nothing. |
-| External change races with request | The baseline check and the write share one exclusive file handle (an atomic compare-and-write with a brief retry), so a race returns Conflict and writes nothing rather than losing the external change. |
+| External change races with request | Writes stage the full bytes in a same-directory temp file and move it atomically over the target. A per-path in-process lock serializes this process's own concurrent saves (one wins, the other conflicts); against an external process the baseline check plus the watcher report a race as Conflict, and the atomic replace guarantees the original is never truncated or partially overwritten. |
 | External change restores earlier self-written content (A→B→A) | Self-write suppression is one-shot: the token covers a single watcher event, so a later external change back to that content still reloads. |
 | Confirmed overwrite | Explicit request bypasses the baseline check once. |
 | Reload after conflict | Replace the buffer from disk, establish it as the new baseline, clear conflict/dirty state, and refresh the report. |
 | Reload external invalid Config | Establish the external text as the baseline, clear dirty/conflict, enter Saved — invalid TOML, and retain the last valid report. |
-| Reload after external deletion | Keep Conflict; explicit confirmed overwrite may recreate the file. |
+| Reload after external deletion | Keep Conflict; explicit confirmed overwrite may recreate the file. A push-side deletion or read failure carries its target (document or config) and routes through that controller's disk-change/conflict path (bumping the epoch to invalidate an in-flight save), not a banner alone, so an autosave cannot silently rewrite the deleted file. |
 | Save fails | Stay dirty, show failure, do not retry until an edit or explicit Save. |
 | Transport fails after dispatch | Enter Uncertain, clear queued work/navigation, and require Reload or confirmed overwrite. |
-| Navigate while Auto is dirty | Flush latest generation, then continue on success. |
+| Navigate while Auto is dirty | Flush latest generation, then continue on success. The loop rechecks the mode and a cancellation signal before every follow-up flush, so an Auto→Manual switch (or a newer superseding navigation) stops the follow-up saving and cancels this navigation rather than driving stale Auto flushes. |
 | Navigate while Auto is saving | Await the current save and any required latest-generation flush, then continue. |
 | Navigate while Manual is saving | Await it; if newer edits remain, run the Manual Save-or-Discard decision. |
 | Navigate while Auto is waiting/error/conflict/uncertain | Stay in place; do not use navigation as an implicit retry. |
@@ -406,8 +418,11 @@ hammer a dead local server or permission-denied path with background retries.
 - **Navigation:** replace the synchronous `confirmNavigation` contract in
   `app.ts`, tree selection, and `view-edit.ts` with an asynchronous guard.
 - **Server:** extend `/api/save` and `LiveSession` with the expected baseline,
-  validation policy, conflict policy, and typed outcomes; the baseline check and the
-  write share one exclusive `AtomicFile` handle so they are one atomic step.
+  validation policy, conflict policy, and typed outcomes; the write goes through
+  `AtomicFile`, which stages the full bytes in a same-directory temp file and moves
+  it atomically over the target under a per-path in-process lock, so the baseline
+  check and commit are one step for this process's own saves and never truncate the
+  file on failure (optimistic against a separate process — see [D6](#d6--autosave-is-optimistic-not-last-write-wins)).
   Auto/explicit/navigation trigger remains client-side scheduling metadata.
 - **Existing refresh paths:** an accepted save response updates stages,
   diagnostics, symbols, and configuration exactly once.
@@ -417,7 +432,15 @@ hammer a dead local server or permission-denied path with background retries.
   content as its clean baseline, so a later Edit starts from disk rather than stale text.
   The config watcher is armed whenever a configuration applies and re-armed when one is
   created at runtime, and a save suppresses its own watcher event once (a one-shot
-  token, so a later external change back to that content still reloads).
+  token, so a later external change back to that content still reloads). Each watcher's
+  debounced refresh is serialized and coalesced: a change arriving during a slow
+  recompile schedules exactly one follow-up run rather than a concurrent one, so an
+  older compile can never broadcast a stale report after a newer one.
+- **Deferred node selection:** selecting a different node is navigation, so the Auto
+  flush it awaits can recompile and rebuild the graph tabs. The selection is deferred
+  by the node's stable id and resolved against the freshly installed view before it is
+  applied (cancelling safely if the id no longer exists), so it never lands on the
+  stale, detached node the click captured or its stale source spans.
 
 ## Testability
 
@@ -498,10 +521,35 @@ async navigation, browser coverage and docs, and this crosscheck).
 
 Follow-up fixes hardened the shipped state machine against races and reload:
 
-- **Atomic baseline check.** `LiveSession` writes the dialogue document and
-  `dialogue.toml` through `AtomicFile.Transact` — one exclusive read/compare/write
-  handle (with a brief retry) so an external change cannot slip between the baseline
-  check and the commit. Config validation runs inside the same window.
+- **Atomic, non-destructive writes.** `LiveSession` writes the dialogue document and
+  `dialogue.toml` through `AtomicFile`, which reads the current content by an atomic
+  open (no stale `File.Exists` probe, so it can never delete an externally created
+  file), stages the full replacement in a same-directory temp file, and moves it
+  atomically over the target. A per-path in-process lock serializes this process's own
+  saves so a same-baseline race is one write and one conflict; a failed write leaves the
+  original intact. Create-config likewise stages the starter template and moves it into
+  place with a no-overwrite atomic move, removing the temp on failure. Concurrency is
+  optimistic against a *separate* process — see [D6](#d6--autosave-is-optimistic-not-last-write-wins).
+- **Save epoch invalidates a stale reload.** A reload captures a save epoch when its
+  disk fetch begins; any save that starts bumps it, so a reload whose fetch predates a
+  newer successful save is discarded instead of overwriting the baseline that save
+  confirmed.
+- **Serialized, coalesced watcher refresh.** The watcher `Debouncer` never runs its
+  refresh concurrently with itself; a change arriving during a slow recompile is
+  coalesced into exactly one follow-up run, so an older compile or config refresh can
+  never broadcast or mutate after a newer one. The running flag is cleared in a
+  `finally`, so a refresh that throws never wedges the debouncer and stops later
+  on-disk changes from reloading.
+- **Disk deletion/read failures route through the controller.** A push-side `problem`
+  event carries its target (document or config); the client routes it through that
+  controller's disk-change/conflict path (bumping the epoch) rather than a banner alone,
+  so an in-flight autosave cannot silently rewrite a file that was deleted underneath it.
+- **Deferred node selection by stable id.** A node selection deferred across a
+  save-triggered rebuild is resolved by id against the freshly installed view (or
+  cancelled when the id is gone), never applied to the stale captured node or its spans.
+- **Auto navigation rechecks mode and cancellation.** The Auto flush loop rechecks the
+  save mode and a cancellation signal before every follow-up flush, so an Auto→Manual
+  switch or a superseding navigation stops the follow-up saving and cancels the move.
 - **One-shot self-write suppression.** The watcher-suppression token for a save is
   consumed on the first event it covers, so an external change that later restores
   the same content (A→B→A) still reloads.

@@ -415,6 +415,43 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void CreateConfig_RetryAfterAdopt_IsIdempotentWhileTheFileIsStillTheTemplate()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+        var configPath = Path.Combine(tree.Root, "dialogue.toml");
+
+        var created = session.CreateConfig(configPath);
+        Assert.Equal(CreateConfigStatus.Created, created.Status);
+
+        // The first response was lost, so the client retries the same create. The session already
+        // adopted the file, but it is still the untouched template, so the retry is idempotent.
+        var retry = session.CreateConfig(configPath);
+
+        Assert.Equal(CreateConfigStatus.Adopted, retry.Status);
+        Assert.Contains("\"outcome\":\"saved\"", retry.Payload);
+        Assert.Equal(configPath, session.ConfigPath);
+    }
+
+    [Fact]
+    public void CreateConfig_RetryAfterAdopt_DifferingContent_ReturnsConflict()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+        var configPath = Path.Combine(tree.Root, "dialogue.toml");
+
+        session.CreateConfig(configPath);
+        File.WriteAllText(configPath, Speaker("Alice", "A")); // the config diverged from the template
+
+        var retry = session.CreateConfig(configPath);
+
+        Assert.Equal(CreateConfigStatus.Conflict, retry.Status);
+        Assert.Equal(Speaker("Alice", "A"), File.ReadAllText(configPath)); // untouched
+    }
+
+    [Fact]
     public void CreateConfig_WhenTheSessionAlreadyHasAConfig_Throws()
     {
         using var tree = new TempTree();

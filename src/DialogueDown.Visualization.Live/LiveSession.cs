@@ -101,15 +101,25 @@ internal sealed class LiveSession
     /// create retry after a lost response) and reports a <see cref="CreateConfigStatus.Conflict"/>
     /// otherwise, writing nothing. <see cref="ConfigPath"/> is assigned only after a successful
     /// creation or adoption, so a failed create leaves the no-config state unchanged for a retry.
-    /// Throws <see cref="InvalidOperationException"/> when the session already has a configuration
-    /// file.
+    /// A retry that arrives after this session already adopted the same <paramref name="configPath"/>
+    /// (its first response was lost) is idempotent while the file is still the untouched starter
+    /// template and a <see cref="CreateConfigStatus.Conflict"/> once the content diverges. Throws
+    /// <see cref="InvalidOperationException"/> when the session already has a <em>different</em>
+    /// configuration file.
     /// </summary>
     public CreateConfigResult CreateConfig(string configPath)
     {
         ArgumentNullException.ThrowIfNull(configPath);
         if (_configPath is not null)
         {
-            throw new InvalidOperationException("This session already has a configuration file.");
+            if (!PathsEqual(configPath, _configPath))
+            {
+                throw new InvalidOperationException("This session already has a configuration file.");
+            }
+
+            // A lost-response retry of the create that this session already satisfied: idempotent
+            // while the file is still the starter template, a conflict once its content diverges.
+            return AdoptOrConflict(configPath);
         }
 
         try
@@ -227,6 +237,11 @@ internal sealed class LiveSession
 
     private static string ProblemJson(string message) =>
         JsonSerializer.Serialize(new { message });
+
+    // Two paths name the same file — compared as normalized full paths so a session recognizes a
+    // create retry for the very config it already adopted.
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.Ordinal);
 
     // An exclusive create lost the race to an existing file: adopt it idempotently when it equals
     // the starter template (a create retry after a lost response), otherwise report a conflict and

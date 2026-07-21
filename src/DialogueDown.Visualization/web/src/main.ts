@@ -69,12 +69,18 @@ if (report.mode === "view" || report.mode === "edit") {
     // Resolve one document before navigation: Auto flushes and awaits the latest generation;
     // Manual awaits the current save, then prompts save-or-discard. A paused
     // conflict/uncertain/waiting/error stays in place, so navigation is never an implicit retry.
-    function resolveDocument(live: LiveEditController): Promise<boolean> {
-        return resolveDocumentForNavigation(live, () =>
-            window.confirm(
-                "You have unsaved changes. Discard them to continue? " +
-                    "Click Cancel to keep editing, then Save.",
-            ),
+    function resolveDocument(
+        live: LiveEditController,
+        isCancelled: () => boolean = () => false,
+    ): Promise<boolean> {
+        return resolveDocumentForNavigation(
+            live,
+            () =>
+                window.confirm(
+                    "You have unsaved changes. Discard them to continue? " +
+                        "Click Cancel to keep editing, then Save.",
+                ),
+            isCancelled,
         );
     }
 
@@ -88,7 +94,9 @@ if (report.mode === "view" || report.mode === "edit") {
             proceed();
             return;
         }
-        void resolveDocument(live).then((ok) => {
+        // A newer navigation (or a mode change) bumps navToken; pass that as the cancellation
+        // signal so the Auto flush loop stops rather than saving on behalf of a superseded intent.
+        void resolveDocument(live, () => token !== navToken).then((ok) => {
             if (ok && token === navToken) proceed();
         });
     }

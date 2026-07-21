@@ -66,6 +66,54 @@ describe("resolveDocumentForNavigation", () => {
         expect(live.flush).toHaveBeenCalledOnce();
     });
 
+    it("cancels the Auto flush loop when the mode switches to Manual mid-navigation", async () => {
+        // The buffer stays dirty (an edit lands during each flush), so without a mode recheck the
+        // loop would keep flushing forever; switching to Manual must stop it and cancel navigation.
+        const live = fakeController({ mode: "auto", dirty: true, status: "saved" });
+        let flushes = 0;
+        (live as { flush: LiveEditController["flush"] }).flush = vi.fn(async () => {
+            flushes += 1;
+            (live as { mode: SaveMode }).mode = "manual"; // the writer flips the capsule to Manual
+            return "saved" as SaveResolution;
+        });
+
+        await expect(resolveDocumentForNavigation(live, () => false)).resolves.toBe(false);
+        expect(flushes).toBe(1); // no follow-up flush after the switch to Manual
+    });
+
+    it("cancels the Auto flush loop when a newer navigation supersedes it", async () => {
+        const live = fakeController({ mode: "auto", dirty: true, status: "saved" });
+        let cancelled = false;
+        let flushes = 0;
+        (live as { flush: LiveEditController["flush"] }).flush = vi.fn(async () => {
+            flushes += 1;
+            cancelled = true; // a later navigation bumped the token during the flush
+            return "saved" as SaveResolution;
+        });
+
+        await expect(
+            resolveDocumentForNavigation(
+                live,
+                () => false,
+                () => cancelled,
+            ),
+        ).resolves.toBe(false);
+        expect(flushes).toBe(1);
+    });
+
+    it("cancels before the first flush when already superseded", async () => {
+        const live = fakeController({ mode: "auto", dirty: true, status: "saved" });
+
+        await expect(
+            resolveDocumentForNavigation(
+                live,
+                () => false,
+                () => true,
+            ),
+        ).resolves.toBe(false);
+        expect(live.flush).not.toHaveBeenCalled();
+    });
+
     it("Manual awaits the in-flight save before prompting, then discards on confirm", async () => {
         const order: string[] = [];
         const confirm = vi.fn(() => {

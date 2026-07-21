@@ -17,19 +17,27 @@ const PAUSED: ReadonlySet<SaveStatus> = new Set<SaveStatus>([
  * mid-write: Manual never prompts while a save is in flight, and its Discard is never a no-op.
  * A paused conflict/uncertain/waiting/error stays in place — navigation is never an implicit retry.
  * In Auto it flushes and awaits the latest generation, looping until the buffer is clean, so an
- * edit made during a flush is saved before navigation proceeds. In Manual it runs the existing
- * Save-or-Discard prompt for whatever remains dirty.
+ * edit made during a flush is saved before navigation proceeds. It rechecks the mode and the
+ * optional {@link isCancelled} signal before every follow-up flush, so switching to Manual (or a
+ * newer navigation superseding this one) stops the follow-up saving and cancels this navigation
+ * rather than driving stale Auto flushes. In Manual it runs the existing Save-or-Discard prompt for
+ * whatever remains dirty.
  */
 export async function resolveDocumentForNavigation(
     live: LiveEditController,
     confirmDiscard: ConfirmDiscard,
+    isCancelled: () => boolean = () => false,
 ): Promise<boolean> {
     await live.whenIdle();
+    if (isCancelled()) return false;
     if (PAUSED.has(live.status)) return false;
     if (!live.dirty) return true;
 
     if (live.mode === "auto") {
         while (live.dirty) {
+            // Recheck before every (follow-up) flush: an Auto→Manual switch or a superseding
+            // navigation cancels the loop instead of continuing to save and navigate.
+            if (live.mode !== "auto" || isCancelled()) return false;
             await live.flush();
             if (PAUSED.has(live.status)) return false;
             // A follow-up save may have been queued for edits made during the flush; let it settle

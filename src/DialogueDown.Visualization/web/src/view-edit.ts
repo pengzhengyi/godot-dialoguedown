@@ -60,6 +60,10 @@ export function createModeController(
     ports: ModeControllerPorts,
 ): ModeController {
     let mode: ServedMode = initial;
+    // A monotonic transition token. Leaving Edit is async (it awaits each document's flush or
+    // prompt); reasserting Edit, or a newer switch, bumps this so a stale in-flight transition can
+    // never apply View after the writer changed their mind.
+    let transition = 0;
 
     function apply(next: ServedMode): void {
         mode = next;
@@ -116,7 +120,12 @@ export function createModeController(
             }
         },
         switchTo(next) {
-            if (next === mode) return;
+            if (next === mode) {
+                // Reasserting the current mode cancels any in-flight transition away from it — a
+                // click back into Edit while an Edit→View flush is still awaiting must keep Edit.
+                transition += 1;
+                return;
+            }
             if (mode === "edit") {
                 void leaveEditThen(next);
                 return;
@@ -137,11 +146,18 @@ export function createModeController(
     };
 
     // Leaving Edit is navigation: flush each Auto document and await it, or run the Manual
-    // save-or-discard prompt. A paused conflict/uncertain, or a declined prompt, keeps Edit.
+    // save-or-discard prompt. A paused conflict/uncertain, or a declined prompt, keeps Edit. The
+    // transition token is rechecked after every await and before the final apply, so a reasserted
+    // Edit (or a newer switch) cancels this transition rather than dropping into a stale View.
     async function leaveEditThen(next: ServedMode): Promise<void> {
+        const token = ++transition;
         for (const controller of [ports.configLive, ports.dialogueLive]) {
-            if (controller && !(await ports.resolveDocument(controller))) return;
+            if (!controller) continue;
+            const resolved = await ports.resolveDocument(controller);
+            if (token !== transition) return; // superseded: a reasserted Edit or a newer switch won
+            if (!resolved) return;
         }
+        if (token !== transition) return;
         ports.dialogueLive.discard();
         ports.configLive?.discard();
         apply(next);

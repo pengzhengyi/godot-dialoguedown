@@ -295,4 +295,55 @@ describe("createModeController", () => {
         expect(ports.dialogueLive.discard).toHaveBeenCalledOnce();
         expect(c.mode).toBe("view");
     });
+
+    it("cancels the Edit → View transition when Edit is reasserted mid-flush", async () => {
+        // The writer clicks View, then clicks back into Edit while the flush is still awaiting. The
+        // pending transition must not drop into View once the flush resolves — Edit is reasserted.
+        let releaseResolve: (ok: boolean) => void = () => {};
+        const resolveDocument = vi.fn(
+            () => new Promise<boolean>((resolve) => (releaseResolve = resolve)),
+        );
+        const { ports, app } = fakePorts({
+            dialogueLive: fakeLive(true),
+            resolveDocument,
+        });
+        const c = createModeController("edit", ports);
+        app.setEditable.mockClear();
+
+        c.switchTo("view"); // begins the async leave-Edit
+        await flush(); // let it reach the awaited resolveDocument
+        c.switchTo("edit"); // reassert Edit while the flush is in flight
+        releaseResolve(true); // the flush now settles
+        await flush();
+
+        expect(c.mode).toBe("edit"); // the stale View transition was cancelled
+        expect(ports.dialogueLive.discard).not.toHaveBeenCalled();
+        expect(app.setEditable).not.toHaveBeenCalledWith(false);
+    });
+
+    it("lets the latest Edit → View transition win when a newer switch supersedes an in-flight one", async () => {
+        const releasers: Array<(ok: boolean) => void> = [];
+        const resolveDocument = vi.fn(
+            () => new Promise<boolean>((resolve) => releasers.push(resolve)),
+        );
+        const { ports } = fakePorts({
+            dialogueLive: fakeLive(true),
+            resolveDocument,
+        });
+        const c = createModeController("edit", ports);
+
+        c.switchTo("view"); // first transition
+        await flush();
+        c.switchTo("edit"); // cancel it (back to Edit)
+        c.switchTo("view"); // a fresh transition supersedes
+        await flush();
+
+        // Settle every awaited resolve; only the latest transition may apply View, exactly once.
+        releasers.forEach((release) => release(true));
+        await flush();
+
+        expect(resolveDocument).toHaveBeenCalledTimes(2);
+        expect(c.mode).toBe("view");
+        expect(ports.dialogueLive.discard).toHaveBeenCalledOnce();
+    });
 });

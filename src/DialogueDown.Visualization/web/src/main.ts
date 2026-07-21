@@ -5,7 +5,8 @@ import "./styles.css";
 import { runApp } from "./app";
 import { watchServerEvents } from "./live-client";
 import { createLiveEdit, type LiveEditController } from "./live-edit";
-import { initLiveEditUi } from "./live-edit-ui";
+import { initLiveEditUi, type DocumentBinding } from "./live-edit-ui";
+import { createSaveModeStore } from "./save-mode";
 import { createModeToggle } from "./mode-toggle";
 import { createModeController } from "./view-edit";
 import { browserConfigCreatePorts, createConfig } from "./config-create";
@@ -49,72 +50,111 @@ if (report.mode === "view" || report.mode === "edit") {
     // The semantic analyzer's resolved symbols, refreshed on each hot-reload. The editor's
     // completion source reads this holder every call, so a reload updates completions in place.
     let currentSymbols: DialogueSymbols | undefined = report.symbols;
-    // Navigation (switching tabs or selecting another node) is locked while a document has
-    // unsaved edits, so a stale graph is never shown beside them. At most one document is dirty
-    // at a time (the nav-lock guarantees it); resolve it here: discard to continue, or cancel to
-    // keep editing (then Save).
-    const guardNavigation = (): boolean => {
-        const dirtyLive = configLive?.dirty ? configLive : dialogueLive.dirty ? dialogueLive : null;
-        if (!dirtyLive) return true;
+    const sourceStore = createSaveModeStore("source");
+    const configStore = createSaveModeStore("config");
+    // Only the latest navigation intent runs; a later navigation or a mode change bumps the token
+    // so a superseded flush never replays a stale transition.
+    let navToken = 0;
+
+    // The active document's controller: the config when the Config tab is active, else the
+    // dialogue (node-inspector edits share the Source controller).
+    const activeLive = (): LiveEditController =>
+        configLive && app.isConfigTabActive() ? configLive : dialogueLive;
+
+    // Resolve one document before navigation: Auto flushes and awaits; Manual prompts
+    // save-or-discard. A paused conflict/uncertain/waiting/error stays in place, so navigation is
+    // never an implicit retry.
+    async function resolveDocument(live: LiveEditController): Promise<boolean> {
+        const paused =
+            live.status === "conflict" ||
+            live.status === "uncertain" ||
+            live.status === "waiting" ||
+            live.status === "error";
+        if (paused) return false;
+        if (!live.dirty) return true;
+        if (live.mode === "auto") {
+            const outcome = await live.flush();
+            return outcome === "saved" || outcome === "saved-invalid" || outcome === "noop";
+        }
         const discard = window.confirm(
             "You have unsaved changes. Discard them to continue? " +
                 "Click Cancel to keep editing, then Save.",
         );
-        if (discard) dirtyLive.discardChanges();
+        if (discard) live.discardChanges();
         return discard;
-    };
+    }
+
+    // The async navigation boundary for tabs and node selection: resolve the active document,
+    // then run `proceed` — but only when a newer navigation has not superseded this one.
+    function beginNavigation(proceed: () => void): void {
+        const token = ++navToken;
+        void resolveDocument(activeLive()).then((ok) => {
+            if (ok && token === navToken) proceed();
+        });
+    }
+
     const app = runApp(report, {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
         configOnChange: (buffer) => controller.onConfigEditorChange(buffer),
         onCreateConfig: () => createConfig(browserConfigCreatePorts()),
-        confirmNavigation: guardNavigation,
+        beginNavigation,
+        onActiveTabChange: () => ui.reflectActiveDocument(),
         symbols: createSemanticSymbolSource(() => currentSymbols),
     });
-    // Save (⌘S or the button) acts on the active document: the config when the Config tab is
-    // active, else the dialogue. Since only one document can be dirty at a time, this always
-    // targets the dirty one (or is a no-op).
-    const activeLive = (): LiveEditController =>
-        configLive && app.isConfigTabActive() ? configLive : dialogueLive;
-    const ui = initLiveEditUi(
-        app,
-        () => void activeLive().save(),
-        () => activeLive().discardChanges(),
-    );
+    const ui = initLiveEditUi(app, { active: () => activeLive() });
+    const dialogueBinding: DocumentBinding = {
+        type: "source",
+        markDirty: app.markSourceDirty,
+        setContent: app.setContent,
+        applyReport: (applied) => {
+            app.updateStages(applied.stages);
+            // A save recompiles, so the analyzer's symbols change — refresh the completion
+            // holder or the editor keeps offering the old speakers/ids.
+            currentSymbols = applied.symbols;
+            app.setDiagnostics(applied.diagnostics ?? []);
+        },
+        diskSource: (applied) => applied.source ?? "",
+    };
     const dialogueLive = createLiveEdit(
-        ui.portsFor({
-            markDirty: app.markSourceDirty,
-            setContent: app.setContent,
-            // A save recompiles, so the analyzer's symbols change too — refresh the
-            // completion source's holder or the editor keeps offering the old speakers/ids.
-            onSaved: (saved) => {
-                currentSymbols = saved.symbols;
-                app.setDiagnostics(saved.diagnostics ?? []);
+        ui.portsFor(dialogueBinding),
+        {
+            documentType: "source",
+            mode: sourceStore.get(),
+            onModeChange: (m) => {
+                sourceStore.set(m);
+                navToken += 1; // a mode change clears any pending navigation
             },
-        }),
+        },
         report.source ?? "",
     );
+    const configBinding: DocumentBinding = {
+        type: "config",
+        target: "config",
+        markDirty: app.markConfigDirty,
+        setContent: (source) => app.setConfigContent(source),
+        applyReport: (applied) => {
+            if (applied.configuration) app.updateConfig(applied.configuration);
+            // Editing the config changes the resolved speakers/ids, so refresh the Source
+            // editor's completion symbols and diagnostics from the same recompile.
+            currentSymbols = applied.symbols;
+            app.setDiagnostics(applied.diagnostics ?? []);
+        },
+        diskSource: (applied) => applied.configuration?.file?.source ?? "",
+        // The speakers pane is stale whenever the buffer's config is not the compiled report.
+        onStatus: (status) => app.setConfigStale(status !== "saved"),
+    };
     const configLive: LiveEditController | null = report.configuration?.file
         ? createLiveEdit(
-              ui.portsFor({
-                  target: "config",
-                  // A dirty config also marks its speakers pane stale until the next Save.
-                  markDirty: (dirty) => {
-                      app.markConfigDirty(dirty);
-                      app.setConfigStale(dirty);
+              ui.portsFor(configBinding),
+              {
+                  documentType: "config",
+                  mode: configStore.get(),
+                  onModeChange: (m) => {
+                      configStore.set(m);
+                      navToken += 1;
                   },
-                  setContent: (source) => app.setConfigContent(source),
-                  onSaved: (saved) => {
-                      if (saved.configuration) app.updateConfig(saved.configuration);
-                      // Editing the config changes the resolved speakers/ids, so refresh the
-                      // Source editor's completion symbols too (the reported bug: a new id
-                      // did not appear in `@` completion until a reload).
-                      currentSymbols = saved.symbols;
-                      // A config change can also change the dialogue's diagnostics (an unknown
-                      // speaker becomes known), so refresh the overlay from the same recompile.
-                      app.setDiagnostics(saved.diagnostics ?? []);
-                  },
-              }),
+              },
               report.configuration.file.source,
           )
         : null;
@@ -128,8 +168,7 @@ if (report.mode === "view" || report.mode === "edit") {
             document.documentElement.dataset.servedMode = mode;
             toggle.reflect(mode);
         },
-        confirmDiscard: () =>
-            window.confirm("Discard unsaved edits and switch to View? Your changes will be lost."),
+        resolveDocument,
     });
     document.getElementById("mode-badge")?.replaceWith(toggle.element);
     watchServerEvents({

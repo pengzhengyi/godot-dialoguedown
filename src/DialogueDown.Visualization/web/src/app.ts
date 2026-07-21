@@ -57,10 +57,14 @@ export interface SourceOptions {
      */
     symbols?: DialogueSymbolSource;
     /**
-     * Guards navigation (switching tabs, or selecting another node) while the session has
-     * unsaved edits: returns false to block it so the reader saves or discards first.
+     * An asynchronous boundary guarding navigation (switching tabs or selecting another node): it
+     * runs `proceed` once the active document's Auto save has flushed, or the reader chose to
+     * discard in Manual, and does nothing when navigation should stay put. Only the latest intent
+     * runs. Absent means navigation is always allowed.
      */
-    confirmNavigation?(): boolean;
+    beginNavigation?(proceed: () => void): void;
+    /** Called whenever the active tab changes, so the caller can reflect the active document's chrome. */
+    onActiveTabChange?(): void;
 }
 
 /** Controls a running report: swap in fresh data, reconfigure the editor, or show a banner. */
@@ -299,8 +303,8 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 onFoldChange: (collapsed: string[]) => cameras.setFold(stage.title, collapsed),
                 onRevert: () => cameras.reset(stage.title),
                 onToggleFullscreen: fullscreen.toggle,
-                // Selecting another node is navigation: block it while there are unsaved edits.
-                ...(source?.confirmNavigation ? { canSelect: source.confirmNavigation } : {}),
+                // Selecting another node is navigation: route it through the async guard.
+                ...(source?.beginNavigation ? { beginNavigation: source.beginNavigation } : {}),
             };
             if (isSemantic) {
                 const semantic = createSemanticView(stage, panel.show, treeOptions);
@@ -351,14 +355,17 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         } else {
             tab.setAttribute("data-tip", tip);
         }
-        // Switching tabs is navigation: block it while there are unsaved edits so a stale
-        // graph is never shown beside them (the reader saves or discards first). An
-        // unavailable stage cannot be entered at all.
+        // Switching tabs is navigation: route it through the async guard so an Auto save flushes
+        // (or a Manual prompt resolves) before the tab changes and a stale graph is shown beside
+        // unsaved edits. An unavailable stage cannot be entered at all.
         tab.addEventListener("click", () => {
             if (unavailable) return;
-            if (index !== activeIndex && source?.confirmNavigation && !source.confirmNavigation())
-                return;
-            activate(index);
+            if (index === activeIndex) return;
+            if (source?.beginNavigation) {
+                source.beginNavigation(() => activate(index));
+            } else {
+                activate(index);
+            }
         });
         tabsEl.appendChild(tab);
         stagesEl.appendChild(section);
@@ -392,6 +399,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         revealView(index);
         for (const view of views) view?.clearSelection();
         panel.clear();
+        source?.onActiveTabChange?.();
     }
 
     /**

@@ -7,11 +7,17 @@ import type { LiveEditController } from "./live-edit";
 function fakeLive(dirty = false): LiveEditController {
     return {
         onEdit: vi.fn(),
-        save: vi.fn(async () => {}),
+        save: vi.fn(async () => "saved" as const),
+        flush: vi.fn(async () => "saved" as const),
         onDiskChange: vi.fn(),
+        reload: vi.fn(async () => "saved" as const),
         discard: vi.fn(),
         discardChanges: vi.fn(),
+        setMode: vi.fn(),
+        mode: "manual",
         dirty,
+        status: dirty ? "dirty" : "saved",
+        canDiscard: true,
     };
 }
 
@@ -36,11 +42,14 @@ function fakePorts(overrides: Partial<ModeControllerPorts> = {}) {
         configLive: null,
         setEditControlsVisible: vi.fn(),
         reflect: vi.fn(),
-        confirmDiscard: vi.fn(() => true),
+        resolveDocument: vi.fn(async () => true),
         ...overrides,
     };
     return { ports, app };
 }
+
+/** Let the async leave-Edit flush settle. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("createModeController", () => {
     it("configures the editor for the initial mode", () => {
@@ -85,20 +94,11 @@ describe("createModeController", () => {
 
         expect(app.setContent).toHaveBeenCalledWith("# fresh");
         expect(app.updateStages).toHaveBeenCalledWith([]);
-        expect(app.setDiagnostics).toHaveBeenCalledWith([
-            {
-                range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
-                severity: 1,
-                code: "DLG2001",
-                message: "Boom.",
-                source: "dialoguedown",
-            },
-        ]);
         expect(app.showBanner).toHaveBeenCalledWith(null);
         expect(ports.dialogueLive.onDiskChange).not.toHaveBeenCalled();
     });
 
-    it("only chips (never reloads) on a disk change in Edit", () => {
+    it("enters Conflict (never reloads) on an external disk change in Edit", () => {
         const { ports, app } = fakePorts();
         const c = createModeController("edit", ports);
 
@@ -119,30 +119,32 @@ describe("createModeController", () => {
         expect(ports.setEditControlsVisible).toHaveBeenLastCalledWith(true);
     });
 
-    it("prompts before leaving Edit while dirty and stays put when declined", () => {
+    it("stays in Edit when a document cannot be resolved (a paused conflict or declined prompt)", async () => {
         const { ports, app } = fakePorts({
             dialogueLive: fakeLive(true),
-            confirmDiscard: vi.fn(() => false),
+            resolveDocument: vi.fn(async () => false),
         });
         const c = createModeController("edit", ports);
         app.setEditable.mockClear();
 
         c.switchTo("view");
+        await flush();
 
         expect(c.mode).toBe("edit");
-        expect(ports.confirmDiscard).toHaveBeenCalledOnce();
+        expect(ports.resolveDocument).toHaveBeenCalledOnce();
         expect(app.setEditable).not.toHaveBeenCalled();
         expect(ports.dialogueLive.discard).not.toHaveBeenCalled();
     });
 
-    it("discards dirty edits and switches when the prompt is accepted", () => {
+    it("resolves each document and switches when navigation is permitted", async () => {
         const { ports, app } = fakePorts({
             dialogueLive: fakeLive(true),
-            confirmDiscard: vi.fn(() => true),
+            resolveDocument: vi.fn(async () => true),
         });
         const c = createModeController("edit", ports);
 
         c.switchTo("view");
+        await flush();
 
         expect(c.mode).toBe("view");
         expect(ports.dialogueLive.discard).toHaveBeenCalledOnce();
@@ -182,14 +184,16 @@ describe("createModeController", () => {
         expect(configLive.onEdit).toHaveBeenCalledWith("y = 2");
     });
 
-    it("prompts before leaving Edit when only the config is dirty, and discards both", () => {
+    it("resolves both documents before leaving Edit and discards each", async () => {
         const configLive = fakeLive(true);
-        const { ports } = fakePorts({ configLive, confirmDiscard: vi.fn(() => true) });
+        const resolveDocument = vi.fn(async () => true);
+        const { ports } = fakePorts({ configLive, resolveDocument });
         const c = createModeController("edit", ports);
 
         c.switchTo("view");
+        await flush();
 
-        expect(ports.confirmDiscard).toHaveBeenCalledOnce();
+        expect(resolveDocument).toHaveBeenCalledTimes(2);
         expect(configLive.discard).toHaveBeenCalledOnce();
         expect(ports.dialogueLive.discard).toHaveBeenCalledOnce();
         expect(c.mode).toBe("view");

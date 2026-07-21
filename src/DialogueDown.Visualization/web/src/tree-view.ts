@@ -83,10 +83,12 @@ export interface TreeViewOptions {
     /** Toggle the whole-window maximize mode (the zoom cluster's trailing button). */
     onToggleFullscreen?(): void;
     /**
-     * Guards moving the selection to a different node: returns false to block it (the session
-     * has unsaved edits and navigation is locked). Absent means selection is always allowed.
+     * An asynchronous boundary guarding a move of the selection to a different node: it runs
+     * `proceed` once navigation is permitted (an Auto flush succeeded, or the reader chose to
+     * discard), and does nothing when the session stays put. Absent means selection is always
+     * allowed. Only the latest navigation intent runs, so rapid clicks never replay stale moves.
      */
-    canSelect?(): boolean;
+    beginNavigation?(proceed: () => void): void;
 }
 
 const NAVIGATION_KEYS = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " "];
@@ -112,7 +114,7 @@ export function createTreeView(
         onFoldChange,
         onRevert,
         onToggleFullscreen = () => {},
-        canSelect,
+        beginNavigation,
     } = options;
     const referenceEdges = stage.edges.filter((edge) => edge.kind === "Reference");
     const root = buildHierarchy(stage);
@@ -219,11 +221,15 @@ export function createTreeView(
         onSelect(node.data);
     }
 
-    // Selecting a different node is navigation: block it while the session is dirty (an
-    // unsaved node edit) so the reader resolves it first. Re-clicking the same node is a
-    // no-op, so it is never blocked.
-    function mayLeaveSelection(node: TreeNode): boolean {
-        return node === selected || !canSelect || canSelect();
+    // Selecting a different node is navigation: route it through the async boundary so an Auto
+    // flush or a Manual prompt resolves first. Re-selecting the same node is a no-op, so it runs
+    // immediately. `proceed` performs the actual selection once navigation is permitted.
+    function guardSelect(node: TreeNode, proceed: () => void): void {
+        if (node === selected || !beginNavigation) {
+            proceed();
+            return;
+        }
+        beginNavigation(proceed);
     }
 
     function applySelection(): void {
@@ -311,9 +317,11 @@ export function createTreeView(
             return;
         }
         const next = nextNode(event.key, selected);
-        if (next && mayLeaveSelection(next)) {
-            select(next);
-            centerOn(next);
+        if (next) {
+            guardSelect(next, () => {
+                select(next);
+                centerOn(next);
+            });
         }
     }
 
@@ -408,9 +416,10 @@ export function createTreeView(
             .attr("r", (d) => (isSceneNode(d.data) ? SCENE_NODE_RADIUS : CONTENT_NODE_RADIUS))
             .style("fill", (d) => colorOf(d.data.category))
             .on("click", (_event, d) => {
-                if (!mayLeaveSelection(d)) return;
-                toggle(d);
-                select(d);
+                guardSelect(d, () => {
+                    toggle(d);
+                    select(d);
+                });
             });
 
         group
@@ -447,7 +456,7 @@ export function createTreeView(
             rect.setAttribute("width", String(12 + longest * 6.5 + 10));
             rect.setAttribute("height", String(20 + d.data.attributes.length * 12));
             rect.addEventListener("click", () => {
-                if (mayLeaveSelection(d)) select(d);
+                guardSelect(d, () => select(d));
             });
             this.insertBefore(rect, this.firstChild);
         });

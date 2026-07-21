@@ -14,8 +14,12 @@ export interface ModeControllerPorts {
     setEditControlsVisible(visible: boolean): void;
     /** Reflects the active mode on the toggle control. */
     reflect(mode: ServedMode): void;
-    /** Asks before discarding unsaved edits when leaving Edit; returns true to proceed. */
-    confirmDiscard(): boolean;
+    /**
+     * Resolves one document before leaving Edit: flush an Auto save, or run the Manual
+     * save-or-discard prompt. Resolves true when it is safe to leave, false to stay in Edit
+     * (a paused conflict/uncertain, or a declined prompt).
+     */
+    resolveDocument(controller: LiveEditController): Promise<boolean>;
 }
 
 /** Drives a served session's View ⇄ Edit lifecycle. */
@@ -68,7 +72,7 @@ export function createModeController(
         },
         onReload(report) {
             if (mode === "edit") {
-                ports.dialogueLive.onDiskChange(); // passive chip; never reload over edits
+                ports.dialogueLive.onDiskChange(report); // external change → Conflict; never clobber
                 return;
             }
             ports.app.showBanner(null);
@@ -79,12 +83,21 @@ export function createModeController(
         switchTo(next) {
             if (next === mode) return;
             if (mode === "edit") {
-                const dirty = ports.dialogueLive.dirty || (ports.configLive?.dirty ?? false);
-                if (dirty && !ports.confirmDiscard()) return;
-                ports.dialogueLive.discard();
-                ports.configLive?.discard();
+                void leaveEditThen(next);
+                return;
             }
             apply(next);
         },
     };
+
+    // Leaving Edit is navigation: flush each Auto document and await it, or run the Manual
+    // save-or-discard prompt. A paused conflict/uncertain, or a declined prompt, keeps Edit.
+    async function leaveEditThen(next: ServedMode): Promise<void> {
+        for (const controller of [ports.configLive, ports.dialogueLive]) {
+            if (controller && !(await ports.resolveDocument(controller))) return;
+        }
+        ports.dialogueLive.discard();
+        ports.configLive?.discard();
+        apply(next);
+    }
 }

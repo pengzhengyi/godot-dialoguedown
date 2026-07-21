@@ -165,6 +165,7 @@ if (report.mode === "view" || report.mode === "edit") {
                   documentType: "config",
                   mode: configStore.get(),
                   initialValid: !configInitiallyInvalid,
+                  initialMessage: configInitiallyInvalid ? report.configMessage : undefined,
                   onModeChange: (m) => {
                       configStore.set(m);
                       navToken += 1;

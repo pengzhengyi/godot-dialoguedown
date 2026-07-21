@@ -120,6 +120,8 @@ export interface LiveEditController {
     readonly dirty: boolean;
     /** The current save status. */
     readonly status: SaveStatus;
+    /** The current status detail message (e.g. the TOML parse error), or undefined when none. */
+    readonly statusMessage: string | undefined;
     /** Whether Discard is currently available (not while saving, in Conflict, or uncertain). */
     readonly canDiscard: boolean;
 }
@@ -134,6 +136,12 @@ export interface LiveEditOptions {
      * with a persisted-but-invalid Config, so a reload restores that state.
      */
     initialValid?: boolean;
+    /**
+     * The initial status detail message, shown when {@link initialValid} is `false` — the config
+     * parse error for a page that loaded with a persisted-but-invalid Config, so the saved-invalid
+     * status carries its explanation instead of an empty detail.
+     */
+    initialMessage?: string;
     /** Called after {@link LiveEditController.setMode} so the caller can persist the choice. */
     onModeChange?(mode: SaveMode): void;
 }
@@ -172,6 +180,9 @@ export function createLiveEdit(
     let baselineValid = options.initialValid ?? true;
     let generation = 0;
     let status: SaveStatus = baselineValid ? "saved" : "saved-invalid";
+    // The detail message paired with the current status, exposed so the shared chrome can render
+    // it accessibly for whichever document is active. Seeded for an initially saved-invalid config.
+    let statusMessage: string | undefined = baselineValid ? undefined : options.initialMessage;
     let restoring = false;
     let inFlight: PendingSave | null = null;
     let queued: PendingSave | null = null;
@@ -192,6 +203,7 @@ export function createLiveEdit(
 
     function setStatus(next: SaveStatus, message?: string): void {
         status = next;
+        statusMessage = message;
         ports.setStatus(next, message);
     }
 
@@ -518,6 +530,9 @@ export function createLiveEdit(
         },
         get status() {
             return status;
+        },
+        get statusMessage() {
+            return statusMessage;
         },
         get canDiscard() {
             return inFlight === null && status !== "conflict" && status !== "uncertain";

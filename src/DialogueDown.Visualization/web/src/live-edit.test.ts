@@ -786,3 +786,42 @@ describe("createLiveEdit — reload single-flight and staleness", () => {
         expect(live.status).toBe("saved"); // the newer save's state stands
     });
 });
+
+describe("createLiveEdit — status detail", () => {
+    it("exposes the detail message paired with the current status", async () => {
+        const h = harness("config");
+        const live = h.make("manual");
+        live.onEdit("bogus = true");
+
+        const saving = live.save();
+        await h.resolveSave({ kind: "saved-invalid", report: reportFor("bogus = true"), source: "bogus = true", message: "Unknown key bogus." });
+        await saving;
+
+        expect(live.status).toBe("saved-invalid");
+        expect(live.statusMessage).toBe("Unknown key bogus."); // detail preserved, not dropped
+    });
+
+    it("clears the detail message once the status has none", async () => {
+        const h = harness("config");
+        const live = h.make("manual");
+        live.onEdit('mode = "best-effort"');
+        const saving = live.save();
+        await h.resolveSave(savedOutcome('mode = "best-effort"'));
+        await saving;
+
+        expect(live.status).toBe("saved");
+        expect(live.statusMessage).toBeUndefined();
+    });
+
+    it("seeds the saved-invalid detail from the initial message", () => {
+        const ports = harness("config").ports;
+        const live = createLiveEdit(
+            ports,
+            { documentType: "config", mode: "manual", initialValid: false, initialMessage: "Persisted parse error." },
+            "broken = ",
+        );
+
+        expect(live.status).toBe("saved-invalid");
+        expect(live.statusMessage).toBe("Persisted parse error.");
+    });
+});

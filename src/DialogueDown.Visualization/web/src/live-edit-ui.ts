@@ -136,7 +136,7 @@ export function initLiveEditUi(app: AppController, actions: LiveEditActions): Li
         }
         const current = controller.status;
         capsule.reflect(controller.mode, true);
-        status.render(current);
+        status.render(current, controller.statusMessage);
         saveButton.setEnabled(canSave(controller));
         discardButton.setEnabled(controller.canDiscard && canDiscardNow(current, controller.dirty));
         const showReload = current === "conflict" || current === "uncertain";
@@ -317,7 +317,9 @@ function createStatusReadout(): {
     return {
         render: (status, message) => {
             readout.dataset.status = status;
-            readout.textContent = STATUS_LABEL[status];
+            // Announce the detail alongside the label in the aria-live region itself — a title
+            // tooltip is not read out — so a screen reader hears "Saved — invalid TOML: <error>".
+            readout.textContent = message ? `${STATUS_LABEL[status]}: ${message}` : STATUS_LABEL[status];
             if (message) readout.title = message;
             else readout.removeAttribute("title");
         },

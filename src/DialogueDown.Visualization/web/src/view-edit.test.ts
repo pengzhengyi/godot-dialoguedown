@@ -19,6 +19,7 @@ function fakeLive(dirty = false): LiveEditController {
         mode: "manual",
         dirty,
         status: dirty ? "dirty" : "saved",
+        statusMessage: undefined,
         canDiscard: true,
     };
 }

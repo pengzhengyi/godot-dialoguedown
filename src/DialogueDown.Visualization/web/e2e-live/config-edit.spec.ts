@@ -145,6 +145,8 @@ test("a persisted invalid config survives a page reload as saved-invalid", async
     await appendToConfig(page, "\n[[speakers]]\nbogus = true\n");
     await page.locator(".save-button").click();
     await expect(page.locator(".save-status[data-status='saved-invalid']")).toBeVisible();
+    // The parse detail is rendered inside the aria-live status readout, not just a title tooltip.
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toContainText("Saved — invalid TOML:");
     await expect(page.locator(".config-stale-hint")).toBeVisible();
 
     // Reloading the page must restore that saved-invalid state from the served payload rather
@@ -152,6 +154,8 @@ test("a persisted invalid config survives a page reload as saved-invalid", async
     await page.reload();
     await page.locator(".tab", { hasText: "Config" }).click();
     await expect(page.locator(".save-status[data-status='saved-invalid']")).toBeVisible();
+    // The reloaded saved-invalid status carries its parse detail (seeded from report.configMessage).
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toContainText(":");
     await expect(page.locator(".config-stale-hint")).toBeVisible();
     await expect(page.locator(".config-source .cm-content")).toContainText("bogus");
 });

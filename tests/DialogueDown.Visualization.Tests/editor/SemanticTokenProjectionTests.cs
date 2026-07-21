@@ -119,6 +119,26 @@ public sealed class SemanticTokenProjectionTests
         Assert.Equal(new LspPosition(0, 8), token.Range.End);
     }
 
+    [Fact]
+    public void Project_SpeakerInASoftWrappedParagraph_TokenLandsOnItsOwnLine()
+    {
+        // Regression: a speaker whose paragraph soft-wraps onto a second source line. Markdig
+        // rebuilds such a paragraph's content buffer, so a buffer-relative content offset put
+        // the token at the top of the file; it must sit on the speaker's own line instead.
+        var source =
+            """
+            # Scene
+
+            Alice: a line that
+            softwraps onto a second.
+            """;
+
+        var token = AssertSingleSemanticToken(Project(source), TokenKind.Speaker);
+
+        Assert.Equal("Alice: ", token.TextIn(source));
+        Assert.Equal(2, token.Range.Start.Line); // zero-based: the third line, not the heading
+    }
+
     private static SemanticToken AssertSingleSemanticToken(
         IEnumerable<SemanticToken> tokens, TokenKind kind) =>
         Assert.Single(tokens, token => token.Kind == kind);

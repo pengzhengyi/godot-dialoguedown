@@ -11,6 +11,8 @@ function fakeLive(dirty = false): LiveEditController {
         flush: vi.fn(async () => "saved" as const),
         onDiskChange: vi.fn(),
         reload: vi.fn(async () => "saved" as const),
+        adoptDisk: vi.fn(),
+        whenIdle: vi.fn(async () => {}),
         discard: vi.fn(),
         discardChanges: vi.fn(),
         setMode: vi.fn(),
@@ -96,6 +98,56 @@ describe("createModeController", () => {
         expect(app.updateStages).toHaveBeenCalledWith([]);
         expect(app.showBanner).toHaveBeenCalledWith(null);
         expect(ports.dialogueLive.onDiskChange).not.toHaveBeenCalled();
+        // The dialogue controller adopts the external content as its clean baseline.
+        expect(ports.dialogueLive.adoptDisk).toHaveBeenCalledWith("# fresh");
+    });
+
+    it("adopts an external config change into the config controller in View", () => {
+        const configLive = fakeLive();
+        const { ports, app } = fakePorts({ configLive });
+        const c = createModeController("view", ports);
+
+        c.onReloadConfig({
+            stages: [],
+            configuration: { file: { path: "dialogue.toml", source: 'mode = "best-effort"' } },
+            outcome: "loaded",
+        } as unknown as Parameters<typeof c.onReloadConfig>[0]);
+
+        expect(app.updateConfig).toHaveBeenCalledOnce();
+        expect(app.setConfigContent).toHaveBeenCalledWith('mode = "best-effort"');
+        expect(app.updateStages).toHaveBeenCalledWith([]);
+        expect(configLive.adoptDisk).toHaveBeenCalledWith('mode = "best-effort"', true);
+        expect(configLive.onDiskChange).not.toHaveBeenCalled();
+    });
+
+    it("raises Conflict on the config controller for an external config change in Edit", () => {
+        const configLive = fakeLive();
+        const { ports, app } = fakePorts({ configLive });
+        const c = createModeController("edit", ports);
+
+        c.onReloadConfig({
+            stages: [],
+            configuration: { file: { path: "dialogue.toml", source: "x = 1" } },
+            outcome: "loaded",
+        } as unknown as Parameters<typeof c.onReloadConfig>[0]);
+
+        expect(configLive.onDiskChange).toHaveBeenCalledOnce();
+        expect(app.setConfigContent).not.toHaveBeenCalled();
+        expect(configLive.adoptDisk).not.toHaveBeenCalled();
+    });
+
+    it("adopts an invalid external config as saved-invalid in View", () => {
+        const configLive = fakeLive();
+        const { ports } = fakePorts({ configLive });
+        const c = createModeController("view", ports);
+
+        c.onReloadConfig({
+            stages: [],
+            configuration: { file: { path: "dialogue.toml", source: "bogus" } },
+            outcome: "invalid",
+        } as unknown as Parameters<typeof c.onReloadConfig>[0]);
+
+        expect(configLive.adoptDisk).toHaveBeenCalledWith("bogus", false);
     });
 
     it("enters Conflict (never reloads) on an external disk change in Edit", () => {

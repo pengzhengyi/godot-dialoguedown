@@ -32,6 +32,8 @@ export interface ModeController {
     onConfigEditorChange(buffer: string): void;
     /** Route a pushed report: View re-syncs the editor + graphs; Edit raises the chip. */
     onReload(report: Report): void;
+    /** Route a pushed config report (external `dialogue.toml` change): View re-syncs, Edit chips. */
+    onReloadConfig(report: Report): void;
     /** Request a mode switch (from the toggle). */
     switchTo(mode: ServedMode): void;
 }
@@ -76,9 +78,33 @@ export function createModeController(
                 return;
             }
             ports.app.showBanner(null);
-            if (report.source != null) ports.app.setContent(report.source);
+            if (report.source != null) {
+                ports.app.setContent(report.source);
+                // Adopt the external content as the dialogue controller's clean baseline, so a
+                // later Edit session starts from what is on disk, not stale text.
+                ports.dialogueLive.adoptDisk(report.source);
+            }
             ports.app.setDiagnostics(report.diagnostics ?? []);
             ports.app.updateStages(report.stages);
+        },
+        onReloadConfig(report) {
+            if (mode === "edit") {
+                // External config change → Conflict on the config controller; never clobber it.
+                ports.configLive?.onDiskChange(report);
+                return;
+            }
+            ports.app.showBanner(null);
+            const source = report.configuration?.file?.source;
+            if (report.configuration != null) ports.app.updateConfig(report.configuration);
+            if (source != null) ports.app.setConfigContent(source);
+            ports.app.setDiagnostics(report.diagnostics ?? []);
+            ports.app.updateStages(report.stages);
+            // Adopt the external config as the config controller's clean baseline; an invalid
+            // reload keeps the last valid report but adopts the (invalid) text as saved-invalid.
+            if (source != null) {
+                const valid = (report as { outcome?: string }).outcome !== "invalid";
+                ports.configLive?.adoptDisk(source, valid);
+            }
         },
         switchTo(next) {
             if (next === mode) return;

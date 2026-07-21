@@ -119,6 +119,41 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void Save_UncertainWrite_ReturnsUncertainAndKeepsTheNewerExternalData()
+    {
+        // A newer external write races the commit so AtomicFile cannot establish a safe state: the
+        // save must surface an explicit uncertain outcome (not an ordinary no-write failure) and
+        // must never clobber the newer external data.
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "edit");
+
+        var json = session.Save(
+            new SaveInput("# Mine", ExpectedBaseline: "# Old"),
+            afterReplace: () => File.WriteAllText(doc.Path, "# Newer external"));
+
+        Assert.Contains("\"outcome\":\"uncertain\"", json);
+        Assert.Equal("# Newer external", File.ReadAllText(doc.Path)); // the newer data stands
+    }
+
+    [Fact]
+    public void SaveConfig_UncertainWrite_ReturnsUncertainAndDoesNotAdvanceState()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+
+        var json = session.Save(
+            new SaveInput(Speaker("Bob", "B"), "config", valid, "require-valid"),
+            afterReplace: () => File.WriteAllText(configPath, Speaker("External", "E")));
+
+        Assert.Contains("\"outcome\":\"uncertain\"", json);
+        Assert.DoesNotContain("\"name\":\"Bob\"", json); // the session state never advanced past disk
+        Assert.Equal(Speaker("External", "E"), File.ReadAllText(configPath)); // newer data preserved
+    }
+
+    [Fact]
     public void Save_ConfirmedOverwrite_BypassesTheBaselineCheck()
     {
         using var doc = new TempDocument("# External");

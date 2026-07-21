@@ -76,24 +76,7 @@ internal static class AtomicFile
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(body);
 
-        lock (LockFor(path))
-        {
-            var disk = ReadSnapshot(path);
-            var transaction = new Transaction(disk);
-            var result = body(transaction);
-
-            switch (transaction.Mode)
-            {
-                case WriteMode.Validated:
-                    Commit(path, transaction.PendingContent, expected: disk, validate: true);
-                    break;
-                case WriteMode.Forced:
-                    Commit(path, transaction.PendingContent, expected: null, validate: false);
-                    break;
-            }
-
-            return result;
-        }
+        return Transact(path, body, afterReplace: null);
     }
 
     /// <summary>
@@ -141,6 +124,36 @@ internal static class AtomicFile
         }
     }
 
+    // A test seam: <paramref name="afterReplace"/> runs inside a validated replace, after the
+    // atomic swap captured the displaced backup but before the rollback/verification reads the
+    // target, so a test can deterministically reproduce a target changed or deleted again in that
+    // window (or a post-commit overwrite) without racing real threads. Threaded through the call
+    // rather than held in static state so parallel test collections never see each other's hook.
+    internal static T Transact<T>(string path, Func<Transaction, T> body, Action? afterReplace)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(body);
+
+        lock (LockFor(path))
+        {
+            var disk = ReadSnapshot(path);
+            var transaction = new Transaction(disk);
+            var result = body(transaction);
+
+            switch (transaction.Mode)
+            {
+                case WriteMode.Validated:
+                    Commit(path, transaction.PendingContent, expected: disk, validate: true, afterReplace);
+                    break;
+                case WriteMode.Forced:
+                    Commit(path, transaction.PendingContent, expected: null, validate: false, afterReplace: null);
+                    break;
+            }
+
+            return result;
+        }
+    }
+
     private static object LockFor(string path) =>
         _locks.GetOrAdd(Path.GetFullPath(path), _ => new object());
 
@@ -175,7 +188,7 @@ internal static class AtomicFile
     // written, an external process wrote in the window — the backup is restored and a conflict is
     // reported. The original is untouched until the publish, so any staging failure leaves it
     // intact, and the temp/backup are always cleaned.
-    private static void Commit(string path, string content, string? expected, bool validate)
+    private static void Commit(string path, string content, string? expected, bool validate, Action? afterReplace)
     {
         var fullPath = Path.GetFullPath(path);
         var directory = Path.GetDirectoryName(fullPath)!;
@@ -195,7 +208,7 @@ internal static class AtomicFile
             }
             else
             {
-                ReplaceValidated(temp, fullPath, expected, content);
+                ReplaceValidated(temp, fullPath, expected, content, afterReplace);
             }
         }
         catch
@@ -244,9 +257,16 @@ internal static class AtomicFile
 
     // A validated replace's publish: atomically swap the temp over the target while capturing the
     // target's immediately previous content into a backup. If that captured content is neither the
-    // expected snapshot nor the bytes just written, an external process wrote in the window: restore
-    // the external content and report a conflict rather than lose it. A clean swap removes the backup.
-    private static void ReplaceValidated(string temp, string target, string expected, string content)
+    // expected snapshot nor the bytes just written, an external process wrote in the window; the
+    // external content is rolled back only when the target still holds the bytes this write just
+    // published — otherwise a still newer external write (or another deletion) landed between the
+    // replace and the rollback, so the newer data is preserved and the outcome is uncertain rather
+    // than a lost update. A clean swap is confirmed by a post-commit read of the target; if that
+    // read no longer sees the published bytes, an external overwrite raced the commit and the
+    // outcome is likewise uncertain. Either uncertain path keeps the captured backup on disk so no
+    // content is silently deleted. A clean, verified swap removes the backup.
+    private static void ReplaceValidated(
+        string temp, string target, string expected, string content, Action? afterReplace)
     {
         var backup = target + $".{Guid.NewGuid():N}.bak";
         for (var attempt = 1; ; attempt++)
@@ -270,15 +290,35 @@ internal static class AtomicFile
         }
 
         var displaced = ReadSnapshot(backup);
+        afterReplace?.Invoke();
+
         if (displaced == expected || displaced == content)
         {
-            TryDelete(backup);
-            return;
+            // A clean swap. Verify the target still holds the bytes we published before declaring
+            // success: an external overwrite that raced the commit leaves newer data we must not mask.
+            if (ReadSnapshot(target) == content)
+            {
+                TryDelete(backup);
+                return;
+            }
+
+            // Post-commit verification failed: newer external data is on the target. Preserve the
+            // captured backup and surface an uncertain outcome instead of a false success.
+            throw new WriteUncertainException();
         }
 
-        // An external edit landed in the window; roll it back into place so it is never lost.
-        Replace(backup, target);
-        throw new WriteConflictException();
+        // An external edit landed in the window. Roll it back into place only when the target still
+        // holds the bytes we just published; otherwise a still newer external write (or a deletion)
+        // arrived after the replace, and overwriting it with the older backup would lose data.
+        if (ReadSnapshot(target) == content)
+        {
+            Replace(backup, target);
+            throw new WriteConflictException();
+        }
+
+        // The target changed or was deleted again between the replace and the rollback: keep the
+        // captured backup on disk and report uncertain rather than clobber the newer external data.
+        throw new WriteUncertainException();
     }
 
     // Atomically moves the staged temp over the target, retrying briefly so a transient handle held
@@ -369,6 +409,22 @@ internal static class AtomicFile
     {
         public WriteConflictException()
             : base("The file changed on disk during the write.")
+        {
+        }
+    }
+
+    /// <summary>
+    /// Signals that a validated <see cref="Transaction.Write"/> could not establish a safe final
+    /// state: the target changed or was deleted again between the atomic replace and the rollback,
+    /// or a post-commit verification found the target no longer held the published bytes. Newer
+    /// external data is left in place and the captured backup is preserved on disk, so no content
+    /// is lost; the caller must reconcile (reload or a confirmed overwrite) rather than treat this
+    /// as an ordinary no-write failure.
+    /// </summary>
+    internal sealed class WriteUncertainException : Exception
+    {
+        public WriteUncertainException()
+            : base("The file could not be safely written; its state on disk is uncertain.")
         {
         }
     }

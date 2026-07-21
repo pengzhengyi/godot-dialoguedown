@@ -292,6 +292,23 @@ describe("createLiveEdit — failure, conflict, uncertain", () => {
         expect(live.status).toBe("uncertain");
     });
 
+    it("a server uncertain outcome enters Uncertain and surfaces its message", async () => {
+        // The server could not establish a safe state (a newer external write raced the commit),
+        // so it returns an explicit uncertain outcome rather than a plain failure: the controller
+        // pauses in Uncertain and announces the server's detail message.
+        const h = harness();
+        const live = h.make("manual");
+
+        live.onEdit("# New");
+        const done = live.save();
+        await h.resolveSave({ kind: "uncertain", message: "state on disk is uncertain" });
+
+        await expect(done).resolves.toBe("uncertain");
+        expect(live.status).toBe("uncertain");
+        expect(live.statusMessage).toBe("state on disk is uncertain");
+        expect(h.idle.length).toBe(0); // automatic work is cleared, like conflict/failure
+    });
+
     it("editing in Conflict updates the buffer but stays paused", async () => {
         const h = harness();
         const live = h.make("auto");

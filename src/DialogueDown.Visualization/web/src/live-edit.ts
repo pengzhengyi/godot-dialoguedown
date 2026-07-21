@@ -29,13 +29,15 @@ export interface SaveRequest {
 /**
  * The typed result of one write attempt. A transport exception (the port throwing) is not a
  * value here — it surfaces as {@link SaveStatus} `uncertain` because the client cannot know
- * whether the disk write committed.
+ * whether the disk write committed. The server can also report `uncertain` explicitly when it
+ * could not establish a safe state on disk (a newer external write raced the commit).
  */
 export type SaveOutcome =
     | { kind: "saved"; report: Report; source: string }
     | { kind: "saved-invalid"; report: Report; source: string; message: string }
     | { kind: "invalid-auto"; message: string }
     | { kind: "conflict"; message: string }
+    | { kind: "uncertain"; message: string }
     | { kind: "failure"; message: string };
 
 /** The current disk contents, fetched for a Reload from a conflict/uncertain state. */
@@ -376,6 +378,8 @@ export function createLiveEdit(
             resolution = onInvalidAuto(outcome, latest);
         } else if (outcome.kind === "conflict") {
             resolution = onConflict(outcome);
+        } else if (outcome.kind === "uncertain") {
+            resolution = enterUncertain(outcome.message);
         } else {
             resolution = onFailure(outcome);
         }
@@ -450,10 +454,10 @@ export function createLiveEdit(
         return "failure";
     }
 
-    function enterUncertain(): SaveResolution {
+    function enterUncertain(message?: string): SaveResolution {
         clearIdle();
         clearQueue();
-        setStatus("uncertain");
+        setStatus("uncertain", message);
         refreshChrome();
         return "uncertain";
     }

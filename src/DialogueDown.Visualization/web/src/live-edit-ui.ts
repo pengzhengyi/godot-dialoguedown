@@ -208,6 +208,13 @@ export function initLiveEditUi(app: AppController, actions: LiveEditActions): Li
                 return { kind: "invalid-auto", message: body.message ?? "Invalid TOML." };
             case "conflict":
                 return { kind: "conflict", message: body.message ?? "The file changed on disk." };
+            case "uncertain":
+                return {
+                    kind: "uncertain",
+                    message:
+                        body.message ??
+                        "The file's state on disk is uncertain; reload or overwrite.",
+                };
             default:
                 return { kind: "failure", message: body.message ?? "Save failed." };
         }
@@ -258,7 +265,14 @@ function canDiscardNow(status: SaveStatus, dirty: boolean): boolean {
 /** The server's save/reload payload — the document report plus a typed outcome and message. */
 type SavePayload = Report & {
     outcome:
-        "saved" | "saved-invalid" | "invalid-auto" | "conflict" | "loaded" | "invalid" | "missing";
+        | "saved"
+        | "saved-invalid"
+        | "invalid-auto"
+        | "conflict"
+        | "uncertain"
+        | "loaded"
+        | "invalid"
+        | "missing";
     message?: string;
 };
 

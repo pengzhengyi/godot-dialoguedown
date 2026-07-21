@@ -253,6 +253,82 @@ public sealed class AtomicFileTests
     }
 
     [Fact]
+    public void Transact_ValidatedWrite_TargetChangedAgainBetweenReplaceAndRollback_PreservesNewerDataAndReportsUncertain()
+    {
+        // The conflict rollback must never clobber an even newer external write. An external edit
+        // lands in the replace window (the displaced backup differs from the baseline), but before
+        // the rollback restores it a *second*, newer external write lands on the target. Blindly
+        // restoring the first backup would overwrite that newer data, so the write must instead
+        // preserve the newer target, keep the captured backup safely, and report an uncertain
+        // outcome rather than a plain conflict.
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        Assert.Throws<AtomicFile.WriteUncertainException>(() => AtomicFile.Transact(
+            path,
+            transaction =>
+            {
+                transaction.Write("my staged replacement");
+                File.WriteAllText(path, "first external edit"); // becomes the displaced backup
+                return 0;
+            },
+            afterReplace: () => File.WriteAllText(path, "second newer external edit")));
+
+        Assert.Equal("second newer external edit", File.ReadAllText(path)); // the newer data stands
+        var preserved = Directory.GetFiles(tree.Root)
+            .Where(file => !string.Equals(file, path, StringComparison.Ordinal))
+            .Select(File.ReadAllText)
+            .ToList();
+        Assert.Contains("first external edit", preserved); // the captured backup is preserved, not lost
+    }
+
+    [Fact]
+    public void Transact_ValidatedWrite_TargetDeletedAgainBetweenReplaceAndRollback_PreservesBackupAndReportsUncertain()
+    {
+        // The target is deleted between the replace and the rollback. Restoring the backup would
+        // recreate a file the deleter intended gone using stale bytes, so the write preserves the
+        // captured backup and reports uncertain rather than a plain conflict or a lost update.
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        Assert.Throws<AtomicFile.WriteUncertainException>(() => AtomicFile.Transact(
+            path,
+            transaction =>
+            {
+                transaction.Write("my staged replacement");
+                File.WriteAllText(path, "first external edit");
+                return 0;
+            },
+            afterReplace: () => File.Delete(path)));
+
+        Assert.False(File.Exists(path)); // the deletion stands; no stale resurrection
+        var preserved = Directory.GetFiles(tree.Root).Select(File.ReadAllText).ToList();
+        Assert.Contains("first external edit", preserved); // the captured backup is preserved
+    }
+
+    [Fact]
+    public void Transact_ValidatedWrite_PostCommitVerificationFailure_ReportsUncertain()
+    {
+        // A clean swap committed our bytes, but post-commit verification finds the target no longer
+        // holds them: an external process overwrote the file immediately after the swap. The write
+        // cannot claim success without possibly masking that newer data, so it reports uncertain
+        // and leaves the newer external content in place.
+        using var tree = new Support.TempTree();
+        var path = tree.File("doc.txt", "original");
+
+        Assert.Throws<AtomicFile.WriteUncertainException>(() => AtomicFile.Transact(
+            path,
+            transaction =>
+            {
+                transaction.Write("committed"); // no external edit in the window: a clean swap
+                return 0;
+            },
+            afterReplace: () => File.WriteAllText(path, "newer external content")));
+
+        Assert.Equal("newer external content", File.ReadAllText(path)); // the newer data stands
+    }
+
+    [Fact]
     public void Transact_WriteThatFailsToStage_PreservesTheOriginalUnchanged()
     {
         if (OperatingSystem.IsWindows())

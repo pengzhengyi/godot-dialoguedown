@@ -75,7 +75,9 @@ internal sealed class LiveSession
 
     /// <summary>
     /// Applies one save request and returns a payload carrying a typed <c>outcome</c>:
-    /// <c>saved</c>, <c>saved-invalid</c>, <c>invalid-auto</c>, or <c>conflict</c>. A dialogue
+    /// <c>saved</c>, <c>saved-invalid</c>, <c>invalid-auto</c>, <c>conflict</c>, or
+    /// <c>uncertain</c> (a write that could not establish a safe state on disk without risking
+    /// newer external data). A dialogue
     /// save is always written (its errors surface as diagnostics); a Config save validates when
     /// the request requires it, and every non-forced write first compares the disk against the
     /// requested source (idempotent recovery) and the expected baseline (conflict detection).
@@ -85,7 +87,7 @@ internal sealed class LiveSession
     public string Save(SaveInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        return input.IsConfig ? SaveConfig(input) : SaveDocument(input);
+        return Save(input, afterReplace: null);
     }
 
     /// <summary>
@@ -219,6 +221,15 @@ internal sealed class LiveSession
                 : ex.Message;
             Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message, "config")));
         }
+    }
+
+    // A test seam mirroring <see cref="AtomicFile"/>'s: <paramref name="afterReplace"/> is threaded
+    // into the atomic replace so a test can deterministically drive the target-changed-again and
+    // post-commit-verification races that make a write uncertain.
+    internal string Save(SaveInput input, Action? afterReplace)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        return input.IsConfig ? SaveConfig(input, afterReplace) : SaveDocument(input, afterReplace);
     }
 
     private static string WithOutcome(string payloadJson, string outcome)
@@ -360,46 +371,53 @@ internal sealed class LiveSession
             ? null
             : new ConfigStatusOverlay(_currentConfigSource ?? string.Empty, _currentConfigError);
 
-    private string SaveDocument(SaveInput input)
+    private string SaveDocument(SaveInput input, Action? afterReplace)
     {
         var source = input.Source ?? string.Empty;
         try
         {
-            return AtomicFile.Transact(DocumentPath, transaction =>
-            {
-                var disk = transaction.Disk;
-                if (!input.Overwrite)
+            return AtomicFile.Transact(
+                DocumentPath,
+                transaction =>
                 {
-                    if (disk == source)
+                    var disk = transaction.Disk;
+                    if (!input.Overwrite)
                     {
-                        _lastSaved = source; // idempotent: the disk already equals the requested source
-                        return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                        if (disk == source)
+                        {
+                            _lastSaved = source; // idempotent: the disk already equals the requested source
+                            return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                        }
+
+                        if (disk != input.ExpectedBaseline)
+                        {
+                            return OutcomeJson("conflict", "The document changed on disk.");
+                        }
+
+                        _lastSaved = source;
+                        transaction.Write(source); // compare-and-swap: an external write in the window conflicts
+                    }
+                    else
+                    {
+                        _lastSaved = source;
+                        transaction.WriteForced(source); // confirmed overwrite
                     }
 
-                    if (disk != input.ExpectedBaseline)
-                    {
-                        return OutcomeJson("conflict", "The document changed on disk.");
-                    }
-
-                    _lastSaved = source;
-                    transaction.Write(source); // compare-and-swap: an external write in the window conflicts
-                }
-                else
-                {
-                    _lastSaved = source;
-                    transaction.WriteForced(source); // confirmed overwrite
-                }
-
-                return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
-            });
+                    return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                },
+                afterReplace);
         }
         catch (AtomicFile.WriteConflictException)
         {
             return OutcomeJson("conflict", "The document changed on disk.");
         }
+        catch (AtomicFile.WriteUncertainException)
+        {
+            return OutcomeJson("uncertain", "The document's state on disk is uncertain; reload or confirm overwrite.");
+        }
     }
 
-    private string SaveConfig(SaveInput input)
+    private string SaveConfig(SaveInput input, Action? afterReplace)
     {
         if (_configPath is null)
         {
@@ -411,36 +429,44 @@ internal sealed class LiveSession
         string? immediate;
         try
         {
-            immediate = AtomicFile.Transact(_configPath, transaction =>
-            {
-                var disk = transaction.Disk;
-                if (!input.Overwrite)
+            immediate = AtomicFile.Transact(
+                _configPath,
+                transaction =>
                 {
-                    if (disk == source)
+                    var disk = transaction.Disk;
+                    if (!input.Overwrite)
                     {
-                        committed = StageConfig(source, transaction, write: false, force: false); // idempotent recovery
-                        return null;
+                        if (disk == source)
+                        {
+                            committed = StageConfig(source, transaction, write: false, force: false); // idempotent recovery
+                            return null;
+                        }
+
+                        if (disk != input.ExpectedBaseline)
+                        {
+                            return OutcomeJson("conflict", "The configuration changed on disk.");
+                        }
                     }
 
-                    if (disk != input.ExpectedBaseline)
+                    if (input.RequireValid && !TryParseConfig(source, out _, out var validationError))
                     {
-                        return OutcomeJson("conflict", "The configuration changed on disk.");
+                        // Auto/navigation never writes invalid TOML; the exclusive handle is released unwritten.
+                        return OutcomeJson("invalid-auto", validationError);
                     }
-                }
 
-                if (input.RequireValid && !TryParseConfig(source, out _, out var validationError))
-                {
-                    // Auto/navigation never writes invalid TOML; the exclusive handle is released unwritten.
-                    return OutcomeJson("invalid-auto", validationError);
-                }
-
-                committed = StageConfig(source, transaction, write: true, force: input.Overwrite);
-                return null;
-            });
+                    committed = StageConfig(source, transaction, write: true, force: input.Overwrite);
+                    return null;
+                },
+                afterReplace);
         }
         catch (AtomicFile.WriteConflictException)
         {
             return OutcomeJson("conflict", "The configuration changed on disk.");
+        }
+        catch (AtomicFile.WriteUncertainException)
+        {
+            return OutcomeJson(
+                "uncertain", "The configuration's state on disk is uncertain; reload or confirm overwrite.");
         }
 
         // Publish the recompiled visualizer and config source/validity only now that AtomicFile has

@@ -359,6 +359,10 @@ public sealed class LiveSessionTests
         Assert.Contains("[[speakers]]", File.ReadAllText(configPath));
         Assert.Contains("\"outcome\":\"saved\"", result.Payload);
         Assert.Equal(configPath, session.ConfigPath); // adopted: the session now applies it
+        // Staged temp + atomic move: the created file is complete and no staging temp is left behind.
+        Assert.Equal(
+            new[] { "dialogue.toml", "scene.dialogue.md" },
+            Directory.GetFiles(tree.Root).Select(Path.GetFileName).OrderBy(name => name).ToArray());
         // Adopted: a later baseline-checked save recompiles with the new speaker.
         var saved = session.Save(
             new SaveInput(Speaker("Bob", "B"), "config", ConfigStarter.Template, "require-valid"));

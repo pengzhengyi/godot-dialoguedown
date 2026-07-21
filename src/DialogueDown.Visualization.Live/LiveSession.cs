@@ -133,10 +133,7 @@ internal sealed class LiveSession
 
         try
         {
-            using var stream = new FileStream(
-                configPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-            using var writer = new StreamWriter(stream);
-            writer.Write(ConfigStarter.Template);
+            AtomicFile.CreateNew(configPath, ConfigStarter.Template);
         }
         catch (IOException) when (File.Exists(configPath))
         {

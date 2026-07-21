@@ -139,7 +139,11 @@ internal sealed class LiveSession
         try
         {
             var current = File.ReadAllText(DocumentPath);
-            if (current == _lastSaved)
+            // One-shot suppression: a self-write arms a single suppression token, consumed here so a
+            // later external change back to the same content still reloads (an A->B->A sequence).
+            var expected = _lastSaved;
+            _lastSaved = null;
+            if (current == expected)
             {
                 return;
             }
@@ -175,7 +179,11 @@ internal sealed class LiveSession
         try
         {
             var current = File.ReadAllText(_configPath);
-            if (current == _lastSavedConfig)
+            // One-shot suppression: a self-write arms a single suppression token, consumed here so a
+            // later external change back to the same content still reloads (an A->B->A sequence).
+            var expected = _lastSavedConfig;
+            _lastSavedConfig = null;
+            if (current == expected)
             {
                 return;
             }

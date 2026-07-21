@@ -175,6 +175,30 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void Refresh_ExternalChangeBackToSelfWrittenContent_StillBroadcasts()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "edit");
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        session.Save(new SaveInput("# B", ExpectedBaseline: "# Old"));
+        session.Refresh(); // the browser's own write is suppressed once, consuming the token
+        Assert.False(reader.TryRead(out _));
+
+        File.WriteAllText(doc.Path, "# A");
+        session.Refresh();
+        Assert.True(reader.TryRead(out var toA));
+        Assert.Contains("# A", toA!.Data);
+
+        // An external change back to the earlier self-written content is a real external edit now,
+        // not a stale self-write: one-shot suppression means it still reloads.
+        File.WriteAllText(doc.Path, "# B");
+        session.Refresh();
+        Assert.True(reader.TryRead(out var backToB));
+        Assert.Contains("# B", backToB!.Data);
+    }
+
+    [Fact]
     public void Refresh_AfterSave_SuppressesTheSelfTriggeredReload()
     {
         using var doc = new TempDocument("# Old");
@@ -433,6 +457,32 @@ public sealed class LiveSessionTests
         session.RefreshConfig(); // the watcher firing for the browser's own config write
 
         Assert.False(reader.TryRead(out _));
+    }
+
+    [Fact]
+    public void RefreshConfig_ExternalChangeBackToSelfWrittenContent_StillBroadcasts()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        var bob = Speaker("Bob", "B");
+        session.Save(new SaveInput(bob, "config", valid, "require-valid"));
+        session.RefreshConfig(); // the browser's own config write is suppressed once
+        Assert.False(reader.TryRead(out _));
+
+        File.WriteAllText(configPath, Speaker("External", "E"));
+        session.RefreshConfig();
+        Assert.True(reader.TryRead(out var toExternal));
+        Assert.Contains("External", toExternal!.Data);
+
+        File.WriteAllText(configPath, bob);
+        session.RefreshConfig();
+        Assert.True(reader.TryRead(out var backToBob));
+        Assert.Contains("Bob", backToBob!.Data);
     }
 
     [Fact]

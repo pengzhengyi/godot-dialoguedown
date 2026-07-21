@@ -147,6 +147,35 @@ internal sealed class LiveSession
         }
     }
 
+    private static string WithOutcome(string payloadJson, string outcome)
+    {
+        var node = JsonNode.Parse(payloadJson)!.AsObject();
+        node["outcome"] = outcome;
+        return node.ToJsonString();
+    }
+
+    // A saved-invalid/invalid Config payload keeps the last valid report but must carry the
+    // external (invalid) TOML so the editor can show it — inject it into configuration.file.source.
+    private static string WithConfigSource(string payloadJson, string configSource, string outcome, string message)
+    {
+        var node = JsonNode.Parse(payloadJson)!.AsObject();
+        node["outcome"] = outcome;
+        node["message"] = message;
+        if (node["configuration"] is JsonObject configuration
+            && configuration["file"] is JsonObject file)
+        {
+            file["source"] = configSource;
+        }
+
+        return node.ToJsonString();
+    }
+
+    private static string OutcomeJson(string outcome, string message) =>
+        JsonSerializer.Serialize(new { outcome, message });
+
+    private static string ProblemJson(string message) =>
+        JsonSerializer.Serialize(new { message });
+
     private string SaveDocument(SaveInput input)
     {
         var source = input.Source ?? string.Empty;
@@ -282,33 +311,4 @@ internal sealed class LiveSession
             AppliedConfiguration.FromFile(configPath, source, options));
         return _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
     }
-
-    private static string WithOutcome(string payloadJson, string outcome)
-    {
-        var node = JsonNode.Parse(payloadJson)!.AsObject();
-        node["outcome"] = outcome;
-        return node.ToJsonString();
-    }
-
-    // A saved-invalid/invalid Config payload keeps the last valid report but must carry the
-    // external (invalid) TOML so the editor can show it — inject it into configuration.file.source.
-    private static string WithConfigSource(string payloadJson, string configSource, string outcome, string message)
-    {
-        var node = JsonNode.Parse(payloadJson)!.AsObject();
-        node["outcome"] = outcome;
-        node["message"] = message;
-        if (node["configuration"] is JsonObject configuration
-            && configuration["file"] is JsonObject file)
-        {
-            file["source"] = configSource;
-        }
-
-        return node.ToJsonString();
-    }
-
-    private static string OutcomeJson(string outcome, string message) =>
-        JsonSerializer.Serialize(new { outcome, message });
-
-    private static string ProblemJson(string message) =>
-        JsonSerializer.Serialize(new { message });
 }

@@ -97,6 +97,9 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         // Edit. (The offline export has no server, so it can never reach this.)
         app.MapPost("/api/save", (SaveRequest request) => Save(request));
 
+        // Reload the document or its configuration from disk (a conflict/uncertain recovery).
+        app.MapPost("/api/reload", (ReloadRequest request) => Reload(request));
+
         // A session with no dialogue.toml can create one at the serve root; the client only
         // calls this in Edit, from the Config tab's no-config state.
         app.MapPost("/api/create-config", CreateConfig);
@@ -123,19 +126,36 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         }
     }
 
-    // Saves the posted buffer to the target file (the document, or its `dialogue.toml`
-    // when target is "config") and returns the recompiled payload; a write or config-parse
-    // failure surfaces as a 400 with a message rather than a 500.
+    // Applies the posted save request (dialogue or config) and returns the typed-outcome
+    // payload; a write failure or a missing config to save surfaces as a 400 with a message
+    // rather than a 500.
     private IResult Save(SaveRequest request)
     {
         try
         {
-            var source = request.Source ?? string.Empty;
-            var isConfig = string.Equals(request.Target, "config", StringComparison.OrdinalIgnoreCase);
-            var json = isConfig ? _session.SaveConfig(source) : _session.Save(source);
+            var json = _session.Save(
+                new SaveInput(
+                    request.Source,
+                    request.Target,
+                    request.ExpectedBaseline,
+                    request.Validation,
+                    request.Conflict));
             return Results.Content(json, "application/json; charset=utf-8");
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or DialogueConfigurationException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Reloads the document or its configuration from disk, returning the typed-outcome payload.
+    private IResult Reload(ReloadRequest request)
+    {
+        try
+        {
+            return Results.Content(_session.Reload(request.Target), "application/json; charset=utf-8");
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
             return Results.BadRequest(new { message = ex.Message });
         }
@@ -155,14 +175,23 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         }
 
         var configPath = Path.Combine(root, ConfigurationFile.DefaultName);
-        if (File.Exists(configPath))
-        {
-            return Results.Conflict(
-                new { message = "A dialogue.toml already exists — reload to edit it." });
-        }
-
         try
         {
+            // A create is valid only when the file is absent. If it already exists but equals the
+            // starter template, a retry after a lost response adopts it idempotently; any other
+            // existing content is a conflict, left untouched.
+            if (File.Exists(configPath))
+            {
+                if (File.ReadAllText(configPath) != ConfigStarter.Template)
+                {
+                    return Results.Conflict(
+                        new { message = "A dialogue.toml already exists — reload to edit it." });
+                }
+
+                return Results.Content(
+                    _session.AdoptExistingConfig(configPath), "application/json; charset=utf-8");
+            }
+
             var json = _session.CreateConfig(configPath);
             return Results.Content(json, "application/json; charset=utf-8");
         }
@@ -172,5 +201,12 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         }
     }
 
-    private sealed record SaveRequest(string? Source, string? Target = null);
+    private sealed record SaveRequest(
+        string? Source,
+        string? Target = null,
+        string? ExpectedBaseline = null,
+        string? Validation = null,
+        string? Conflict = null);
+
+    private sealed record ReloadRequest(string? Target = null);
 }

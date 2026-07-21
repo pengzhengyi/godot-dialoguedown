@@ -92,7 +92,9 @@ public sealed class LauncherServerTests
         using var client = Client(server, followRedirects: false);
         await client.PostAsJsonAsync("/api/open", new { source = "scene.dialogue.md", mode = "edit" });
 
-        var save = await client.PostAsJsonAsync("/api/save", new { source = "# Edited\n" });
+        var save = await client.PostAsJsonAsync(
+            "/api/save",
+            new { source = "# Edited\n", expectedBaseline = "# Scene" });
 
         Assert.True(save.IsSuccessStatusCode);
         var json = await save.Content.ReadAsStringAsync();
@@ -258,7 +260,12 @@ public sealed class LauncherServerTests
 
         var save = await client.PostAsJsonAsync(
             "/api/save",
-            new { source = "[[speakers]]\nname = \"Bob\"\nid = \"B\"\n", target = "config" });
+            new
+            {
+                source = "[[speakers]]\nname = \"Bob\"\nid = \"B\"\n",
+                target = "config",
+                conflict = "overwrite",
+            });
 
         Assert.True(save.IsSuccessStatusCode);
         Assert.Contains("Bob", await File.ReadAllTextAsync(Path.Combine(root, "dialogue.toml")));

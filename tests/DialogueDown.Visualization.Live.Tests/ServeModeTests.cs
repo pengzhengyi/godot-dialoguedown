@@ -182,7 +182,7 @@ public sealed class ServeModeTests
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
         using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
-        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved\n\nAlice: Hi" });
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved\n\nAlice: Hi", expectedBaseline = "# First" });
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Equal("# Saved\n\nAlice: Hi", await File.ReadAllTextAsync(doc.Path));
@@ -207,7 +207,7 @@ public sealed class ServeModeTests
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
         using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
-        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved" });
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved", expectedBaseline = "# First" });
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Equal("# Saved", await File.ReadAllTextAsync(doc.Path));

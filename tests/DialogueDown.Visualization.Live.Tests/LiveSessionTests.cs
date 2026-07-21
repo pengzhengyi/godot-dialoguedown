@@ -37,7 +37,7 @@ public sealed class LiveSessionTests
 
         var json = session.CurrentDocumentJson();
 
-        Assert.Contains($"\"path\":", json);
+        Assert.Contains("\"path\":", json);
         Assert.Contains("\"source\":\"# Scene\"", json);
         Assert.Contains("\"stages\":[", json);
     }
@@ -60,7 +60,7 @@ public sealed class LiveSessionTests
     [Fact]
     public void Refresh_MissingDocument_BroadcastsAProblem()
     {
-        var session = new LiveSession("/tmp/missing-edit.dialogue.md");
+        var session = new LiveSession(Path.Combine(Path.GetTempPath(), "missing-edit.dialogue.md"));
         using var subscription = session.Broadcaster.Subscribe(out var reader);
 
         session.Refresh();
@@ -71,16 +71,56 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
-    public void Save_WritesTheBufferToDiskAndReturnsCompiledStages()
+    public void Save_MatchingBaseline_WritesTheBufferAndReturnsSaved()
     {
         using var doc = new TempDocument("# Old");
         var session = new LiveSession(doc.Path, "edit");
 
-        var json = session.Save("# New\n\nAlice: Hi");
+        var json = session.Save(new SaveInput("# New\n\nAlice: Hi", ExpectedBaseline: "# Old"));
 
         Assert.Equal("# New\n\nAlice: Hi", File.ReadAllText(doc.Path));
+        Assert.Contains("\"outcome\":\"saved\"", json);
         Assert.Contains("\"source\":\"# New", json);
         Assert.Contains("\"stages\":[", json);
+    }
+
+    [Fact]
+    public void Save_BaselineMismatch_ReturnsConflictAndWritesNothing()
+    {
+        using var doc = new TempDocument("# External");
+        var session = new LiveSession(doc.Path, "edit");
+
+        var json = session.Save(new SaveInput("# Mine", ExpectedBaseline: "# Old"));
+
+        Assert.Contains("\"outcome\":\"conflict\"", json);
+        Assert.Equal("# External", File.ReadAllText(doc.Path)); // untouched
+    }
+
+    [Fact]
+    public void Save_ConfirmedOverwrite_BypassesTheBaselineCheck()
+    {
+        using var doc = new TempDocument("# External");
+        var session = new LiveSession(doc.Path, "edit");
+
+        var json = session.Save(
+            new SaveInput("# Mine", ExpectedBaseline: "# Old", Conflict: "overwrite"));
+
+        Assert.Contains("\"outcome\":\"saved\"", json);
+        Assert.Equal("# Mine", File.ReadAllText(doc.Path));
+    }
+
+    [Fact]
+    public void Save_DiskAlreadyEqualsTheRequest_ReturnsIdempotentSaved()
+    {
+        using var doc = new TempDocument("# Same");
+        var session = new LiveSession(doc.Path, "edit");
+
+        // The disk already equals the requested source (a lost response), so a retry with a
+        // different expected baseline still succeeds without a conflict.
+        var json = session.Save(new SaveInput("# Same", ExpectedBaseline: "# Stale"));
+
+        Assert.Contains("\"outcome\":\"saved\"", json);
+        Assert.Equal("# Same", File.ReadAllText(doc.Path));
     }
 
     [Fact]
@@ -90,7 +130,7 @@ public sealed class LiveSessionTests
         var session = new LiveSession(doc.Path, "edit");
         using var subscription = session.Broadcaster.Subscribe(out var reader);
 
-        session.Save("# Saved");
+        session.Save(new SaveInput("# Saved", ExpectedBaseline: "# Old"));
         session.Refresh(); // the watcher firing for the browser's own write
 
         Assert.False(reader.TryRead(out _));
@@ -103,7 +143,7 @@ public sealed class LiveSessionTests
         var session = new LiveSession(doc.Path, "edit");
         using var subscription = session.Broadcaster.Subscribe(out var reader);
 
-        session.Save("# Saved");
+        session.Save(new SaveInput("# Saved", ExpectedBaseline: "# Old"));
         File.WriteAllText(doc.Path, "# External");
         session.Refresh();
 
@@ -113,20 +153,68 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
-    public void SaveConfig_WritesTheFileAndRecompilesWithTheNewSpeakers()
+    public void SaveConfig_ValidRequireValid_WritesAndRecompiles()
     {
         using var tree = new TempTree();
         var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
         var configPath = tree.File("dialogue.toml", Speaker("Alice", "A"));
         var session = ConfiguredSession(docPath, configPath);
 
-        var json = session.SaveConfig(Speaker("Bob", "B"));
+        var json = session.Save(
+            new SaveInput(Speaker("Bob", "B"), "config", Speaker("Alice", "A"), "require-valid"));
 
-        Assert.Contains("Bob", File.ReadAllText(configPath)); // written to disk
-        Assert.Contains("\"name\":\"Bob\"", json); // recompiled payload carries the new speaker
-        // The old configured speaker is gone (only Bob is configured now); the "Alice" in the
-        // dialogue's own text is unrelated, so assert on the configured-speaker shape.
-        Assert.DoesNotContain("\"name\":\"Alice\"", json);
+        Assert.Contains("\"outcome\":\"saved\"", json);
+        Assert.Contains("Bob", File.ReadAllText(configPath));
+        Assert.Contains("\"name\":\"Bob\"", json);
+    }
+
+    [Fact]
+    public void SaveConfig_InvalidRequireValid_ReturnsInvalidAutoAndWritesNothing()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+        var broken = "[[speakers]]\nbogus = true\n";
+
+        var json = session.Save(new SaveInput(broken, "config", valid, "require-valid"));
+
+        Assert.Contains("\"outcome\":\"invalid-auto\"", json);
+        Assert.Equal(valid, File.ReadAllText(configPath)); // Auto never writes invalid TOML
+    }
+
+    [Fact]
+    public void SaveConfig_InvalidAllowInvalid_WritesAndReturnsSavedInvalid()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+        var broken = "[[speakers]]\nbogus = true\n";
+
+        var json = session.Save(new SaveInput(broken, "config", valid, "allow-invalid"));
+
+        Assert.Contains("\"outcome\":\"saved-invalid\"", json);
+        Assert.Equal(broken, File.ReadAllText(configPath)); // persisted, like a force-write
+        Assert.Contains("bogus", json); // the payload carries the invalid source for the editor
+    }
+
+    [Fact]
+    public void SaveConfig_BaselineMismatch_ReturnsConflictAndWritesNothing()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var disk = Speaker("External", "E");
+        var configPath = tree.File("dialogue.toml", disk);
+        var session = ConfiguredSession(docPath, configPath);
+
+        var json = session.Save(
+            new SaveInput(Speaker("Bob", "B"), "config", Speaker("Alice", "A"), "require-valid"));
+
+        Assert.Contains("\"outcome\":\"conflict\"", json);
+        Assert.Equal(disk, File.ReadAllText(configPath));
     }
 
     [Fact]
@@ -135,7 +223,50 @@ public sealed class LiveSessionTests
         using var doc = new TempDocument("# Scene");
         var session = new LiveSession(doc.Path, VisualizationMode.Edit);
 
-        Assert.Throws<InvalidOperationException>(() => session.SaveConfig(Speaker("Bob", "B")));
+        Assert.Throws<InvalidOperationException>(
+            () => session.Save(new SaveInput(Speaker("Bob", "B"), "config")));
+    }
+
+    [Fact]
+    public void Reload_Document_ReturnsLoadedWithTheDiskContent()
+    {
+        using var doc = new TempDocument("# Old");
+        var session = new LiveSession(doc.Path, "edit");
+        File.WriteAllText(doc.Path, "# External");
+
+        var json = session.Reload(null);
+
+        Assert.Contains("\"outcome\":\"loaded\"", json);
+        Assert.Contains("# External", json);
+    }
+
+    [Fact]
+    public void Reload_DeletedDocument_ReturnsMissing()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene");
+        var session = new LiveSession(docPath, "edit");
+        File.Delete(docPath);
+
+        var json = session.Reload(null);
+
+        Assert.Contains("\"outcome\":\"missing\"", json);
+    }
+
+    [Fact]
+    public void Reload_InvalidConfig_KeepsLastValidAndCarriesTheDiskSource()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var configPath = tree.File("dialogue.toml", Speaker("Alice", "A"));
+        var session = ConfiguredSession(docPath, configPath);
+        File.WriteAllText(configPath, "[[speakers]]\nbogus = true\n");
+
+        var json = session.Reload("config");
+
+        Assert.Contains("\"outcome\":\"invalid\"", json);
+        Assert.Contains("bogus", json); // the external invalid TOML is carried for the editor
+        Assert.Contains("\"name\":\"Alice\"", json); // last valid report is retained
     }
 
     [Fact]
@@ -148,13 +279,28 @@ public sealed class LiveSessionTests
 
         var json = session.CreateConfig(configPath);
 
-        Assert.True(File.Exists(configPath)); // the starter file is on disk
-        Assert.Contains("[[speakers]]", File.ReadAllText(configPath)); // seeded with the template
-        Assert.Contains("dialogue.toml", json); // the payload now carries the configuration file
-        // Adopted: a later edit saves to the same file and recompiles with the new speaker.
-        var saved = session.SaveConfig(Speaker("Bob", "B"));
+        Assert.True(File.Exists(configPath));
+        Assert.Contains("[[speakers]]", File.ReadAllText(configPath));
+        Assert.Contains("\"outcome\":\"saved\"", json);
+        // Adopted: a later baseline-checked save recompiles with the new speaker.
+        var saved = session.Save(
+            new SaveInput(Speaker("Bob", "B"), "config", ConfigStarter.Template, "require-valid"));
         Assert.Contains("\"name\":\"Bob\"", saved);
         Assert.Contains("Bob", File.ReadAllText(configPath));
+    }
+
+    [Fact]
+    public void AdoptExistingConfig_TemplateOnDisk_AdoptsWithoutRewriting()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene");
+        var configPath = tree.File("dialogue.toml", ConfigStarter.Template);
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+
+        var json = session.AdoptExistingConfig(configPath);
+
+        Assert.Contains("\"outcome\":\"saved\"", json);
+        Assert.Contains("dialogue.toml", json); // the payload now carries the configuration file
     }
 
     [Fact]
@@ -167,19 +313,6 @@ public sealed class LiveSessionTests
 
         Assert.Throws<InvalidOperationException>(
             () => session.CreateConfig(Path.Combine(tree.Root, "other.toml")));
-    }
-
-    [Fact]
-    public void SaveConfig_MalformedToml_WritesThenThrows()
-    {
-        using var tree = new TempTree();
-        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
-        var configPath = tree.File("dialogue.toml", Speaker("Alice", "A"));
-        var session = ConfiguredSession(docPath, configPath);
-        var broken = "[[speakers]]\nbogus = true\n";
-
-        Assert.Throws<DialogueConfigurationException>(() => session.SaveConfig(broken));
-        Assert.Equal(broken, File.ReadAllText(configPath)); // force-overwrite, like a broken document save
     }
 
     private static LiveSession ConfiguredSession(string docPath, string configPath)

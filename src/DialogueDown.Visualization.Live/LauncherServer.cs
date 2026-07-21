@@ -99,6 +99,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         app.MapPost("/api/create-config", CreateConfig);
         app.MapGet("/api/document", Document);
         app.MapPost("/api/save", (SaveRequest request) => Save(request));
+        app.MapPost("/api/reload", (ReloadRequest request) => Reload(request));
         app.MapGet("/api/events", HandleEventsAsync);
         app.MapGet(ReportMount, () => Report(string.Empty));
         app.MapGet(ReportMount + "/{**path}", (string? path) => Report(path ?? string.Empty));
@@ -199,9 +200,9 @@ internal sealed class LauncherServer : IAsyncDisposable
             : Results.Content(active.Session.CurrentDocumentJson(), "application/json; charset=utf-8");
     }
 
-    // Saves the edited buffer to the active document — the dialogue, or its dialogue.toml
-    // when the target is "config". A served session always accepts this (the client only
-    // calls it in Edit); there is just nothing active before a script is opened.
+    // Applies the posted save request to the active document (dialogue or its dialogue.toml)
+    // and returns the typed-outcome payload. A served session always accepts this (the client
+    // only calls it in Edit); there is just nothing active before a script is opened.
     private IResult Save(SaveRequest request)
     {
         var active = Active();
@@ -212,13 +213,36 @@ internal sealed class LauncherServer : IAsyncDisposable
 
         try
         {
-            var source = request.Source ?? string.Empty;
-            var isConfig = string.Equals(request.Target, "config", StringComparison.OrdinalIgnoreCase);
-            var json = isConfig ? active.Session.SaveConfig(source) : active.Session.Save(source);
+            var json = active.Session.Save(
+                new SaveInput(
+                    request.Source,
+                    request.Target,
+                    request.ExpectedBaseline,
+                    request.Validation,
+                    request.Conflict));
             return Results.Content(json, "application/json; charset=utf-8");
         }
-        catch (Exception ex)
-            when (ex is IOException or InvalidOperationException or DialogueConfigurationException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Reloads the active document or its configuration from disk (a conflict/uncertain recovery).
+    private IResult Reload(ReloadRequest request)
+    {
+        var active = Active();
+        if (active is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            return Results.Content(
+                active.Session.Reload(request.Target), "application/json; charset=utf-8");
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
             return Results.BadRequest(new { message = ex.Message });
         }
@@ -237,14 +261,23 @@ internal sealed class LauncherServer : IAsyncDisposable
         }
 
         var configPath = Path.Combine(_root.RootDirectory, ConfigurationFile.DefaultName);
-        if (File.Exists(configPath))
-        {
-            return Results.Conflict(
-                new { message = "A dialogue.toml already exists — reload to edit it." });
-        }
-
         try
         {
+            // A create is valid only when the file is absent. If it already exists but equals the
+            // starter template, a retry after a lost response adopts it idempotently; any other
+            // existing content is a conflict, left untouched.
+            if (File.Exists(configPath))
+            {
+                if (File.ReadAllText(configPath) != ConfigStarter.Template)
+                {
+                    return Results.Conflict(
+                        new { message = "A dialogue.toml already exists — reload to edit it." });
+                }
+
+                return Results.Content(
+                    active.Session.AdoptExistingConfig(configPath), "application/json; charset=utf-8");
+            }
+
             var json = active.Session.CreateConfig(configPath);
             return Results.Content(json, "application/json; charset=utf-8");
         }
@@ -291,5 +324,12 @@ internal sealed class LauncherServer : IAsyncDisposable
 
     private sealed record CreateRequest(string? Path);
 
-    private sealed record SaveRequest(string? Source, string? Target = null);
+    private sealed record SaveRequest(
+        string? Source,
+        string? Target = null,
+        string? ExpectedBaseline = null,
+        string? Validation = null,
+        string? Conflict = null);
+
+    private sealed record ReloadRequest(string? Target = null);
 }

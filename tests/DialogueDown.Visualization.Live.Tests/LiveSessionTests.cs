@@ -124,6 +124,57 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public async Task Save_ConcurrentSavesFromTheSameBaseline_ExactlyOneWinsTheOtherConflicts()
+    {
+        using var doc = new TempDocument("# Base");
+        var session = new LiveSession(doc.Path, "edit");
+        var ready = new Barrier(2);
+
+        string SaveFrom(string source)
+        {
+            ready.SignalAndWait();
+            return session.Save(new SaveInput(source, ExpectedBaseline: "# Base"));
+        }
+
+        var first = Task.Run(() => SaveFrom("# First"));
+        var second = Task.Run(() => SaveFrom("# Second"));
+        var results = await Task.WhenAll(first, second);
+
+        // The exclusive compare-and-write serializes the two writes: whichever commits first is
+        // the baseline the other now compares against, so exactly one saves and the other sees a
+        // conflict — the lost update the non-atomic read-then-write allowed can no longer happen.
+        Assert.Single(results, json => json.Contains("\"outcome\":\"saved\""));
+        Assert.Single(results, json => json.Contains("\"outcome\":\"conflict\""));
+
+        var winner = results[0].Contains("\"outcome\":\"saved\"") ? "# First" : "# Second";
+        Assert.Equal(winner, File.ReadAllText(doc.Path));
+    }
+
+    [Fact]
+    public async Task SaveConfig_ConcurrentSavesFromTheSameBaseline_ExactlyOneWinsTheOtherConflicts()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var baseline = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", baseline);
+        var session = ConfiguredSession(docPath, configPath);
+        var ready = new Barrier(2);
+
+        string SaveFrom(string source)
+        {
+            ready.SignalAndWait();
+            return session.Save(new SaveInput(source, "config", baseline, "require-valid"));
+        }
+
+        var first = Task.Run(() => SaveFrom(Speaker("Bob", "B")));
+        var second = Task.Run(() => SaveFrom(Speaker("Cara", "C")));
+        var results = await Task.WhenAll(first, second);
+
+        Assert.Single(results, json => json.Contains("\"outcome\":\"saved\""));
+        Assert.Single(results, json => json.Contains("\"outcome\":\"conflict\""));
+    }
+
+    [Fact]
     public void Refresh_AfterSave_SuppressesTheSelfTriggeredReload()
     {
         using var doc = new TempDocument("# Old");

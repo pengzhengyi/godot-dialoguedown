@@ -266,24 +266,27 @@ internal sealed class LiveSession
     private string SaveDocument(SaveInput input)
     {
         var source = input.Source ?? string.Empty;
-        var disk = File.Exists(DocumentPath) ? File.ReadAllText(DocumentPath) : null;
-        if (!input.Overwrite)
+        return AtomicFile.Transact(DocumentPath, transaction =>
         {
-            if (disk == source)
+            var disk = transaction.Disk;
+            if (!input.Overwrite)
             {
-                _lastSaved = source; // idempotent: the disk already equals the requested source
-                return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                if (disk == source)
+                {
+                    _lastSaved = source; // idempotent: the disk already equals the requested source
+                    return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                }
+
+                if (disk != input.ExpectedBaseline)
+                {
+                    return OutcomeJson("conflict", "The document changed on disk.");
+                }
             }
 
-            if (disk != input.ExpectedBaseline)
-            {
-                return OutcomeJson("conflict", "The document changed on disk.");
-            }
-        }
-
-        _lastSaved = source;
-        File.WriteAllText(DocumentPath, source);
-        return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+            _lastSaved = source;
+            transaction.Write(source);
+            return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+        });
     }
 
     private string SaveConfig(SaveInput input)
@@ -294,39 +297,43 @@ internal sealed class LiveSession
         }
 
         var source = input.Source ?? string.Empty;
-        var disk = File.Exists(_configPath) ? File.ReadAllText(_configPath) : null;
-        if (!input.Overwrite)
+        return AtomicFile.Transact(_configPath, transaction =>
         {
-            if (disk == source)
+            var disk = transaction.Disk;
+            if (!input.Overwrite)
             {
-                return RecompileConfig(source, write: false); // idempotent recovery
+                if (disk == source)
+                {
+                    return RecompileConfig(source, transaction, write: false); // idempotent recovery
+                }
+
+                if (disk != input.ExpectedBaseline)
+                {
+                    return OutcomeJson("conflict", "The configuration changed on disk.");
+                }
             }
 
-            if (disk != input.ExpectedBaseline)
+            if (input.RequireValid && !TryParseConfig(source, out _, out var validationError))
             {
-                return OutcomeJson("conflict", "The configuration changed on disk.");
+                // Auto/navigation never writes invalid TOML; the exclusive handle is released unwritten.
+                return OutcomeJson("invalid-auto", validationError);
             }
-        }
 
-        if (input.RequireValid && !TryParseConfig(source, out _, out var validationError))
-        {
-            return OutcomeJson("invalid-auto", validationError); // Auto/navigation never writes invalid TOML
-        }
-
-        return RecompileConfig(source, write: true);
+            return RecompileConfig(source, transaction, write: true);
+        });
     }
 
-    // Writes source (unless it already equals disk), then compiles: valid TOML is adopted and
-    // returned as `saved`; invalid TOML keeps the last valid report and returns `saved-invalid`
-    // carrying the persisted (invalid) source so the editor can show it.
-    private string RecompileConfig(string source, bool write)
+    // Writes source through the held transaction (unless it already equals disk), then compiles:
+    // valid TOML is adopted and returned as `saved`; invalid TOML keeps the last valid report and
+    // returns `saved-invalid` carrying the persisted (invalid) source so the editor can show it.
+    private string RecompileConfig(string source, AtomicFile.Transaction transaction, bool write)
     {
         // After this call the disk equals `source`, so record it as the last self-write to
         // suppress the config watcher's own event (see RefreshConfig).
         _lastSavedConfig = source;
         if (write)
         {
-            File.WriteAllText(_configPath!, source);
+            transaction.Write(source);
         }
 
         if (TryParseConfig(source, out var options, out var error))

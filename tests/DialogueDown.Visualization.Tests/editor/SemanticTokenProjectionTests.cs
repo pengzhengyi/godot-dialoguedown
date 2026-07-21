@@ -26,6 +26,63 @@ public sealed class SemanticTokenProjectionTests
         Assert.Empty(Project("Just some narration with no speaker."));
 
     [Fact]
+    public void Project_SpeakerName_TokenCoversTheWholePrefix()
+    {
+        var source = "Alice: Hello there.";
+
+        // The speaker token is the raw prefix span, through the colon and its trailing space.
+        var token = AssertSingleSemanticToken(Project(source), TokenKind.Speaker);
+        Assert.Equal("Alice: ", token.TextIn(source));
+    }
+
+    [Fact]
+    public void Project_SpeakerId_TokenCoversTheWholePrefix()
+    {
+        var source = "@alice: Hello there.";
+
+        var token = AssertSingleSemanticToken(Project(source), TokenKind.Speaker);
+        Assert.Equal("@alice: ", token.TextIn(source));
+    }
+
+    [Fact]
+    public void Project_SpeakerNameAndId_TokenCoversBothTogether()
+    {
+        var source = "Alice @alice: Hello there.";
+
+        var token = AssertSingleSemanticToken(Project(source), TokenKind.Speaker);
+        Assert.Equal("Alice @alice: ", token.TextIn(source));
+    }
+
+    [Fact]
+    public void Project_SpeakerWithTag_SpeakerCoversTheWholePrefixAndTheTagOverlaps()
+    {
+        var source = "Alice @alice #happy: Hello there.";
+        var tokens = Project(source);
+
+        // The coarse speaker token spans the whole prefix, including the tag; the separate tag
+        // token overlaps it and the editor layers the tag on top by decoration precedence.
+        var speaker = AssertSingleSemanticToken(tokens, TokenKind.Speaker);
+        Assert.Equal("Alice @alice #happy: ", speaker.TextIn(source));
+        var tag = AssertSingleSemanticToken(tokens, TokenKind.CustomTag);
+        Assert.Equal("#happy", tag.TextIn(source));
+    }
+
+    [Fact]
+    public void Project_QuotedSpeakerName_TokenCoversTheQuotedPrefix()
+    {
+        var source = "\"Dr. Vale\": Hello there.";
+
+        var token = AssertSingleSemanticToken(Project(source), TokenKind.Speaker);
+        Assert.Equal("\"Dr. Vale\": ", token.TextIn(source));
+    }
+
+    [Fact]
+    public void Project_OrphanTagWithNoSpeaker_HasNoSpeakerToken() =>
+        // A prefix of only tags names no speaker; it recovers to a default and drops the tags,
+        // so nothing dialogue-specific is left to highlight.
+        Assert.DoesNotContain(Project("#lonely: Hello there."), token => token.Kind == TokenKind.Speaker);
+
+    [Fact]
     public void Project_CustomTag_TokenIncludesTheHash()
     {
         var source = "@alice #happy: Hello there.";

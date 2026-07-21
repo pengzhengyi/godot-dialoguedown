@@ -9,20 +9,18 @@ namespace DialogueDown.Visualization.Editor;
 /// </summary>
 internal enum TokenKind
 {
-    /// <summary>A speaker's display name at a line prefix (<c>Alice:</c>).</summary>
-    SpeakerName,
-
-    /// <summary>A speaker's stable id, including the <c>@</c> (<c>@alice</c>).</summary>
-    SpeakerId,
+    /// <summary>
+    /// A speaker prefix — the display name and its optional <c>@id</c> together
+    /// (<c>Alice</c>, <c>@alice</c>, or <c>Alice @alice</c>). A coarse token; splitting the name,
+    /// the id, and the separator apart is deferred (see the design note).
+    /// </summary>
+    Speaker,
 
     /// <summary>A custom tag, including the <c>#</c> and any <c>=value</c> (<c>#happy</c>).</summary>
     CustomTag,
 
     /// <summary>A reserved tag, including the <c>##</c> (<c>##narrator</c>).</summary>
     ReservedTag,
-
-    /// <summary>The <c>:</c> that separates a speaker prefix from its speech.</summary>
-    Separator,
 
     /// <summary>The <c>=&gt;</c> that marks a jump.</summary>
     JumpIndicator,

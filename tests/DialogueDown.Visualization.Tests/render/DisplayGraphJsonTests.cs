@@ -1,4 +1,5 @@
 using DialogueDown.Visualization.Diagnostics;
+using DialogueDown.Visualization.Editor;
 using DialogueDown.Visualization.Lsp;
 using static DialogueDown.Visualization.Tests.Support.Display;
 
@@ -318,5 +319,75 @@ public sealed class DisplayGraphJsonTests
         Assert.Contains("\"path\":\"scene.dialogue.md\"", json);
         Assert.Contains("\"source\":\"# Hi\"", json);
         Assert.Contains("\"stages\":[", json);
+    }
+
+    [Fact]
+    public void SerializeReport_OmitsSemanticTokensWhenNull()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport("static", null, "# Hi", [graph]);
+
+        Assert.DoesNotContain("\"semanticTokens\":", json);
+    }
+
+    [Fact]
+    public void SerializeReport_IncludesSemanticTokensWithTheLspRangeAndKind()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+        var tokens = new List<SemanticToken>
+        {
+            new(new LspRange(new LspPosition(0, 0), new LspPosition(0, 7)), TokenKind.Speaker),
+        };
+
+        var json = DisplayGraphJson.SerializeReport(
+            "static", null, "Alice: Hi.", [graph], semanticTokens: tokens);
+
+        Assert.Contains(
+            "\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":7}}",
+            json);
+        Assert.Contains("\"kind\":\"Speaker\"", json);
+    }
+
+    [Fact]
+    public void SerializeReport_WritesTheTokenKindAsItsName_NotCamelCased()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+        var tokens = new List<SemanticToken>
+        {
+            new(new LspRange(new LspPosition(0, 0), new LspPosition(0, 6)), TokenKind.CustomTag),
+        };
+
+        var json = DisplayGraphJson.SerializeReport(
+            "static", null, "#happy", [graph], semanticTokens: tokens);
+
+        Assert.Contains("\"kind\":\"CustomTag\"", json);
+        Assert.DoesNotContain("\"kind\":\"customTag\"", json);
+    }
+
+    [Fact]
+    public void SerializeReport_WritesAnEmptySemanticTokensArray_ForADocumentWithNoDialogue()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+
+        var json = DisplayGraphJson.SerializeReport(
+            "static", null, "# Hi", [graph], semanticTokens: []);
+
+        Assert.Contains("\"semanticTokens\":[]", json);
+    }
+
+    [Fact]
+    public void SerializeDocument_IncludesSemanticTokens()
+    {
+        var graph = MakeGraph("G", [Node("n0", "Document")], []);
+        var tokens = new List<SemanticToken>
+        {
+            new(new LspRange(new LspPosition(0, 0), new LspPosition(0, 2)), TokenKind.JumpIndicator),
+        };
+
+        var json = DisplayGraphJson.SerializeDocument(
+            "view", "scene.dialogue.md", "=>", [graph], semanticTokens: tokens);
+
+        Assert.Contains("\"kind\":\"JumpIndicator\"", json);
     }
 }

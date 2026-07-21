@@ -59,6 +59,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         lock (_gate)
         {
             _active?.Watcher?.Dispose();
+            _active?.ConfigWatcher?.Dispose();
         }
 
         await _app.DisposeAsync();
@@ -169,11 +170,19 @@ internal sealed class LauncherServer : IAsyncDisposable
         // A served session always watches the file: View hot-reloads the report, Edit
         // surfaces a passive "changed on disk" chip.
         var watcher = new DocumentWatcher(source, session.Refresh);
+        // A session that already applies a config watches it too, so external config edits reload.
+        var configWatcher = session.ConfigPath is { } configPath
+            ? new DocumentWatcher(configPath, session.RefreshConfig)
+            : null;
 
         lock (_gate)
         {
             _active?.Watcher?.Dispose();
-            _active = new ActiveDocument(session, reportPath.Trim('/'), watcher);
+            _active?.ConfigWatcher?.Dispose();
+            _active = new ActiveDocument(session, reportPath.Trim('/'), watcher)
+            {
+                ConfigWatcher = configWatcher,
+            };
         }
 
         context.Response.Headers.Location = ReportMount + reportPath;
@@ -262,27 +271,37 @@ internal sealed class LauncherServer : IAsyncDisposable
         var configPath = Path.Combine(_root.RootDirectory, ConfigurationFile.DefaultName);
         try
         {
-            // A create is valid only when the file is absent. If it already exists but equals the
-            // starter template, a retry after a lost response adopts it idempotently; any other
-            // existing content is a conflict, left untouched.
-            if (File.Exists(configPath))
+            // The exclusive create in LiveSession decides create/adopt/conflict atomically, so
+            // there is no File.Exists check to race here. A differing existing file is a conflict
+            // (409), left untouched; a create or idempotent adoption starts the config watcher.
+            var result = active.Session.CreateConfig(configPath);
+            if (result.Status == CreateConfigStatus.Conflict)
             {
-                if (File.ReadAllText(configPath) != ConfigStarter.Template)
-                {
-                    return Results.Conflict(
-                        new { message = "A dialogue.toml already exists — reload to edit it." });
-                }
-
-                return Results.Content(
-                    active.Session.AdoptExistingConfig(configPath), "application/json; charset=utf-8");
+                return Results.Conflict(new { message = result.Payload });
             }
 
-            var json = active.Session.CreateConfig(configPath);
-            return Results.Content(json, "application/json; charset=utf-8");
+            StartConfigWatcher(active, configPath);
+            return Results.Content(result.Payload, "application/json; charset=utf-8");
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
             return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Starts (or replaces) the watcher for the active document's newly created config so external
+    // edits to it hot-reload, unless the active document has since been swapped out.
+    private void StartConfigWatcher(ActiveDocument active, string configPath)
+    {
+        lock (_gate)
+        {
+            if (!ReferenceEquals(_active, active))
+            {
+                return;
+            }
+
+            active.ConfigWatcher?.Dispose();
+            active.ConfigWatcher = new DocumentWatcher(configPath, active.Session.RefreshConfig);
         }
     }
 
@@ -317,7 +336,11 @@ internal sealed class LauncherServer : IAsyncDisposable
         }
     }
 
-    private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher);
+    private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher)
+    {
+        /// <summary>The watcher for this document's <c>dialogue.toml</c>, once one is created.</summary>
+        public DocumentWatcher? ConfigWatcher { get; set; }
+    }
 
     private sealed record OpenRequest(string? Source, string? Mode);
 

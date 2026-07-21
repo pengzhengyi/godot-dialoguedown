@@ -22,6 +22,7 @@ internal sealed class LiveSession
     private string? _configPath;
     private CompilationVisualizer _visualizer;
     private volatile string? _lastSaved;
+    private volatile string? _lastSavedConfig;
 
     /// <summary>Creates a session for <paramref name="documentPath"/> in the given <paramref name="mode"/>.</summary>
     public LiveSession(
@@ -43,6 +44,14 @@ internal sealed class LiveSession
 
     /// <summary>The mode this session serves in (watch or live).</summary>
     public string Mode { get; }
+
+    /// <summary>
+    /// The absolute path of the configuration file this session applies, or <c>null</c> when the
+    /// document compiles on the built-in defaults. It becomes non-null once a config is created or
+    /// adopted (see <see cref="CreateConfig"/>), so the caller can start watching it for external
+    /// changes.
+    /// </summary>
+    public string? ConfigPath => _configPath;
 
     /// <summary>The event stream shared by every connected client.</summary>
     public SseBroadcaster Broadcaster { get; } = new();
@@ -84,14 +93,18 @@ internal sealed class LiveSession
     }
 
     /// <summary>
-    /// Creates a <c>dialogue.toml</c> at <paramref name="configPath"/> for a session that has
-    /// none, seeds it with the <see cref="ConfigStarter.Template">starter template</see>, adopts
-    /// it (so later saves and reloads apply it), and returns the recompiled document payload.
+    /// Creates a <c>dialogue.toml</c> at <paramref name="configPath"/> for a session that has none
+    /// and adopts it (so later saves and reloads apply it). The write is exclusive
+    /// (<see cref="FileMode.CreateNew"/>): it either creates the starter file
+    /// (<see cref="CreateConfigStatus.Created"/>), or — when a file already exists — adopts it
+    /// idempotently if it equals the starter template (<see cref="CreateConfigStatus.Adopted"/>, a
+    /// create retry after a lost response) and reports a <see cref="CreateConfigStatus.Conflict"/>
+    /// otherwise, writing nothing. <see cref="ConfigPath"/> is assigned only after a successful
+    /// creation or adoption, so a failed create leaves the no-config state unchanged for a retry.
     /// Throws <see cref="InvalidOperationException"/> when the session already has a configuration
-    /// file; the caller guards against overwriting an existing file on disk (see the server's
-    /// create route).
+    /// file.
     /// </summary>
-    public string CreateConfig(string configPath)
+    public CreateConfigResult CreateConfig(string configPath)
     {
         ArgumentNullException.ThrowIfNull(configPath);
         if (_configPath is not null)
@@ -99,24 +112,20 @@ internal sealed class LiveSession
             throw new InvalidOperationException("This session already has a configuration file.");
         }
 
-        _configPath = configPath;
-        return WithOutcome(ApplyConfig(configPath, ConfigStarter.Template), "saved");
-    }
+        try
+        {
+            using var stream = new FileStream(
+                configPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            using var writer = new StreamWriter(stream);
+            writer.Write(ConfigStarter.Template);
+        }
+        catch (IOException) when (File.Exists(configPath))
+        {
+            return AdoptOrConflict(configPath);
+        }
 
-    /// <summary>
-    /// Adopts an existing <c>dialogue.toml</c> at <paramref name="configPath"/> (whose content
-    /// already equals the starter template) without rewriting it, so a create retry after a lost
-    /// response recovers idempotently. Returns the recompiled document payload.
-    /// </summary>
-    public string AdoptExistingConfig(string configPath)
-    {
-        ArgumentNullException.ThrowIfNull(configPath);
-        var source = File.ReadAllText(configPath);
-        var options = TomlConfigurationLoader.Parse(source, configPath);
-        _configPath = configPath;
-        _visualizer = new CompilationVisualizer(
-            AppliedConfiguration.FromFile(configPath, source, options));
-        return WithOutcome(SerializeCurrent(), "saved");
+        return new CreateConfigResult(
+            CreateConfigStatus.Created, AdoptConfig(configPath, ConfigStarter.Template));
     }
 
     /// <summary>
@@ -142,6 +151,41 @@ internal sealed class LiveSession
         {
             var message = ex is FileNotFoundException or DirectoryNotFoundException
                 ? $"Document not found: {DocumentPath}"
+                : ex.Message;
+            Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message)));
+        }
+    }
+
+    /// <summary>
+    /// Recompiles with the configuration's current on-disk content and pushes a
+    /// <c>reload-config</c> to every client (a <c>problem</c> event when the file is missing or
+    /// cannot be read). A valid external config is adopted so View stays consistent for later
+    /// recompiles; an invalid one keeps the last valid report but carries the external TOML.
+    /// A change whose content matches the last config write is the browser's own write and is
+    /// skipped, so a config save does not bounce back as a reload. Does nothing when the session
+    /// has no configuration file.
+    /// </summary>
+    public void RefreshConfig()
+    {
+        if (_configPath is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var current = File.ReadAllText(_configPath);
+            if (current == _lastSavedConfig)
+            {
+                return;
+            }
+
+            Broadcaster.Broadcast(new LiveEvent("reload-config", ConfigReloadPayload(current)));
+        }
+        catch (IOException ex)
+        {
+            var message = ex is FileNotFoundException or DirectoryNotFoundException
+                ? $"Configuration not found: {_configPath}"
                 : ex.Message;
             Broadcaster.Broadcast(new LiveEvent("problem", ProblemJson(message)));
         }
@@ -175,6 +219,49 @@ internal sealed class LiveSession
 
     private static string ProblemJson(string message) =>
         JsonSerializer.Serialize(new { message });
+
+    // An exclusive create lost the race to an existing file: adopt it idempotently when it equals
+    // the starter template (a create retry after a lost response), otherwise report a conflict and
+    // leave it untouched.
+    private CreateConfigResult AdoptOrConflict(string configPath)
+    {
+        var existing = File.ReadAllText(configPath);
+        if (!string.Equals(existing, ConfigStarter.Template, StringComparison.Ordinal))
+        {
+            return new CreateConfigResult(
+                CreateConfigStatus.Conflict, "A dialogue.toml already exists — reload to edit it.");
+        }
+
+        return new CreateConfigResult(CreateConfigStatus.Adopted, AdoptConfig(configPath, existing));
+    }
+
+    // Parses and adopts an on-disk config (already written) without rewriting it, assigning
+    // _configPath only after the parse succeeds and recording it as the last self-write so the
+    // config watcher's own event is suppressed. Returns the recompiled document payload.
+    private string AdoptConfig(string configPath, string source)
+    {
+        var options = TomlConfigurationLoader.Parse(source, configPath);
+        _visualizer = new CompilationVisualizer(
+            AppliedConfiguration.FromFile(configPath, source, options));
+        _configPath = configPath;
+        _lastSavedConfig = source;
+        return WithOutcome(SerializeCurrent(), "saved");
+    }
+
+    // Builds the payload for an external config change: a valid config is adopted into the
+    // visualizer and returned as `loaded`; an invalid one keeps the last valid report and carries
+    // the external (invalid) TOML as `invalid` so the editor can show it.
+    private string ConfigReloadPayload(string source)
+    {
+        if (TryParseConfig(source, out var options, out var error))
+        {
+            _visualizer = new CompilationVisualizer(
+                AppliedConfiguration.FromFile(_configPath!, source, options!));
+            return WithOutcome(SerializeCurrent(), "loaded");
+        }
+
+        return WithConfigSource(SerializeCurrent(), source, "invalid", error);
+    }
 
     private string SaveDocument(SaveInput input)
     {
@@ -234,6 +321,9 @@ internal sealed class LiveSession
     // carrying the persisted (invalid) source so the editor can show it.
     private string RecompileConfig(string source, bool write)
     {
+        // After this call the disk equals `source`, so record it as the last self-write to
+        // suppress the config watcher's own event (see RefreshConfig).
+        _lastSavedConfig = source;
         if (write)
         {
             File.WriteAllText(_configPath!, source);
@@ -274,6 +364,7 @@ internal sealed class LiveSession
         }
 
         var source = File.ReadAllText(_configPath);
+        _lastSavedConfig = source;
         if (TryParseConfig(source, out var options, out var error))
         {
             _visualizer = new CompilationVisualizer(
@@ -301,14 +392,5 @@ internal sealed class LiveSession
             error = ex.Message;
             return false;
         }
-    }
-
-    private string ApplyConfig(string configPath, string source)
-    {
-        File.WriteAllText(configPath, source);
-        var options = TomlConfigurationLoader.Parse(source, configPath);
-        _visualizer = new CompilationVisualizer(
-            AppliedConfiguration.FromFile(configPath, source, options));
-        return _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
     }
 }

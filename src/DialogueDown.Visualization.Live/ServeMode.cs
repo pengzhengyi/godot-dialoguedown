@@ -59,6 +59,22 @@ internal static class ServeMode
         var session = new LiveSession(
             fullPath, mode, new CompilationVisualizer(configuration), configuration.File?.Path);
         await using var server = new LiveVisualizationServer(session, port ?? 0, serveRoot);
+
+        // Watch the dialogue document, and its dialogue.toml when one applies. The config watcher
+        // is re-armed if a config is created at runtime (the Config tab's no-config create action).
+        var configWatcherGate = new object();
+        DocumentWatcher? configWatcher = session.ConfigPath is { } configPath
+            ? new DocumentWatcher(configPath, session.RefreshConfig)
+            : null;
+        server.ConfigCreated = createdPath =>
+        {
+            lock (configWatcherGate)
+            {
+                configWatcher?.Dispose();
+                configWatcher = new DocumentWatcher(createdPath, session.RefreshConfig);
+            }
+        };
+
         await server.StartAsync();
         using var watcher = new DocumentWatcher(fullPath, session.Refresh);
 
@@ -75,7 +91,17 @@ internal static class ServeMode
         // rather than throwing, so shutdown is not an exceptional path.
         var stopped = new TaskCompletionSource();
         await using var registration = cancellationToken.Register(() => stopped.TrySetResult());
-        await stopped.Task;
+        try
+        {
+            await stopped.Task;
+        }
+        finally
+        {
+            lock (configWatcherGate)
+            {
+                configWatcher?.Dispose();
+            }
+        }
 
         return 0;
     }

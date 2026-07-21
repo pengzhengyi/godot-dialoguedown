@@ -44,6 +44,13 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
     /// <summary>The URL of the report itself — <see cref="BaseUrl"/> plus the report path.</summary>
     public string ReportUrl => BaseUrl.TrimEnd('/') + (_serveRoot?.ReportPath ?? "/");
 
+    /// <summary>
+    /// Invoked with the configuration path after a create-config request first creates or adopts a
+    /// <c>dialogue.toml</c>, so the host can start watching it for external changes. Not raised for
+    /// a conflict (nothing was created).
+    /// </summary>
+    public Action<string>? ConfigCreated { get; set; }
+
     /// <summary>Starts listening.</summary>
     public Task StartAsync() => _app.StartAsync();
 
@@ -176,23 +183,17 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         var configPath = Path.Combine(root, ConfigurationFile.DefaultName);
         try
         {
-            // A create is valid only when the file is absent. If it already exists but equals the
-            // starter template, a retry after a lost response adopts it idempotently; any other
-            // existing content is a conflict, left untouched.
-            if (File.Exists(configPath))
+            // The exclusive create in LiveSession decides create/adopt/conflict atomically, so
+            // there is no File.Exists check to race here. A differing existing file is a conflict
+            // (409), left untouched; a create or idempotent adoption starts the config watcher.
+            var result = _session.CreateConfig(configPath);
+            if (result.Status == CreateConfigStatus.Conflict)
             {
-                if (File.ReadAllText(configPath) != ConfigStarter.Template)
-                {
-                    return Results.Conflict(
-                        new { message = "A dialogue.toml already exists — reload to edit it." });
-                }
-
-                return Results.Content(
-                    _session.AdoptExistingConfig(configPath), "application/json; charset=utf-8");
+                return Results.Conflict(new { message = result.Payload });
             }
 
-            var json = _session.CreateConfig(configPath);
-            return Results.Content(json, "application/json; charset=utf-8");
+            ConfigCreated?.Invoke(configPath);
+            return Results.Content(result.Payload, "application/json; charset=utf-8");
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {

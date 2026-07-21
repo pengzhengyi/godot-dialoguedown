@@ -277,11 +277,13 @@ public sealed class LiveSessionTests
         var session = new LiveSession(docPath, VisualizationMode.Edit); // no configuration
         var configPath = Path.Combine(tree.Root, "dialogue.toml");
 
-        var json = session.CreateConfig(configPath);
+        var result = session.CreateConfig(configPath);
 
+        Assert.Equal(CreateConfigStatus.Created, result.Status);
         Assert.True(File.Exists(configPath));
         Assert.Contains("[[speakers]]", File.ReadAllText(configPath));
-        Assert.Contains("\"outcome\":\"saved\"", json);
+        Assert.Contains("\"outcome\":\"saved\"", result.Payload);
+        Assert.Equal(configPath, session.ConfigPath); // adopted: the session now applies it
         // Adopted: a later baseline-checked save recompiles with the new speaker.
         var saved = session.Save(
             new SaveInput(Speaker("Bob", "B"), "config", ConfigStarter.Template, "require-valid"));
@@ -290,17 +292,51 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
-    public void AdoptExistingConfig_TemplateOnDisk_AdoptsWithoutRewriting()
+    public void CreateConfig_ExistingTemplateOnDisk_AdoptsWithoutRewriting()
     {
         using var tree = new TempTree();
         var docPath = tree.File("scene.dialogue.md", "# Scene");
         var configPath = tree.File("dialogue.toml", ConfigStarter.Template);
         var session = new LiveSession(docPath, VisualizationMode.Edit);
 
-        var json = session.AdoptExistingConfig(configPath);
+        var result = session.CreateConfig(configPath);
 
-        Assert.Contains("\"outcome\":\"saved\"", json);
-        Assert.Contains("dialogue.toml", json); // the payload now carries the configuration file
+        Assert.Equal(CreateConfigStatus.Adopted, result.Status);
+        Assert.Contains("\"outcome\":\"saved\"", result.Payload);
+        Assert.Contains("dialogue.toml", result.Payload); // the payload now carries the configuration file
+        Assert.Equal(configPath, session.ConfigPath);
+    }
+
+    [Fact]
+    public void CreateConfig_ExistingDifferentContent_ReturnsConflictAndLeavesItUntouched()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene");
+        var configPath = tree.File("dialogue.toml", "# hand-written\n");
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+
+        var result = session.CreateConfig(configPath);
+
+        Assert.Equal(CreateConfigStatus.Conflict, result.Status);
+        Assert.Equal("# hand-written\n", File.ReadAllText(configPath)); // untouched
+        Assert.Null(session.ConfigPath); // no config adopted
+    }
+
+    [Fact]
+    public void CreateConfig_WriteFails_LeavesNoConfigStateAndRetrySucceeds()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene");
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+        var missingDirectory = Path.Combine(tree.Root, "nope", "dialogue.toml");
+
+        // The containing folder does not exist, so the exclusive create throws before writing.
+        Assert.Throws<DirectoryNotFoundException>(() => session.CreateConfig(missingDirectory));
+        Assert.Null(session.ConfigPath); // the no-config state is unchanged
+
+        // A retry at a valid path still succeeds: _configPath never mutated on the failed attempt.
+        var result = session.CreateConfig(Path.Combine(tree.Root, "dialogue.toml"));
+        Assert.Equal(CreateConfigStatus.Created, result.Status);
     }
 
     [Fact]
@@ -313,6 +349,51 @@ public sealed class LiveSessionTests
 
         Assert.Throws<InvalidOperationException>(
             () => session.CreateConfig(Path.Combine(tree.Root, "other.toml")));
+    }
+
+    [Fact]
+    public void RefreshConfig_ExternalChange_BroadcastsAReloadConfigWithTheDiskContent()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var configPath = tree.File("dialogue.toml", Speaker("Alice", "A"));
+        var session = ConfiguredSession(docPath, configPath);
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+        File.WriteAllText(configPath, Speaker("External", "E"));
+
+        session.RefreshConfig();
+
+        Assert.True(reader.TryRead(out var received));
+        Assert.Equal("reload-config", received!.Event);
+        Assert.Contains("External", received.Data);
+    }
+
+    [Fact]
+    public void RefreshConfig_AfterSave_SuppressesTheSelfTriggeredReload()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        var valid = Speaker("Alice", "A");
+        var configPath = tree.File("dialogue.toml", valid);
+        var session = ConfiguredSession(docPath, configPath);
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        session.Save(new SaveInput(Speaker("Bob", "B"), "config", valid, "require-valid"));
+        session.RefreshConfig(); // the watcher firing for the browser's own config write
+
+        Assert.False(reader.TryRead(out _));
+    }
+
+    [Fact]
+    public void RefreshConfig_WithoutAConfigFile_DoesNothing()
+    {
+        using var doc = new TempDocument("# Scene");
+        var session = new LiveSession(doc.Path, VisualizationMode.Edit);
+        using var subscription = session.Broadcaster.Subscribe(out var reader);
+
+        session.RefreshConfig();
+
+        Assert.False(reader.TryRead(out _));
     }
 
     private static LiveSession ConfiguredSession(string docPath, string configPath)

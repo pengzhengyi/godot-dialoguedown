@@ -117,3 +117,22 @@ test("a saved config id feeds the Source editor's @-autocomplete", async ({ page
     await expect(page.locator(".cm-tooltip-autocomplete")).toBeVisible();
     await expect(page.locator(".cm-tooltip-autocomplete li")).toContainText(["ZED"]);
 });
+
+test("an external dialogue.toml change pauses the config in Conflict, and Reload adopts it", async ({
+    page,
+}) => {
+    await page.goto(base);
+    await page.locator(".tab", { hasText: "Config" }).click();
+    await expect(page.locator(".config-speakers-table")).toContainText("Alice");
+
+    // Change dialogue.toml from outside the editor: the config watcher hot-reloads it, and in
+    // Edit the config controller pauses in Conflict rather than clobbering the buffer.
+    writeFileSync(CONFIG_EDIT_TOML, CONFIG_EDIT_CONFIG + BOB);
+    await expect(page.locator(".save-status[data-status='conflict']")).toBeVisible();
+    await expect(page.locator(".reload-button")).toBeVisible();
+
+    // Reload adopts the external config as the new baseline and refreshes the speakers.
+    await page.locator(".reload-button").click();
+    await expect(page.locator(".save-status[data-status='saved']")).toBeVisible();
+    await expect(page.locator(".config-speakers-table")).toContainText("Bob");
+});

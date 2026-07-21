@@ -13,7 +13,7 @@ class FakeEventSource {
 }
 
 function setup() {
-    const handlers = { onReload: vi.fn(), onProblem: vi.fn() };
+    const handlers = { onReload: vi.fn(), onReloadConfig: vi.fn(), onProblem: vi.fn() };
     const source = new FakeEventSource();
     const returned = watchServerEvents(handlers, () => source as unknown as EventSource);
     return { handlers, source, returned };
@@ -28,6 +28,16 @@ describe("watchServerEvents", () => {
 
         expect(handlers.onReload).toHaveBeenCalledWith(report);
         expect(handlers.onProblem).not.toHaveBeenCalled();
+    });
+
+    it("routes a reload-config event's report to onReloadConfig", () => {
+        const { handlers, source } = setup();
+        const report = { path: "s.dialogue.md", stages: [], outcome: "loaded" };
+
+        source.emit("reload-config", JSON.stringify(report));
+
+        expect(handlers.onReloadConfig).toHaveBeenCalledWith(report);
+        expect(handlers.onReload).not.toHaveBeenCalled();
     });
 
     it("routes a problem event's message to onProblem", () => {
@@ -55,7 +65,7 @@ describe("watchServerEvents", () => {
             addEventListener(): void {}
         };
         try {
-            watchServerEvents({ onReload: vi.fn(), onProblem: vi.fn() });
+            watchServerEvents({ onReload: vi.fn(), onReloadConfig: vi.fn(), onProblem: vi.fn() });
             expect(created).toEqual(["/api/events"]);
         } finally {
             globalThis.EventSource = RealEventSource;

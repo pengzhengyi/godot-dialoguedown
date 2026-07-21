@@ -105,16 +105,19 @@ internal sealed class LiveSession
     /// Creates a <c>dialogue.toml</c> at <paramref name="configPath"/> for a session that has none
     /// and adopts it (so later saves and reloads apply it). The write is exclusive
     /// (<see cref="FileMode.CreateNew"/>): it either creates the starter file
-    /// (<see cref="CreateConfigStatus.Created"/>), or — when a file already exists — adopts it
-    /// idempotently if it equals the starter template (<see cref="CreateConfigStatus.Adopted"/>, a
-    /// create retry after a lost response) and reports a <see cref="CreateConfigStatus.Conflict"/>
-    /// otherwise, writing nothing. <see cref="ConfigPath"/> is assigned only after a successful
-    /// creation or adoption, so a failed create leaves the no-config state unchanged for a retry.
-    /// A retry that arrives after this session already adopted the same <paramref name="configPath"/>
-    /// (its first response was lost) is idempotent while the file is still the untouched starter
-    /// template and a <see cref="CreateConfigStatus.Conflict"/> once the content diverges. Throws
-    /// <see cref="InvalidOperationException"/> when the session already has a <em>different</em>
-    /// configuration file.
+    /// (<see cref="CreateConfigStatus.Created"/>), or — when a file already exists — adopts it. An
+    /// existing file equal to the starter template is adopted idempotently
+    /// (<see cref="CreateConfigStatus.Adopted"/>, a create retry after a lost response); a
+    /// <em>different</em> pre-existing file is adopted without overwriting it
+    /// (<see cref="CreateConfigStatus.AdoptedExisting"/>) — valid TOML into the visualizer, invalid
+    /// TOML as saved-invalid — so a config-less session recovers into the existing configuration
+    /// rather than a dead end. <see cref="ConfigPath"/> is assigned only after a successful creation
+    /// or adoption, so a failed create leaves the no-config state unchanged for a retry. A retry that
+    /// arrives after this session already adopted the same <paramref name="configPath"/> (its first
+    /// response was lost) is idempotent while the file is still the untouched starter template and a
+    /// <see cref="CreateConfigStatus.Conflict"/> once the content diverges (the session already
+    /// applies the file, so a reload opens it). Throws <see cref="InvalidOperationException"/> when
+    /// the session already has a <em>different</em> configuration file.
     /// </summary>
     public CreateConfigResult CreateConfig(string configPath)
     {
@@ -137,7 +140,10 @@ internal sealed class LiveSession
         }
         catch (IOException) when (File.Exists(configPath))
         {
-            return AdoptOrConflict(configPath);
+            // A dialogue.toml already exists at the serve root: adopt it as recovery rather than
+            // leaving the session config-less. An untouched starter template is a lost-create-response
+            // adoption; any other content is an existing configuration adopted without overwriting.
+            return AdoptExisting(configPath);
         }
 
         return new CreateConfigResult(
@@ -252,9 +258,9 @@ internal sealed class LiveSession
     private static bool PathsEqual(string left, string right) =>
         string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.Ordinal);
 
-    // An exclusive create lost the race to an existing file: adopt it idempotently when it equals
-    // the starter template (a create retry after a lost response), otherwise report a conflict and
-    // leave it untouched.
+    // A create retry for the config this session already adopted lost the race to the existing file:
+    // adopt it idempotently when it is still the starter template, otherwise report a conflict (the
+    // session already applies the file, so a reload opens it) and leave it untouched.
     private CreateConfigResult AdoptOrConflict(string configPath)
     {
         var existing = File.ReadAllText(configPath);
@@ -267,6 +273,22 @@ internal sealed class LiveSession
         return new CreateConfigResult(CreateConfigStatus.Adopted, AdoptConfig(configPath, existing));
     }
 
+    // A config-less session's create lost the race to a pre-existing file: adopt it without
+    // overwriting. An untouched starter template is a lost-create-response adoption; any other
+    // content is an existing configuration adopted as recovery (valid, or saved-invalid) so the
+    // session is no longer config-less and the frontend can reload and open it.
+    private CreateConfigResult AdoptExisting(string configPath)
+    {
+        var existing = File.ReadAllText(configPath);
+        if (string.Equals(existing, ConfigStarter.Template, StringComparison.Ordinal))
+        {
+            return new CreateConfigResult(CreateConfigStatus.Adopted, AdoptConfig(configPath, existing));
+        }
+
+        return new CreateConfigResult(
+            CreateConfigStatus.AdoptedExisting, AdoptExistingConfig(configPath, existing));
+    }
+
     // Parses and adopts an on-disk config (already written) without rewriting it, assigning
     // _configPath only after the parse succeeds and recording it as the last self-write so the
     // config watcher's own event is suppressed. Returns the recompiled document payload.
@@ -277,6 +299,24 @@ internal sealed class LiveSession
         AdoptValidConfig(source, options);
         _lastSavedConfig = source;
         return WithOutcome(SerializeCurrent(), "saved");
+    }
+
+    // Adopts a differing pre-existing config without rewriting it: valid TOML is adopted into the
+    // visualizer and returned as `adopted`; invalid TOML keeps the last valid report and is recorded
+    // as saved-invalid, returned as `adopted-invalid` carrying the (invalid) source so a reloaded
+    // page can open it. _configPath is assigned so the session is no longer config-less.
+    private string AdoptExistingConfig(string configPath, string source)
+    {
+        _configPath = configPath;
+        _lastSavedConfig = source;
+        if (TryParseConfig(source, out var options, out var error))
+        {
+            AdoptValidConfig(source, options!);
+            return WithOutcome(SerializeCurrent(), "adopted");
+        }
+
+        RecordInvalidConfig(source, error);
+        return WithConfigSource(SerializeCurrent(), source, "adopted-invalid", error);
     }
 
     // Builds the payload for an external config change: a valid config is adopted into the

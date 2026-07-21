@@ -170,7 +170,9 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
     // Creates a dialogue.toml at the serve root for a session that has none, then returns the
     // recompiled payload (now carrying the configuration). The path is composed server-side
     // from the known serve root — never from the request — so no request value reaches the
-    // filesystem. An existing file is a conflict (409), left untouched; a write failure is 400.
+    // filesystem. A pre-existing file is adopted as recovery (200) so the session is no longer
+    // config-less; only an already-adopted file that diverged is a conflict (409); a write failure
+    // is 400.
     private IResult CreateConfig()
     {
         var root = _serveRoot?.RootDirectory
@@ -184,8 +186,10 @@ internal sealed class LiveVisualizationServer : IAsyncDisposable
         try
         {
             // The exclusive create in LiveSession decides create/adopt/conflict atomically, so
-            // there is no File.Exists check to race here. A differing existing file is a conflict
-            // (409), left untouched; a create or idempotent adoption starts the config watcher.
+            // there is no File.Exists check to race here. A create, an idempotent adoption, or a
+            // differing pre-existing file adopted as recovery (AdoptedExisting) starts the config
+            // watcher and returns 200; only a retry of an already-adopted file that diverged is a
+            // conflict (409), left untouched.
             var result = _session.CreateConfig(configPath);
             if (result.Status == CreateConfigStatus.Conflict)
             {

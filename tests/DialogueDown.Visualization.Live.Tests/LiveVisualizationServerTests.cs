@@ -224,7 +224,7 @@ public sealed class LiveVisualizationServerTests
     }
 
     [Fact]
-    public async Task CreateConfig_WhenAConfigAlreadyExists_Returns409AndLeavesItUntouched()
+    public async Task CreateConfig_WhenADifferentConfigExists_AdoptsItAndReturnsTheConfiguredPayload()
     {
         using var tree = new TempTree();
         var documentPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
@@ -236,8 +236,13 @@ public sealed class LiveVisualizationServerTests
 
         var response = await client.PostAsync("/api/create-config", content: null);
 
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        // A config-less session recovers into the existing file: it is adopted (200), left
+        // untouched, and the payload carries the configuration so the reloaded page opens it.
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("# hand-written\n", File.ReadAllText(existing)); // left untouched
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("dialogue.toml", json);
+        Assert.Contains("\"outcome\":\"adopted\"", json);
     }
 
     [Fact]

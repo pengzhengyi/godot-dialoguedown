@@ -52,6 +52,16 @@ export const CONFIG_CREATE_DOC = join(CONFIG_CREATE_TREE, "scene.dialogue.md");
 export const CONFIG_CREATE_TOML = join(CONFIG_CREATE_TREE, "dialogue.toml");
 export const CONFIG_CREATE_SOURCE = "# Scene\n\nAlice: Hello.\n";
 
+// A config-adopt server: like config-create (no `dialogue.toml` at launch, served in --edit) but
+// the spec drops a *different* pre-existing config on disk before clicking Create. The server then
+// adopts that file instead of failing, so the no-config session recovers into the existing config.
+export const CONFIG_ADOPT_PORT = 5184;
+export const CONFIG_ADOPT_TREE = join(here, ".config-adopt-tree");
+export const CONFIG_ADOPT_DOC = join(CONFIG_ADOPT_TREE, "scene.dialogue.md");
+export const CONFIG_ADOPT_TOML = join(CONFIG_ADOPT_TREE, "dialogue.toml");
+export const CONFIG_ADOPT_SOURCE = "# Scene\n\nAlice: Hello.\n";
+export const CONFIG_ADOPT_CONFIG = '[[speakers]]\nname = "Zelda"\nid = "Z"\n';
+
 // Semantic-autocomplete owns its document because the test replaces the editor buffer.
 // Sharing LIVE_EDIT_DOC let this spec race live-edit.spec.ts when Playwright ran files in
 // parallel.

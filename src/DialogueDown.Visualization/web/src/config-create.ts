@@ -10,17 +10,27 @@ export interface ConfigCreatePorts {
 }
 
 /**
- * Create a `dialogue.toml` for a project that has none. On success it flags the reloaded page
- * to open on the Config tab and reloads (the reloaded report carries the new configuration, so
- * the Config tab becomes the Stage 2 editor). On failure it throws with a reader-facing message
- * — a `409` means one already exists, so the reader is told to reload and edit it.
+ * How a successful create-config settled: a starter `dialogue.toml` was `created`, or a different
+ * pre-existing file was `adopted` as recovery. Both open the Config tab after the reload; the
+ * distinction lets a caller phrase the notice differently.
  */
-export async function createConfig(ports: ConfigCreatePorts): Promise<void> {
+export type ConfigCreateOutcome = "created" | "adopted";
+
+/**
+ * Create a `dialogue.toml` for a project that has none. On success it flags the reloaded page
+ * to open on the Config tab and reloads (the reloaded report carries the configuration, so the
+ * Config tab becomes the Stage 2 editor). When a different config already exists the server adopts
+ * it without overwriting rather than failing, so this still succeeds — reported as `adopted` — and
+ * the reloaded page opens the existing Config. Only a genuine failure (a write error, or a retry of
+ * an already-adopted file that diverged) throws with a reader-facing message.
+ */
+export async function createConfig(ports: ConfigCreatePorts): Promise<ConfigCreateOutcome> {
     const response = await ports.post();
     if (response.ok) {
+        const outcome = await readOutcome(response);
         rememberOpenConfigTab();
         ports.reload();
-        return;
+        return outcome;
     }
     throw new Error(await errorMessage(response));
 }
@@ -55,7 +65,19 @@ async function errorMessage(response: Response): Promise<string> {
         const body = (await response.json()) as { message?: string };
         return body.message ?? fallback;
     } catch {
-        return fallback;
+        // A blocked or empty body just falls back to the generic message.
+    }
+    return fallback;
+}
+
+// A `dialogue.toml` that already existed and was adopted comes back with an `adopted*` outcome; a
+// freshly written starter comes back as `saved`. Anything unreadable is treated as a plain create.
+async function readOutcome(response: Response): Promise<ConfigCreateOutcome> {
+    try {
+        const body = (await response.json()) as { outcome?: string };
+        return body.outcome?.startsWith("adopted") ? "adopted" : "created";
+    } catch {
+        return "created";
     }
 }
 

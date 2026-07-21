@@ -446,7 +446,7 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
-    public void CreateConfig_ExistingDifferentContent_ReturnsConflictAndLeavesItUntouched()
+    public void CreateConfig_ExistingDifferentContent_AdoptsItWithoutOverwriting()
     {
         using var tree = new TempTree();
         var docPath = tree.File("scene.dialogue.md", "# Scene");
@@ -455,9 +455,33 @@ public sealed class LiveSessionTests
 
         var result = session.CreateConfig(configPath);
 
-        Assert.Equal(CreateConfigStatus.Conflict, result.Status);
+        // A config-less session recovers into the existing file rather than a dead end: it is
+        // adopted without overwriting, ConfigPath is set, and the payload lets the frontend open it.
+        Assert.Equal(CreateConfigStatus.AdoptedExisting, result.Status);
         Assert.Equal("# hand-written\n", File.ReadAllText(configPath)); // untouched
-        Assert.Null(session.ConfigPath); // no config adopted
+        Assert.Equal(configPath, session.ConfigPath); // no longer config-less
+        Assert.Contains("\"outcome\":\"adopted\"", result.Payload);
+    }
+
+    [Fact]
+    public void CreateConfig_ExistingInvalidContent_AdoptsAsSavedInvalid()
+    {
+        using var tree = new TempTree();
+        var docPath = tree.File("scene.dialogue.md", "# Scene");
+        var invalid = "[[speakers]]\nbogus = true\n";
+        var configPath = tree.File("dialogue.toml", invalid);
+        var session = new LiveSession(docPath, VisualizationMode.Edit);
+
+        var result = session.CreateConfig(configPath);
+
+        Assert.Equal(CreateConfigStatus.AdoptedExisting, result.Status);
+        Assert.Equal(invalid, File.ReadAllText(configPath)); // untouched
+        Assert.Equal(configPath, session.ConfigPath);
+        Assert.Contains("\"outcome\":\"adopted-invalid\"", result.Payload);
+        Assert.Contains("bogus", result.Payload); // the invalid source for the editor
+
+        // The saved-invalid state persists so a page reload restores it (the overlay marks it).
+        Assert.Contains("\"configStatus\":\"saved-invalid\"", session.CurrentDocumentJson());
     }
 
     [Fact]

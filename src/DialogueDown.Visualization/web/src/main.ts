@@ -105,7 +105,9 @@ if (report.mode === "view" || report.mode === "edit") {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
         configOnChange: (buffer) => controller.onConfigEditorChange(buffer),
-        onCreateConfig: () => createConfig(browserConfigCreatePorts()),
+        onCreateConfig: async () => {
+            await createConfig(browserConfigCreatePorts());
+        },
         beginNavigation,
         onActiveTabChange: () => {
             if (controllersReady) ui.reflectActiveDocument();

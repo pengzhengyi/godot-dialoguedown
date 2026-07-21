@@ -272,8 +272,10 @@ internal sealed class LauncherServer : IAsyncDisposable
         try
         {
             // The exclusive create in LiveSession decides create/adopt/conflict atomically, so
-            // there is no File.Exists check to race here. A differing existing file is a conflict
-            // (409), left untouched; a create or idempotent adoption starts the config watcher.
+            // there is no File.Exists check to race here. A create, an idempotent adoption, or a
+            // differing pre-existing file adopted as recovery (AdoptedExisting) starts the config
+            // watcher and returns 200; only a retry of an already-adopted file that diverged is a
+            // conflict (409), left untouched.
             var result = active.Session.CreateConfig(configPath);
             if (result.Status == CreateConfigStatus.Conflict)
             {

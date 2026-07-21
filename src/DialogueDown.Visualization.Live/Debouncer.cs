@@ -18,10 +18,12 @@ internal sealed class Debouncer : IDisposable
     private readonly ITimer _timer;
     private readonly object _gate = new();
 
-    // Whether the action is running now, and whether a trigger arrived during that run and still
-    // needs one follow-up run once it finishes.
+    // Whether the action is running now, whether a trigger arrived during that run and still needs
+    // one follow-up run once it finishes, and whether the debouncer has been disposed. All three are
+    // read and written only under _gate, so Trigger, Fire, and Dispose never race the timer.
     private bool _running;
     private bool _pending;
+    private bool _disposed;
 
     /// <summary>
     /// Fires <paramref name="action"/> once triggers stay quiet for <paramref name="delay"/>.
@@ -42,37 +44,54 @@ internal sealed class Debouncer : IDisposable
     {
         lock (_gate)
         {
-            if (_running)
+            if (_disposed || _running)
             {
-                // A change during a run: remember it and let the current run finish, then run once
-                // more — never a second concurrent run.
-                _pending = true;
+                // After disposal, drop the trigger entirely; during a run, remember it and let the
+                // current run finish, then run once more — never a second concurrent run and never
+                // a rearm of a disposed timer.
+                _pending = _running && !_disposed;
                 return;
             }
-        }
 
-        _timer.Change(_delay, Timeout.InfiniteTimeSpan);
+            // Arm under the gate so a concurrent Dispose cannot slip in and dispose the timer
+            // between the disposed check and the Change call.
+            _timer.Change(_delay, Timeout.InfiniteTimeSpan);
+        }
     }
 
     /// <inheritdoc />
-    public void Dispose() => _timer.Dispose();
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+        }
+
+        _timer.Dispose();
+    }
 
     private void Fire()
     {
         lock (_gate)
         {
-            if (_running)
+            if (_disposed || _running)
             {
-                // The timer fired while a run is still in progress (a race with Trigger): coalesce
-                // it into one follow-up rather than running concurrently.
-                _pending = true;
+                // Disposed, or the timer fired while a run is still in progress (a race with
+                // Trigger): coalesce into one follow-up rather than running concurrently, and never
+                // start a run after disposal.
+                _pending = _running && !_disposed;
                 return;
             }
 
             _running = true;
         }
 
-        bool followUp = false;
+        bool followUp;
         try
         {
             _action();
@@ -91,8 +110,15 @@ internal sealed class Debouncer : IDisposable
 
         if (followUp)
         {
-            // Re-arm the debounce for the change that arrived during the run.
-            _timer.Change(_delay, Timeout.InfiniteTimeSpan);
+            // Re-arm the debounce for the change that arrived during the run, but only under the
+            // gate and only if a concurrent Dispose has not already retired the timer.
+            lock (_gate)
+            {
+                if (!_disposed)
+                {
+                    _timer.Change(_delay, Timeout.InfiniteTimeSpan);
+                }
+            }
         }
     }
 }

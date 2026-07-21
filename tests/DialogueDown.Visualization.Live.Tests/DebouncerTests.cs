@@ -147,6 +147,94 @@ public sealed class DebouncerTests
         debouncer.Dispose();
     }
 
+    [Fact]
+    public void Trigger_AfterDispose_DoesNotRearmTheDisposedTimer()
+    {
+        var provider = new ManualTimeProvider();
+        var runs = 0;
+        var debouncer = new Debouncer(TimeSpan.FromMilliseconds(10), () => runs++, provider);
+        var timer = provider.Timer!;
+
+        debouncer.Dispose();
+        var changesBefore = timer.ChangeCount;
+        debouncer.Trigger(); // a change that lands after disposal
+
+        Assert.Equal(changesBefore, timer.ChangeCount); // the disposed timer is never re-armed
+        Assert.False(timer.ChangedWhileDisposed);
+        Assert.Equal(0, runs);
+    }
+
+    [Fact]
+    public void Fire_AfterDispose_DoesNotRunTheAction()
+    {
+        // A timer callback already queued when Dispose lands must not run the action afterward.
+        var provider = new ManualTimeProvider();
+        var runs = 0;
+        var debouncer = new Debouncer(TimeSpan.FromMilliseconds(10), () => runs++, provider);
+        var timer = provider.Timer!;
+
+        debouncer.Dispose();
+        timer.Fire(); // a late callback races the disposal
+
+        Assert.Equal(0, runs);
+    }
+
+    [Fact]
+    public void Dispose_DuringARun_SkipsTheCoalescedRearm()
+    {
+        // A change arrives mid-run (coalesced into a follow-up), but Dispose lands before the run
+        // finishes: the follow-up rearm must be skipped rather than call Change on a disposed timer.
+        var provider = new ManualTimeProvider();
+        var runs = 0;
+        Debouncer? debouncer = null;
+        debouncer = new Debouncer(TimeSpan.FromMilliseconds(10), () =>
+        {
+            runs++;
+            if (runs == 1)
+            {
+                debouncer!.Trigger(); // coalesced into a pending follow-up
+                debouncer!.Dispose(); // ...but disposal lands before the run returns
+            }
+        }, provider);
+        var timer = provider.Timer!;
+
+        var changesBefore = timer.ChangeCount;
+        timer.Fire();
+
+        Assert.Equal(1, runs); // no follow-up run
+        Assert.Equal(changesBefore, timer.ChangeCount); // the pending follow-up never re-arms
+        Assert.False(timer.ChangedWhileDisposed);
+    }
+
+    [Fact]
+    public async Task Dispose_RacingConcurrentTriggers_NeverThrows()
+    {
+        // The production race: many watcher events call Trigger while the host disposes the
+        // debouncer. Arming under the gate with a disposed flag keeps a trigger from ever calling
+        // Change on a disposed timer (which would throw ObjectDisposedException).
+        for (var iteration = 0; iteration < 50; iteration++)
+        {
+            var debouncer = new Debouncer(TimeSpan.FromMilliseconds(1), () => { });
+            using var start = new ManualResetEventSlim();
+            var triggers = Enumerable.Range(0, 4).Select(_ => Task.Run(() =>
+            {
+                start.Wait();
+                for (var i = 0; i < 200; i++)
+                {
+                    debouncer.Trigger();
+                }
+            })).ToArray();
+            var disposal = Task.Run(() =>
+            {
+                start.Wait();
+                debouncer.Dispose();
+            });
+
+            start.Set();
+            await Task.WhenAll(triggers.Append(disposal)); // no ObjectDisposedException escapes
+        }
+    }
+
     // A time provider whose single timer fires only when the test calls Fire(), and that records
     // how many times it was (re-)armed — enough to drive the debounce deterministically, including
     // a callback that throws, without depending on a fake clock's post-throw behavior.
@@ -163,18 +251,30 @@ public sealed class DebouncerTests
     {
         public int ChangeCount { get; private set; }
 
+        public bool Disposed { get; private set; }
+
+        // Set if Change is ever called after Dispose — the exact bug the gate must prevent.
+        public bool ChangedWhileDisposed { get; private set; }
+
         public bool Change(TimeSpan dueTime, TimeSpan period)
         {
             ChangeCount++;
+            if (Disposed)
+            {
+                ChangedWhileDisposed = true;
+            }
+
             return true;
         }
 
         public void Fire() => callback(state);
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() => Disposed = true;
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            return ValueTask.CompletedTask;
+        }
     }
 }

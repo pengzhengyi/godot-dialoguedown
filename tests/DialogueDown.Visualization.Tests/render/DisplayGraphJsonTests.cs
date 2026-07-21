@@ -1,4 +1,5 @@
 using DialogueDown.Visualization.Diagnostics;
+using DialogueDown.Visualization.Lsp;
 using static DialogueDown.Visualization.Tests.Support.Display;
 
 namespace DialogueDown.Visualization.Tests.Render;

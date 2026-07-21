@@ -1,4 +1,4 @@
-namespace DialogueDown.Visualization.Diagnostics;
+namespace DialogueDown.Visualization.Lsp;
 
 /// <summary>
 /// A half-open source range as the Language Server Protocol defines it — a <see cref="Start"/>

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using DialogueDown.Visualization.Lsp;
 
 namespace DialogueDown.Visualization.Diagnostics;
 

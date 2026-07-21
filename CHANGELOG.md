@@ -25,6 +25,13 @@ changes easy to categorize.
   built on a reusable, LSP-shaped diagnostic projection, laying the groundwork for a future language
   server and editor extension. See the
   [Diagnostics Overlay](docs/contributing/design-notes/Diagnostics%20Overlay.md) note.
+- **Dialogue highlighting and grammar-correct completions in the visualization editor** — the
+  report's source editor now colors dialogue as you read and write it — speakers, tags, and jump
+  indicators — over the Markdown, and its completions for speakers, `@id`s, `#tag`s, and jump
+  targets are drawn from the compiler itself, so a suggestion can never be a name the compiler
+  would reject. Both are projected from the compiler's own parse instead of a second grammar in
+  the browser, sharing the LSP-shaped groundwork laid for a future language server. See the
+  [Compiler-Projected Editor Semantics](docs/contributing/design-notes/Compiler-Projected%20Editor%20Semantics.md) note.
 - **Set the compilation mode per project** — a `dialogue.toml` can now choose how far a compile
   proceeds after an error (`mode = "stage-boundary"` or `"best-effort"`), and the visualization's
   Config tab shows, edits, and autocompletes it. The CLI `--mode` still overrides the project

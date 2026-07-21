@@ -1,7 +1,8 @@
 # Compiler-Projected Editor Semantics
 
 > [!NOTE]
-> Status: **proposed / draft** — awaiting review. Unifies syntax highlighting
+> Status: **implemented** — the `visualize` source editor highlights dialogue and completes
+> from the compiler's projected semantics. Unifies syntax highlighting
 > ([#115](https://github.com/pengzhengyi/godot-dialoguedown/issues/115)) and completion
 > alignment ([#118](https://github.com/pengzhengyi/godot-dialoguedown/issues/118)) under one
 > principle: the **compiler is the single source of truth** for the dialogue grammar, and the

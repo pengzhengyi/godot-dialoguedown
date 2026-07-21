@@ -129,6 +129,7 @@ flowchart TB
     CFGAC --> CFGCN["16. Configuration Tab — Create New"]
     CFGCN --> UST["17. Unavailable Stage Tabs"]
     UST --> DGO["18. Diagnostics Overlay"]
+    DGO --> CPE["19. Compiler-Projected Editor Semantics"]
 ```
 
 | Order | Note | What it covers | Status |
@@ -151,6 +152,7 @@ flowchart TB
 | 16 | [Configuration Tab — Create New](./Configuration%20Tab%20-%20Create%20New.md) | Create a `dialogue.toml` in place when a project has none, then drop into the editable Config tab (Stage 3) | Implemented |
 | 17 | [Unavailable Stage Tabs](./Unavailable%20Stage%20Tabs.md) | A halted compile renders its unproduced stages as disabled tabs, so a broken script still shows what it did produce | Implemented |
 | 18 | [Diagnostics Overlay](./Diagnostics%20Overlay.md) | The compiler's diagnostics as a source-editor overlay — squiggles, gutter markers, and doc-linked tooltips — on a reusable LSP-shaped projection | Implemented |
+| 19 | [Compiler-Projected Editor Semantics](./Compiler-Projected%20Editor%20Semantics.md) | Source-editor highlighting and completions projected from the compiler's own parse (semantic tokens + resolved symbols), retiring the client-side grammar | Implemented |
 
 ### Other notes
 

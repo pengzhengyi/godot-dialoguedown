@@ -45,6 +45,24 @@ public sealed class ScriptNodeExtensionsTests
     }
 
     [Fact]
+    public void Children_RandomChoices_YieldsOptions()
+    {
+        var option = RandomOption(new NumberWeight(50), Line(Text("heads")));
+        var random = RandomChoiceGroup(option);
+
+        Assert.Equal([option], random.Children());
+    }
+
+    [Fact]
+    public void Children_RandomOption_YieldsBody()
+    {
+        var body = Line(Text("body"));
+        var option = RandomOption(new AutoWeight(), body);
+
+        Assert.Equal([body], option.Children());
+    }
+
+    [Fact]
     public void Children_SceneHeading_YieldsTitle()
     {
         var title = Text("Scene");

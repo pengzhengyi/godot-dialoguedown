@@ -45,6 +45,12 @@ internal static class DialogueAstFactory
     public static Choices ChoiceGroup(bool isOrdered, params Choice[] options) =>
         new(isOrdered, options, SourceSpanFactory.Span());
 
+    public static RandomOption RandomOption(ChoiceWeight weight, params ScriptBlock[] body) =>
+        new(weight, body, SourceSpanFactory.Span());
+
+    public static RandomChoices RandomChoiceGroup(params RandomOption[] options) =>
+        new(options, SourceSpanFactory.Span());
+
     public static SceneHeading SceneHeading(string title = "Scene", int level = 1) =>
         new([Text(title)], level, SourceSpanFactory.Span());
 

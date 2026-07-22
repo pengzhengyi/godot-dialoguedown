@@ -122,6 +122,29 @@ test("Discard after a save restores to the saved version, not the original", asy
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
 });
 
+test("Discard restores the source editor's diagnostics and semantic-token overlays", async ({
+    page,
+}) => {
+    // Two identical scene anchors emit a DLG2001 diagnostic; the speaker lines emit tokens.
+    writeFileSync(LIVE_EDIT_DOC, "# Chapter\n\nAlice: Hello.\n\n# Chapter\n\nBob: Bye.\n");
+    await page.goto(`${base}/`);
+    const source = page.locator(".source-pane");
+    await expect(source.locator(".cm-editor")).toBeVisible();
+    await expect(source.locator(".dd-tok-speaker").first()).toContainText("Alice");
+    await expect(source.locator(".cm-lintRange-error").first()).toBeVisible();
+
+    // Edit then Discard — a full-document restore that would otherwise drop those overlays.
+    await edit(page, " tail");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page.locator(".discard-button").click();
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+
+    // Both overlays are reapplied from the accepted baseline report, not lost by the restore.
+    await expect(source.locator(".dd-tok-speaker").first()).toContainText("Alice");
+    await expect(source.locator(".cm-lintRange-error").first()).toBeVisible();
+});
+
 test("the Ctrl/Cmd+S shortcut saves a node edit from a graph tab", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();

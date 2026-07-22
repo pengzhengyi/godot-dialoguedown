@@ -132,6 +132,7 @@ if (report.mode === "view" || report.mode === "edit") {
         {
             documentType: "source",
             mode: sourceStore.get(),
+            initialReport: report,
             onModeChange: (m) => {
                 sourceStore.set(m);
                 navToken += 1; // a mode change clears any pending navigation
@@ -170,6 +171,7 @@ if (report.mode === "view" || report.mode === "edit") {
                   mode: configStore.get(),
                   initialValid: !configInitiallyInvalid,
                   initialMessage: configInitiallyInvalid ? report.configMessage : undefined,
+                  initialReport: report,
                   onModeChange: (m) => {
                       configStore.set(m);
                       navToken += 1;

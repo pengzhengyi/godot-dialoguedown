@@ -664,6 +664,45 @@ describe("createLiveEdit — discard", () => {
         expect(live.status).toBe("saved");
         expect(live.dirty).toBe(false);
     });
+
+    it("reapplies the baseline report's diagnostics and semantic tokens exactly once", () => {
+        // Restoring the buffer is a full-document replacement, which drops the source editor's
+        // diagnostics squiggles and semantic-token highlighting. Discard must reapply the accepted
+        // baseline report so those overlays return, and do it exactly once.
+        const h = harness();
+        const baseline = reportFor("# Saved");
+        const live = createLiveEdit(
+            h.ports,
+            { documentType: "source", mode: "manual", initialReport: baseline },
+            "# Saved",
+        );
+
+        live.onEdit("# Edited");
+        live.discardChanges();
+
+        expect(h.calls.content.at(-1)).toBe("# Saved");
+        expect(h.calls.applied).toEqual([baseline]);
+    });
+
+    it("reapplies the report from the last successful save, not the initial one", async () => {
+        const h = harness();
+        const live = createLiveEdit(
+            h.ports,
+            { documentType: "source", mode: "manual", initialReport: reportFor("# Saved") },
+            "# Saved",
+        );
+
+        live.onEdit("# New");
+        void live.save();
+        await h.resolveSave(savedOutcome("# New")); // advances the baseline and its report
+
+        live.onEdit("# Newer");
+        live.discardChanges();
+
+        expect(h.calls.content.at(-1)).toBe("# New");
+        // One apply from the save, one from the discard restore — both the saved baseline report.
+        expect(h.calls.applied).toEqual([reportFor("# New"), reportFor("# New")]);
+    });
 });
 
 describe("createLiveEdit — save-mode changes", () => {

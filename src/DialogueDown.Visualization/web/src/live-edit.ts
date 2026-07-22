@@ -144,6 +144,13 @@ export interface LiveEditOptions {
      * status carries its explanation instead of an empty detail.
      */
     initialMessage?: string;
+    /**
+     * The report the initial buffer was accepted from — its stages, diagnostics, and semantic
+     * tokens. Tracked as the baseline report so a Discard (a full-document restore that drops the
+     * editor's overlays) can reapply the baseline's diagnostics and semantic tokens. Absent for a
+     * bare render with no report.
+     */
+    initialReport?: Report;
     /** Called after {@link LiveEditController.setMode} so the caller can persist the choice. */
     onModeChange?(mode: SaveMode): void;
 }
@@ -189,6 +196,10 @@ export function createLiveEdit(
     // transient status message so discard/restore/adopt/reload can restore the exact parse detail
     // instead of dropping to a saved-invalid status with no message.
     let baselineMessage: string | undefined = baselineValid ? undefined : options.initialMessage;
+    // The report the saved baseline was accepted from, tracked alongside the baseline source so a
+    // Discard can reapply its diagnostics and semantic tokens: restoring the buffer is a
+    // full-document replacement, which otherwise drops those source-editor overlays.
+    let baselineReport: Report | null = options.initialReport ?? null;
     let restoring = false;
     let inFlight: PendingSave | null = null;
     let queued: PendingSave | null = null;
@@ -398,7 +409,7 @@ export function createLiveEdit(
         outcome: Extract<SaveOutcome, { kind: "saved" }>,
         latest: boolean,
     ): SaveResolution {
-        advanceBaseline(request.source, true);
+        advanceBaseline(request.source, true, undefined, outcome.report);
         if (latest) {
             ports.applyReport(outcome.report);
             setStatus("saved");
@@ -416,7 +427,7 @@ export function createLiveEdit(
     ): SaveResolution {
         // The invalid Config was persisted, so the baseline advances and dirty clears, but the
         // last valid report stays visibly stale until the config becomes valid again.
-        advanceBaseline(request.source, false, outcome.message);
+        advanceBaseline(request.source, false, outcome.message, outcome.report);
         if (latest) {
             setStatus("saved-invalid", outcome.message);
         } else {
@@ -466,10 +477,16 @@ export function createLiveEdit(
         return "uncertain";
     }
 
-    function advanceBaseline(source: string, valid: boolean, message?: string): void {
+    function advanceBaseline(
+        source: string,
+        valid: boolean,
+        message?: string,
+        report?: Report,
+    ): void {
         savedBaseline = source;
         baselineValid = valid;
         baselineMessage = valid ? undefined : message;
+        if (report !== undefined) baselineReport = report;
     }
 
     function promoteQueue(): void {
@@ -526,6 +543,10 @@ export function createLiveEdit(
         buffer = source;
         generation += 1;
         baselineValid = valid;
+        // Restoring the buffer is a full-document replacement, which drops the source editor's
+        // diagnostics and semantic-token overlays. Reapply the baseline report so they return —
+        // exactly once, for the baseline we just restored.
+        if (baselineReport !== null) ports.applyReport(baselineReport);
         setStatus(valid ? "saved" : "saved-invalid", valid ? undefined : baselineMessage);
         refreshChrome();
     }
@@ -607,6 +628,7 @@ export function createLiveEdit(
             buffer = source;
             generation += 1;
             savedBaseline = source;
+            baselineReport = load.report;
             if (load.kind === "invalid") {
                 baselineValid = false;
                 baselineMessage = load.message;

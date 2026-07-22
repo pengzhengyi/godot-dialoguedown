@@ -4,8 +4,8 @@ export type SaveMode = "auto" | "manual";
 /** The two editable document types, each with its own persisted save-mode preference. */
 export type DocumentType = "source" | "config";
 
-/** The `localStorage` key each document type persists its {@link SaveMode} under. */
-const STORAGE_KEY: Record<DocumentType, string> = {
+/** The cookie name each document type persists its {@link SaveMode} under. */
+const COOKIE_NAME: Record<DocumentType, string> = {
     source: "dd-save-mode-source",
     config: "dd-save-mode-config",
 };
@@ -19,6 +19,12 @@ const DEFAULT_MODE: Record<DocumentType, SaveMode> = {
     config: "manual",
 };
 
+/**
+ * The cookie lifetime — ~400 days, the longest a modern browser honors — so a document type's
+ * Auto/Manual choice survives well beyond a single report session.
+ */
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
+
 /** Reads and persists one document type's {@link SaveMode} preference. */
 export interface SaveModeStore {
     /** The persisted mode, or this document type's default when none is stored. */
@@ -27,38 +33,61 @@ export interface SaveModeStore {
     set(mode: SaveMode): void;
 }
 
-function isSaveMode(value: string | null): value is SaveMode {
+/**
+ * A minimal cookie accessor, abstracting `document.cookie` so the store is testable and so an
+ * environment without cookies degrades gracefully.
+ */
+export interface CookieJar {
+    /** Every stored cookie serialized as `name=value; name=value`. */
+    read(): string;
+    /** Assign one cookie with a full `name=value; attributes` string, as `document.cookie` accepts. */
+    write(cookie: string): void;
+}
+
+function isSaveMode(value: string | undefined): value is SaveMode {
     return value === "auto" || value === "manual";
 }
 
+/** Find one cookie's value in a serialized `name=value; name=value` string, ignoring the rest. */
+function readCookie(jar: CookieJar, name: string): string | undefined {
+    for (const pair of jar.read().split(";")) {
+        const eq = pair.indexOf("=");
+        if (eq === -1) continue;
+        if (pair.slice(0, eq).trim() === name) return pair.slice(eq + 1).trim();
+    }
+    return undefined;
+}
+
 /**
- * A {@link SaveModeStore} backed by `localStorage`, so a document type's Auto/Manual choice
- * survives across report sessions. Reads fall back to the document type's default when nothing
- * is stored or storage is unavailable; writes swallow storage errors (a blocked `localStorage`
- * just means the choice is not remembered, never a crash).
+ * A {@link SaveModeStore} backed by a host-scoped cookie, so a document type's Auto/Manual choice
+ * survives across report sessions — and, unlike `localStorage`, across the ephemeral port each live
+ * server binds (cookies are keyed by host, not by origin+port). The value is a non-sensitive
+ * `auto`/`manual` flag written `SameSite=Strict` with a long `Max-Age`. Reads fall back to the
+ * document type's default when nothing is stored or cookies are unavailable; writes swallow errors
+ * (a blocked cookie jar just means the choice is not remembered, never a crash).
  */
 export function createSaveModeStore(
     type: DocumentType,
-    storage: Pick<Storage, "getItem" | "setItem"> | null = safeLocalStorage(),
+    jar: CookieJar | null = safeCookieJar(),
 ): SaveModeStore {
-    const key = STORAGE_KEY[type];
+    const name = COOKIE_NAME[type];
     const fallback = DEFAULT_MODE[type];
     return {
         get() {
-            if (storage === null) return fallback;
+            if (jar === null) return fallback;
             try {
-                const stored = storage.getItem(key);
+                const stored = readCookie(jar, name);
                 return isSaveMode(stored) ? stored : fallback;
             } catch {
                 return fallback;
             }
         },
         set(mode) {
-            if (storage === null) return;
+            if (jar === null) return;
             try {
-                storage.setItem(key, mode);
+                jar.write(`${name}=${mode}; Max-Age=${MAX_AGE_SECONDS}; Path=/; SameSite=Strict`);
             } catch {
-                // A blocked localStorage just means the choice is not remembered — not fatal.
+                // A blocked cookie jar just means the choice is not remembered — not fatal.
             }
         },
     };
@@ -69,9 +98,17 @@ export function defaultSaveMode(type: DocumentType): SaveMode {
     return DEFAULT_MODE[type];
 }
 
-function safeLocalStorage(): Pick<Storage, "getItem" | "setItem"> | null {
+function safeCookieJar(): CookieJar | null {
     try {
-        return window.localStorage;
+        if (typeof document === "undefined") return null;
+        // Touch the accessor once so an environment where cookies throw fails here, not later.
+        void document.cookie;
+        return {
+            read: () => document.cookie,
+            write: (cookie) => {
+                document.cookie = cookie;
+            },
+        };
     } catch {
         return null;
     }

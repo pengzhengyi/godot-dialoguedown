@@ -55,7 +55,7 @@ because transient TOML is often invalid while being typed.
 - [x] Add the `Auto | Manual` capsule beside the separate Save button in Edit
       mode.
 - [x] Keep Save and <kbd>⌘/Ctrl-S</kbd> available in both modes.
-- [x] Persist one save-mode preference per document type in `localStorage`.
+- [x] Persist one save-mode preference per document type in a host-scoped cookie.
 - [x] Default Source to Auto and Config to Manual.
 - [x] Autosave after a fixed 1,000 ms trailing-edge idle delay.
 - [x] Serialize writes and coalesce edits during an in-flight save.
@@ -165,7 +165,7 @@ failure, invalid Config, or conflict, navigation stays in place.
 | Type / seam | Responsibility |
 | --- | --- |
 | `SaveMode` | `auto` / `manual` value shared by the controller and capsule. |
-| Save preference store | Read/write Source and Config modes in `localStorage`, with their distinct defaults. |
+| Save preference store | Read/write Source and Config modes in a host-scoped cookie, with their distinct defaults. |
 | `LiveEditController` | Own buffer, saved baseline, edit generation, dirty state, timer, single-flight save, conflict/error state, discard, and flush-before-navigation. |
 | Timer seam | Schedule/cancel the 1-second idle callback; use fake timers in tests. |
 | `LiveEditPorts.save` | Submit a save snapshot and return a typed outcome (`saved`, `saved-invalid`, `conflict`, `invalid-auto`, or `failure`); a transport exception yields Uncertain. Do not mutate UI before the controller accepts it. |
@@ -191,7 +191,13 @@ surprising. Store two preferences:
 - Config: Manual by default.
 
 The active capsule changes only the active document type's preference and the
-choice persists across report sessions.
+choice persists across report sessions. The preference lives in a **host-scoped
+cookie** (`SameSite=Strict`, a long `Max-Age`, no `Domain`/`Secure`) rather than
+`localStorage`: a live server binds an ephemeral port each run, and cookies are
+keyed by host — not by the origin's host **and** port — so the choice survives a
+new port where `localStorage` (origin-scoped) would silently reset it. The
+value is a non-sensitive `auto`/`manual` flag, and a browser that blocks cookies
+falls back to each document type's default.
 
 - Auto → Manual cancels a pending idle timer. An in-flight request is not
   canceled; its generation checks still determine whether it may settle clean.
@@ -476,8 +482,10 @@ async navigation, browser coverage and docs, and this crosscheck).
 - The **Auto | Manual** capsule sits beside a separate Save button and a Discard
   button in Edit, reflecting the active document (Config tab → config, else source,
   including node-inspector edits).
-- Per-document-type `localStorage` preferences (`dd-save-mode-source`,
-  `dd-save-mode-config`) with Source defaulting to Auto and Config to Manual.
+- Per-document-type host-scoped **cookie** preferences (`dd-save-mode-source`,
+  `dd-save-mode-config`, `SameSite=Strict`) with Source defaulting to Auto and Config
+  to Manual — host-scoped so the choice survives each run's ephemeral server port,
+  where an origin-scoped `localStorage` would reset.
 - A fixed 1,000 ms trailing idle debounce; explicit Save and <kbd>⌘/Ctrl-S</kbd> flush
   immediately; navigation flushes without waiting for idle.
 - A generation-safe, single-flight controller (`live-edit.ts`): request identity shares
@@ -518,6 +526,12 @@ async navigation, browser coverage and docs, and this crosscheck).
   with an `outcome` discriminator (200 for every negotiated outcome; 400 only for a true
   write error), rather than distinct HTTP status codes — a single client parse path owns the
   state machine.
+- The per-document save-mode preference persists in a **host-scoped cookie**, not
+  `localStorage`. Each live server binds an ephemeral port, and `localStorage` is scoped to
+  the full origin (host **and** port), so a new run's port silently reset the choice. Cookies
+  are keyed by host alone, so the `SameSite=Strict`, long-`Max-Age`, non-sensitive
+  `auto`/`manual` flag now survives across runs; a cookie-blocked browser still falls back to
+  each type's default.
 
 ### Correctness refinements
 

@@ -10,9 +10,9 @@ const base = `http://127.0.0.1:${LIVE_EDIT_PORT}`;
 
 test.beforeEach(async ({ page }) => {
     writeFileSync(LIVE_EDIT_DOC, LIVE_EDIT_SOURCE);
-    // Pin Source to Manual so the explicit-save assertions below are not raced by an idle
-    // autosave; the dedicated Auto tests opt back in per test.
-    await page.addInitScript(() => localStorage.setItem("dd-save-mode-source", "manual"));
+    // Pin Source to Manual (via its host-scoped cookie) so the explicit-save assertions below
+    // are not raced by an idle autosave; the dedicated Auto tests opt back in per test.
+    await page.context().addCookies([{ name: "dd-save-mode-source", value: "manual", url: base }]);
 });
 
 async function edit(page: Page, text: string) {
@@ -201,7 +201,7 @@ test("an external change pauses in Conflict without discarding local edits", asy
 });
 
 test("Source defaults to Auto and saves after the idle delay", async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem("dd-save-mode-source", "auto"));
+    await page.context().addCookies([{ name: "dd-save-mode-source", value: "auto", url: base }]);
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
     await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
@@ -214,15 +214,16 @@ test("Source defaults to Auto and saves after the idle delay", async ({ page }) 
     expect(readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("autosaved tail");
 });
 
-test("the Auto/Manual choice is persisted to localStorage", async ({ page }) => {
+test("the Auto/Manual choice is persisted to a host-scoped cookie", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Manual");
 
-    // Switching to Auto writes the per-document-type preference, which a later session reads.
+    // Switching to Auto writes the per-document-type preference to a host-scoped cookie, which
+    // survives the ephemeral port a later session binds (where an origin-scoped store would not).
     await page.locator(".save-mode-option", { hasText: "Auto" }).click();
     await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
-    const stored = await page.evaluate(() => localStorage.getItem("dd-save-mode-source"));
-    expect(stored).toBe("auto");
+    const cookie = await page.evaluate(() => document.cookie);
+    expect(cookie).toContain("dd-save-mode-source=auto");
 });
 
 // A long, multi-scene document so both panes actually scroll. Headings anchor the sync.

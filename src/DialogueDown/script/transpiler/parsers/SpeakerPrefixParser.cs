@@ -67,13 +67,14 @@ internal static class SpeakerPrefixParser
     // The match extends past the colon and consumes all whitespace after it, so
     // MatchedLength lands at the speech start. Post-colon whitespace is insignificant
     // regardless of amount; a leading space in speech must be quoted (see the DSL spec).
+    // The colon's own range is kept for the separator sub-span.
     public static IParser<SpeakerPrefixData> Prefix { get; } =
         from _lead in _optionalWhitespace
         from data in _body
         from _trail in _optionalWhitespace
-        from _colonChar in _colon
+        from colon in _colon.Located()
         from _afterColon in _optionalWhitespace
-        select data;
+        select data with { SeparatorRange = colon.Range };
 
     private static IReadOnlyList<Spanned<TagData>> Prepend(
         Spanned<TagData> first, IReadOnlyList<Spanned<TagData>> rest)

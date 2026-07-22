@@ -38,24 +38,29 @@ internal sealed class SpeakerBuilder(IParser<SpeakerPrefixData> parser, TagBuild
             .Select(tag => tagBuilder.Build(tag.Value, tag.Range.ToSourceSpan()))
             .ToList();
 
+        // The name and id sub-spans are added in a following step; the separator is always
+        // present because a written prefix ends in a colon.
+        var prefixSpans = new SpeakerPrefixSpans(null, null, data.SeparatorRange.ToSourceSpan());
+
         if (data.Name is not null)
         {
             return data.Id is not null || tagNodes.Count > 0
-                ? new SpeakerDeclaration(data.Name, data.Id, tagNodes, span)
-                : new SpeakerNameReference(data.Name, span);
+                ? new SpeakerDeclaration(data.Name, data.Id, tagNodes, span) { PrefixSpans = prefixSpans }
+                : new SpeakerNameReference(data.Name, span) { PrefixSpans = prefixSpans };
         }
 
         if (data.Id is not null)
         {
             return tagNodes.Count > 0
-                ? new PartialSpeakerDeclaration(data.Id, tagNodes, span)
-                : new SpeakerIdReference(data.Id, span);
+                ? new PartialSpeakerDeclaration(data.Id, tagNodes, span) { PrefixSpans = prefixSpans }
+                : new SpeakerIdReference(data.Id, span) { PrefixSpans = prefixSpans };
         }
 
         if (tagNodes.Count > 0)
         {
             // Tags with no speaker to attach to: report and recover by dropping the tags and
             // attributing the line to the default speaker, so the rest of the line still compiles.
+            // The default speaker names no one, so it carries no prefix spans.
             diagnostics.Report(new Diagnostic(DiagnosticCatalog.TagsWithoutSpeaker, span, [content]));
             return new DefaultSpeaker(span);
         }

@@ -46,12 +46,32 @@ public sealed class SpeakerBuilderTests
     {
         var text = "Alice #mood=happy: Hi";
 
-        var result = _builder.Build(ParseInputFactory.Input(text, 10), new DiagnosticBag());
+        var declaration = Assert.IsType<SpeakerDeclaration>(SpeakerAt(text, 10));
 
-        Assert.True(result.Success);
-        var declaration = Assert.IsType<SpeakerDeclaration>(result.MatchedValue);
         var tag = Assert.Single(declaration.Tags);
         Assert.Equal(10 + text.IndexOf('#'), tag.Span.Start);
+    }
+
+    [Fact]
+    public void SpeakerPrefix_CarriesTheSeparatorSpanAtTheColon()
+    {
+        var text = "Alice @A #main: Hi";
+
+        var separator = SpeakerAt(text, 10).PrefixSpans!.Separator;
+
+        Assert.Equal(10 + text.IndexOf(':'), separator.Start);
+        Assert.Equal(1, separator.Length); // just the ":"
+    }
+
+    [Fact]
+    public void SyntheticDefaultSpeaker_HasNoPrefixSpans()
+    {
+        // An orphan-tag prefix recovers to a default speaker, which names no one, so it
+        // carries no prefix locations.
+        var speaker = Speaker("#lonely: Hi");
+
+        Assert.IsType<DefaultSpeaker>(speaker);
+        Assert.Null(speaker.PrefixSpans);
     }
 
     [Theory]
@@ -59,7 +79,7 @@ public sealed class SpeakerBuilderTests
     [InlineData("Alice:   Hello")]
     public void SpeechStart_LandsAfterAllPostColonWhitespace(string text)
     {
-        var result = _builder.Build(ParseInputFactory.Input(text), new DiagnosticBag());
+        var result = Build(text);
 
         Assert.True(result.Success);
         Assert.Equal(text.IndexOf("Hello", StringComparison.Ordinal), result.MatchedLength);
@@ -89,12 +109,16 @@ public sealed class SpeakerBuilderTests
         AssertReported(diagnostics.Diagnostics, DiagnosticCatalog.TagsWithoutSpeaker);
     }
 
-    private static ParseResult<Speaker> Build(string text) =>
-        _builder.Build(ParseInputFactory.Input(text), new DiagnosticBag());
+    private static ParseResult<Speaker> Build(string text) => BuildAt(text, 0);
 
-    private static Speaker Speaker(string text)
+    private static ParseResult<Speaker> BuildAt(string text, int position) =>
+        _builder.Build(ParseInputFactory.Input(text, position), new DiagnosticBag());
+
+    private static Speaker Speaker(string text) => SpeakerAt(text, 0);
+
+    private static Speaker SpeakerAt(string text, int position)
     {
-        var result = Build(text);
+        var result = BuildAt(text, position);
         Assert.True(result.Success);
         return result.MatchedValue;
     }

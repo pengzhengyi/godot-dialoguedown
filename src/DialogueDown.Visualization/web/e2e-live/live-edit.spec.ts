@@ -345,6 +345,36 @@ test("edits a node's source in the inspector, and Save recompiles from it", asyn
     await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("EDITED");
 });
 
+test("an idle autosave keeps the open node inspector, rebinding it to the recompiled node", async ({
+    page,
+}) => {
+    writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+    // Auto so the edit below is saved by the idle debounce, whose recompile rebuilds the graph.
+    await page.context().addCookies([{ name: "dd-save-mode-source", value: "auto", url: base }]);
+    await page.goto(`${base}/`);
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
+    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+
+    // Select and edit a node: its inspector editor is open, and editing arms the idle autosave.
+    await selectNode(page, "Text");
+    const nodeEditor = page.locator(".node-source .cm-editor");
+    await expect(nodeEditor).toBeVisible();
+    await editNode(page, " EDITED");
+    await expect(page.locator(".node-source .source-preview")).toContainText("EDITED");
+
+    // The idle debounce writes and recompiles — rebuilding the graph tabs — without touching Save.
+    await expect(page.locator(".tab.dirty")).toHaveCount(0, { timeout: 4000 });
+    await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("EDITED");
+
+    // The rebuild must not close the inspector: it stays open on the same node, its editor now
+    // bound to the recompiled node's source (no reset to the placeholder, no lost selection).
+    await expect(nodeEditor).toBeVisible();
+    await expect(page.locator("#detail-title")).not.toHaveText("Node details");
+    await expect(page.locator("section.stage.active g.node.selected")).toHaveCount(1);
+    await expect(page.locator(".node-source .cm-content")).toContainText("EDITED");
+});
+
 // The inspector editor must swallow graph-navigation keys so arrows move the cursor, not
 // the graph, and Space types a space instead of collapsing a node. The global keydown
 // handler otherwise routes those keys to the active tree view. Cover both the read-only

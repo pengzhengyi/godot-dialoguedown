@@ -6,6 +6,7 @@ import type {
     LspDiagnostic,
     SemanticToken,
     DialogueSymbolProvider,
+    DisplayNode,
 } from "./model";
 import { createDetailPanel } from "./detail-panel";
 import { createTreeView, type TreeView, type NodeSelectOptions } from "./tree-view";
@@ -148,6 +149,18 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     let titles: string[] = [];
     // Remembers each stage's zoom/pan and fold across tab switches and rebuilds.
     const cameras = new GraphCameraStore();
+    // The stable id of the node the inspector is currently showing, or null when nothing is
+    // selected. Captured before a save-triggered `updateStages` rebuild so the selection — and
+    // the open inspector editor bound to it — can be restored against the freshly built view.
+    let selectedNodeId: string | null = null;
+
+    // Record the shown node's stable id, then drive the shared inspector. Wrapping `panel.show`
+    // (rather than calling it directly) is what lets `updateStages` reselect the same node after
+    // a rebuild, keeping the inspector editor open and rebound to the node's current source.
+    function showNode(node: DisplayNode): void {
+        selectedNodeId = node.id;
+        panel.show(node);
+    }
 
     // The whole-window maximize mode (graphs and the source split), toggled from each
     // tab's maximize button or the `f` / Escape keys. Wired once for the app's lifetime.
@@ -286,8 +299,12 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
     // editor — and the reader's cursor — untouched. Each graph's remembered camera and
     // fold are recorded live (as the reader adjusts them), so a rebuilt stage restores
-    // its position from the store.
+    // its position from the store. The inspector's selected node is remembered by its stable
+    // id and reselected against the freshly built view, so a successful autosave never closes
+    // the open node inspector; if the node is gone from the recompiled graph, the selection
+    // cancels safely and the inspector clears.
     function updateStages(stages: Stage[]): void {
+        const reselectId = selectedNodeId;
         const keep = (configPresent ? 1 : 0) + (sourcePresent ? 1 : 0);
         while (tabsEl.children.length > keep) tabsEl.lastElementChild!.remove();
         while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
@@ -297,7 +314,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         for (const stage of stages) {
             addStageTab(stage);
         }
-        if (views.length > 0) activate(Math.min(activeIndex, views.length - 1));
+        if (views.length > 0) {
+            activate(Math.min(activeIndex, views.length - 1));
+            // `activate` clears every view's selection and the inspector; restore the remembered
+            // node in the now-active view (re-opening and rebinding its inspector editor). A
+            // missing id resolves to `false` and leaves the inspector cleared.
+            if (reselectId !== null) views[activeIndex]?.selectById(reselectId);
+        }
     }
 
     function addStageTab(stage: Stage): void {
@@ -335,14 +358,14 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 ...(source?.beginNavigation ? { onNodeSelect: deferNodeSelect } : {}),
             };
             if (isSemantic) {
-                const semantic = createSemanticView(stage, panel.show, treeOptions);
+                const semantic = createSemanticView(stage, showNode, treeOptions);
                 view = semantic.view;
                 section.appendChild(semantic.element);
             } else {
                 // A stage shows its own pinned camera, else the shared current one it
                 // inherits, else the default framing; its fold is always its own. Reader
                 // adjustments are recorded live through the callbacks above.
-                view = createTreeView(stage, panel.show, treeOptions);
+                view = createTreeView(stage, showNode, treeOptions);
                 section.appendChild(view.svg);
                 section.appendChild(view.legend);
                 section.appendChild(view.controls);
@@ -427,6 +450,7 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         revealView(index);
         for (const view of views) view?.clearSelection();
         panel.clear();
+        selectedNodeId = null;
         source?.onActiveTabChange?.();
     }
 

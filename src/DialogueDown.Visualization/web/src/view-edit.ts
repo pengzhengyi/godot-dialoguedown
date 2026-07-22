@@ -94,8 +94,9 @@ export function createModeController(
             if (report.source != null) {
                 ports.app.setContent(report.source);
                 // Adopt the external content as the dialogue controller's clean baseline, so a
-                // later Edit session starts from what is on disk, not stale text.
-                ports.dialogueLive.adoptDisk(report.source);
+                // later Edit session starts from what is on disk, not stale text. Pass the report
+                // too, so a later Discard reapplies these overlays rather than the pre-reload ones.
+                ports.dialogueLive.adoptDisk(report.source, true, undefined, report);
             }
             ports.app.setDiagnostics(report.diagnostics ?? []);
             ports.app.setSemanticTokens(report.semanticTokens ?? []);
@@ -123,6 +124,7 @@ export function createModeController(
                     source,
                     !invalid,
                     invalid ? report.configMessage : undefined,
+                    report,
                 );
             }
         },

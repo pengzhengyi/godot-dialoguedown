@@ -107,7 +107,7 @@ export interface LiveEditController {
     /** Reload from disk — replace the buffer with the external content and adopt it as the baseline. */
     reload(): Promise<SaveResolution>;
     /** Adopt a clean external reload (View hot reload): set the baseline/buffer without marking dirty. */
-    adoptDisk(source: string, valid?: boolean, message?: string): void;
+    adoptDisk(source: string, valid?: boolean, message?: string, report?: Report): void;
     /** Resolve once no save is in flight or queued, so a caller can act on a settled state. */
     whenIdle(): Promise<void>;
     /** Leaving Edit — drop any unsaved-dirty and paused state without saving. */
@@ -643,7 +643,7 @@ export function createLiveEdit(
             refreshChrome();
             return "saved";
         },
-        adoptDisk(source, valid = true, message) {
+        adoptDisk(source, valid = true, message, report) {
             // A View hot reload already updated the editor and graphs; adopt the external content
             // as the clean baseline so a later Edit session starts from it, not stale text. An
             // invalid adoption keeps its parse message so a later Discard restores it.
@@ -651,6 +651,10 @@ export function createLiveEdit(
             clearQueue();
             buffer = source;
             savedBaseline = source;
+            // Advance the baseline report alongside the source so a later Discard reapplies the
+            // adopted report's overlays, not the pre-adopt ones. Absent for a bare adopt with no
+            // report (the overlays then stay whatever the reload already applied).
+            if (report !== undefined) baselineReport = report;
             generation += 1;
             baselineValid = valid;
             baselineMessage = valid ? undefined : message;

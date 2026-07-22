@@ -856,6 +856,26 @@ describe("createLiveEdit — adoptDisk (View hot reload)", () => {
         expect(live.dirty).toBe(false);
         expect(live.status).toBe("saved-invalid");
     });
+
+    it("advances the baseline report on adopt, so a later Discard reapplies the adopted overlays", () => {
+        // A View hot reload adopts external content — and its report — as the clean baseline. A
+        // later Edit-session Discard restores the buffer with a full-document replacement (which
+        // drops the source editor's overlays), so it must reapply the ADOPTED report, not the
+        // stale pre-adopt one.
+        const h = harness();
+        const live = createLiveEdit(
+            h.ports,
+            { documentType: "source", mode: "manual", initialReport: reportFor("# Initial") },
+            "# Initial",
+        );
+
+        live.adoptDisk("# External", true, undefined, reportFor("# External"));
+        live.onEdit("# Edited");
+        live.discardChanges();
+
+        expect(h.calls.content.at(-1)).toBe("# External");
+        expect(h.calls.applied.at(-1)).toEqual(reportFor("# External"));
+    });
 });
 
 describe("createLiveEdit — reload single-flight and staleness", () => {

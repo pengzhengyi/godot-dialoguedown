@@ -361,4 +361,26 @@ public sealed class AtomicFileTests
             _ = info;
         }
     }
+
+    [Fact]
+    public void Transact_Write_ThroughAResolvedSymlink_UpdatesTheTargetAndKeepsTheLink()
+    {
+        using var tree = new Support.TempTree();
+        var real = tree.File("real.dialogue.md", "old");
+        var link = Path.Combine(tree.Root, "link.dialogue.md");
+        Support.Symlinks.Create(link, real);
+
+        // The live session resolves the link before writing, so the atomic replace lands on the
+        // real file instead of clobbering the link entry with a regular file.
+        var resolved = SymlinkResolver.Resolve(link);
+        AtomicFile.Transact(resolved, transaction =>
+        {
+            transaction.Write("new");
+            return 0;
+        });
+
+        Assert.Equal("new", File.ReadAllText(real)); // the real target was updated in place
+        Assert.NotNull(new FileInfo(link).LinkTarget); // the link entry is preserved
+        Assert.Equal("new", File.ReadAllText(link)); // and still reads through to the target
+    }
 }

@@ -108,6 +108,42 @@ public sealed class LiveSessionTests
     }
 
     [Fact]
+    public void RenderInitialHtml_ThroughASymlink_ShowsTheLaunchedPathNotTheResolvedTarget()
+    {
+        using var tree = new TempTree();
+        var real = tree.File("real.dialogue.md", "# Scene");
+        var link = Path.Combine(tree.Root, "link.dialogue.md");
+        Symlinks.Create(link, real);
+        var resolved = SymlinkResolver.Resolve(link);
+
+        var session = new LiveSession(resolved, displayPath: link);
+        var html = session.RenderInitialHtml();
+
+        Assert.Contains("link.dialogue.md", html); // the report shows the launched link path
+        Assert.DoesNotContain("real.dialogue.md", html); // not the resolved real target
+    }
+
+    [Fact]
+    public void Save_ThroughASymlink_WritesTheRealTargetAndKeepsTheLink()
+    {
+        using var tree = new TempTree();
+        var real = tree.File("real.dialogue.md", "# Old");
+        var link = Path.Combine(tree.Root, "link.dialogue.md");
+        Symlinks.Create(link, real);
+        var resolved = SymlinkResolver.Resolve(link);
+
+        // A served session resolves the link for IO but keeps the launched link path for display.
+        var session = new LiveSession(resolved, "edit", displayPath: link);
+        var json = session.Save(new SaveInput("# New\n\nAlice: Hi", ExpectedBaseline: "# Old"));
+
+        Assert.Contains("\"outcome\":\"saved\"", json);
+        Assert.Equal("# New\n\nAlice: Hi", File.ReadAllText(real)); // the real target was written
+        Assert.NotNull(new FileInfo(link).LinkTarget); // the link entry is preserved
+        Assert.Contains("link.dialogue.md", json); // the payload shows the launched link path
+        Assert.DoesNotContain("real.dialogue.md", json); // not the resolved real target
+    }
+
+    [Fact]
     public void Save_BaselineMismatch_ReturnsConflictAndWritesNothing()
     {
         using var doc = new TempDocument("# External");

@@ -550,6 +550,15 @@ Follow-up fixes hardened the shipped state machine against races and reload:
   disk fetch begins; any save that starts bumps it, so a reload whose fetch predates a
   newer successful save is discarded instead of overwriting the baseline that save
   confirmed.
+- **Symbolic links resolve to their real target before editing.** `ServeMode` resolves a
+  launched document (and its `dialogue.toml`) through any chain of terminal symbolic links
+  to the real file (`SymlinkResolver`) before it builds the `LiveSession`, `AtomicFile`
+  writes, and the watcher. The atomic replace then updates the real file instead of
+  clobbering the link entry with a regular file, and the directory watcher sees the real
+  file's changes rather than a link name that never fires. The launched path is kept as the
+  session's display path so the report still shows what the reader opened, while a broken or
+  cyclic link is refused with an explanation rather than served. (The file launcher already
+  resolves through `LaunchRoot`, which also confines a link to the launch root.)
 - **Serialized, coalesced watcher refresh.** The watcher `Debouncer` never runs its
   refresh concurrently with itself; a change arriving during a slow recompile is
   coalesced into exactly one follow-up run, so an older compile or config refresh can

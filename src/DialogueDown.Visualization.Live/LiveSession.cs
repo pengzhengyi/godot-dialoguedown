@@ -36,18 +36,31 @@ internal sealed class LiveSession
         string documentPath,
         string mode = VisualizationMode.View,
         CompilationVisualizer? visualizer = null,
-        string? configPath = null)
+        string? configPath = null,
+        string? displayPath = null)
     {
         ArgumentNullException.ThrowIfNull(documentPath);
         ArgumentNullException.ThrowIfNull(mode);
         DocumentPath = documentPath;
+        DisplayPath = displayPath ?? documentPath;
         Mode = mode;
         _visualizer = visualizer ?? new CompilationVisualizer();
         _configPath = configPath;
     }
 
-    /// <summary>The absolute path of the document this session serves.</summary>
+    /// <summary>
+    /// The absolute path this session reads, writes, and watches. When the launched path was a
+    /// symbolic link this is its resolved real target, so an atomic save replaces the real file
+    /// instead of clobbering the link and the watcher sees the real file's changes.
+    /// </summary>
     public string DocumentPath { get; }
+
+    /// <summary>
+    /// The absolute path shown to the reader (the report's path chrome) — the path the session was
+    /// launched with, which may be a symbolic link even though <see cref="DocumentPath"/> is its
+    /// resolved target.
+    /// </summary>
+    public string DisplayPath { get; }
 
     /// <summary>The mode this session serves in (watch or live).</summary>
     public string Mode { get; }
@@ -66,12 +79,12 @@ internal sealed class LiveSession
     /// <summary>Renders the initial live report HTML for the current file.</summary>
     public string RenderInitialHtml() =>
         _visualizer.RenderLiveReport(
-            DocumentPath, File.ReadAllText(DocumentPath), Mode, CurrentConfigOverlay());
+            DisplayPath, File.ReadAllText(DocumentPath), Mode, CurrentConfigOverlay());
 
     /// <summary>Serializes the current document payload (<c>{ mode, path, source, stages }</c>).</summary>
     public string CurrentDocumentJson() =>
         _visualizer.SerializeDocument(
-            DocumentPath, File.ReadAllText(DocumentPath), Mode, CurrentConfigOverlay());
+            DisplayPath, File.ReadAllText(DocumentPath), Mode, CurrentConfigOverlay());
 
     /// <summary>
     /// Applies one save request and returns a payload carrying a typed <c>outcome</c>:
@@ -173,7 +186,7 @@ internal sealed class LiveSession
             }
 
             Broadcaster.Broadcast(
-                new LiveEvent("reload", _visualizer.SerializeDocument(DocumentPath, current, Mode)));
+                new LiveEvent("reload", _visualizer.SerializeDocument(DisplayPath, current, Mode)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -264,7 +277,7 @@ internal sealed class LiveSession
     {
         var overlay = new ConfigStatusOverlay(_configPath!, source, error);
         var json = _visualizer.SerializeDocument(
-            DocumentPath, File.ReadAllText(DocumentPath), Mode, overlay);
+            DisplayPath, File.ReadAllText(DocumentPath), Mode, overlay);
         var node = JsonNode.Parse(json)!.AsObject();
         node["outcome"] = outcome;
         node["message"] = error;
@@ -389,7 +402,7 @@ internal sealed class LiveSession
                         if (disk == source)
                         {
                             _lastSaved = source; // idempotent: the disk already equals the requested source
-                            return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                            return WithOutcome(_visualizer.SerializeDocument(DisplayPath, source, Mode), "saved");
                         }
 
                         if (disk != input.ExpectedBaseline)
@@ -406,7 +419,7 @@ internal sealed class LiveSession
                         transaction.WriteForced(source); // confirmed overwrite
                     }
 
-                    return WithOutcome(_visualizer.SerializeDocument(DocumentPath, source, Mode), "saved");
+                    return WithOutcome(_visualizer.SerializeDocument(DisplayPath, source, Mode), "saved");
                 },
                 afterReplace);
         }
@@ -525,7 +538,7 @@ internal sealed class LiveSession
 
         var current = File.ReadAllText(DocumentPath);
         _lastSaved = current;
-        return WithOutcome(_visualizer.SerializeDocument(DocumentPath, current, Mode), "loaded");
+        return WithOutcome(_visualizer.SerializeDocument(DisplayPath, current, Mode), "loaded");
     }
 
     private string ReloadConfig()
@@ -553,7 +566,7 @@ internal sealed class LiveSession
     }
 
     private string SerializeCurrent() =>
-        _visualizer.SerializeDocument(DocumentPath, File.ReadAllText(DocumentPath), Mode);
+        _visualizer.SerializeDocument(DisplayPath, File.ReadAllText(DocumentPath), Mode);
 
     private bool TryParseConfig(string source, out CompilerOptions? options, out string error)
     {

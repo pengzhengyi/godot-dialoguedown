@@ -28,13 +28,14 @@ internal static class HtmlTemplate
         SymbolSet? symbols = null,
         ConfigurationReport? configuration = null,
         IReadOnlyList<LspDiagnostic>? diagnostics = null,
-        IReadOnlyList<SemanticToken>? semanticTokens = null)
+        IReadOnlyList<SemanticToken>? semanticTokens = null,
+        ConfigStatusOverlay? configOverlay = null)
     {
         return EmbeddedAsset.ReadText("report.html")
             .Replace(
                 ReportSlot,
                 DisplayGraphJson.SerializeReport(
                     mode, path, source, stages, symbols, configuration, diagnostics,
-                    semanticTokens));
+                    semanticTokens, configOverlay));
     }
 }

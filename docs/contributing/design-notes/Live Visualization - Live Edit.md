@@ -68,8 +68,9 @@ Out of scope:
   (see [D6](#d6--no-dedicated-save-as)); this loop is editing + Save to the open file.
 - **Compiling the buffer without saving** — Save is the compile trigger; the preview
   already updates live for free.
-- Multi-file editing, autosave, collaborative editing, or editing the graphs (they
-  stay a read-only projection of the source).
+- Multi-file editing, collaborative editing, or editing the graphs (they stay a
+  read-only projection of the source). Autosave is designed separately in
+  [Live Visualization — Autosave](./Live%20Visualization%20-%20Autosave.md).
 
 ## Ubiquitous language
 

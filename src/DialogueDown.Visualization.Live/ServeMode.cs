@@ -48,23 +48,64 @@ internal static class ServeMode
             return 1;
         }
 
-        var fullPath = Path.GetFullPath(file);
-        var references = new CompilationVisualizer().LocalImageReferences(File.ReadAllText(fullPath));
-        var serveRoot = ServeRootResolver.Resolve(fullPath, references, renderRoot, consent, error);
+        var displayPath = Path.GetFullPath(file);
+        string documentPath;
+        try
+        {
+            // Resolve a terminal symlink to its real target so saves replace the real file (not the
+            // link) and the watcher sees the real file's changes; keep displayPath as the launched
+            // path so the report still shows what the reader opened. A broken or cyclic link throws.
+            documentPath = SymlinkResolver.Resolve(displayPath);
+        }
+        catch (IOException ex)
+        {
+            error.WriteLine($"Cannot open '{file}': {ex.Message}");
+            return 1;
+        }
+
+        var references = new CompilationVisualizer().LocalImageReferences(File.ReadAllText(documentPath));
+        var serveRoot = ServeRootResolver.Resolve(documentPath, references, renderRoot, consent, error);
         if (serveRoot is null)
         {
             return 1;
         }
 
+        string? resolvedConfigPath;
+        try
+        {
+            resolvedConfigPath = configuration.File?.Path is { } path ? SymlinkResolver.Resolve(path) : null;
+        }
+        catch (IOException ex)
+        {
+            error.WriteLine($"Cannot open the configuration for '{file}': {ex.Message}");
+            return 1;
+        }
+
         var session = new LiveSession(
-            fullPath, mode, new CompilationVisualizer(configuration), configuration.File?.Path);
+            documentPath, mode, new CompilationVisualizer(configuration), resolvedConfigPath, displayPath);
         await using var server = new LiveVisualizationServer(session, port ?? 0, serveRoot);
+
+        // Watch the dialogue document, and its dialogue.toml when one applies. The config watcher
+        // is re-armed if a config is created at runtime (the Config tab's no-config create action).
+        var configWatcherGate = new object();
+        DocumentWatcher? configWatcher = session.ConfigPath is { } configPath
+            ? new DocumentWatcher(configPath, session.RefreshConfig)
+            : null;
+        server.ConfigCreated = createdPath =>
+        {
+            lock (configWatcherGate)
+            {
+                configWatcher?.Dispose();
+                configWatcher = new DocumentWatcher(createdPath, session.RefreshConfig);
+            }
+        };
+
         await server.StartAsync();
-        using var watcher = new DocumentWatcher(fullPath, session.Refresh);
+        using var watcher = new DocumentWatcher(documentPath, session.Refresh);
 
         var url = server.ReportUrl;
         var verb = mode == VisualizationMode.Edit ? "editing" : "visualization";
-        output.WriteLine($"Live {verb} of {fullPath}");
+        output.WriteLine($"Live {verb} of {displayPath}");
         output.WriteLine($"  {url}  (press Ctrl+C to stop)");
         if (!noOpen)
         {
@@ -75,7 +116,17 @@ internal static class ServeMode
         // rather than throwing, so shutdown is not an exceptional path.
         var stopped = new TaskCompletionSource();
         await using var registration = cancellationToken.Register(() => stopped.TrySetResult());
-        await stopped.Task;
+        try
+        {
+            await stopped.Task;
+        }
+        finally
+        {
+            lock (configWatcherGate)
+            {
+                configWatcher?.Dispose();
+            }
+        }
 
         return 0;
     }

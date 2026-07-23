@@ -14,8 +14,12 @@ export interface ModeControllerPorts {
     setEditControlsVisible(visible: boolean): void;
     /** Reflects the active mode on the toggle control. */
     reflect(mode: ServedMode): void;
-    /** Asks before discarding unsaved edits when leaving Edit; returns true to proceed. */
-    confirmDiscard(): boolean;
+    /**
+     * Resolves one document before leaving Edit: flush an Auto save, or run the Manual
+     * save-or-discard prompt. Resolves true when it is safe to leave, false to stay in Edit
+     * (a paused conflict/uncertain, or a declined prompt).
+     */
+    resolveDocument(controller: LiveEditController): Promise<boolean>;
 }
 
 /** Drives a served session's View ⇄ Edit lifecycle. */
@@ -28,9 +32,20 @@ export interface ModeController {
     onConfigEditorChange(buffer: string): void;
     /** Route a pushed report: View re-syncs the editor + graphs; Edit raises the chip. */
     onReload(report: Report): void;
+    /** Route a pushed config report (external `dialogue.toml` change): View re-syncs, Edit chips. */
+    onReloadConfig(report: Report): void;
+    /**
+     * Route a pushed problem (a missing or unreadable document/config on disk). In Edit it enters
+     * the target controller's Conflict/epoch path so an in-flight save cannot silently overwrite
+     * the file; in View it surfaces the message as a banner.
+     */
+    onProblem(message: string, target?: ProblemTarget): void;
     /** Request a mode switch (from the toggle). */
     switchTo(mode: ServedMode): void;
 }
+
+/** Which document a disk problem event is about, so it routes to the matching controller. */
+export type ProblemTarget = "document" | "config";
 
 /**
  * The View ⇄ Edit controller for a served session. View is read-only and auto-updating
@@ -45,6 +60,10 @@ export function createModeController(
     ports: ModeControllerPorts,
 ): ModeController {
     let mode: ServedMode = initial;
+    // A monotonic transition token. Leaving Edit is async (it awaits each document's flush or
+    // prompt); reasserting Edit, or a newer switch, bumps this so a stale in-flight transition can
+    // never apply View after the writer changed their mind.
+    let transition = 0;
 
     function apply(next: ServedMode): void {
         mode = next;
@@ -68,24 +87,88 @@ export function createModeController(
         },
         onReload(report) {
             if (mode === "edit") {
-                ports.dialogueLive.onDiskChange(); // passive chip; never reload over edits
+                ports.dialogueLive.onDiskChange(); // external change → Conflict; never clobber
                 return;
             }
             ports.app.showBanner(null);
-            if (report.source != null) ports.app.setContent(report.source);
+            if (report.source != null) {
+                ports.app.setContent(report.source);
+                // Adopt the external content as the dialogue controller's clean baseline, so a
+                // later Edit session starts from what is on disk, not stale text. Pass the report
+                // too, so a later Discard reapplies these overlays rather than the pre-reload ones.
+                ports.dialogueLive.adoptDisk(report.source, true, undefined, report);
+            }
             ports.app.setDiagnostics(report.diagnostics ?? []);
             ports.app.setSemanticTokens(report.semanticTokens ?? []);
             ports.app.updateStages(report.stages);
         },
-        switchTo(next) {
-            if (next === mode) return;
+        onReloadConfig(report) {
             if (mode === "edit") {
-                const dirty = ports.dialogueLive.dirty || (ports.configLive?.dirty ?? false);
-                if (dirty && !ports.confirmDiscard()) return;
-                ports.dialogueLive.discard();
-                ports.configLive?.discard();
+                // External config change → Conflict on the config controller; never clobber it.
+                ports.configLive?.onDiskChange();
+                return;
+            }
+            ports.app.showBanner(null);
+            const source = report.configuration?.file?.source;
+            if (report.configuration != null) ports.app.updateConfig(report.configuration);
+            if (source != null) ports.app.setConfigContent(source);
+            ports.app.setDiagnostics(report.diagnostics ?? []);
+            ports.app.setSemanticTokens(report.semanticTokens ?? []);
+            ports.app.updateStages(report.stages);
+            // Adopt the external config as the config controller's clean baseline; an invalid
+            // reload keeps the last valid report but adopts the (invalid) text as saved-invalid,
+            // carrying its parse detail so a later Discard restores it.
+            if (source != null) {
+                const invalid = (report as { outcome?: string }).outcome === "invalid";
+                ports.configLive?.adoptDisk(
+                    source,
+                    !invalid,
+                    invalid ? report.configMessage : undefined,
+                    report,
+                );
+            }
+        },
+        switchTo(next) {
+            if (next === mode) {
+                // Reasserting the current mode cancels any in-flight transition away from it — a
+                // click back into Edit while an Edit→View flush is still awaiting must keep Edit.
+                transition += 1;
+                return;
+            }
+            if (mode === "edit") {
+                void leaveEditThen(next);
+                return;
             }
             apply(next);
         },
+        onProblem(message, target) {
+            const live = target === "config" ? ports.configLive : ports.dialogueLive;
+            if (mode === "edit" && live) {
+                // A deletion/read failure under an active buffer is a disk change: route it through
+                // the controller so an in-flight save is invalidated (epoch) and the writer is
+                // paused in Conflict, rather than only flashing a banner that a save could ignore.
+                live.onDiskChange(message);
+                return;
+            }
+            ports.app.showBanner(message);
+        },
     };
+
+    // Leaving Edit is navigation: flush each Auto document and await it, or run the Manual
+    // save-or-discard prompt. A paused conflict/uncertain, or a declined prompt, keeps Edit. The
+    // transition token is rechecked after every await and before the final apply, so a reasserted
+    // Edit (or a newer switch) cancels this transition rather than dropping into a stale View.
+    async function leaveEditThen(next: ServedMode): Promise<void> {
+        const token = ++transition;
+        for (const controller of [ports.configLive, ports.dialogueLive]) {
+            if (!controller) continue;
+            const resolved = await ports.resolveDocument(controller);
+            if (token !== transition) return; // superseded: a reasserted Edit or a newer switch won
+            if (!resolved) return;
+        }
+        if (token !== transition) return;
+        ports.dialogueLive.discard();
+        ports.configLive?.discard();
+        apply(next);
+    }
 }

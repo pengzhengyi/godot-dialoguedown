@@ -4,12 +4,15 @@ import { LIVE_EDIT_PORT, LIVE_EDIT_DOC, LIVE_EDIT_SOURCE } from "./fixture.mjs";
 
 // Live Edit end-to-end against the real .NET --live server: the Source tab is an
 // editable CodeMirror buffer, edits update the preview as you type, the Save button and
-// the Ctrl/⌘+S shortcut write the file from any tab, and an external change surfaces a
-// passive chip without a reload.
+// the Ctrl/⌘+S shortcut write the file from any tab, and an external change pauses in a
+// conflict without clobbering the buffer.
 const base = `http://127.0.0.1:${LIVE_EDIT_PORT}`;
 
-test.beforeEach(() => {
+test.beforeEach(async ({ page }) => {
     writeFileSync(LIVE_EDIT_DOC, LIVE_EDIT_SOURCE);
+    // Pin Source to Manual (via its host-scoped cookie) so the explicit-save assertions below
+    // are not raced by an idle autosave; the dedicated Auto tests opt back in per test.
+    await page.context().addCookies([{ name: "dd-save-mode-source", value: "manual", url: base }]);
 });
 
 async function edit(page: Page, text: string) {
@@ -119,6 +122,29 @@ test("Discard after a save restores to the saved version, not the original", asy
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
 });
 
+test("Discard restores the source editor's diagnostics and semantic-token overlays", async ({
+    page,
+}) => {
+    // Two identical scene anchors emit a DLG2001 diagnostic; the speaker lines emit tokens.
+    writeFileSync(LIVE_EDIT_DOC, "# Chapter\n\nAlice: Hello.\n\n# Chapter\n\nBob: Bye.\n");
+    await page.goto(`${base}/`);
+    const source = page.locator(".source-pane");
+    await expect(source.locator(".cm-editor")).toBeVisible();
+    await expect(source.locator(".dd-tok-speaker").first()).toContainText("Alice");
+    await expect(source.locator(".cm-lintRange-error").first()).toBeVisible();
+
+    // Edit then Discard — a full-document restore that would otherwise drop those overlays.
+    await edit(page, " tail");
+    await expect(page.locator(".tab.dirty")).toHaveCount(1);
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page.locator(".discard-button").click();
+    await expect(page.locator(".tab.dirty")).toHaveCount(0);
+
+    // Both overlays are reapplied from the accepted baseline report, not lost by the restore.
+    await expect(source.locator(".dd-tok-speaker").first()).toContainText("Alice");
+    await expect(source.locator(".cm-lintRange-error").first()).toBeVisible();
+});
+
 test("the Ctrl/Cmd+S shortcut saves a node edit from a graph tab", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
@@ -177,9 +203,7 @@ test("formatting shortcuts and emphasis auto-surround wrap the selection", async
     await expect(content).toContainText("_hero_");
 });
 
-test("an external change surfaces the passive chip without discarding local edits", async ({
-    page,
-}) => {
+test("an external change pauses in Conflict without discarding local edits", async ({ page }) => {
     await page.goto(`${base}/`);
     await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
 
@@ -188,9 +212,41 @@ test("an external change surfaces the passive chip without discarding local edit
     await page.keyboard.type("X");
     writeFileSync(LIVE_EDIT_DOC, "# Rewritten from disk\n");
 
-    // The chip appears; the live editor is not reloaded, so the local buffer survives.
-    await expect(page.locator(".disk-chip")).toBeVisible();
+    // The status enters Conflict and offers Reload; the editor keeps the local buffer.
+    await expect(page.locator(".save-status[data-status='conflict']")).toBeVisible();
+    await expect(page.locator(".reload-button")).toBeVisible();
     await expect(page.locator(".source-pane .cm-content")).toContainText("Alice");
+
+    // Reload adopts the disk content as the new baseline and clears the conflict.
+    await page.locator(".reload-button").click();
+    await expect(page.locator(".source-pane .cm-content")).toContainText("Rewritten from disk");
+    await expect(page.locator(".save-status[data-status='saved']")).toBeVisible();
+});
+
+test("Source defaults to Auto and saves after the idle delay", async ({ page }) => {
+    await page.context().addCookies([{ name: "dd-save-mode-source", value: "auto", url: base }]);
+    await page.goto(`${base}/`);
+    await expect(page.locator(".source-pane .cm-editor")).toBeVisible();
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
+
+    await edit(page, " and an autosaved tail");
+
+    // Without touching Save, the idle debounce writes the file and clears dirty.
+    await expect(page.locator(".tab.dirty")).toHaveCount(0, { timeout: 4000 });
+    await expect(page.locator(".save-status[data-status='saved']")).toBeVisible();
+    expect(readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("autosaved tail");
+});
+
+test("the Auto/Manual choice is persisted to a host-scoped cookie", async ({ page }) => {
+    await page.goto(`${base}/`);
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Manual");
+
+    // Switching to Auto writes the per-document-type preference to a host-scoped cookie, which
+    // survives the ephemeral port a later session binds (where an origin-scoped store would not).
+    await page.locator(".save-mode-option", { hasText: "Auto" }).click();
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
+    const cookie = await page.evaluate(() => document.cookie);
+    expect(cookie).toContain("dd-save-mode-source=auto");
 });
 
 // A long, multi-scene document so both panes actually scroll. Headings anchor the sync.
@@ -310,6 +366,36 @@ test("edits a node's source in the inspector, and Save recompiles from it", asyn
     await page.keyboard.press("ControlOrMeta+s");
     await expect(page.locator(".tab.dirty")).toHaveCount(0);
     await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("EDITED");
+});
+
+test("an idle autosave keeps the open node inspector, rebinding it to the recompiled node", async ({
+    page,
+}) => {
+    writeFileSync(LIVE_EDIT_DOC, NODE_DOC);
+    // Auto so the edit below is saved by the idle debounce, whose recompile rebuilds the graph.
+    await page.context().addCookies([{ name: "dd-save-mode-source", value: "auto", url: base }]);
+    await page.goto(`${base}/`);
+    await expect(page.locator(".save-mode-option[aria-pressed='true']")).toHaveText("Auto");
+    await page.locator(".tab", { hasText: "Dialogue AST" }).click();
+    await expect(page.locator("section.stage.active g.node").first()).toBeVisible();
+
+    // Select and edit a node: its inspector editor is open, and editing arms the idle autosave.
+    await selectNode(page, "Text");
+    const nodeEditor = page.locator(".node-source .cm-editor");
+    await expect(nodeEditor).toBeVisible();
+    await editNode(page, " EDITED");
+    await expect(page.locator(".node-source .source-preview")).toContainText("EDITED");
+
+    // The idle debounce writes and recompiles — rebuilding the graph tabs — without touching Save.
+    await expect(page.locator(".tab.dirty")).toHaveCount(0, { timeout: 4000 });
+    await expect.poll(() => readFileSync(LIVE_EDIT_DOC, "utf8")).toContain("EDITED");
+
+    // The rebuild must not close the inspector: it stays open on the same node, its editor now
+    // bound to the recompiled node's source (no reset to the placeholder, no lost selection).
+    await expect(nodeEditor).toBeVisible();
+    await expect(page.locator("#detail-title")).not.toHaveText("Node details");
+    await expect(page.locator("section.stage.active g.node.selected")).toHaveCount(1);
+    await expect(page.locator(".node-source .cm-content")).toContainText("EDITED");
 });
 
 // The inspector editor must swallow graph-navigation keys so arrows move the cursor, not

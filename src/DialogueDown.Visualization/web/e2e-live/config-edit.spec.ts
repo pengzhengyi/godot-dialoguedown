@@ -16,10 +16,18 @@ const base = `http://127.0.0.1:${CONFIG_EDIT_PORT}`;
 
 const BOB = '\n[[speakers]]\nname = "Bob"\nid = "B"\n';
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
     mkdirSync(CONFIG_EDIT_TREE, { recursive: true });
     writeFileSync(CONFIG_EDIT_DOC, CONFIG_EDIT_SOURCE);
     writeFileSync(CONFIG_EDIT_TOML, CONFIG_EDIT_CONFIG);
+    // The live server is shared across this file, so a prior test may have left a different
+    // config adopted in memory. Re-adopt the reset file so each test starts from a baseline
+    // that matches disk (otherwise the optimistic save reports a conflict).
+    await fetch(`${base}/api/reload`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ target: "config" }),
+    }).catch(() => {});
 });
 
 /** Open the Config tab and append `text` at the end of the TOML editor. */
@@ -108,4 +116,48 @@ test("a saved config id feeds the Source editor's @-autocomplete", async ({ page
 
     await expect(page.locator(".cm-tooltip-autocomplete")).toBeVisible();
     await expect(page.locator(".cm-tooltip-autocomplete li")).toContainText(["ZED"]);
+});
+
+test("an external dialogue.toml change pauses the config in Conflict, and Reload adopts it", async ({
+    page,
+}) => {
+    await page.goto(base);
+    await page.locator(".tab", { hasText: "Config" }).click();
+    await expect(page.locator(".config-speakers-table")).toContainText("Alice");
+
+    // Change dialogue.toml from outside the editor: the config watcher hot-reloads it, and in
+    // Edit the config controller pauses in Conflict rather than clobbering the buffer.
+    writeFileSync(CONFIG_EDIT_TOML, CONFIG_EDIT_CONFIG + BOB);
+    await expect(page.locator(".save-status[data-status='conflict']")).toBeVisible();
+    await expect(page.locator(".reload-button")).toBeVisible();
+
+    // Reload adopts the external config as the new baseline and refreshes the speakers.
+    await page.locator(".reload-button").click();
+    await expect(page.locator(".save-status[data-status='saved']")).toBeVisible();
+    await expect(page.locator(".config-speakers-table")).toContainText("Bob");
+});
+
+test("a persisted invalid config survives a page reload as saved-invalid", async ({ page }) => {
+    await page.goto(base);
+
+    // Persist invalid TOML with an explicit save (Config defaults to Manual, so Save is
+    // allow-invalid): the config becomes saved-invalid with a stale speakers pane.
+    await appendToConfig(page, "\n[[speakers]]\nbogus = true\n");
+    await page.locator(".save-button").click();
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toBeVisible();
+    // The parse detail is rendered inside the aria-live status readout, not just a title tooltip.
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toContainText(
+        "Saved — invalid TOML:",
+    );
+    await expect(page.locator(".config-stale-hint")).toBeVisible();
+
+    // Reloading the page must restore that saved-invalid state from the served payload rather
+    // than reverting the Config tab to the last valid text with a clean report.
+    await page.reload();
+    await page.locator(".tab", { hasText: "Config" }).click();
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toBeVisible();
+    // The reloaded saved-invalid status carries its parse detail (seeded from report.configMessage).
+    await expect(page.locator(".save-status[data-status='saved-invalid']")).toContainText(":");
+    await expect(page.locator(".config-stale-hint")).toBeVisible();
+    await expect(page.locator(".config-source .cm-content")).toContainText("bogus");
 });

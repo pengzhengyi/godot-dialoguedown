@@ -119,6 +119,16 @@ export interface Report {
      */
     diagnostics?: LspDiagnostic[];
     /**
+     * Set to `saved-invalid` when the served configuration is persisted but invalid: the report's
+     * graphs and speakers are the last valid compile, {@link Report.configuration}'s file source is
+     * the current invalid TOML, and {@link Report.configMessage} explains the parse error. The
+     * client initializes the Config controller into the saved-invalid (report stale) state so a
+     * page reload restores it instead of the last valid text.
+     */
+    configStatus?: "saved-invalid";
+    /** The configuration parse error shown when {@link Report.configStatus} is `saved-invalid`. */
+    configMessage?: string;
+    /**
      * The compiler's semantic tokens, rendered as the Source editor's dialogue highlighting
      * (speakers, tags, jump indicators) layered over the Markdown colors. Present for a
      * served or CLI report; an empty array for a document with no dialogue constructs. Absent

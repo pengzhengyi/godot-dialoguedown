@@ -11,8 +11,38 @@ describe("createConfig", () => {
 
     it("reloads and flags the Config tab on success", async () => {
         const reload = vi.fn();
-        await createConfig({ post: () => Promise.resolve(response(true)), reload });
+        const outcome = await createConfig({
+            post: () => Promise.resolve(response(true, { outcome: "saved" })),
+            reload,
+        });
 
+        expect(outcome).toBe("created");
+        expect(reload).toHaveBeenCalledOnce();
+        expect(consumeOpenConfigTab()).toBe(true);
+    });
+
+    it("adopts and opens a different pre-existing config as recovery", async () => {
+        // The server adopted an existing dialogue.toml (200, outcome `adopted`) rather than failing.
+        // The flow still reloads and opens the Config tab, so the recovery is usable.
+        const reload = vi.fn();
+        const outcome = await createConfig({
+            post: () => Promise.resolve(response(true, { outcome: "adopted" })),
+            reload,
+        });
+
+        expect(outcome).toBe("adopted");
+        expect(reload).toHaveBeenCalledOnce();
+        expect(consumeOpenConfigTab()).toBe(true);
+    });
+
+    it("treats an adopted saved-invalid config as a usable adoption", async () => {
+        const reload = vi.fn();
+        const outcome = await createConfig({
+            post: () => Promise.resolve(response(true, { outcome: "adopted-invalid" })),
+            reload,
+        });
+
+        expect(outcome).toBe("adopted");
         expect(reload).toHaveBeenCalledOnce();
         expect(consumeOpenConfigTab()).toBe(true);
     });

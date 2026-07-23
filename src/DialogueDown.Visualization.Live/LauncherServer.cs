@@ -1,4 +1,3 @@
-using DialogueDown.ConfigurationLoader;
 using DialogueDown.Visualization.Configuration;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -60,6 +59,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         lock (_gate)
         {
             _active?.Watcher?.Dispose();
+            _active?.ConfigWatcher?.Dispose();
         }
 
         await _app.DisposeAsync();
@@ -99,6 +99,7 @@ internal sealed class LauncherServer : IAsyncDisposable
         app.MapPost("/api/create-config", CreateConfig);
         app.MapGet("/api/document", Document);
         app.MapPost("/api/save", (SaveRequest request) => Save(request));
+        app.MapPost("/api/reload", (ReloadRequest request) => Reload(request));
         app.MapGet("/api/events", HandleEventsAsync);
         app.MapGet(ReportMount, () => Report(string.Empty));
         app.MapGet(ReportMount + "/{**path}", (string? path) => Report(path ?? string.Empty));
@@ -169,11 +170,19 @@ internal sealed class LauncherServer : IAsyncDisposable
         // A served session always watches the file: View hot-reloads the report, Edit
         // surfaces a passive "changed on disk" chip.
         var watcher = new DocumentWatcher(source, session.Refresh);
+        // A session that already applies a config watches it too, so external config edits reload.
+        var configWatcher = session.ConfigPath is { } configPath
+            ? new DocumentWatcher(configPath, session.RefreshConfig)
+            : null;
 
         lock (_gate)
         {
             _active?.Watcher?.Dispose();
-            _active = new ActiveDocument(session, reportPath.Trim('/'), watcher);
+            _active?.ConfigWatcher?.Dispose();
+            _active = new ActiveDocument(session, reportPath.Trim('/'), watcher)
+            {
+                ConfigWatcher = configWatcher,
+            };
         }
 
         context.Response.Headers.Location = ReportMount + reportPath;
@@ -199,9 +208,9 @@ internal sealed class LauncherServer : IAsyncDisposable
             : Results.Content(active.Session.CurrentDocumentJson(), "application/json; charset=utf-8");
     }
 
-    // Saves the edited buffer to the active document — the dialogue, or its dialogue.toml
-    // when the target is "config". A served session always accepts this (the client only
-    // calls it in Edit); there is just nothing active before a script is opened.
+    // Applies the posted save request to the active document (dialogue or its dialogue.toml)
+    // and returns the typed-outcome payload. A served session always accepts this (the client
+    // only calls it in Edit); there is just nothing active before a script is opened.
     private IResult Save(SaveRequest request)
     {
         var active = Active();
@@ -212,13 +221,36 @@ internal sealed class LauncherServer : IAsyncDisposable
 
         try
         {
-            var source = request.Source ?? string.Empty;
-            var isConfig = string.Equals(request.Target, "config", StringComparison.OrdinalIgnoreCase);
-            var json = isConfig ? active.Session.SaveConfig(source) : active.Session.Save(source);
+            var json = active.Session.Save(
+                new SaveInput(
+                    request.Source,
+                    request.Target,
+                    request.ExpectedBaseline,
+                    request.Validation,
+                    request.Conflict));
             return Results.Content(json, "application/json; charset=utf-8");
         }
-        catch (Exception ex)
-            when (ex is IOException or InvalidOperationException or DialogueConfigurationException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Reloads the active document or its configuration from disk (a conflict/uncertain recovery).
+    private IResult Reload(ReloadRequest request)
+    {
+        var active = Active();
+        if (active is null)
+        {
+            return Results.NotFound();
+        }
+
+        try
+        {
+            return Results.Content(
+                active.Session.Reload(request.Target), "application/json; charset=utf-8");
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
             return Results.BadRequest(new { message = ex.Message });
         }
@@ -237,20 +269,41 @@ internal sealed class LauncherServer : IAsyncDisposable
         }
 
         var configPath = Path.Combine(_root.RootDirectory, ConfigurationFile.DefaultName);
-        if (File.Exists(configPath))
-        {
-            return Results.Conflict(
-                new { message = "A dialogue.toml already exists — reload to edit it." });
-        }
-
         try
         {
-            var json = active.Session.CreateConfig(configPath);
-            return Results.Content(json, "application/json; charset=utf-8");
+            // The exclusive create in LiveSession decides create/adopt/conflict atomically, so
+            // there is no File.Exists check to race here. A create, an idempotent adoption, or a
+            // differing pre-existing file adopted as recovery (AdoptedExisting) starts the config
+            // watcher and returns 200; only a retry of an already-adopted file that diverged is a
+            // conflict (409), left untouched.
+            var result = active.Session.CreateConfig(configPath);
+            if (result.Status == CreateConfigStatus.Conflict)
+            {
+                return Results.Conflict(new { message = result.Payload });
+            }
+
+            StartConfigWatcher(active, configPath);
+            return Results.Content(result.Payload, "application/json; charset=utf-8");
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
             return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Starts (or replaces) the watcher for the active document's newly created config so external
+    // edits to it hot-reload, unless the active document has since been swapped out.
+    private void StartConfigWatcher(ActiveDocument active, string configPath)
+    {
+        lock (_gate)
+        {
+            if (!ReferenceEquals(_active, active))
+            {
+                return;
+            }
+
+            active.ConfigWatcher?.Dispose();
+            active.ConfigWatcher = new DocumentWatcher(configPath, active.Session.RefreshConfig);
         }
     }
 
@@ -285,11 +338,22 @@ internal sealed class LauncherServer : IAsyncDisposable
         }
     }
 
-    private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher);
+    private sealed record ActiveDocument(LiveSession Session, string ReportRelative, DocumentWatcher? Watcher)
+    {
+        /// <summary>The watcher for this document's <c>dialogue.toml</c>, once one is created.</summary>
+        public DocumentWatcher? ConfigWatcher { get; set; }
+    }
 
     private sealed record OpenRequest(string? Source, string? Mode);
 
     private sealed record CreateRequest(string? Path);
 
-    private sealed record SaveRequest(string? Source, string? Target = null);
+    private sealed record SaveRequest(
+        string? Source,
+        string? Target = null,
+        string? ExpectedBaseline = null,
+        string? Validation = null,
+        string? Conflict = null);
+
+    private sealed record ReloadRequest(string? Target = null);
 }

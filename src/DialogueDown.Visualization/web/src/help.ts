@@ -17,10 +17,16 @@ const SOURCE_HELP = `
      from the document — a jump target after <kbd>](#</kbd>, a speaker id after
      <kbd>@</kbd>, a <kbd>#</kbd>tag, or a speaker at the start of a line. <kbd>Enter</kbd>
      or <kbd>Tab</kbd> accepts, <kbd>Esc</kbd> dismisses.</p>
+  <p><strong>Save modes &amp; status</strong> (Live Edit): the <strong>Auto | Manual</strong>
+     capsule sets how the active document saves — <strong>Auto</strong> writes 1s after you
+     stop typing, <strong>Manual</strong> waits for you. Source starts Auto and Config starts
+     Manual, and each choice is remembered. The status beside it reads
+     <em>Unsaved / Saving… / Saved</em>, or <em>Conflict</em>, <em>Waiting for valid TOML</em>,
+     or <em>Saved — invalid TOML</em> when relevant.</p>
   <p><strong>Save &amp; discard</strong> (Live Edit): <kbd>⌘/Ctrl-S</kbd> or the
-     <strong>Save</strong> button writes your edits to the file; <strong>Discard</strong>
-     (after a confirmation) throws away unsaved edits and restores the last saved version.
-     Both are active only while there are unsaved changes.</p>
+     <strong>Save</strong> button writes immediately in either mode; <strong>Discard</strong>
+     (after a confirmation) restores the last saved version. If the file changed on disk,
+     <strong>Reload</strong> re-syncs from disk (or Save to overwrite).</p>
   <p><strong>Full screen</strong> (bottom-right ⤢, or press <kbd>f</kbd> outside the
      editor): fill the window with the source and preview; <kbd>f</kbd> or <kbd>Esc</kbd>
      to leave.</p>

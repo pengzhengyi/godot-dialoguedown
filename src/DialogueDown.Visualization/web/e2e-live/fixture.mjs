@@ -52,6 +52,26 @@ export const CONFIG_CREATE_DOC = join(CONFIG_CREATE_TREE, "scene.dialogue.md");
 export const CONFIG_CREATE_TOML = join(CONFIG_CREATE_TREE, "dialogue.toml");
 export const CONFIG_CREATE_SOURCE = "# Scene\n\nAlice: Hello.\n";
 
+// A config-adopt server: like config-create (no `dialogue.toml` at launch, served in --edit) but
+// the spec drops a *different* pre-existing config on disk before clicking Create. The server then
+// adopts that file instead of failing, so the no-config session recovers into the existing config.
+export const CONFIG_ADOPT_PORT = 5184;
+export const CONFIG_ADOPT_TREE = join(here, ".config-adopt-tree");
+export const CONFIG_ADOPT_DOC = join(CONFIG_ADOPT_TREE, "scene.dialogue.md");
+export const CONFIG_ADOPT_TOML = join(CONFIG_ADOPT_TREE, "dialogue.toml");
+export const CONFIG_ADOPT_SOURCE = "# Scene\n\nAlice: Hello.\n";
+export const CONFIG_ADOPT_CONFIG = '[[speakers]]\nname = "Zelda"\nid = "Z"\n';
+
+// A config-adopt-invalid server: like config-adopt, but the pre-existing `dialogue.toml` dropped on
+// disk is *invalid* TOML. Adopting it must still recover the session into an editable Config
+// (saved-invalid) rather than dead-ending config-less, so the writer can fix it.
+export const CONFIG_ADOPT_INVALID_PORT = 5185;
+export const CONFIG_ADOPT_INVALID_TREE = join(here, ".config-adopt-invalid-tree");
+export const CONFIG_ADOPT_INVALID_DOC = join(CONFIG_ADOPT_INVALID_TREE, "scene.dialogue.md");
+export const CONFIG_ADOPT_INVALID_TOML = join(CONFIG_ADOPT_INVALID_TREE, "dialogue.toml");
+export const CONFIG_ADOPT_INVALID_SOURCE = "# Scene\n\nAlice: Hello.\n";
+export const CONFIG_ADOPT_INVALID_CONFIG = "[[speakers]]\nbogus = true\n";
+
 // Semantic-autocomplete owns its document because the test replaces the editor buffer.
 // Sharing LIVE_EDIT_DOC let this spec race live-edit.spec.ts when Playwright ran files in
 // parallel.

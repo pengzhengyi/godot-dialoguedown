@@ -6,9 +6,10 @@ import type {
     LspDiagnostic,
     SemanticToken,
     DialogueSymbolProvider,
+    DisplayNode,
 } from "./model";
 import { createDetailPanel } from "./detail-panel";
-import { createTreeView, type TreeView } from "./tree-view";
+import { createTreeView, type TreeView, type NodeSelectOptions } from "./tree-view";
 import type { CameraTransform } from "./graph-camera";
 import { GraphCameraStore } from "./graph-camera";
 import { createSourceView, type SourceViewHandle } from "./source-view";
@@ -63,10 +64,14 @@ export interface SourceOptions {
      */
     symbols?: DialogueSymbolProvider;
     /**
-     * Guards navigation (switching tabs, or selecting another node) while the session has
-     * unsaved edits: returns false to block it so the reader saves or discards first.
+     * An asynchronous boundary guarding navigation (switching tabs or selecting another node): it
+     * runs `proceed` once the active document's Auto save has flushed, or the reader chose to
+     * discard in Manual, and does nothing when navigation should stay put. Only the latest intent
+     * runs. Absent means navigation is always allowed.
      */
-    confirmNavigation?(): boolean;
+    beginNavigation?(proceed: () => void): void;
+    /** Called whenever the active tab changes, so the caller can reflect the active document's chrome. */
+    onActiveTabChange?(): void;
 }
 
 /** Controls a running report: swap in fresh data, reconfigure the editor, or show a banner. */
@@ -144,6 +149,18 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
     let titles: string[] = [];
     // Remembers each stage's zoom/pan and fold across tab switches and rebuilds.
     const cameras = new GraphCameraStore();
+    // The stable id of the node the inspector is currently showing, or null when nothing is
+    // selected. Captured before a save-triggered `updateStages` rebuild so the selection — and
+    // the open inspector editor bound to it — can be restored against the freshly built view.
+    let selectedNodeId: string | null = null;
+
+    // Record the shown node's stable id, then drive the shared inspector. Wrapping `panel.show`
+    // (rather than calling it directly) is what lets `updateStages` reselect the same node after
+    // a rebuild, keeping the inspector editor open and rebound to the node's current source.
+    function showNode(node: DisplayNode): void {
+        selectedNodeId = node.id;
+        panel.show(node);
+    }
 
     // The whole-window maximize mode (graphs and the source split), toggled from each
     // tab's maximize button or the `f` / Escape keys. Wired once for the app's lifetime.
@@ -263,11 +280,31 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         return 0;
     }
 
+    // Route a node selection through the app's navigation boundary, then re-select the node by its
+    // stable id against the now-active view. The Auto flush that navigation awaits can save and
+    // rebuild the graph tabs, replacing the view the click came from; resolving by id against the
+    // freshly installed view (and cancelling safely when the id is gone) keeps the selection off
+    // the stale, detached node and its stale source spans.
+    function deferNodeSelect(id: string, options: NodeSelectOptions, selectHere: () => void): void {
+        const begin = source?.beginNavigation;
+        if (!begin) {
+            selectHere();
+            return;
+        }
+        begin(() => {
+            views[activeIndex]?.selectById(id, options);
+        });
+    }
+
     // Replace only the graph tabs (on a Live Edit save), leaving the Source tab and its
     // editor — and the reader's cursor — untouched. Each graph's remembered camera and
     // fold are recorded live (as the reader adjusts them), so a rebuilt stage restores
-    // its position from the store.
+    // its position from the store. The inspector's selected node is remembered by its stable
+    // id and reselected against the freshly built view, so a successful autosave never closes
+    // the open node inspector; if the node is gone from the recompiled graph, the selection
+    // cancels safely and the inspector clears.
     function updateStages(stages: Stage[]): void {
+        const reselectId = selectedNodeId;
         const keep = (configPresent ? 1 : 0) + (sourcePresent ? 1 : 0);
         while (tabsEl.children.length > keep) tabsEl.lastElementChild!.remove();
         while (stagesEl.children.length > keep) stagesEl.lastElementChild!.remove();
@@ -277,7 +314,13 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         for (const stage of stages) {
             addStageTab(stage);
         }
-        if (views.length > 0) activate(Math.min(activeIndex, views.length - 1));
+        if (views.length > 0) {
+            activate(Math.min(activeIndex, views.length - 1));
+            // `activate` clears every view's selection and the inspector; restore the remembered
+            // node in the now-active view (re-opening and rebinding its inspector editor). A
+            // missing id resolves to `false` and leaves the inspector cleared.
+            if (reselectId !== null) views[activeIndex]?.selectById(reselectId);
+        }
     }
 
     function addStageTab(stage: Stage): void {
@@ -309,18 +352,20 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
                 onFoldChange: (collapsed: string[]) => cameras.setFold(stage.title, collapsed),
                 onRevert: () => cameras.reset(stage.title),
                 onToggleFullscreen: fullscreen.toggle,
-                // Selecting another node is navigation: block it while there are unsaved edits.
-                ...(source?.confirmNavigation ? { canSelect: source.confirmNavigation } : {}),
+                // Selecting another node is navigation: route it through the async guard, then
+                // resolve the node by id against the active view (a save-triggered rebuild may have
+                // replaced this one) so the deferred selection never lands on a stale node.
+                ...(source?.beginNavigation ? { onNodeSelect: deferNodeSelect } : {}),
             };
             if (isSemantic) {
-                const semantic = createSemanticView(stage, panel.show, treeOptions);
+                const semantic = createSemanticView(stage, showNode, treeOptions);
                 view = semantic.view;
                 section.appendChild(semantic.element);
             } else {
                 // A stage shows its own pinned camera, else the shared current one it
                 // inherits, else the default framing; its fold is always its own. Reader
                 // adjustments are recorded live through the callbacks above.
-                view = createTreeView(stage, panel.show, treeOptions);
+                view = createTreeView(stage, showNode, treeOptions);
                 section.appendChild(view.svg);
                 section.appendChild(view.legend);
                 section.appendChild(view.controls);
@@ -361,14 +406,17 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         } else {
             tab.setAttribute("data-tip", tip);
         }
-        // Switching tabs is navigation: block it while there are unsaved edits so a stale
-        // graph is never shown beside them (the reader saves or discards first). An
-        // unavailable stage cannot be entered at all.
+        // Switching tabs is navigation: route it through the async guard so an Auto save flushes
+        // (or a Manual prompt resolves) before the tab changes and a stale graph is shown beside
+        // unsaved edits. An unavailable stage cannot be entered at all.
         tab.addEventListener("click", () => {
             if (unavailable) return;
-            if (index !== activeIndex && source?.confirmNavigation && !source.confirmNavigation())
-                return;
-            activate(index);
+            if (index === activeIndex) return;
+            if (source?.beginNavigation) {
+                source.beginNavigation(() => activate(index));
+            } else {
+                activate(index);
+            }
         });
         tabsEl.appendChild(tab);
         stagesEl.appendChild(section);
@@ -402,6 +450,8 @@ export function runApp(report: Report, source?: SourceOptions): AppController {
         revealView(index);
         for (const view of views) view?.clearSelection();
         panel.clear();
+        selectedNodeId = null;
+        source?.onActiveTabChange?.();
     }
 
     /**

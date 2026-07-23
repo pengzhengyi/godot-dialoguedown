@@ -5,10 +5,12 @@ import "./styles.css";
 import { runApp } from "./app";
 import { watchServerEvents } from "./live-client";
 import { createLiveEdit, type LiveEditController } from "./live-edit";
-import { initLiveEditUi } from "./live-edit-ui";
+import { initLiveEditUi, type DocumentBinding } from "./live-edit-ui";
+import { createSaveModeStore } from "./save-mode";
 import { createModeToggle } from "./mode-toggle";
 import { createModeController } from "./view-edit";
-import { browserConfigCreatePorts, createConfig } from "./config-create";
+import { createConfig, browserConfigCreatePorts } from "./config-create";
+import { resolveDocumentForNavigation } from "./navigation";
 import { initModeBadge } from "./mode-badge";
 import { initPathDisplay, initConfigPath } from "./path-display";
 import { initBackToLauncher } from "./back-link";
@@ -47,78 +49,141 @@ if (report.mode === "view" || report.mode === "edit") {
     // The semantic analyzer's resolved symbols, refreshed on each hot-reload. The editor's
     // completion source reads this holder every call, so a reload updates completions in place.
     let currentSymbols: DialogueSymbols = report.symbols ?? EMPTY_SYMBOLS;
-    // Navigation (switching tabs or selecting another node) is locked while a document has
-    // unsaved edits, so a stale graph is never shown beside them. At most one document is dirty
-    // at a time (the nav-lock guarantees it); resolve it here: discard to continue, or cancel to
-    // keep editing (then Save).
-    const guardNavigation = (): boolean => {
-        const dirtyLive = configLive?.dirty ? configLive : dialogueLive.dirty ? dialogueLive : null;
-        if (!dirtyLive) return true;
-        const discard = window.confirm(
-            "You have unsaved changes. Discard them to continue? " +
-                "Click Cancel to keep editing, then Save.",
+    const sourceStore = createSaveModeStore("source");
+    const configStore = createSaveModeStore("config");
+    // Only the latest navigation intent runs; a later navigation or a mode change bumps the token
+    // so a superseded flush never replays a stale transition.
+    let navToken = 0;
+    // runApp activates a tab during construction (before `ui` and the controllers exist), so the
+    // active-document reflection is armed only once everything below is wired.
+    let controllersReady = false;
+
+    // The active document's controller: the config when the Config tab is active, else the
+    // dialogue (node-inspector edits share the Source controller). A Config tab with no config
+    // file has no controller, so there is no active save controller (shared controls disable).
+    const activeLive = (): LiveEditController | null =>
+        app.isConfigTabActive() ? configLive : dialogueLive;
+
+    // Resolve one document before navigation: Auto flushes and awaits the latest generation;
+    // Manual awaits the current save, then prompts save-or-discard. A paused
+    // conflict/uncertain/waiting/error stays in place, so navigation is never an implicit retry.
+    function resolveDocument(
+        live: LiveEditController,
+        isCancelled: () => boolean = () => false,
+    ): Promise<boolean> {
+        return resolveDocumentForNavigation(
+            live,
+            () =>
+                window.confirm(
+                    "You have unsaved changes. Discard them to continue? " +
+                        "Click Cancel to keep editing, then Save.",
+                ),
+            isCancelled,
         );
-        if (discard) dirtyLive.discardChanges();
-        return discard;
-    };
+    }
+
+    // The async navigation boundary for tabs and node selection: resolve the active document,
+    // then run `proceed` — but only when a newer navigation has not superseded this one. A Config
+    // tab with no controller has nothing to resolve, so navigation proceeds.
+    function beginNavigation(proceed: () => void): void {
+        const token = ++navToken;
+        const live = activeLive();
+        if (live === null) {
+            proceed();
+            return;
+        }
+        // A newer navigation (or a mode change) bumps navToken; pass that as the cancellation
+        // signal so the Auto flush loop stops rather than saving on behalf of a superseded intent.
+        void resolveDocument(live, () => token !== navToken).then((ok) => {
+            if (ok && token === navToken) proceed();
+        });
+    }
+
     const app = runApp(report, {
         editable: initialMode === "edit",
         onChange: (buffer) => controller.onEditorChange(buffer),
         configOnChange: (buffer) => controller.onConfigEditorChange(buffer),
-        onCreateConfig: () => createConfig(browserConfigCreatePorts()),
-        confirmNavigation: guardNavigation,
+        onCreateConfig: async () => {
+            await createConfig(browserConfigCreatePorts());
+        },
+        beginNavigation,
+        onActiveTabChange: () => {
+            if (controllersReady) ui.reflectActiveDocument();
+        },
         symbols: () => currentSymbols,
     });
-    // Save (⌘S or the button) acts on the active document: the config when the Config tab is
-    // active, else the dialogue. Since only one document can be dirty at a time, this always
-    // targets the dirty one (or is a no-op).
-    const activeLive = (): LiveEditController =>
-        configLive && app.isConfigTabActive() ? configLive : dialogueLive;
-    const ui = initLiveEditUi(
-        app,
-        () => void activeLive().save(),
-        () => activeLive().discardChanges(),
-    );
+    const ui = initLiveEditUi(app, { active: () => activeLive() });
+    const dialogueBinding: DocumentBinding = {
+        type: "source",
+        markDirty: app.markSourceDirty,
+        setContent: app.setContent,
+        applyReport: (applied) => {
+            app.updateStages(applied.stages);
+            // A save recompiles, so the analyzer's symbols change — refresh the completion
+            // holder or the editor keeps offering the old speakers/ids.
+            currentSymbols = applied.symbols ?? EMPTY_SYMBOLS;
+            app.setDiagnostics(applied.diagnostics ?? []);
+            app.setSemanticTokens(applied.semanticTokens ?? []);
+        },
+        diskSource: (applied) => applied.source ?? "",
+    };
     const dialogueLive = createLiveEdit(
-        ui.portsFor({
-            markDirty: app.markSourceDirty,
-            setContent: app.setContent,
-            // A save recompiles, so the analyzer's symbols change too — refresh the
-            // completion source's holder or the editor keeps offering the old speakers/ids.
-            onSaved: (saved) => {
-                currentSymbols = saved.symbols ?? EMPTY_SYMBOLS;
-                app.setDiagnostics(saved.diagnostics ?? []);
-                app.setSemanticTokens(saved.semanticTokens ?? []);
+        ui.portsFor(dialogueBinding),
+        {
+            documentType: "source",
+            mode: sourceStore.get(),
+            initialReport: report,
+            onModeChange: (m) => {
+                sourceStore.set(m);
+                navToken += 1; // a mode change clears any pending navigation
             },
-        }),
+        },
         report.source ?? "",
     );
+    const configBinding: DocumentBinding = {
+        type: "config",
+        target: "config",
+        markDirty: app.markConfigDirty,
+        setContent: (source) => app.setConfigContent(source),
+        applyReport: (applied) => {
+            if (applied.configuration) app.updateConfig(applied.configuration);
+            // A config recompile changes the graph too, so refresh the stages exactly once, like
+            // the Source binding does.
+            app.updateStages(applied.stages);
+            // Editing the config changes the resolved speakers/ids, so refresh the Source
+            // editor's completion symbols and diagnostics from the same recompile.
+            currentSymbols = applied.symbols ?? EMPTY_SYMBOLS;
+            app.setDiagnostics(applied.diagnostics ?? []);
+            // A config recompile also changes the dialogue's highlighting (a newly known
+            // speaker), so refresh the semantic tokens from the same report.
+            app.setSemanticTokens(applied.semanticTokens ?? []);
+        },
+        diskSource: (applied) => applied.configuration?.file?.source ?? "",
+        // The speakers pane is stale whenever the buffer's config is not the compiled report.
+        onStatus: (status) => app.setConfigStale(status !== "saved"),
+    };
+    const configInitiallyInvalid = report.configStatus === "saved-invalid";
     const configLive: LiveEditController | null = report.configuration?.file
         ? createLiveEdit(
-              ui.portsFor({
-                  target: "config",
-                  // A dirty config also marks its speakers pane stale until the next Save.
-                  markDirty: (dirty) => {
-                      app.markConfigDirty(dirty);
-                      app.setConfigStale(dirty);
+              ui.portsFor(configBinding),
+              {
+                  documentType: "config",
+                  mode: configStore.get(),
+                  initialValid: !configInitiallyInvalid,
+                  initialMessage: configInitiallyInvalid ? report.configMessage : undefined,
+                  initialReport: report,
+                  onModeChange: (m) => {
+                      configStore.set(m);
+                      navToken += 1;
                   },
-                  setContent: (source) => app.setConfigContent(source),
-                  onSaved: (saved) => {
-                      if (saved.configuration) app.updateConfig(saved.configuration);
-                      // Editing the config changes the resolved speakers/ids, so refresh the
-                      // Source editor's completion symbols too (the reported bug: a new id
-                      // did not appear in `@` completion until a reload).
-                      currentSymbols = saved.symbols ?? EMPTY_SYMBOLS;
-                      // A config change can also change the dialogue's diagnostics (an unknown
-                      // speaker becomes known) and its highlighting, so refresh both from the
-                      // same recompile.
-                      app.setDiagnostics(saved.diagnostics ?? []);
-                      app.setSemanticTokens(saved.semanticTokens ?? []);
-                  },
-              }),
+              },
               report.configuration.file.source,
           )
         : null;
+    // A page that loaded with a persisted-but-invalid Config starts with a stale report: the
+    // speakers pane reflects the last valid compile, not the invalid buffer now in the editor.
+    if (configInitiallyInvalid) app.setConfigStale(true);
+    controllersReady = true;
     const controller = createModeController(initialMode, {
         app,
         dialogueLive,
@@ -129,8 +194,7 @@ if (report.mode === "view" || report.mode === "edit") {
             document.documentElement.dataset.servedMode = mode;
             toggle.reflect(mode);
         },
-        confirmDiscard: () =>
-            window.confirm("Discard unsaved edits and switch to View? Your changes will be lost."),
+        resolveDocument,
     });
     document.getElementById("mode-badge")?.replaceWith(toggle.element);
     watchServerEvents({
@@ -138,7 +202,11 @@ if (report.mode === "view" || report.mode === "edit") {
             currentSymbols = next.symbols ?? EMPTY_SYMBOLS;
             controller.onReload(next);
         },
-        onProblem: (message) => app.showBanner(message),
+        onReloadConfig: (next) => {
+            currentSymbols = next.symbols ?? EMPTY_SYMBOLS;
+            controller.onReloadConfig(next);
+        },
+        onProblem: (message, target) => controller.onProblem(message, target),
     });
     if (header) initBackToLauncher(header, window.location.pathname);
 } else {

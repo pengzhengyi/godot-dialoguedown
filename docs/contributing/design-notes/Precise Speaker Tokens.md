@@ -1,7 +1,7 @@
 # Precise Speaker Tokens
 
-> [!IMPORTANT]
-> Status: **approved — implementing**. Refines the coarse `Speaker` token from
+> [!NOTE]
+> Status: **implemented**. Refines the coarse `Speaker` token from
 > [Compiler-Projected Editor Semantics](./Compiler-Projected%20Editor%20Semantics.md) into precise,
 > non-overlapping sub-tokens (name, `@id`, separator), resolving
 > [#142](https://github.com/pengzhengyi/godot-dialoguedown/issues/142). The core AST gains the
@@ -36,16 +36,16 @@ source of truth); tags, which already carry their own spans and render as precis
 
 ## Functionality checklist
 
-- [ ] The parser captures the name span, the optional `@id` span, and the `:` separator span,
+- [x] The parser captures the name span, the optional `@id` span, and the `:` separator span,
       sourced from Superpower's `.Located()` — not re-derived.
-- [ ] The `@id` span includes its leading `@`; a quoted name's span includes the quotes.
-- [ ] Speaker AST nodes carry the sub-spans; a synthetic or config-built speaker carries none.
-- [ ] `TokenKind` gains `SpeakerName`, `SpeakerId`, and `Separator`; the coarse `Speaker` is
+- [x] The `@id` span includes its leading `@`; a quoted name's span includes the quotes.
+- [x] Speaker AST nodes carry the sub-spans; a synthetic or config-built speaker carries none.
+- [x] `TokenKind` gains `SpeakerName`, `SpeakerId`, and `Separator`; the coarse `Speaker` is
       retired.
-- [ ] The projection emits one token per present part; the tokens are **non-overlapping** and
+- [x] The projection emits one token per present part; the tokens are **non-overlapping** and
       interleave cleanly with the separate tag tokens.
-- [ ] The editor renders the three kinds, and the coarse-token overlap precedence is removed.
-- [ ] A default/orphan-recovery speaker emits no speaker tokens (unchanged).
+- [x] The editor renders the three kinds, and the coarse-token overlap precedence is removed.
+- [x] A default/orphan-recovery speaker emits no speaker tokens (unchanged).
 
 ## Interfaces and abstractions
 
@@ -68,6 +68,10 @@ Superpower already tracks each element's position; the tag parser keeps them via
 values and their positions dropped. The fix is symmetry: `.Located()` the name, id, and colon too.
 This keeps the AST the single source of truth for token ranges and avoids the fragile source
 re-scanning [#115](https://github.com/pengzhengyi/godot-dialoguedown/issues/115) rejected.
+
+The optional `@id` needs one piece of care: `.Optional()` on a value type yields `default(T)`,
+which a located id (a struct) cannot tell from absence, so a small `OptionalValue` combinator lifts
+it into a nullable that is genuinely `null` when the id is missing.
 
 ```mermaid
 flowchart LR

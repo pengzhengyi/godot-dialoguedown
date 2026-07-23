@@ -13,7 +13,7 @@ public sealed class WeightTotalRuleTests
     [Fact]
     public void Check_WeightsTotalOneHundred_ReportsNothing()
     {
-        var random = RandomChoiceGroup(
+        var random = RandomChoices(
             RandomOption(new NumberWeight(50), Line(Text("heads"))),
             RandomOption(new NumberWeight(50), Line(Text("tails"))));
 
@@ -23,7 +23,7 @@ public sealed class WeightTotalRuleTests
     [Fact]
     public void Check_WeightsBelowOneHundred_WarnsAtTheGroupStart_WithTheTotal()
     {
-        var random = RandomChoiceGroup(
+        var random = RandomChoices(
             12,
             RandomOption(new NumberWeight(50), Line(Text("heads"))),
             RandomOption(new NumberWeight(30), Line(Text("tails"))));
@@ -39,7 +39,7 @@ public sealed class WeightTotalRuleTests
     [Fact]
     public void Check_WeightsAboveOneHundred_Warns()
     {
-        var random = RandomChoiceGroup(
+        var random = RandomChoices(
             RandomOption(new NumberWeight(60), Line(Text("heads"))),
             RandomOption(new NumberWeight(60), Line(Text("tails"))));
 
@@ -52,7 +52,7 @@ public sealed class WeightTotalRuleTests
     [Fact]
     public void Check_WeightsSumToZero_ReportsAnError()
     {
-        var random = RandomChoiceGroup(
+        var random = RandomChoices(
             7,
             RandomOption(new NumberWeight(0), Line(Text("heads"))),
             RandomOption(new NumberWeight(0), Line(Text("tails"))));
@@ -67,7 +67,7 @@ public sealed class WeightTotalRuleTests
     [Fact]
     public void Check_AnAutoWeightThatFillsTheLeftover_ReportsNothing()
     {
-        var random = RandomChoiceGroup(
+        var random = RandomChoices(
             RandomOption(new NumberWeight(70), Line(Text("halt"))),
             RandomOption(new AutoWeight(), Line(Text("oh, it's you"))));
 
@@ -77,7 +77,7 @@ public sealed class WeightTotalRuleTests
     [Fact]
     public void Check_ASingleOption_IsAlwaysSelected_SoReportsNothing()
     {
-        var random = RandomChoiceGroup(RandomOption(new NumberWeight(50), Line(Text("only"))));
+        var random = RandomChoices(RandomOption(new NumberWeight(50), Line(Text("only"))));
 
         Assert.Empty(Check(random));
     }
@@ -85,7 +85,7 @@ public sealed class WeightTotalRuleTests
     [Fact]
     public void Check_WeightsCloseEnoughToOneHundred_ReportNothing()
     {
-        var random = RandomChoiceGroup(
+        var random = RandomChoices(
             RandomOption(new NumberWeight(33.3), Line(Text("a"))),
             RandomOption(new NumberWeight(33.3), Line(Text("b"))),
             RandomOption(new NumberWeight(33.3), Line(Text("c"))));

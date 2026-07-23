@@ -10,4 +10,4 @@ namespace DialogueDown.Script.Ast;
 /// <see cref="Choice"/>s, because the player never selects one — the engine does.
 /// </summary>
 internal sealed record RandomChoices(
-    IReadOnlyList<RandomOption> Options, SourceSpan Span) : ScriptBlock(Span);
+    IReadOnlyList<RandomOption> Options, SourceSpan Span) : ChoiceGroup(Span);

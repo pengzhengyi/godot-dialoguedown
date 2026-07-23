@@ -30,7 +30,7 @@ public sealed class ScriptNodeExtensionsTests
     public void Children_Choices_YieldsOptions()
     {
         var option = Choice(Line(Text("pick")));
-        var choices = ChoiceGroup(option);
+        var choices = Choices(option);
 
         Assert.Equal([option], choices.Children());
     }
@@ -48,7 +48,7 @@ public sealed class ScriptNodeExtensionsTests
     public void Children_RandomChoices_YieldsOptions()
     {
         var option = RandomOption(new NumberWeight(50), Line(Text("heads")));
-        var random = RandomChoiceGroup(option);
+        var random = RandomChoices(option);
 
         Assert.Equal([option], random.Children());
     }

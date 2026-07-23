@@ -23,7 +23,7 @@ public sealed class RandomChoicesTests
     }
 
     [Fact]
-    public void RandomChoices_ExposesOptionsAndSpan_AndIsAScriptBlock()
+    public void RandomChoices_ExposesOptionsAndSpan_AndIsAChoiceGroup()
     {
         var span = SourceSpanFactory.Span();
         var option = RandomOption(new AutoWeight(), Line(Text("heads")));
@@ -32,7 +32,7 @@ public sealed class RandomChoicesTests
 
         Assert.Equal([option], random.Options);
         Assert.Equal(span, random.Span);
-        Assert.IsAssignableFrom<ScriptBlock>(random);
+        Assert.IsAssignableFrom<ChoiceGroup>(random);
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public sealed class RandomChoicesTests
     [Fact]
     public void RandomOption_HoldsANestedRandomChoices_ForBranchingOptions()
     {
-        var nested = RandomChoiceGroup(RandomOption(new AutoWeight(), Line(Text("caws"))));
+        var nested = RandomChoices(RandomOption(new AutoWeight(), Line(Text("caws"))));
 
         var option = RandomOption(new NumberWeight(80), Line(Text("Fresh apples!")), nested);
 

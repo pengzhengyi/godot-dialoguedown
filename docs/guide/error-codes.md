@@ -321,6 +321,30 @@ Alice: Onward!
 <mark class="dd-mark-fix"># The End</mark>
 Alice: We made it.</code></pre>
 
+### DLG2010
+
+<span class="dd-sev dd-sev--error">Error</span> · Random choice weights sum to zero
+
+Every weight in this random choice is 0, so no option can be selected. Give at least one option a positive weight.
+
+A random choice picks one option by weight. When every weight is 0 there is nothing to pick from — the odds are undefined. Give at least one option a positive weight.
+
+<span class="dd-eg-bad">Triggering example</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- <mark class="dd-mark-bad">`0%`</mark> Heads.
+- `0%` Tails.</code></pre>
+
+<span class="dd-eg-fix">Fix</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- <mark class="dd-mark-fix">`50%`</mark> Heads.
+- `50%` Tails.</code></pre>
+
 ## Style (`DLG3xxx`)
 
 A valid script that reads correctly but could read better.
@@ -356,3 +380,27 @@ Nested choices remain valid, but a fourth level becomes difficult to scan and ma
 - Level 3
     - Level 4
         Alice: This branch is easier to scan.</code></pre>
+
+### DLG3003
+
+<span class="dd-sev dd-sev--warning">Warning</span> · Choice weights do not total 100%
+
+These weights total {0}%, not 100%. Weights are normalized by their sum, so the odds still work; adjust them to total 100% to state the intended odds directly.
+
+A random choice's weights are relative — they are normalized by their sum — so any positive total works. When they do not add up to 100 the intended odds are harder to read; adjust them to total 100% (or use `%` to share the rest) to state the odds directly.
+
+<span class="dd-eg-bad">Triggering example</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- `50%` Heads.
+- <mark class="dd-mark-bad">`30%`</mark> Tails.</code></pre>
+
+<span class="dd-eg-fix">Fix</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- <mark class="dd-mark-fix">`50%`</mark> Heads.
+- `50%` Tails.</code></pre>

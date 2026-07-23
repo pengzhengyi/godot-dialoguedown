@@ -285,6 +285,27 @@ internal static class DiagnosticDocs
                 ["#the-end"],
                 ["# The End"])),
         new(
+            DiagnosticCatalog.ZeroChoiceWeightTotal,
+            "A random choice picks one option by weight. When every weight is 0 there is nothing "
+            + "to pick from — the odds are undefined. Give at least one option a positive weight.",
+            new(
+                """
+                # Coin
+                The coin spins.
+
+                - `0%` Heads.
+                - `0%` Tails.
+                """,
+                """
+                # Coin
+                The coin spins.
+
+                - `50%` Heads.
+                - `50%` Tails.
+                """,
+                ["`0%`"],
+                ["`50%`"])),
+        new(
             DiagnosticCatalog.DeeplyNestedChoiceBranch,
             "Nested choices remain valid, but a fourth level becomes difficult to scan and "
             + "maintain. Consider moving that branch into a new scene and jumping to it instead.",
@@ -313,6 +334,29 @@ internal static class DiagnosticDocs
                 """,
                 ["- Level 4"],
                 ["=> [Continue](#deeper-branch)", "# Deeper branch"])),
+        new(
+            DiagnosticCatalog.ChoiceWeightsNotOneHundred,
+            "A random choice's weights are relative — they are normalized by their sum — so any "
+            + "positive total works. When they do not add up to 100 the intended odds are harder "
+            + "to read; adjust them to total 100% (or use `%` to share the rest) to state the odds "
+            + "directly.",
+            new(
+                """
+                # Coin
+                The coin spins.
+
+                - `50%` Heads.
+                - `30%` Tails.
+                """,
+                """
+                # Coin
+                The coin spins.
+
+                - `50%` Heads.
+                - `50%` Tails.
+                """,
+                ["`30%`"],
+                ["`50%`"])),
     ];
 
     public static IReadOnlyDictionary<string, DiagnosticDoc> ByCode { get; } =

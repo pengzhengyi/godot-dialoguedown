@@ -147,6 +147,15 @@ internal static class DiagnosticCatalog
         DiagnosticCategory.Semantic,
         DiagnosticSeverity.Error);
 
+    /// <summary>DLG2010 — every weight in a random choice resolves to zero.</summary>
+    public static readonly DiagnosticDescriptor ZeroChoiceWeightTotal = new(
+        "DLG2010",
+        "Random choice weights sum to zero",
+        "Every weight in this random choice is 0, so no option can be selected. Give at least one "
+            + "option a positive weight.",
+        DiagnosticCategory.Semantic,
+        DiagnosticSeverity.Error);
+
     // Style — DLG3xxx: a valid script shape that may be difficult to read or maintain.
 
     /// <summary>DLG3002 — a choice branch exceeds the recommended nesting depth.</summary>
@@ -155,6 +164,15 @@ internal static class DiagnosticCatalog
         "Deeply nested choice branch",
         "This branch reaches choice nesting level {0}; the recommended maximum is {1}. Consider "
             + "moving this branch into a new scene and jumping to it instead.",
+        DiagnosticCategory.Style,
+        DiagnosticSeverity.Warning);
+
+    /// <summary>DLG3003 — a random choice's static weights do not total 100%.</summary>
+    public static readonly DiagnosticDescriptor ChoiceWeightsNotOneHundred = new(
+        "DLG3003",
+        "Choice weights do not total 100%",
+        "These weights total {0}%, not 100%. Weights are normalized by their sum, so the odds "
+            + "still work; adjust them to total 100% to state the intended odds directly.",
         DiagnosticCategory.Style,
         DiagnosticSeverity.Warning);
 }

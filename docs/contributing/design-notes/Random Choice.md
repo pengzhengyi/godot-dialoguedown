@@ -1,7 +1,7 @@
 # Random choice
 
 > [!NOTE]
-> Status: **proposed**
+> Status: **implemented**
 > ([issue #141](https://github.com/pengzhengyi/godot-dialoguedown/issues/141)).
 > Let a choice list carry per-option weights so the engine picks one option at
 > random, instead of offering the options to the player.
@@ -22,6 +22,7 @@
 - [Diagnostics](#diagnostics)
 - [Error and boundary cases](#error-and-boundary-cases)
 - [Testability](#testability)
+- [Implementation crosscheck](#implementation-crosscheck)
 - [Alternatives not chosen](#alternatives-not-chosen)
 - [Open questions and deferred work](#open-questions-and-deferred-work)
 
@@ -47,27 +48,26 @@ work](#open-questions-and-deferred-work) with a seam left for them.
 
 ## Functionality checklist
 
-- [ ] Recognize a leading weight code span (`` `N%` ``, `` `%` ``) on a choice
+- [x] Recognize a leading weight code span (`` `N%` ``, `` `%` ``) on a choice
       option before game-call classification.
-- [ ] Build a dedicated `RandomChoices` node (of `RandomOption`s) when any
+- [x] Build a dedicated `RandomChoices` node (of `RandomOption`s) when any
       option is weighted, leaving `Choices`/`Choice` unchanged otherwise.
-- [ ] Model a `NumberWeight` (explicit percentage) and an `AutoWeight` (equal
+- [x] Model a `NumberWeight` (explicit percentage) and an `AutoWeight` (equal
       share of the leftover) as a closed `ChoiceWeight`.
-- [ ] Leave a closed seam for a future dynamic `QueryWeight`.
-- [ ] Resolve weights through an injectable normalization strategy, so the
-      arithmetic is tested and swapped in isolation from parsing.
+- [x] Leave a closed seam for a future dynamic `QueryWeight`.
 - [ ] Defer all resolution to the runtime for a random choice with any dynamic
-      weight.
-- [ ] Report `DLG1104` when an option in a random choice has no weight.
-- [ ] Report `DLG1105` when a weight value is neither a non-negative number nor
-      a quoted query.
-- [ ] Report `DLG3003` when static weights do not total 100%, and normalize.
-- [ ] Report `DLG2010` when static weights sum to zero (no option can be selected).
-- [ ] Report `DLG3004` when a random choice offers only one option.
-- [ ] Preserve source spans for the weight span, its owning option, and the
+      weight. *(Deferred: dynamic weights are rejected for now — see the crosscheck.)*
+- [x] Resolve weights through an injectable normalization strategy, so the
+      arithmetic is tested and swapped in isolation from parsing.
+- [x] Report `DLG1104` when an option in a random choice has no weight.
+- [x] Report `DLG1105` when a weight value is not a non-negative number or a bare `%`.
+- [x] Report `DLG3003` when static weights do not total 100%, and normalize.
+- [x] Report `DLG2010` when static weights sum to zero (no option can be selected).
+- [x] Report `DLG3004` when a random choice offers only one option.
+- [x] Preserve source spans for the weight span, its owning option, and the
       group.
-- [ ] Add the construct to the writer-facing specification and the gallery.
-- [ ] Leave the ordinary player-choice list unchanged when no option is weighted.
+- [x] Add the construct to the writer-facing specification and the gallery.
+- [x] Leave the ordinary player-choice list unchanged when no option is weighted.
 
 ## Ubiquitous language
 
@@ -365,7 +365,7 @@ valid script changes meaning.
 | Code | Title | Category | Severity | When |
 | --- | --- | --- | --- | --- |
 | `DLG1104` | Missing weight in a random choice | Syntax | Error | An option in a random choice has no leading weight span. |
-| `DLG1105` | Invalid choice weight | Syntax | Error | A weight value is neither a non-negative number nor a quoted query (e.g. `` `-10%` ``, `` `abc%` ``). |
+| `DLG1105` | Invalid choice weight | Syntax | Error | A weight value is not a non-negative number or a bare `%` (e.g. `` `-10%` ``, `` `abc%` ``, or — until dynamic weights ship — `` `"q"%` ``). |
 | `DLG2010` | Random choice weights sum to zero | Semantic | Error | A fully static random choice's weights all resolve to 0, so no option can be selected. |
 | `DLG3003` | Choice weights do not total 100% | Style | Warning | A fully static random choice's weights do not total ≈100% (within 0.5, and not all zero); the odds are normalized anyway. |
 | `DLG3004` | Single-option random choice | Style | Warning | A random choice offers only one option, so it is always selected and the weight has no effect. |
@@ -391,7 +391,7 @@ planned dropped-unmodeled-Markdown warning).
 | Negative weight (`` `-10%` ``) | `DLG1105`. |
 | Non-numeric, non-query value (`` `abc%` ``) | `DLG1105`. |
 | Non-integer (`` `33.3%` ``) | Allowed; normalized. |
-| Any dynamic weight present | Recognized; total check deferred to runtime; no `DLG3003`. |
+| Any dynamic weight (`` `"q"%` ``) | Rejected as `DLG1105` for now; the closed `ChoiceWeight` hierarchy leaves a `QueryWeight` seam for when the runtime lands (deferred). |
 | Nested random choice | Composes recursively; the choice-nesting rule (`DLG3002`) still applies. |
 | Ordered vs unordered list | Both may be random; a random choice shows no menu, so list ordering is not observed. |
 
@@ -415,6 +415,14 @@ planned dropped-unmodeled-Markdown warning).
 
 Use multi-line raw string literals for the script fixtures so the weights and
 indentation are visible.
+
+## Implementation crosscheck
+
+| Bucket | Result |
+| --- | --- |
+| **Achieved** | Recognition (`RandomChoices`/`RandomOption`, weight peeling, the `ChoiceGroup` base), the `NumberWeight`/`AutoWeight` model, the injectable normalization strategy, all five diagnostics (`DLG1104`, `DLG1105`, `DLG2010`, `DLG3003`, `DLG3004`), the ≈100 tolerance, the single-option warning, nesting-depth counting, the report AST projection, and the writer spec + gallery all match the design. |
+| **Changed** | `DLG3003` shows the actual total and uses a 0.5 tolerance (the note originally said only "approximately 100"). A single-option group became its own `DLG3004` warning rather than "no diagnostic". The two group records gained a shared `ChoiceGroup` base so the nesting rule can query one type. |
+| **Deferred** | Dynamic `` `"Query"%` `` weights are not implemented; they are rejected as `DLG1105` for now. The closed `ChoiceWeight` hierarchy leaves a `QueryWeight` seam, and runtime resolution/normalization of dynamic weights is tracked with the [runtime work](https://github.com/pengzhengyi/godot-dialoguedown/issues/45). |
 
 ## Alternatives not chosen
 

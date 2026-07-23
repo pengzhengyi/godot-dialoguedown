@@ -75,7 +75,7 @@ first, since a construct threads through them.
 
 | Note | What it covers | Status |
 | --- | --- | --- |
-| [Random Choice](./Random%20Choice.md) | A choice list with per-option `` `%` `` weights that the engine resolves to one option at random | Proposed |
+| [Random Choice](./Random%20Choice.md) | A choice list with per-option `` `%` `` weights that the engine resolves to one option at random | Implemented |
 
 ### Configuration
 

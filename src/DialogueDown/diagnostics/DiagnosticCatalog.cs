@@ -175,4 +175,13 @@ internal static class DiagnosticCatalog
             + "still work; adjust them to total 100% to state the intended odds directly.",
         DiagnosticCategory.Style,
         DiagnosticSeverity.Warning);
+
+    /// <summary>DLG3004 — a random choice offers only one option.</summary>
+    public static readonly DiagnosticDescriptor SingleOptionRandomChoice = new(
+        "DLG3004",
+        "Single-option random choice",
+        "This random choice has a single option, so it is always selected and the weight has no "
+            + "effect. Remove the weight to make it a plain line, or add more options.",
+        DiagnosticCategory.Style,
+        DiagnosticSeverity.Warning);
 }

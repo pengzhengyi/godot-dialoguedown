@@ -357,6 +357,27 @@ internal static class DiagnosticDocs
                 """,
                 ["`30%`"],
                 ["`50%`"])),
+        new(
+            DiagnosticCatalog.SingleOptionRandomChoice,
+            "A random choice with only one option always selects it — the weight has no effect and "
+            + "the list is not really random. This usually means a plain line was given a weight, "
+            + "or the other options are missing.",
+            new(
+                """
+                # Coin
+                The coin spins.
+
+                - `50%` It always lands heads.
+                """,
+                """
+                # Coin
+                The coin spins.
+
+                - `50%` Heads.
+                - `50%` Tails.
+                """,
+                ["`50%` It always lands heads."],
+                ["`50%` Tails."])),
     ];
 
     public static IReadOnlyDictionary<string, DiagnosticDoc> ByCode { get; } =

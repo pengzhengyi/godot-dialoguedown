@@ -404,3 +404,26 @@ The coin spins.
 
 - <mark class="dd-mark-fix">`50%`</mark> Heads.
 - `50%` Tails.</code></pre>
+
+### DLG3004
+
+<span class="dd-sev dd-sev--warning">Warning</span> · Single-option random choice
+
+This random choice has a single option, so it is always selected and the weight has no effect. Remove the weight to make it a plain line, or add more options.
+
+A random choice with only one option always selects it — the weight has no effect and the list is not really random. This usually means a plain line was given a weight, or the other options are missing.
+
+<span class="dd-eg-bad">Triggering example</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- <mark class="dd-mark-bad">`50%` It always lands heads.</mark></code></pre>
+
+<span class="dd-eg-fix">Fix</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- `50%` Heads.
+- <mark class="dd-mark-fix">`50%` Tails.</mark></code></pre>

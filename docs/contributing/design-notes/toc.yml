@@ -14,6 +14,10 @@
     href: Semantic Analyzer.md
   - name: Script Compiler Facade
     href: Script Compiler Facade.md
+- name: Language constructs
+  items:
+  - name: Random Choice
+    href: Random Choice.md
 - name: Configuration
   items:
   - name: Configuration

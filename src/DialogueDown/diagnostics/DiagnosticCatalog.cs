@@ -46,6 +46,24 @@ internal static class DiagnosticCatalog
         DiagnosticCategory.Syntax,
         DiagnosticSeverity.Error);
 
+    /// <summary>DLG1104 — an option in a random choice carries no weight.</summary>
+    public static readonly DiagnosticDescriptor MissingChoiceWeight = new(
+        "DLG1104",
+        "Missing weight in a random choice",
+        "This option has no weight, but its list is a random choice. Give it a weight like `50%`, "
+            + "or `%` to share the remaining percentage equally.",
+        DiagnosticCategory.Syntax,
+        DiagnosticSeverity.Error);
+
+    /// <summary>DLG1105 — a choice weight is neither a non-negative number nor a bare percent.</summary>
+    public static readonly DiagnosticDescriptor InvalidChoiceWeight = new(
+        "DLG1105",
+        "Invalid choice weight",
+        "\"{0}\" is not a valid weight. Write a non-negative percentage like `50%`, or `%` to "
+            + "share the remaining percentage equally.",
+        DiagnosticCategory.Syntax,
+        DiagnosticSeverity.Error);
+
     // Semantic — DLG2xxx: a meaning-level conflict found during analysis.
 
     /// <summary>DLG2001 — two headings slug to the same anchor.</summary>

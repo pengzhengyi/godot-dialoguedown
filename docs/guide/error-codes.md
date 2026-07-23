@@ -82,6 +82,54 @@ Alice: The sky turns `<mark class="dd-mark-fix">&quot;World.Weather&quot;</mark>
 
 A jump or link label is plain, styled text only. Functional elements — code spans, images, nested links, or line breaks — are not allowed inside a label or an image's alt text.
 
+### DLG1104
+
+<span class="dd-sev dd-sev--error">Error</span> · Missing weight in a random choice
+
+This option has no weight, but its list is a random choice. Give it a weight like `50%`, or `%` to share the remaining percentage equally.
+
+In a random choice — a list where at least one option leads with a weight — every option must carry a weight so the engine can pick fairly. Give the option a percentage like `50%`, or `%` to share the remaining percentage equally.
+
+<span class="dd-eg-bad">Triggering example</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- `50%` Heads.
+<mark class="dd-mark-bad">- Tails.</mark></code></pre>
+
+<span class="dd-eg-fix">Fix</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- `50%` Heads.
+- <mark class="dd-mark-fix">`50%` Tails.</mark></code></pre>
+
+### DLG1105
+
+<span class="dd-sev dd-sev--error">Error</span> · Invalid choice weight
+
+"{0}" is not a valid weight. Write a non-negative percentage like `50%`, or `%` to share the remaining percentage equally.
+
+A choice weight is a percentage code span. Write a non-negative number like `50%`, or a bare `%` to take an equal share of the remaining percentage. A negative number or other text is not a valid weight.
+
+<span class="dd-eg-bad">Triggering example</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- <mark class="dd-mark-bad">`-10%`</mark> Heads.
+- `%` Tails.</code></pre>
+
+<span class="dd-eg-fix">Fix</span>
+
+<pre class="dd-example"><code class="nohighlight"># Coin
+The coin spins.
+
+- <mark class="dd-mark-fix">`10%`</mark> Heads.
+- `%` Tails.</code></pre>
+
 ## Semantic (`DLG2xxx`)
 
 A meaning-level problem found during analysis — a reference that does not resolve, or a conflict.

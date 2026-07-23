@@ -80,6 +80,50 @@ internal static class DiagnosticDocs
             + "images, nested links, or line breaks — are not allowed inside a label or an image's "
             + "alt text."),
         new(
+            DiagnosticCatalog.MissingChoiceWeight,
+            "In a random choice — a list where at least one option leads with a weight — every "
+            + "option must carry a weight so the engine can pick fairly. Give the option a "
+            + "percentage like `50%`, or `%` to share the remaining percentage equally.",
+            new(
+                """
+                # Coin
+                The coin spins.
+
+                - `50%` Heads.
+                - Tails.
+                """,
+                """
+                # Coin
+                The coin spins.
+
+                - `50%` Heads.
+                - `50%` Tails.
+                """,
+                ["- Tails."],
+                ["`50%` Tails."])),
+        new(
+            DiagnosticCatalog.InvalidChoiceWeight,
+            "A choice weight is a percentage code span. Write a non-negative number like `50%`, or "
+            + "a bare `%` to take an equal share of the remaining percentage. A negative number or "
+            + "other text is not a valid weight.",
+            new(
+                """
+                # Coin
+                The coin spins.
+
+                - `-10%` Heads.
+                - `%` Tails.
+                """,
+                """
+                # Coin
+                The coin spins.
+
+                - `10%` Heads.
+                - `%` Tails.
+                """,
+                ["`-10%`"],
+                ["`10%`"])),
+        new(
             DiagnosticCatalog.DuplicateAnchor,
             "Each scene heading becomes a jump target — an anchor slugged from its text. Two headings "
             + "with the same text produce the same anchor, so a jump to it is ambiguous.",

@@ -149,6 +149,9 @@ changes easy to categorize.
 
 ### Fixed
 
+- **Dialogue highlighting now reaches inside choices.** In the visualization editor, the
+  jump arrow, tags, and code spans on a choice (a Markdown list item) are colored the same
+  as at the top level, instead of being grayed out by the surrounding list styling.
 - **The report now renders cleanly on small and phone-sized windows.** Every tab
   adapts below tablet width instead of overlapping, clipping, or running off-screen:
   the Source, Config, AST, and Semantic views stack their split panes with a handle

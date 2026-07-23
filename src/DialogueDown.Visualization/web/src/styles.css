@@ -308,24 +308,6 @@ button.tab.dirty::after {
     background: var(--mode-accent);
 }
 
-/* The passive "file changed on disk" chip in the header (Live Edit). */
-.disk-chip {
-    width: auto;
-    margin: 0 0 0 auto;
-    padding: 0.15rem 0.7rem;
-    align-self: center;
-    font-size: 0.75rem;
-    color: #fff;
-    background: #d97706;
-    border: none;
-    border-radius: 999px;
-    cursor: pointer;
-}
-
-.disk-chip:hover {
-    background: #b45309;
-}
-
 /* Live status banner (compile error / missing document); hidden until needed. */
 #live-banner {
     flex: 0 0 auto;
@@ -1667,6 +1649,105 @@ body.maximized #app {
 
 .mode-toggle[aria-disabled="true"] .mode-toggle-option {
     cursor: not-allowed;
+}
+
+/* The persisted Auto|Manual save-mode capsule, beside (not replacing) the Save button. It
+   mirrors the View/Edit segmented control so the two read as one control family. */
+.save-mode-capsule {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+}
+
+.save-mode-capsule .save-mode-option {
+    --pico-color: inherit;
+
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.12rem 0.55rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.save-mode-capsule .save-mode-option:hover:not(:disabled) {
+    color: var(--pico-color);
+}
+
+.save-mode-capsule .save-mode-option[aria-pressed="true"] {
+    background: var(--mode-accent, #22c55e);
+    color: var(--mode-accent-contrast, #fff);
+}
+
+.save-mode-capsule .save-mode-option:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* The accessible save-status readout (aria-live). Its color tracks the state so a conflict or
+   failure never reads as an ordinary "Saved". */
+.save-status {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--pico-muted-color);
+}
+
+.save-status[data-status="saving"],
+.save-status[data-status="dirty"] {
+    color: var(--pico-color);
+}
+
+.save-status[data-status="saved"] {
+    color: #15803d;
+}
+
+.save-status[data-status="conflict"],
+.save-status[data-status="error"],
+.save-status[data-status="uncertain"] {
+    color: var(--dd-reference, #b91c1c);
+}
+
+.save-status[data-status="waiting"],
+.save-status[data-status="saved-invalid"] {
+    color: #b45309;
+}
+
+/* Reload-from-disk, offered in a conflict/uncertain state; styled like the neutral Discard. */
+.reload-button {
+    --pico-color: var(--pico-muted-color);
+
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.12rem 0.7rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    background: transparent;
+    color: var(--pico-muted-color);
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.reload-button:hover:not(:disabled),
+.reload-button:focus-visible:not(:disabled) {
+    color: var(--pico-color);
+    border-color: var(--pico-color);
 }
 
 /* The explicit Save affordance beside ⌘/Ctrl+S, enabled only while there are unsaved

@@ -182,7 +182,7 @@ public sealed class ServeModeTests
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
         using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
-        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved\n\nAlice: Hi" });
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved\n\nAlice: Hi", expectedBaseline = "# First" });
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Equal("# Saved\n\nAlice: Hi", await File.ReadAllTextAsync(doc.Path));
@@ -207,7 +207,7 @@ public sealed class ServeModeTests
         await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
 
         using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
-        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved" });
+        using var response = await client.PostAsJsonAsync("/api/save", new { source = "# Saved", expectedBaseline = "# First" });
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Equal("# Saved", await File.ReadAllTextAsync(doc.Path));
@@ -254,6 +254,50 @@ public sealed class ServeModeTests
         Assert.Equal(1, code);
         Assert.False(File.Exists(newPath));
         Assert.Contains("not found", error.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunAsync_EditMode_SaveThroughSymlink_WritesTheRealTargetAndKeepsTheLink()
+    {
+        using var tree = new TempTree();
+        var real = tree.File("real.dialogue.md", "# First");
+        var link = Path.Combine(tree.Root, "link.dialogue.md");
+        Symlinks.Create(link, real);
+        var browser = new FakeBrowserLauncher();
+        using var stop = new CancellationTokenSource();
+
+        // Launch the session on the link; saves and the watcher must target the real file.
+        var task = ServeMode.RunAsync(
+            link, port: 0, noOpen: false, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), browser, new FakeHostConsent(allow: false),
+            new StringWriter(), new StringWriter(), stop.Token, mode: VisualizationMode.Edit);
+        await WaitUntilAsync(() => browser.Opened.Count > 0, TimeSpan.FromSeconds(10));
+
+        using var client = new HttpClient { BaseAddress = new Uri(browser.Opened[0]) };
+        using var response = await client.PostAsJsonAsync(
+            "/api/save", new { source = "# Saved\n\nAlice: Hi", expectedBaseline = "# First" });
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal("# Saved\n\nAlice: Hi", await File.ReadAllTextAsync(real)); // the real target
+        Assert.NotNull(new FileInfo(link).LinkTarget); // the link entry is preserved
+
+        stop.Cancel();
+        await task;
+    }
+
+    [Fact]
+    public async Task RunAsync_BrokenSymlink_ReturnsOne()
+    {
+        using var tree = new TempTree();
+        var link = Path.Combine(tree.Root, "broken.dialogue.md");
+        Symlinks.Create(link, Path.Combine(tree.Root, "gone.dialogue.md"));
+        var error = new StringWriter();
+
+        var code = await ServeMode.RunAsync(
+            link, port: 0, noOpen: true, renderRoot: null, AppliedConfiguration.WithoutFile(CompilerOptions.Default), new FakeBrowserLauncher(),
+            new FakeHostConsent(allow: false), new StringWriter(), error, CancellationToken.None);
+
+        Assert.Equal(1, code);
+        Assert.NotEmpty(error.ToString()); // a broken link is refused with an explanation, never served
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)

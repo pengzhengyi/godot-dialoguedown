@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using DialogueDown.Visualization.Live.Tests.Support;
 
 namespace DialogueDown.Visualization.Live.Tests;
@@ -223,7 +224,7 @@ public sealed class LiveVisualizationServerTests
     }
 
     [Fact]
-    public async Task CreateConfig_WhenAConfigAlreadyExists_Returns409AndLeavesItUntouched()
+    public async Task CreateConfig_WhenADifferentConfigExists_AdoptsItAndReturnsTheConfiguredPayload()
     {
         using var tree = new TempTree();
         var documentPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
@@ -235,7 +236,46 @@ public sealed class LiveVisualizationServerTests
 
         var response = await client.PostAsync("/api/create-config", content: null);
 
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        // A config-less session recovers into the existing file: it is adopted (200), left
+        // untouched, and the payload carries the configuration so the reloaded page opens it.
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("# hand-written\n", File.ReadAllText(existing)); // left untouched
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("dialogue.toml", json);
+        Assert.Contains("\"outcome\":\"adopted\"", json);
+    }
+
+    [Fact]
+    public async Task DocumentApi_AfterSavedInvalidConfig_CarriesTheSavedInvalidState()
+    {
+        using var tree = new TempTree();
+        var documentPath = tree.File("scene.dialogue.md", "# Scene\n\nAlice: Hi.");
+        await using var server = new LiveVisualizationServer(
+            new LiveSession(documentPath, VisualizationMode.Edit));
+        await server.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(server.BaseUrl) };
+
+        // Adopt a starter config, then persist invalid TOML with an explicit (allow-invalid) save.
+        await client.PostAsync("/api/create-config", content: null);
+        var broken = "[[speakers]]\nbogus = true\n";
+        var save = await client.PostAsJsonAsync(
+            "/api/save",
+            new
+            {
+                source = broken,
+                target = "config",
+                expectedBaseline = ConfigStarter.Template,
+                validation = "allow-invalid",
+            });
+        Assert.Contains("\"outcome\":\"saved-invalid\"", await save.Content.ReadAsStringAsync());
+
+        // A page reload re-fetches the document payload and the initial HTML; both must announce the
+        // saved-invalid state so the controller reinstates it instead of the last valid text.
+        var json = await client.GetStringAsync("/api/document");
+        Assert.Contains("\"configStatus\":\"saved-invalid\"", json);
+        Assert.Contains("bogus", json);
+
+        var html = await client.GetStringAsync("/");
+        Assert.Contains("\"configStatus\":\"saved-invalid\"", html);
     }
 }

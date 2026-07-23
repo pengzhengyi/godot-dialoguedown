@@ -31,29 +31,34 @@ internal sealed class SpeakerBuilder(IParser<SpeakerPrefixData> parser, TagBuild
             : ParseResult<Speaker>.Ok(new ParseMatch<Speaker>(speaker, result.MatchedRange));
     }
 
+    // A written prefix always ends in a colon, so the separator is always present; the name and
+    // id spans are present only when the prefix names the speaker that way.
+    private static SpeakerPrefixSpans PrefixSpansOf(SpeakerPrefixData data) =>
+        new(SpanOf(data.Name), SpanOf(data.Id), data.SeparatorRange.ToSourceSpan());
+
+    private static SourceSpan? SpanOf(Spanned<string>? part) =>
+        part is { } located ? located.Range.ToSourceSpan() : null;
+
     private Speaker? Classify(
         SpeakerPrefixData data, SourceSpan span, string content, IDiagnosticSink diagnostics)
     {
         var tagNodes = data.Tags
             .Select(tag => tagBuilder.Build(tag.Value, tag.Range.ToSourceSpan()))
             .ToList();
+        var prefixSpans = PrefixSpansOf(data);
 
-        // The name and id sub-spans are added in a following step; the separator is always
-        // present because a written prefix ends in a colon.
-        var prefixSpans = new SpeakerPrefixSpans(null, null, data.SeparatorRange.ToSourceSpan());
-
-        if (data.Name is not null)
+        if (data.TryGetName(out var name))
         {
             return data.Id is not null || tagNodes.Count > 0
-                ? new SpeakerDeclaration(data.Name, data.Id, tagNodes, span) { PrefixSpans = prefixSpans }
-                : new SpeakerNameReference(data.Name, span) { PrefixSpans = prefixSpans };
+                ? new SpeakerDeclaration(name, data.Id?.Value, tagNodes, span) { PrefixSpans = prefixSpans }
+                : new SpeakerNameReference(name, span) { PrefixSpans = prefixSpans };
         }
 
-        if (data.Id is not null)
+        if (data.TryGetId(out var id))
         {
             return tagNodes.Count > 0
-                ? new PartialSpeakerDeclaration(data.Id, tagNodes, span) { PrefixSpans = prefixSpans }
-                : new SpeakerIdReference(data.Id, span) { PrefixSpans = prefixSpans };
+                ? new PartialSpeakerDeclaration(id, tagNodes, span) { PrefixSpans = prefixSpans }
+                : new SpeakerIdReference(id, span) { PrefixSpans = prefixSpans };
         }
 
         if (tagNodes.Count > 0)

@@ -1,3 +1,4 @@
+using DialogueDown.Common;
 using DialogueDown.Diagnostics;
 using DialogueDown.Script.Ast;
 using DialogueDown.Script.Transpiler.Builders;
@@ -57,10 +58,53 @@ public sealed class SpeakerBuilderTests
     {
         var text = "Alice @A #main: Hi";
 
-        var separator = SpeakerAt(text, 10).PrefixSpans!.Separator;
+        var prefix = SpeakerAt(text, 10).PrefixSpans!;
 
-        Assert.Equal(10 + text.IndexOf(':'), separator.Start);
-        Assert.Equal(1, separator.Length); // just the ":"
+        AssertSpan(prefix.Separator, 10 + text.IndexOf(':'), length: 1); // just the ":"
+    }
+
+    [Fact]
+    public void BareName_CarriesTheNameSpanAndNoId()
+    {
+        var text = "Alice: Hi";
+
+        var prefix = SpeakerAt(text, 10).PrefixSpans!;
+
+        AssertSpan(prefix.Name, 10 + text.IndexOf("Alice", StringComparison.Ordinal), "Alice".Length);
+        Assert.Null(prefix.Id);
+    }
+
+    [Fact]
+    public void QuotedName_SpanIncludesTheQuotes()
+    {
+        var text = "\"Old Man\": Hi";
+
+        var prefix = SpeakerAt(text, 10).PrefixSpans!;
+
+        // The span covers the whole quoted literal, quotes included.
+        AssertSpan(prefix.Name, 10 + text.IndexOf('"'), "\"Old Man\"".Length);
+    }
+
+    [Fact]
+    public void BareId_CarriesTheIdSpanIncludingTheAtAndNoName()
+    {
+        var text = "@alice: Hi";
+
+        var prefix = SpeakerAt(text, 10).PrefixSpans!;
+
+        AssertSpan(prefix.Id, 10 + text.IndexOf('@'), "@alice".Length);
+        Assert.Null(prefix.Name);
+    }
+
+    [Fact]
+    public void NameAndId_CarryBothSpans()
+    {
+        var text = "Alice @alice: Hi";
+
+        var prefix = SpeakerAt(text, 10).PrefixSpans!;
+
+        AssertSpan(prefix.Name, 10 + text.IndexOf("Alice", StringComparison.Ordinal), "Alice".Length);
+        AssertSpan(prefix.Id, 10 + text.IndexOf('@'), "@alice".Length);
     }
 
     [Fact]
@@ -124,4 +168,11 @@ public sealed class SpeakerBuilderTests
     }
 
     private static void AssertBuildFailed(string text) => Assert.False(Build(text).Success);
+
+    private static void AssertSpan(SourceSpan? span, int start, int length)
+    {
+        Assert.NotNull(span);
+        Assert.Equal(start, span.Value.Start);
+        Assert.Equal(length, span.Value.Length);
+    }
 }

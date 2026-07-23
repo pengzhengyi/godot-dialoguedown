@@ -17,12 +17,13 @@ internal static class SpeakerPrefixParser
 {
     private static readonly SpeakerPrefixData _empty = new(null, null, []);
 
-    private static readonly IParser<string> _name = SuperpowerParser.Wrap(
+    private static readonly IParser<Spanned<string>> _name = SuperpowerParser.Wrap(
         SuperpowerPrimitives.QuotedString.Try()
-            .Or(Identifier.CStyle.Select(name => name.ToStringValue())));
+            .Or(Identifier.CStyle.Select(name => name.ToStringValue()))).Located();
 
-    private static readonly IParser<string> _id = SuperpowerParser.Wrap(
-        Character.EqualTo('@').IgnoreThen(Identifier.CStyle.Select(id => id.ToStringValue())));
+    private static readonly IParser<Spanned<string>> _id = SuperpowerParser.Wrap(
+        Character.EqualTo('@').IgnoreThen(Identifier.CStyle.Select(id => id.ToStringValue())))
+        .Located();
 
     private static readonly IParser<char[]> _optionalWhitespace =
         SuperpowerParser.Wrap(Character.WhiteSpace.Many());
@@ -35,7 +36,7 @@ internal static class SpeakerPrefixParser
 
     // Each subsequent id or tag must be preceded by whitespace; the first element
     // (handled per branch below) carries no such requirement.
-    private static readonly IParser<string> _spacedId =
+    private static readonly IParser<Spanned<string>> _spacedId =
         from _ in _requiredWhitespace
         from id in _id
         select id;
@@ -47,7 +48,7 @@ internal static class SpeakerPrefixParser
 
     private static readonly IParser<SpeakerPrefixData> _nameFirst =
         from name in _name
-        from id in _spacedId.Optional()
+        from id in _spacedId.OptionalValue()
         from tags in _spacedTag.Repeated()
         select new SpeakerPrefixData(name, id, tags);
 

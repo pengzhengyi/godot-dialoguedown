@@ -7,6 +7,34 @@ namespace DialogueDown.Tests.Markdown;
 public sealed class MarkdownInlineExtensionsTests
 {
     [Fact]
+    public void TrimLeadingWhitespace_Text_TrimsAndReanchorsItsSpan()
+    {
+        var text = new TextInline("  Alice: Hi", new SourceSpan(4, 11));
+
+        var trimmed = text.TrimLeadingWhitespace();
+
+        Assert.NotNull(trimmed);
+        Assert.Equal("Alice: Hi", trimmed.Text);
+        Assert.Equal(new SourceSpan(6, 9), trimmed.Span);
+    }
+
+    [Fact]
+    public void TrimLeadingWhitespace_Text_ReturnsTheSameInline_WhenItHasNoLeadingWhitespace()
+    {
+        var text = new TextInline("Alice", new SourceSpan(0, 5));
+
+        Assert.Same(text, text.TrimLeadingWhitespace());
+    }
+
+    [Fact]
+    public void TrimLeadingWhitespace_Text_ReturnsNull_WhenEntirelyWhitespace()
+    {
+        var text = new TextInline("   ", new SourceSpan(0, 3));
+
+        Assert.Null(text.TrimLeadingWhitespace());
+    }
+
+    [Fact]
     public void TrimLeadingWhitespace_TrimsTheFirstTextInline_AndReanchorsItsSpan()
     {
         var text = new TextInline("  Alice: Hi", new SourceSpan(4, 11));
